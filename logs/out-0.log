@@ -170,3 +170,141 @@ Foreign key constraint violated on the constraint: `StockMovement_userId_fkey`
 2026-01-11T12:14:22: 
 2026-01-11T12:14:22: ✓ Starting...
 2026-01-11T12:14:22: ✓ Ready in 591ms
+2026-01-11T18:25:51: ▲ Next.js 16.1.1
+2026-01-11T18:25:51: - Local:         http://localhost:3009
+2026-01-11T18:25:51: - Network:       http://192.168.4.27:3009
+2026-01-11T18:25:51: 
+2026-01-11T18:25:51: ✓ Starting...
+2026-01-11T18:25:52: ✓ Ready in 627ms
+2026-01-11T18:35:07: prisma:error 
+Invalid `prisma.clothInventory.findMany()` invocation:
+
+
+Cannot find module './query_compiler_bg.js'
+Require stack:
+- /home/gagneet/hamees/node_modules/.prisma/client/index.js
+- /home/gagneet/hamees/node_modules/.prisma/client/default.js
+- /home/gagneet/hamees/node_modules/@prisma/client/default.js
+- /home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__3bf74499._.js
+- /home/gagneet/hamees/.next/server/chunks/[turbopack]_runtime.js
+- /home/gagneet/hamees/.next/server/app/api/auth/[...nextauth]/route.js
+- /home/gagneet/hamees/node_modules/next/dist/server/require.js
+- /home/gagneet/hamees/node_modules/next/dist/server/load-components.js
+- /home/gagneet/hamees/node_modules/next/dist/build/utils.js
+- /home/gagneet/hamees/node_modules/next/dist/build/swc/options.js
+- /home/gagneet/hamees/node_modules/next/dist/build/swc/index.js
+- /home/gagneet/hamees/node_modules/next/dist/build/next-config-ts/transpile-config.js
+- /home/gagneet/hamees/node_modules/next/dist/server/config.js
+- /home/gagneet/hamees/node_modules/next/dist/cli/next-test.js
+- /home/gagneet/hamees/node_modules/next/dist/bin/next
+2026-01-11T18:35:26: prisma:error 
+Invalid `prisma.user.findUnique()` invocation:
+
+
+Cannot find module './query_compiler_bg.js'
+Require stack:
+- /home/gagneet/hamees/node_modules/.prisma/client/index.js
+- /home/gagneet/hamees/node_modules/.prisma/client/default.js
+- /home/gagneet/hamees/node_modules/@prisma/client/default.js
+- /home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__3bf74499._.js
+- /home/gagneet/hamees/.next/server/chunks/[turbopack]_runtime.js
+- /home/gagneet/hamees/.next/server/app/api/auth/[...nextauth]/route.js
+- /home/gagneet/hamees/node_modules/next/dist/server/require.js
+- /home/gagneet/hamees/node_modules/next/dist/server/load-components.js
+- /home/gagneet/hamees/node_modules/next/dist/build/utils.js
+- /home/gagneet/hamees/node_modules/next/dist/build/swc/options.js
+- /home/gagneet/hamees/node_modules/next/dist/build/swc/index.js
+- /home/gagneet/hamees/node_modules/next/dist/build/next-config-ts/transpile-config.js
+- /home/gagneet/hamees/node_modules/next/dist/server/config.js
+- /home/gagneet/hamees/node_modules/next/dist/cli/next-test.js
+- /home/gagneet/hamees/node_modules/next/dist/bin/next
+2026-01-11T18:35:40: prisma:error 
+Invalid `prisma.user.findUnique()` invocation:
+
+
+Cannot find module './query_compiler_bg.js'
+Require stack:
+- /home/gagneet/hamees/node_modules/.prisma/client/index.js
+- /home/gagneet/hamees/node_modules/.prisma/client/default.js
+- /home/gagneet/hamees/node_modules/@prisma/client/default.js
+- /home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__3bf74499._.js
+- /home/gagneet/hamees/.next/server/chunks/[turbopack]_runtime.js
+- /home/gagneet/hamees/.next/server/app/api/auth/[...nextauth]/route.js
+- /home/gagneet/hamees/node_modules/next/dist/server/require.js
+- /home/gagneet/hamees/node_modules/next/dist/server/load-components.js
+- /home/gagneet/hamees/node_modules/next/dist/build/utils.js
+- /home/gagneet/hamees/node_modules/next/dist/build/swc/options.js
+- /home/gagneet/hamees/node_modules/next/dist/build/swc/index.js
+- /home/gagneet/hamees/node_modules/next/dist/build/next-config-ts/transpile-config.js
+- /home/gagneet/hamees/node_modules/next/dist/server/config.js
+- /home/gagneet/hamees/node_modules/next/dist/cli/next-test.js
+- /home/gagneet/hamees/node_modules/next/dist/bin/next
+2026-01-11T18:36:04: prisma:error 
+Invalid `prisma.user.findUnique()` invocation:
+
+
+Cannot find module './query_compiler_bg.js'
+Require stack:
+- /home/gagneet/hamees/node_modules/.prisma/client/index.js
+- /home/gagneet/hamees/node_modules/.prisma/client/default.js
+- /home/gagneet/hamees/node_modules/@prisma/client/default.js
+- /home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__3bf74499._.js
+- /home/gagneet/hamees/.next/server/chunks/[turbopack]_runtime.js
+- /home/gagneet/hamees/.next/server/app/api/auth/[...nextauth]/route.js
+- /home/gagneet/hamees/node_modules/next/dist/server/require.js
+- /home/gagneet/hamees/node_modules/next/dist/server/load-components.js
+- /home/gagneet/hamees/node_modules/next/dist/build/utils.js
+- /home/gagneet/hamees/node_modules/next/dist/build/swc/options.js
+- /home/gagneet/hamees/node_modules/next/dist/build/swc/index.js
+- /home/gagneet/hamees/node_modules/next/dist/build/next-config-ts/transpile-config.js
+- /home/gagneet/hamees/node_modules/next/dist/server/config.js
+- /home/gagneet/hamees/node_modules/next/dist/cli/next-test.js
+- /home/gagneet/hamees/node_modules/next/dist/bin/next
+2026-01-11T18:36:11: prisma:error 
+Invalid `prisma.user.findUnique()` invocation:
+
+
+Cannot find module './query_compiler_bg.js'
+Require stack:
+- /home/gagneet/hamees/node_modules/.prisma/client/index.js
+- /home/gagneet/hamees/node_modules/.prisma/client/default.js
+- /home/gagneet/hamees/node_modules/@prisma/client/default.js
+- /home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__3bf74499._.js
+- /home/gagneet/hamees/.next/server/chunks/[turbopack]_runtime.js
+- /home/gagneet/hamees/.next/server/app/api/auth/[...nextauth]/route.js
+- /home/gagneet/hamees/node_modules/next/dist/server/require.js
+- /home/gagneet/hamees/node_modules/next/dist/server/load-components.js
+- /home/gagneet/hamees/node_modules/next/dist/build/utils.js
+- /home/gagneet/hamees/node_modules/next/dist/build/swc/options.js
+- /home/gagneet/hamees/node_modules/next/dist/build/swc/index.js
+- /home/gagneet/hamees/node_modules/next/dist/build/next-config-ts/transpile-config.js
+- /home/gagneet/hamees/node_modules/next/dist/server/config.js
+- /home/gagneet/hamees/node_modules/next/dist/cli/next-test.js
+- /home/gagneet/hamees/node_modules/next/dist/bin/next
+2026-01-11T18:36:35: prisma:error 
+Invalid `prisma.user.findUnique()` invocation:
+
+
+Cannot find module './query_compiler_bg.js'
+Require stack:
+- /home/gagneet/hamees/node_modules/.prisma/client/index.js
+- /home/gagneet/hamees/node_modules/.prisma/client/default.js
+- /home/gagneet/hamees/node_modules/@prisma/client/default.js
+- /home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__3bf74499._.js
+- /home/gagneet/hamees/.next/server/chunks/[turbopack]_runtime.js
+- /home/gagneet/hamees/.next/server/app/api/auth/[...nextauth]/route.js
+- /home/gagneet/hamees/node_modules/next/dist/server/require.js
+- /home/gagneet/hamees/node_modules/next/dist/server/load-components.js
+- /home/gagneet/hamees/node_modules/next/dist/build/utils.js
+- /home/gagneet/hamees/node_modules/next/dist/build/swc/options.js
+- /home/gagneet/hamees/node_modules/next/dist/build/swc/index.js
+- /home/gagneet/hamees/node_modules/next/dist/build/next-config-ts/transpile-config.js
+- /home/gagneet/hamees/node_modules/next/dist/server/config.js
+- /home/gagneet/hamees/node_modules/next/dist/cli/next-test.js
+- /home/gagneet/hamees/node_modules/next/dist/bin/next
+2026-01-11T18:41:29: ▲ Next.js 16.1.1
+2026-01-11T18:41:29: - Local:         http://localhost:3009
+2026-01-11T18:41:29: - Network:       http://192.168.4.27:3009
+2026-01-11T18:41:29: 
+2026-01-11T18:41:29: ✓ Starting...
+2026-01-11T18:41:29: ✓ Ready in 638ms

@@ -18,6 +18,9 @@ import { KPICard } from '@/components/dashboard/kpi-card'
 import { RevenueChart } from '@/components/dashboard/revenue-chart'
 import { OrdersStatusChart } from '@/components/dashboard/orders-status-chart'
 import { TopFabricsChart } from '@/components/dashboard/top-fabrics-chart'
+import { SignOutButton } from '@/components/dashboard/sign-out-button'
+import { hasPermission } from '@/lib/permissions'
+import { UserRole } from '@prisma/client'
 import { prisma } from '@/lib/db'
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns'
 
@@ -468,25 +471,39 @@ export default async function DashboardPage() {
             <CardDescription>Common tasks and shortcuts</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <Link href="/inventory">
-                <Button className="w-full" variant="default">
-                  <Package className="mr-2 h-4 w-4" />
-                  Manage Inventory
-                </Button>
-              </Link>
-              <Button className="w-full" variant="outline" disabled>
-                <ShoppingBag className="mr-2 h-4 w-4" />
-                Create Order
-              </Button>
-              <Button className="w-full" variant="outline" disabled>
-                <Users className="mr-2 h-4 w-4" />
-                Add Customer
-              </Button>
-              <Button className="w-full" variant="outline" disabled>
-                <AlertCircle className="mr-2 h-4 w-4" />
-                View Alerts
-              </Button>
+            <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+              {hasPermission(session.user.role as UserRole, 'view_inventory') && (
+                <Link href="/inventory" className="w-full">
+                  <Button className="w-full" variant="default">
+                    <Package className="mr-2 h-4 w-4" />
+                    <span className="hidden sm:inline">Manage </span>Inventory
+                  </Button>
+                </Link>
+              )}
+              {hasPermission(session.user.role as UserRole, 'view_orders') && (
+                <Link href="/orders" className="w-full">
+                  <Button className="w-full" variant="outline">
+                    <ShoppingBag className="mr-2 h-4 w-4" />
+                    <span className="hidden sm:inline">View </span>Orders
+                  </Button>
+                </Link>
+              )}
+              {hasPermission(session.user.role as UserRole, 'view_customers') && (
+                <Link href="/customers" className="w-full">
+                  <Button className="w-full" variant="outline">
+                    <Users className="mr-2 h-4 w-4" />
+                    <span className="hidden sm:inline">View </span>Customers
+                  </Button>
+                </Link>
+              )}
+              {hasPermission(session.user.role as UserRole, 'view_alerts') && (
+                <Link href="/alerts" className="w-full">
+                  <Button className="w-full" variant="outline">
+                    <AlertCircle className="mr-2 h-4 w-4" />
+                    <span className="hidden sm:inline">View </span>Alerts
+                  </Button>
+                </Link>
+              )}
             </div>
           </CardContent>
         </Card>
