@@ -5,7 +5,7 @@ import { ShoppingBag, Plus, Filter, Calendar, User } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { PermissionGuard } from '@/components/auth/permission-guard'
-import { OrderStatus } from '@prisma/client'
+import { OrderStatus } from '@/lib/types'
 
 async function getOrders() {
   try {

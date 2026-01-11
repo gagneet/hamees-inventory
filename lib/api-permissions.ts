@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { UserRole } from '@prisma/client'
+import { UserRole } from '@/lib/types'
 import { hasPermission, hasAnyPermission, type Permission } from '@/lib/permissions'
 
 /**
