@@ -67,6 +67,16 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const data = clothInventorySchema.parse(body)
 
+    // Get the actual user from database
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email! },
+      select: { id: true },
+    })
+
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
     // Generate SKU if not provided
     const sku = data.sku || `CLT-${(data.type || 'UNK').substring(0, 3).toUpperCase()}-${(data.brand || 'UNK').substring(0, 3).toUpperCase()}-${Date.now().toString().slice(-6)}`
 
@@ -103,7 +113,7 @@ export async function POST(request: NextRequest) {
           type: 'PURCHASE',
           quantity: data.currentStock,
           balanceAfter: data.currentStock,
-          userId: session.user.id,
+          userId: user.id,
           notes: 'Initial stock',
         },
       })
