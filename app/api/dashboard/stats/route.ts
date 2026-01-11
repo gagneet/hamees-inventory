@@ -181,7 +181,7 @@ export async function GET() {
     // Recent alerts
     const recentAlerts = await prisma.alert.findMany({
       where: {
-        read: false,
+        isRead: false,
       },
       orderBy: {
         createdAt: 'desc',

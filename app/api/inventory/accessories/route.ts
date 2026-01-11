@@ -61,12 +61,12 @@ export async function POST(request: NextRequest) {
 
     const accessoryItem = await prisma.accessoryInventory.create({
       data: {
-        type: data.type,
-        name: data.name,
+        type: data.type || 'Other',
+        name: data.name || 'Unnamed Accessory',
         ...(data.color && { color: data.color }),
-        currentStock: data.currentStock,
-        pricePerUnit: data.pricePerUnit,
-        minimum: data.minimum,
+        currentStock: data.currentStock || 0,
+        pricePerUnit: data.pricePerUnit || 0,
+        minimum: data.minimum || 0,
         ...(data.supplierId && { supplierId: data.supplierId }),
       },
       include: {
