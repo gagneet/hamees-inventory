@@ -13,225 +13,27 @@ import {
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { LogoutButton } from '@/components/logout-button'
 import { KPICard } from '@/components/dashboard/kpi-card'
 import { RevenueChart } from '@/components/dashboard/revenue-chart'
 import { OrdersStatusChart } from '@/components/dashboard/orders-status-chart'
 import { TopFabricsChart } from '@/components/dashboard/top-fabrics-chart'
-import { hasPermission } from '@/lib/permissions'
-import { UserRole } from '@prisma/client'
-import { prisma } from '@/lib/db'
-import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns'
+import { SignOutButton } from '@/components/dashboard/sign-out-button'
 
 async function getDashboardStats() {
   try {
-    const now = new Date()
-    const currentMonthStart = startOfMonth(now)
-    const currentMonthEnd = endOfMonth(now)
-    const lastMonthStart = startOfMonth(subMonths(now, 1))
-    const lastMonthEnd = endOfMonth(subMonths(now, 1))
-
-    // Inventory Stats
-    const clothInventory = await prisma.clothInventory.findMany({
-      select: {
-        currentStock: true,
-        reserved: true,
-        minimum: true,
-        pricePerMeter: true,
+    const res = await fetch(`${process.env.NEXTAUTH_URL}/api/dashboard/stats`, {
+      cache: 'no-store',
+      headers: {
+        'Content-Type': 'application/json',
       },
     })
 
-    const lowStockItems = clothInventory.filter(
-      (item) => item.currentStock - item.reserved < item.minimum
-    ).length
-
-    const criticalStockItems = clothInventory.filter(
-      (item) => item.currentStock - item.reserved < item.minimum * 0.5
-    ).length
-
-    const totalInventoryWorth = clothInventory.reduce(
-      (sum, item) => sum + item.currentStock * item.pricePerMeter,
-      0
-    )
-
-    // Order Stats
-    const pendingOrders = await prisma.order.count({
-      where: {
-        status: {
-          in: ['NEW', 'MATERIAL_SELECTED', 'CUTTING', 'STITCHING', 'FINISHING'],
-        },
-      },
-    })
-
-    const ordersThisMonth = await prisma.order.count({
-      where: {
-        createdAt: {
-          gte: currentMonthStart,
-          lte: currentMonthEnd,
-        },
-      },
-    })
-
-    const ordersLastMonth = await prisma.order.count({
-      where: {
-        createdAt: {
-          gte: lastMonthStart,
-          lte: lastMonthEnd,
-        },
-      },
-    })
-
-    const ordersGrowth =
-      ordersLastMonth > 0
-        ? ((ordersThisMonth - ordersLastMonth) / ordersLastMonth) * 100
-        : ordersThisMonth > 0
-        ? 100
-        : 0
-
-    // Revenue Stats
-    const revenueThisMonth = await prisma.order.aggregate({
-      where: {
-        status: 'DELIVERED',
-        createdAt: {
-          gte: currentMonthStart,
-          lte: currentMonthEnd,
-        },
-      },
-      _sum: {
-        totalAmount: true,
-      },
-    })
-
-    const revenueLastMonth = await prisma.order.aggregate({
-      where: {
-        status: 'DELIVERED',
-        createdAt: {
-          gte: lastMonthStart,
-          lte: lastMonthEnd,
-        },
-      },
-      _sum: {
-        totalAmount: true,
-      },
-    })
-
-    const thisMonthRevenue = revenueThisMonth._sum.totalAmount || 0
-    const lastMonthRevenue = revenueLastMonth._sum.totalAmount || 0
-    const revenueGrowth =
-      lastMonthRevenue > 0
-        ? ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue) * 100
-        : thisMonthRevenue > 0
-        ? 100
-        : 0
-
-    // Revenue by month for chart
-    const monthlyRevenue = []
-    for (let i = 5; i >= 0; i--) {
-      const monthStart = startOfMonth(subMonths(now, i))
-      const monthEnd = endOfMonth(subMonths(now, i))
-
-      const revenue = await prisma.order.aggregate({
-        where: {
-          status: 'DELIVERED',
-          createdAt: {
-            gte: monthStart,
-            lte: monthEnd,
-          },
-        },
-        _sum: {
-          totalAmount: true,
-        },
-      })
-
-      monthlyRevenue.push({
-        month: format(monthStart, 'MMM yyyy'),
-        revenue: revenue._sum.totalAmount || 0,
-      })
+    if (!res.ok) {
+      console.error('Failed to fetch dashboard stats')
+      return null
     }
 
-    // Orders by status
-    const ordersByStatus = await prisma.order.groupBy({
-      by: ['status'],
-      _count: {
-        status: true,
-      },
-    })
-
-    const statusData = ordersByStatus.map((item) => ({
-      status: item.status,
-      count: item._count.status,
-    }))
-
-    // Top fabrics
-    const topFabrics = await prisma.orderItem.groupBy({
-      by: ['clothInventoryId'],
-      _sum: {
-        actualMetersUsed: true,
-      },
-      orderBy: {
-        _sum: {
-          actualMetersUsed: 'desc',
-        },
-      },
-      take: 5,
-    })
-
-    const topFabricsWithDetails = await Promise.all(
-      topFabrics
-        .filter((item) => item.clothInventoryId)
-        .map(async (item) => {
-          const cloth = await prisma.clothInventory.findUnique({
-            where: { id: item.clothInventoryId! },
-            select: { name: true, type: true },
-          })
-          return {
-            name: cloth?.name || 'Unknown',
-            type: cloth?.type || 'Unknown',
-            metersUsed: item._sum.actualMetersUsed || 0,
-          }
-        })
-    )
-
-    // Recent alerts
-    const recentAlerts = await prisma.alert.findMany({
-      where: {
-        isRead: false,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      take: 5,
-    })
-
-    return {
-      inventory: {
-        totalItems: clothInventory.length,
-        lowStock: lowStockItems,
-        criticalStock: criticalStockItems,
-        totalValue: totalInventoryWorth,
-        totalMeters: clothInventory.reduce((sum, item) => sum + item.currentStock, 0),
-      },
-      orders: {
-        pending: pendingOrders,
-        thisMonth: ordersThisMonth,
-        lastMonth: ordersLastMonth,
-        growth: ordersGrowth,
-      },
-      revenue: {
-        thisMonth: thisMonthRevenue,
-        lastMonth: lastMonthRevenue,
-        growth: revenueGrowth,
-        byMonth: monthlyRevenue,
-      },
-      charts: {
-        ordersByStatus: statusData,
-        topFabrics: topFabricsWithDetails,
-      },
-      alerts: {
-        unread: recentAlerts.length,
-        recent: recentAlerts,
-      },
-    }
+    return await res.json()
   } catch (error) {
     console.error('Error fetching dashboard stats:', error)
     return null
@@ -269,7 +71,7 @@ export default async function DashboardPage() {
                 <p className="text-sm font-medium text-slate-900">{session.user.name}</p>
                 <p className="text-xs text-slate-500">{session.user.role}</p>
               </div>
-              <LogoutButton />
+              <SignOutButton />
             </div>
           </div>
         </div>
@@ -470,39 +272,25 @@ export default async function DashboardPage() {
             <CardDescription>Common tasks and shortcuts</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-              {hasPermission(session.user.role as UserRole, 'view_inventory') && (
-                <Link href="/inventory" className="w-full">
-                  <Button className="w-full" variant="default">
-                    <Package className="mr-2 h-4 w-4" />
-                    <span className="hidden sm:inline">Manage </span>Inventory
-                  </Button>
-                </Link>
-              )}
-              {hasPermission(session.user.role as UserRole, 'view_orders') && (
-                <Link href="/orders" className="w-full">
-                  <Button className="w-full" variant="outline">
-                    <ShoppingBag className="mr-2 h-4 w-4" />
-                    <span className="hidden sm:inline">View </span>Orders
-                  </Button>
-                </Link>
-              )}
-              {hasPermission(session.user.role as UserRole, 'view_customers') && (
-                <Link href="/customers" className="w-full">
-                  <Button className="w-full" variant="outline">
-                    <Users className="mr-2 h-4 w-4" />
-                    <span className="hidden sm:inline">View </span>Customers
-                  </Button>
-                </Link>
-              )}
-              {hasPermission(session.user.role as UserRole, 'view_alerts') && (
-                <Link href="/alerts" className="w-full">
-                  <Button className="w-full" variant="outline">
-                    <AlertCircle className="mr-2 h-4 w-4" />
-                    <span className="hidden sm:inline">View </span>Alerts
-                  </Button>
-                </Link>
-              )}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <Link href="/inventory">
+                <Button className="w-full" variant="default">
+                  <Package className="mr-2 h-4 w-4" />
+                  Manage Inventory
+                </Button>
+              </Link>
+              <Button className="w-full" variant="outline" disabled>
+                <ShoppingBag className="mr-2 h-4 w-4" />
+                Create Order
+              </Button>
+              <Button className="w-full" variant="outline" disabled>
+                <Users className="mr-2 h-4 w-4" />
+                Add Customer
+              </Button>
+              <Button className="w-full" variant="outline" disabled>
+                <AlertCircle className="mr-2 h-4 w-4" />
+                View Alerts
+              </Button>
             </div>
           </CardContent>
         </Card>

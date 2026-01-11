@@ -10,43 +10,6 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
-### ✅ Role-Based Access Control & Order Management (v0.4.0)
-
-**What's New:**
-- **Complete Role-Based Access Control (RBAC)** system with 6 roles
-- **Customer Management** module with full CRUD operations
-- **Order Management** with complete workflow and stock reservation
-- **Mobile-First Design** - all pages responsive and touch-optimized
-- **Permission Guards** for UI and API endpoints
-- **Automatic Stock Management** - fabric reservation and release
-
-**New Roles & Permissions:**
-- **OWNER**: Full system access
-- **ADMIN**: Administrative access (excludes user management)
-- **INVENTORY_MANAGER**: Manage inventory and suppliers
-- **SALES_MANAGER**: Manage orders and customers
-- **TAILOR**: Update order status, view data
-- **VIEWER**: Read-only access
-
-**New Files Added:**
-- `lib/permissions.ts` - Permission matrix and utility functions
-- `lib/api-permissions.ts` - API route permission helpers
-- `components/auth/permission-guard.tsx` - React permission component
-- `app/api/customers/route.ts` - Customer CRUD API
-- `app/api/customers/[id]/route.ts` - Individual customer operations
-- `app/api/customers/[id]/measurements/route.ts` - Customer measurements API
-- `app/api/orders/route.ts` - Order creation and listing API
-- `app/api/orders/[id]/status/route.ts` - Order status updates with stock management
-- `app/(dashboard)/customers/page.tsx` - Customer management UI (mobile-ready)
-- `app/(dashboard)/orders/page.tsx` - Order listing UI (mobile-ready)
-
-**Key Features:**
-1. **Smart Stock Management**: Automatically reserves fabric when order created, releases when cancelled, and decrements when delivered
-2. **Permission-Based UI**: Dashboard buttons and pages only show if user has permissions
-3. **Mobile Responsive**: All pages work perfectly on phones, tablets, and desktops
-4. **Comprehensive Validation**: Zod schemas with proper error handling
-5. **Role Segregation**: Different users see different features based on their role
-
 ### ✅ Dashboard Analytics & Charts (v0.3.0)
 
 **What's New:**
@@ -296,12 +259,8 @@ Routes under `app/(dashboard)/` will be protected via NextAuth middleware (to be
 - ✅ Phase 4 Complete: Dashboard with analytics, charts, and KPIs
 - ✅ Phase 5 Complete: Landing page, inventory management page with barcode scanner
 - ✅ Phase 6 Complete: Enhanced seed data with 6-month order history
-- ✅ Phase 7 Complete: Role-based access control system (6 roles with granular permissions)
-- ✅ Phase 8 Complete: Customer management with measurements API
-- ✅ Phase 9 Complete: Order management with automatic stock reservation
-- ✅ Phase 10 Complete: Mobile-responsive design across all pages
-- ✅ Production Deployment: PM2, nginx, database configured, v0.4.0 deployed
-- 🔄 Next: Order creation form (multi-step), measurement UI, order status workflow UI
+- ✅ Production Deployment: PM2, nginx, database configured
+- 🔄 Next: Order management pages, customer portal, measurements UI
 
 ## Production Environment
 
@@ -432,20 +391,6 @@ NODE_ENV="production"
 - `GET /api/inventory/accessories` - List accessories (supports `?lowStock=true&type=Button`)
 - `POST /api/inventory/accessories` - Create accessory item
 - `GET /api/inventory/barcode?barcode={sku}` - Lookup item by barcode/SKU
-
-**Customers:**
-- `GET /api/customers` - List all customers (supports `?search=term`)
-- `POST /api/customers` - Create new customer (requires `manage_customers` permission)
-- `GET /api/customers/[id]` - Get customer with measurements and orders
-- `PATCH /api/customers/[id]` - Update customer details
-- `DELETE /api/customers/[id]` - Delete customer (only if no orders)
-- `GET /api/customers/[id]/measurements` - Get customer measurements history
-- `POST /api/customers/[id]/measurements` - Add new measurement
-
-**Orders:**
-- `GET /api/orders` - List all orders (supports `?status=STATUS&customerId=ID&search=term`)
-- `POST /api/orders` - Create new order with automatic fabric reservation
-- `PATCH /api/orders/[id]/status` - Update order status (handles stock management automatically)
 
 **Response Format:**
 ```typescript
