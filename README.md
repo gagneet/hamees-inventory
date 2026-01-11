@@ -62,6 +62,14 @@ A comprehensive inventory management system designed for Hamees Attire tailoring
    ```
    This will create the SQLite database with all necessary tables.
 
+5. **(Optional) Enable debug mode for development**
+   ```bash
+   export FLASK_DEBUG=true  # Linux/Mac
+   # OR
+   set FLASK_DEBUG=true     # Windows
+   ```
+   **Note:** Debug mode should NEVER be enabled in production for security reasons.
+
 ## Usage
 
 ### Starting the Server
@@ -199,6 +207,21 @@ curl -X POST http://localhost:5000/api/orders/1/complete
 ### Low Stock Alerts
 - Items are flagged when quantity <= reorder_level
 - Use `/api/inventory/low-stock` endpoint to get all items needing reorder
+
+## Security Considerations
+
+### Production Deployment
+
+**Important:** This application is configured for development by default. Before deploying to production:
+
+1. **Disable Debug Mode**: Debug mode is controlled by the `FLASK_DEBUG` environment variable and is disabled by default. Never set `FLASK_DEBUG=true` in production.
+2. **Change Secret Key**: Update the `SECRET_KEY` in `app.py` to a strong, random value
+3. **Use Production Database**: Replace SQLite with PostgreSQL or MySQL
+4. **Use Production WSGI Server**: Deploy with Gunicorn, uWSGI, or similar instead of Flask's development server
+5. **Enable HTTPS**: Use SSL/TLS certificates for encrypted communication
+6. **Add Authentication**: Implement user authentication and authorization
+7. **Input Validation**: Add comprehensive input validation and sanitization
+8. **Rate Limiting**: Implement API rate limiting to prevent abuse
 
 ## Future Enhancements
 

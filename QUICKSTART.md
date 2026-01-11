@@ -23,6 +23,13 @@ python app.py
 ```
 Server will start at `http://localhost:5000`
 
+**For Development (with debug mode):**
+```bash
+export FLASK_DEBUG=true  # Enable debug mode for development only
+python app.py
+```
+⚠️ **Warning:** Never enable debug mode in production environments!
+
 ### Step 4: Test the API
 
 **View System Statistics:**
@@ -163,6 +170,18 @@ python -m unittest test_app.py -v
 ```
 
 Expected output: 8 tests passing
+
+---
+
+## 🔒 Security Notes
+
+**Development vs Production:**
+- Debug mode is **disabled by default** for security
+- Enable debug mode in development only: `export FLASK_DEBUG=true`
+- **Never** enable debug mode in production
+- Change the SECRET_KEY before production deployment
+- Use a production WSGI server (Gunicorn, uWSGI) for production
+- Use PostgreSQL/MySQL instead of SQLite for production
 
 ---
 
