@@ -17,6 +17,7 @@ import { KPICard } from '@/components/dashboard/kpi-card'
 import { RevenueChart } from '@/components/dashboard/revenue-chart'
 import { OrdersStatusChart } from '@/components/dashboard/orders-status-chart'
 import { TopFabricsChart } from '@/components/dashboard/top-fabrics-chart'
+import { SignOutButton } from '@/components/dashboard/sign-out-button'
 
 async function getDashboardStats() {
   try {
@@ -70,11 +71,7 @@ export default async function DashboardPage() {
                 <p className="text-sm font-medium text-slate-900">{session.user.name}</p>
                 <p className="text-xs text-slate-500">{session.user.role}</p>
               </div>
-              <form action="/api/auth/signout" method="POST">
-                <Button variant="outline" type="submit">
-                  Logout
-                </Button>
-              </form>
+              <SignOutButton />
             </div>
           </div>
         </div>
