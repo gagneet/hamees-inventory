@@ -25,19 +25,194 @@ import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns'
 
 async function getDashboardStats() {
   try {
-    const res = await fetch(`${process.env.NEXTAUTH_URL}/api/dashboard/stats`, {
-      cache: 'no-store',
-      headers: {
-        'Content-Type': 'application/json',
+    const now = new Date()
+    const currentMonthStart = startOfMonth(now)
+    const currentMonthEnd = endOfMonth(now)
+    const lastMonthStart = startOfMonth(subMonths(now, 1))
+    const lastMonthEnd = endOfMonth(subMonths(now, 1))
+
+    // Inventory Stats
+    const totalInventoryValue = await prisma.clothInventory.aggregate({
+      _sum: { currentStock: true },
+    })
+
+    const clothInventory = await prisma.clothInventory.findMany({
+      select: {
+        currentStock: true,
+        reserved: true,
+        minimum: true,
+        pricePerMeter: true,
       },
     })
 
-    if (!res.ok) {
-      console.error('Failed to fetch dashboard stats')
-      return null
+    const lowStockItems = clothInventory.filter(
+      (item) => item.currentStock - item.reserved < item.minimum
+    ).length
+
+    const criticalStockItems = clothInventory.filter(
+      (item) => item.currentStock - item.reserved < item.minimum * 0.5
+    ).length
+
+    const totalInventoryWorth = clothInventory.reduce(
+      (sum, item) => sum + item.currentStock * item.pricePerMeter,
+      0
+    )
+
+    // Order Stats
+    const totalOrders = await prisma.order.count()
+    const pendingOrders = await prisma.order.count({
+      where: {
+        status: {
+          in: ['NEW', 'MATERIAL_SELECTED', 'CUTTING', 'STITCHING', 'FINISHING'],
+        },
+      },
+    })
+
+    const ordersThisMonth = await prisma.order.count({
+      where: {
+        createdAt: { gte: currentMonthStart, lte: currentMonthEnd },
+      },
+    })
+
+    const ordersLastMonth = await prisma.order.count({
+      where: {
+        createdAt: { gte: lastMonthStart, lte: lastMonthEnd },
+      },
+    })
+
+    const readyOrders = await prisma.order.count({
+      where: { status: 'READY' },
+    })
+
+    const deliveredOrders = await prisma.order.count({
+      where: { status: 'DELIVERED' },
+    })
+
+    // Revenue Stats
+    const revenueThisMonth = await prisma.order.aggregate({
+      where: {
+        createdAt: { gte: currentMonthStart, lte: currentMonthEnd },
+        status: 'DELIVERED',
+      },
+      _sum: { totalAmount: true },
+    })
+
+    const revenueLastMonth = await prisma.order.aggregate({
+      where: {
+        createdAt: { gte: lastMonthStart, lte: lastMonthEnd },
+        status: 'DELIVERED',
+      },
+      _sum: { totalAmount: true },
+    })
+
+    // Revenue by month for last 6 months
+    const revenueByMonth = []
+    for (let i = 5; i >= 0; i--) {
+      const monthStart = startOfMonth(subMonths(now, i))
+      const monthEnd = endOfMonth(subMonths(now, i))
+
+      const revenue = await prisma.order.aggregate({
+        where: {
+          createdAt: { gte: monthStart, lte: monthEnd },
+          status: 'DELIVERED',
+        },
+        _sum: { totalAmount: true },
+      })
+
+      revenueByMonth.push({
+        month: format(monthStart, 'MMM yyyy'),
+        revenue: revenue._sum.totalAmount || 0,
+      })
     }
 
-    return await res.json()
+    // Orders by status
+    const ordersByStatus = await prisma.order.groupBy({
+      by: ['status'],
+      _count: { status: true },
+    })
+
+    const statusData = ordersByStatus.map((item) => ({
+      status: item.status,
+      count: item._count.status,
+    }))
+
+    // Top 5 selling fabrics
+    const topFabrics = await prisma.orderItem.groupBy({
+      by: ['clothInventoryId'],
+      _sum: { actualMetersUsed: true },
+      orderBy: { _sum: { actualMetersUsed: 'desc' } },
+      take: 5,
+    })
+
+    const topFabricsWithDetails = await Promise.all(
+      topFabrics
+        .filter((item) => item.clothInventoryId)
+        .map(async (item) => {
+          const cloth = await prisma.clothInventory.findUnique({
+            where: { id: item.clothInventoryId! },
+            select: { name: true, type: true },
+          })
+          return {
+            name: cloth?.name || 'Unknown',
+            type: cloth?.type || 'Unknown',
+            metersUsed: item._sum.actualMetersUsed || 0,
+          }
+        })
+    )
+
+    // Recent alerts
+    const recentAlerts = await prisma.alert.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+    })
+
+    // Calculate growth percentages
+    const orderGrowth =
+      ordersLastMonth > 0
+        ? ((ordersThisMonth - ordersLastMonth) / ordersLastMonth) * 100
+        : 100
+
+    const revenueGrowth =
+      (revenueLastMonth._sum.totalAmount || 0) > 0
+        ? (((revenueThisMonth._sum.totalAmount || 0) -
+            (revenueLastMonth._sum.totalAmount || 0)) /
+            (revenueLastMonth._sum.totalAmount || 0)) *
+          100
+        : 100
+
+    return {
+      inventory: {
+        totalItems: clothInventory.length,
+        lowStock: lowStockItems,
+        criticalStock: criticalStockItems,
+        totalValue: totalInventoryWorth,
+        totalMeters: totalInventoryValue._sum.currentStock || 0,
+      },
+      orders: {
+        total: totalOrders,
+        pending: pendingOrders,
+        ready: readyOrders,
+        delivered: deliveredOrders,
+        thisMonth: ordersThisMonth,
+        lastMonth: ordersLastMonth,
+        growth: orderGrowth,
+      },
+      revenue: {
+        thisMonth: revenueThisMonth._sum.totalAmount || 0,
+        lastMonth: revenueLastMonth._sum.totalAmount || 0,
+        growth: revenueGrowth,
+        byMonth: revenueByMonth,
+      },
+      charts: {
+        ordersByStatus: statusData,
+        topFabrics: topFabricsWithDetails,
+        stockMovements: 0,
+      },
+      alerts: {
+        unread: recentAlerts.length,
+        recent: recentAlerts,
+      },
+    }
   } catch (error) {
     console.error('Error fetching dashboard stats:', error)
     return null
