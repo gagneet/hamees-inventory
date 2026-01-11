@@ -1,0 +1,440 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Enums
+enum UserRole {
+  OWNER
+  ADMIN
+  INVENTORY_MANAGER
+  SALES_MANAGER
+  TAILOR
+  VIEWER
+}
+
+enum OrderStatus {
+  NEW
+  MATERIAL_SELECTED
+  CUTTING
+  STITCHING
+  FINISHING
+  READY
+  DELIVERED
+  CANCELLED
+}
+
+enum OrderPriority {
+  NORMAL
+  URGENT
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AlertType {
+  LOW_STOCK
+  CRITICAL_STOCK
+  ORDER_DELAYED
+  REORDER_REMINDER
+}
+
+enum StockMovementType {
+  PURCHASE
+  ORDER_RESERVED
+  ORDER_USED
+  ORDER_CANCELLED
+  ADJUSTMENT
+  RETURN
+  WASTAGE
+}
+
+enum BodyType {
+  SLIM
+  REGULAR
+  LARGE
+  XL
+}
+
+// Models
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String
+  role          UserRole  @default(VIEWER)
+  phone         String?
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  orders        Order[]
+  stockMovements StockMovement[]
+}
+
+model ClothInventory {
+  id            String    @id @default(cuid())
+  sku           String    @unique
+  name          String
+  brand         String
+  color         String
+  colorHex      String    // For UI display
+  pattern       String    // Plain, Striped, Checkered, etc.
+  quality       String    // Premium, Standard, Economy
+  type          String    // Cotton, Silk, Linen, etc.
+  pricePerMeter Float
+  currentStock  Float     // in meters
+  totalPurchased Float    @default(0) // Track total ever purchased
+  reserved      Float     @default(0) // Reserved for orders
+  minimum       Float     // Minimum stock level
+  supplier      String
+  supplierId    String?
+  location      String?   // Storage location
+  notes         String?
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  orderItems    OrderItem[]
+  stockMovements StockMovement[]
+  supplierRel   Supplier? @relation(fields: [supplierId], references: [id])
+  supplierPrices SupplierPrice[]
+
+  @@index([sku])
+  @@index([active])
+  @@index([currentStock])
+}
+
+model AccessoryInventory {
+  id            String    @id @default(cuid())
+  name          String
+  type          String    // Button, Thread, Zipper, etc.
+  color         String?
+  currentStock  Int
+  minimum       Int
+  pricePerUnit  Float
+  supplier      String?
+  supplierId    String?
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  garmentAccessories GarmentAccessory[]
+  supplierRel   Supplier? @relation(fields: [supplierId], references: [id])
+
+  @@index([active])
+}
+
+model Customer {
+  id            String    @id @default(cuid())
+  name          String
+  email         String?
+  phone         String
+  address       String?
+  city          String?
+  state         String?
+  pincode       String?
+  notes         String?
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  orders        Order[]
+  measurements  Measurement[]
+
+  @@index([phone])
+  @@index([active])
+}
+
+model Measurement {
+  id            String    @id @default(cuid())
+  customerId    String
+  garmentType   String    // Shirt, Trouser, Suit, Sherwani
+
+  // Common measurements (in cm)
+  neck          Float?
+  chest         Float?
+  waist         Float?
+  hip           Float?
+  shoulder      Float?
+  sleeveLength  Float?
+  shirtLength   Float?
+  inseam        Float?
+  outseam       Float?
+  thigh         Float?
+  knee          Float?
+  bottomOpening Float?
+  jacketLength  Float?
+  lapelWidth    Float?
+
+  // Additional measurements as JSON for flexibility
+  additionalMeasurements Json?
+
+  notes         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  customer      Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  orders        Order[]
+
+  @@index([customerId])
+  @@index([garmentType])
+}
+
+model GarmentPattern {
+  id            String    @id @default(cuid())
+  name          String    // Men's Shirt, Men's Trouser, etc.
+  description   String?
+  baseMeters    Float     // Base fabric requirement
+
+  // Body type adjustments (additional meters needed)
+  slimAdjustment     Float @default(0)
+  regularAdjustment  Float @default(0)
+  largeAdjustment    Float @default(0.3)
+  xlAdjustment       Float @default(0.5)
+
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  accessories   GarmentAccessory[]
+  orderItems    OrderItem[]
+
+  @@index([active])
+}
+
+model GarmentAccessory {
+  id              String    @id @default(cuid())
+  garmentPatternId String
+  accessoryId     String
+  quantity        Int       // How many units needed per garment
+
+  // Relations
+  garmentPattern  GarmentPattern    @relation(fields: [garmentPatternId], references: [id], onDelete: Cascade)
+  accessory       AccessoryInventory @relation(fields: [accessoryId], references: [id])
+
+  @@unique([garmentPatternId, accessoryId])
+}
+
+model Order {
+  id              String       @id @default(cuid())
+  orderNumber     String       @unique
+  customerId      String
+  userId          String       // Who created the order
+  measurementId   String?
+
+  status          OrderStatus  @default(NEW)
+  priority        OrderPriority @default(NORMAL)
+
+  deliveryDate    DateTime
+  orderDate       DateTime     @default(now())
+  completedDate   DateTime?
+
+  totalAmount     Float
+  advancePaid     Float        @default(0)
+  balanceAmount   Float
+
+  notes           String?
+  active          Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  // Relations
+  customer        Customer     @relation(fields: [customerId], references: [id])
+  user            User         @relation(fields: [userId], references: [id])
+  measurement     Measurement? @relation(fields: [measurementId], references: [id])
+  items           OrderItem[]
+  stockMovements  StockMovement[]
+
+  @@index([orderNumber])
+  @@index([customerId])
+  @@index([status])
+  @@index([deliveryDate])
+}
+
+model OrderItem {
+  id                String    @id @default(cuid())
+  orderId           String
+  garmentPatternId  String
+  clothInventoryId  String
+
+  quantity          Int       @default(1)
+  bodyType          BodyType  @default(REGULAR)
+
+  // Material calculations
+  estimatedMeters   Float     // Calculated based on pattern and body type
+  actualMetersUsed  Float?    // Recorded after cutting
+  wastage           Float?    // Actual - Estimated
+
+  pricePerUnit      Float
+  totalPrice        Float
+
+  notes             String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  order             Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  garmentPattern    GarmentPattern @relation(fields: [garmentPatternId], references: [id])
+  clothInventory    ClothInventory @relation(fields: [clothInventoryId], references: [id])
+
+  @@index([orderId])
+}
+
+model StockMovement {
+  id              String            @id @default(cuid())
+  clothInventoryId String
+  orderId         String?
+  userId          String
+
+  type            StockMovementType
+  quantity        Float             // Positive for additions, negative for reductions
+  balanceAfter    Float             // Stock balance after this movement
+
+  notes           String?
+  createdAt       DateTime          @default(now())
+
+  // Relations
+  clothInventory  ClothInventory    @relation(fields: [clothInventoryId], references: [id])
+  order           Order?            @relation(fields: [orderId], references: [id])
+  user            User              @relation(fields: [userId], references: [id])
+
+  @@index([clothInventoryId])
+  @@index([orderId])
+  @@index([createdAt])
+}
+
+model Supplier {
+  id            String    @id @default(cuid())
+  name          String
+  contactPerson String?
+  email         String?
+  phone         String
+  address       String?
+  city          String?
+  state         String?
+  pincode       String?
+  gstin         String?
+  rating        Float     @default(0)
+  notes         String?
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  clothInventory      ClothInventory[]
+  accessoryInventory  AccessoryInventory[]
+  supplierPrices      SupplierPrice[]
+  purchaseOrders      PurchaseOrder[]
+
+  @@index([active])
+}
+
+model SupplierPrice {
+  id              String    @id @default(cuid())
+  supplierId      String
+  clothInventoryId String
+  pricePerMeter   Float
+  effectiveFrom   DateTime  @default(now())
+  effectiveTo     DateTime?
+  active          Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  supplier        Supplier        @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  clothInventory  ClothInventory  @relation(fields: [clothInventoryId], references: [id])
+
+  @@index([supplierId])
+  @@index([clothInventoryId])
+  @@index([effectiveFrom])
+}
+
+model PurchaseOrder {
+  id            String    @id @default(cuid())
+  poNumber      String    @unique
+  supplierId    String
+  orderDate     DateTime  @default(now())
+  expectedDate  DateTime?
+  receivedDate  DateTime?
+
+  totalAmount   Float
+  paidAmount    Float     @default(0)
+  balanceAmount Float
+
+  status        String    @default("PENDING") // PENDING, RECEIVED, PARTIAL, CANCELLED
+  notes         String?
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  supplier      Supplier  @relation(fields: [supplierId], references: [id])
+  items         POItem[]
+
+  @@index([poNumber])
+  @@index([supplierId])
+  @@index([status])
+}
+
+model POItem {
+  id                String    @id @default(cuid())
+  purchaseOrderId   String
+  itemName          String
+  itemType          String    // CLOTH, ACCESSORY
+  quantity          Float
+  unit              String    // meters, pieces
+  pricePerUnit      Float
+  totalPrice        Float
+  receivedQuantity  Float     @default(0)
+  createdAt         DateTime  @default(now())
+
+  // Relations
+  purchaseOrder     PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
+  @@index([purchaseOrderId])
+}
+
+model Alert {
+  id            String        @id @default(cuid())
+  type          AlertType
+  severity      AlertSeverity
+  title         String
+  message       String
+  relatedId     String?       // ID of related entity (inventory, order, etc.)
+  relatedType   String?       // Type of related entity
+  isRead        Boolean       @default(false)
+  isDismissed   Boolean       @default(false)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([isRead])
+  @@index([isDismissed])
+  @@index([createdAt])
+  @@index([severity])
+}
+
+model Settings {
+  id            String    @id @default(cuid())
+  key           String    @unique
+  value         String
+  description   String?
+  updatedAt     DateTime  @updatedAt
+
+  @@index([key])
+}

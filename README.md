@@ -1,2 +1,291 @@
-# hamees-inventory
-Tailor Inventory Application for Hamees
+# 🧵 Tailor Inventory Management System
+
+A comprehensive inventory and order management system built specifically for tailor shops. Manage fabric inventory, track orders, monitor stock levels, and streamline your tailoring business operations.
+
+## ✨ Features
+
+### Inventory Management
+- **Cloth Inventory**: Track fabrics by type, color, pattern, quality
+- **Accessories**: Manage buttons, threads, zippers, and other supplies
+- **Stock Levels**: Real-time available stock (current - reserved)
+- **Auto Alerts**: Low stock and critical stock notifications
+- **Supplier Tracking**: Link inventory to suppliers with pricing history
+
+### Order Management
+- **Order Creation**: Create orders with customer measurements
+- **Garment Patterns**: Pre-configured patterns (Shirt, Trouser, Suit, Sherwani)
+- **Material Calculation**: Automatic fabric calculation based on pattern and body type
+- **Stock Reservation**: Auto-reserve fabric when order is created
+- **Status Tracking**: NEW → CUTTING → STITCHING → FINISHING → READY → DELIVERED
+- **Payment Tracking**: Advance payment and balance management
+
+### Customer Management
+- **Customer Profiles**: Contact info, address, order history
+- **Measurements**: Store detailed measurements by garment type
+- **Measurement History**: Track measurement changes over time
+
+### Alerts & Notifications
+- **Low Stock Alerts**: Automatic alerts when stock < minimum
+- **Critical Alerts**: High-priority warnings for very low stock
+- **Order Delays**: Track overdue orders
+
+### Reporting & Analytics
+- **Dashboard**: Real-time statistics and metrics
+- **Stock Reports**: Inventory value, movement history
+- **Order Analytics**: Sales trends, popular items
+- **Supplier Performance**: Delivery times, pricing trends
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Node.js 18+
+- PostgreSQL 14+
+- pnpm (recommended)
+
+### Installation
+
+1. **Clone or navigate to the project**
+   ```bash
+   cd tailor-inventory
+   ```
+
+2. **Install dependencies**
+   ```bash
+   pnpm install
+   ```
+
+3. **Set up PostgreSQL**
+
+   See [SETUP.md](SETUP.md) for detailed PostgreSQL configuration.
+
+   Quick setup:
+   ```bash
+   # Create PostgreSQL user (if needed)
+   sudo -u postgres createuser -s $(whoami)
+
+   # Create database
+   createdb tailor_inventory
+   ```
+
+4. **Configure environment variables**
+   ```bash
+   # Copy example env file
+   cp .env.example .env
+
+   # Update DATABASE_URL in .env with your credentials
+   ```
+
+5. **Initialize database**
+   ```bash
+   # Push schema to database
+   pnpm db:push
+
+   # Seed with sample data
+   pnpm db:seed
+   ```
+
+6. **Start development server**
+   ```bash
+   pnpm dev
+   ```
+
+7. **Open in browser**
+
+   Visit http://localhost:3000
+
+### Default Login
+
+After seeding, use these credentials:
+
+- **Email:** owner@tailorshop.com
+- **Password:** admin123
+
+## 📚 Documentation
+
+- **[SETUP.md](SETUP.md)** - Detailed setup instructions and troubleshooting
+- **[PROGRESS.md](PROGRESS.md)** - Development progress and roadmap
+
+## 🛠️ Tech Stack
+
+### Frontend
+- **Framework:** Next.js 16 (App Router)
+- **UI Library:** React 19
+- **Styling:** Tailwind CSS 4
+- **Components:** Radix UI
+- **Icons:** Lucide React
+- **Charts:** Recharts
+- **Forms:** React Hook Form + Zod
+
+### Backend
+- **Runtime:** Node.js 20
+- **Database:** PostgreSQL 16
+- **ORM:** Prisma 7
+- **Authentication:** NextAuth.js v5
+
+### Development
+- **Language:** TypeScript 5
+- **Package Manager:** pnpm
+- **Linting:** ESLint
+- **Version Control:** Git
+
+## 📦 Available Scripts
+
+```bash
+# Development
+pnpm dev              # Start development server (http://localhost:3000)
+pnpm build            # Build for production
+pnpm start            # Start production server
+pnpm lint             # Run ESLint
+
+# Database
+pnpm db:push          # Push schema changes to database
+pnpm db:migrate       # Create and run migrations
+pnpm db:seed          # Seed database with sample data
+pnpm db:studio        # Open Prisma Studio (http://localhost:5555)
+pnpm db:reset         # Reset database and reseed
+```
+
+## 📁 Project Structure
+
+```
+tailor-inventory/
+├── app/                    # Next.js app directory
+│   ├── (dashboard)/        # Dashboard routes (protected)
+│   │   ├── dashboard/      # Main dashboard
+│   │   ├── inventory/      # Inventory management
+│   │   ├── orders/         # Order management
+│   │   ├── alerts/         # Alerts page
+│   │   ├── customers/      # Customer management
+│   │   └── suppliers/      # Supplier management
+│   ├── api/                # API routes
+│   │   ├── auth/           # Authentication
+│   │   ├── inventory/      # Inventory endpoints
+│   │   ├── orders/         # Order endpoints
+│   │   └── alerts/         # Alert endpoints
+│   ├── globals.css         # Global styles & design system
+│   └── layout.tsx          # Root layout
+├── components/             # React components
+│   ├── ui/                 # Base UI components
+│   ├── layout/             # Layout components
+│   ├── inventory/          # Inventory components
+│   └── orders/             # Order components
+├── lib/                    # Utility libraries
+│   ├── db.ts               # Prisma client
+│   ├── auth.ts             # Auth configuration
+│   └── utils.ts            # Helper functions
+├── prisma/                 # Database files
+│   ├── schema.prisma       # Database schema
+│   ├── seed.ts             # Seed script
+│   └── migrations/         # Migration files
+├── types/                  # TypeScript type definitions
+├── .env                    # Environment variables (not committed)
+└── .env.example            # Environment template
+```
+
+## 🎨 Design System
+
+### Colors
+- **Primary (Indigo):** #1E3A8A - Main brand color
+- **Secondary (Burgundy):** #991B1B - Accent
+- **Accent (Gold):** #F59E0B - Highlights
+- **Success (Green):** #10B981 - Success states
+- **Warning (Orange):** #F59E0B - Warnings
+- **Error (Red):** #EF4444 - Errors
+
+### Typography
+- **Font:** System fonts (optimized for performance)
+- **Headings:** Font weight 600-700
+- **Body:** Font weight 400
+
+## 🔐 Security
+
+- **Password Hashing:** bcryptjs with salt rounds
+- **Authentication:** NextAuth.js with JWT
+- **Role-Based Access:** OWNER, ADMIN, INVENTORY_MANAGER, SALES_MANAGER, TAILOR, VIEWER
+- **Input Validation:** Zod schemas on all forms
+- **SQL Injection Prevention:** Prisma ORM
+- **Environment Variables:** Never committed to git
+
+## 📊 Database Schema
+
+### Core Models
+- **User** - User accounts with roles
+- **ClothInventory** - Fabric inventory
+- **AccessoryInventory** - Accessories (buttons, threads, etc.)
+- **Customer** - Customer information
+- **Measurement** - Customer measurements
+- **GarmentPattern** - Garment templates
+- **Order** - Customer orders
+- **OrderItem** - Individual garments in orders
+- **StockMovement** - Complete audit trail
+- **Supplier** - Supplier information
+- **PurchaseOrder** - Restocking orders
+- **Alert** - Notification system
+- **Settings** - App configuration
+
+## 🚧 Development Roadmap
+
+### Phase 1: Foundation ✅
+- [x] Project setup
+- [x] Database schema
+- [x] Seed data
+- [x] Configuration
+
+### Phase 2: Authentication (In Progress)
+- [ ] NextAuth setup
+- [ ] Login/Logout
+- [ ] Route protection
+- [ ] Role-based access
+
+### Phase 3: API Development
+- [ ] Inventory CRUD
+- [ ] Order management
+- [ ] Alert system
+- [ ] Customer/Supplier APIs
+
+### Phase 4: UI Components
+- [ ] shadcn/ui setup
+- [ ] Layout components
+- [ ] Feature components
+- [ ] Forms
+
+### Phase 5: Pages & Features
+- [ ] Dashboard
+- [ ] Inventory management
+- [ ] Order tracking
+- [ ] Alerts
+- [ ] Reports
+
+### Phase 6: Advanced Features
+- [ ] Measurements system
+- [ ] Barcode/QR codes
+- [ ] Advanced reports
+- [ ] Mobile app
+
+## 🤝 Contributing
+
+This is a custom project built for tailor shops. Contributions and suggestions are welcome!
+
+## 📝 License
+
+Private project - All rights reserved
+
+## 🆘 Support
+
+For setup issues, see [SETUP.md](SETUP.md) or check the troubleshooting section.
+
+## 🎯 Goals
+
+1. **Simplify Inventory**: Never run out of fabric or over-order
+2. **Streamline Orders**: From measurement to delivery
+3. **Reduce Waste**: Track material usage and wastage
+4. **Improve Efficiency**: Automated calculations and alerts
+5. **Better Insights**: Reports and analytics for business decisions
+
+---
+
+**Built with ❤️ for the tailoring community**
+
+**Version:** 0.1.0
+**Status:** Phase 1 Complete, Phase 2 In Progress
+**Last Updated:** January 11, 2026
