@@ -49,3 +49,4 @@ prisma/migrations/**
 *.swp
 *.swo
 *~
+*.log
