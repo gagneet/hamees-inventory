@@ -330,20 +330,6 @@ Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
 Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
 2026-01-11T12:05:09: Failed to fetch dashboard stats
 2026-01-11T12:05:09: Failed to fetch dashboard stats
-2026-01-11T12:05:46: ⚠ Unsupported metadata viewport is configured in metadata export in /dashboard. Please move it to viewport export instead.
-Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
-2026-01-11T12:05:46: Failed to fetch dashboard stats
-2026-01-11T12:05:46: ⚠ Unsupported metadata viewport is configured in metadata export in /dashboard. Please move it to viewport export instead.
-Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
-2026-01-11T12:05:46: Failed to fetch dashboard stats
-2026-01-11T12:06:17: ⚠ Unsupported metadata viewport is configured in metadata export in /dashboard. Please move it to viewport export instead.
-Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
-2026-01-11T12:06:17: Failed to fetch dashboard stats
-2026-01-11T12:06:23: ⚠ Unsupported metadata viewport is configured in metadata export in /dashboard. Please move it to viewport export instead.
-Read more: https://nextjs.org/docs/app/api-reference/functions/generate-viewport
-2026-01-11T12:06:23: Failed to fetch dashboard stats
-2026-01-11T12:06:37: Error creating cloth inventory: Error [PrismaClientKnownRequestError]: 
-Invalid `prisma.stockMovement.create()` invocation:
 
 
 Foreign key constraint violated on the constraint: `StockMovement_userId_fkey`

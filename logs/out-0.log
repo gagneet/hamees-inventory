@@ -148,8 +148,6 @@ Require stack:
 2026-01-11T12:02:53: 
 2026-01-11T12:02:53: ✓ Starting...
 2026-01-11T12:02:53: ✓ Ready in 683ms
-2026-01-11T12:06:37: prisma:error 
-Invalid `prisma.stockMovement.create()` invocation:
 
 
 Foreign key constraint violated on the constraint: `StockMovement_userId_fkey`
