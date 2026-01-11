@@ -47,7 +47,7 @@ export function LoginForm() {
           Hamees Inventory
         </CardTitle>
         <CardDescription className="text-center">
-          Sign in to your tailor shop management system
+          Bespoke Tailoring - Wedding Attire Specialists
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -57,7 +57,7 @@ export function LoginForm() {
             <Input
               id="email"
               type="email"
-              placeholder="owner@tailorshop.com"
+              placeholder="owner@hameesattire.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -86,7 +86,7 @@ export function LoginForm() {
           </Button>
           <div className="mt-4 text-center text-sm text-slate-500">
             <p>Demo credentials:</p>
-            <p className="font-mono text-xs">owner@tailorshop.com / admin123</p>
+            <p className="font-mono text-xs">owner@hameesattire.com / admin123</p>
           </div>
         </form>
       </CardContent>

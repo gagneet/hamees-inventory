@@ -1,0 +1,18 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="32" height="32" rx="4" fill="#7C2D12"/>
+
+  <!-- Simplified H monogram -->
+  <g transform="translate(16, 16)">
+    <path d="M -7 -10 L -7 10 M -7 0 L 7 0 M 7 -10 L 7 10"
+          stroke="#C49A6C"
+          stroke-width="2"
+          stroke-linecap="round"
+          fill="none"/>
+
+    <!-- Button details -->
+    <circle cx="0" cy="-4" r="1" fill="#C49A6C"/>
+    <circle cx="0" cy="0" r="1" fill="#C49A6C"/>
+    <circle cx="0" cy="4" r="1" fill="#C49A6C"/>
+  </g>
+</svg>

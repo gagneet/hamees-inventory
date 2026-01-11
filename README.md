@@ -108,7 +108,7 @@ A comprehensive inventory and order management system built specifically for tai
 
 After seeding, use these credentials:
 
-- **Email:** owner@tailorshop.com
+- **Email:** owner@hameesattire.com
 - **Password:** admin123
 
 ## 🌐 Production Deployment

@@ -41,7 +41,7 @@ export function TopFabricsChart({ data }: TopFabricsChartProps) {
             label={{ value: 'Meters Used', angle: -90, position: 'insideLeft', style: { fontSize: 12, fill: '#6B7280' } }}
           />
           <Tooltip
-            formatter={(value: number) => [`${value}m`, 'Meters Used']}
+            formatter={(value: number | undefined) => [`${value || 0}m`, 'Meters Used']}
             contentStyle={{
               backgroundColor: '#FFF',
               border: '1px solid #E5E7EB',

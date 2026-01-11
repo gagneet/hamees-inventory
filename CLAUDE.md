@@ -61,7 +61,7 @@ pnpm tsx prisma/seed-enhanced.ts
 
 **How to Use:**
 1. Reset database: `pnpm db:reset` OR run enhanced seed: `pnpm tsx prisma/seed-enhanced.ts`
-2. Login: `owner@tailorshop.com` / `admin123`
+2. Login: `owner@hameesattire.com` / `admin123`
 3. View dashboard at: https://hamees.gagneet.com/dashboard
 4. Explore charts, KPIs, and order history
 
@@ -107,8 +107,8 @@ pm2 save                         # Save process list
 - Connection: Direct PostgreSQL connection (not Docker)
 
 **Default Credentials (after seeding):**
-- Email: `owner@tailorshop.com` / Password: `admin123`
-- Email: `inventory@tailorshop.com` / Password: `admin123`
+- Email: `owner@hameesattire.com` / Password: `admin123`
+- Email: `inventory@hameesattire.com` / Password: `admin123`
 
 ## Architecture & Key Concepts
 
@@ -340,8 +340,8 @@ NODE_ENV="production"
 5. Protected routes check session via middleware (`middleware.ts`)
 
 **Demo Credentials:**
-- `owner@tailorshop.com` / `admin123` (OWNER role)
-- `inventory@tailorshop.com` / `admin123` (INVENTORY_MANAGER role)
+- `owner@hameesattire.com` / `admin123` (OWNER role)
+- `inventory@hameesattire.com` / `admin123` (INVENTORY_MANAGER role)
 
 ### Barcode Scanning System
 
@@ -449,7 +449,7 @@ NODE_ENV="production"
 
 1. **Login to Dashboard:**
    - URL: https://hamees.gagneet.com
-   - Email: `owner@tailorshop.com`
+   - Email: `owner@hameesattire.com`
    - Password: `admin123`
 
 2. **Explore Dashboard:**

@@ -58,3 +58,87 @@
 2026-01-11T11:41:07: 
 2026-01-11T11:41:07: ✓ Starting...
 2026-01-11T11:41:07: ✓ Ready in 689ms
+2026-01-11T11:47:35: prisma:error 
+Invalid `prisma.user.findUnique()` invocation:
+
+
+Cannot find module './query_compiler_bg.js'
+Require stack:
+- /home/gagneet/hamees/node_modules/.prisma/client/index.js
+- /home/gagneet/hamees/node_modules/.prisma/client/default.js
+- /home/gagneet/hamees/node_modules/.pnpm/@prisma+client@7.2.0_prisma@7.2.0_@types+react@19.2.8_react-dom@19.2.3_react@19.2.3__re_cc6a828049883b98ef5d9d9c4971082c/node_modules/@prisma/client/default.js
+- /home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__32af4235._.js
+- /home/gagneet/hamees/.next/server/chunks/[turbopack]_runtime.js
+- /home/gagneet/hamees/.next/server/app/api/auth/[...nextauth]/route.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/require.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/load-components.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/utils.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/swc/options.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/swc/index.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/next-config-ts/transpile-config.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/config.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/cli/next-test.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/bin/next
+2026-01-11T11:47:45: prisma:error 
+Invalid `prisma.user.findUnique()` invocation:
+
+
+Cannot find module './query_compiler_bg.js'
+Require stack:
+- /home/gagneet/hamees/node_modules/.prisma/client/index.js
+- /home/gagneet/hamees/node_modules/.prisma/client/default.js
+- /home/gagneet/hamees/node_modules/.pnpm/@prisma+client@7.2.0_prisma@7.2.0_@types+react@19.2.8_react-dom@19.2.3_react@19.2.3__re_cc6a828049883b98ef5d9d9c4971082c/node_modules/@prisma/client/default.js
+- /home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__32af4235._.js
+- /home/gagneet/hamees/.next/server/chunks/[turbopack]_runtime.js
+- /home/gagneet/hamees/.next/server/app/api/auth/[...nextauth]/route.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/require.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/load-components.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/utils.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/swc/options.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/swc/index.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/next-config-ts/transpile-config.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/config.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/cli/next-test.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/bin/next
+2026-01-11T11:47:46: prisma:error 
+Invalid `prisma.user.findUnique()` invocation:
+
+
+Cannot find module './query_compiler_bg.js'
+Require stack:
+- /home/gagneet/hamees/node_modules/.prisma/client/index.js
+- /home/gagneet/hamees/node_modules/.prisma/client/default.js
+- /home/gagneet/hamees/node_modules/.pnpm/@prisma+client@7.2.0_prisma@7.2.0_@types+react@19.2.8_react-dom@19.2.3_react@19.2.3__re_cc6a828049883b98ef5d9d9c4971082c/node_modules/@prisma/client/default.js
+- /home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__32af4235._.js
+- /home/gagneet/hamees/.next/server/chunks/[turbopack]_runtime.js
+- /home/gagneet/hamees/.next/server/app/api/auth/[...nextauth]/route.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/require.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/load-components.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/utils.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/swc/options.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/swc/index.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/next-config-ts/transpile-config.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/config.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/cli/next-test.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/bin/next
+2026-01-11T11:48:53: prisma:error 
+Invalid `prisma.user.findUnique()` invocation:
+
+
+Cannot find module './query_compiler_bg.js'
+Require stack:
+- /home/gagneet/hamees/node_modules/.prisma/client/index.js
+- /home/gagneet/hamees/node_modules/.prisma/client/default.js
+- /home/gagneet/hamees/node_modules/.pnpm/@prisma+client@7.2.0_prisma@7.2.0_@types+react@19.2.8_react-dom@19.2.3_react@19.2.3__re_cc6a828049883b98ef5d9d9c4971082c/node_modules/@prisma/client/default.js
+- /home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__32af4235._.js
+- /home/gagneet/hamees/.next/server/chunks/[turbopack]_runtime.js
+- /home/gagneet/hamees/.next/server/app/api/auth/[...nextauth]/route.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/require.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/load-components.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/utils.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/swc/options.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/swc/index.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/next-config-ts/transpile-config.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/config.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/cli/next-test.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/bin/next

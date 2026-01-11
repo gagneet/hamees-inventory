@@ -44,12 +44,12 @@ The system supports the following roles:
 After running `pnpm db:seed`, you can use these credentials:
 
 **Primary Account:**
-- Email: `owner@tailorshop.com`
+- Email: `owner@hameesattire.com`
 - Password: `admin123`
 - Role: OWNER
 
 **Secondary Account:**
-- Email: `inventory@tailorshop.com`
+- Email: `inventory@hameesattire.com`
 - Password: `admin123`
 - Role: INVENTORY_MANAGER
 
@@ -160,7 +160,7 @@ pm2 status
 ### Step-by-Step: Adding Cloth Inventory with Barcode
 
 1. **Login** to the application at https://hamees.gagneet.com
-   - Use demo credentials: `owner@tailorshop.com` / `admin123`
+   - Use demo credentials: `owner@hameesattire.com` / `admin123`
 
 2. **Navigate to Inventory**
    - Go to `/inventory` or click "Inventory" in navigation
@@ -224,7 +224,7 @@ Login with email and password.
 **Request Body:**
 ```json
 {
-  "email": "owner@tailorshop.com",
+  "email": "owner@hameesattire.com",
   "password": "admin123"
 }
 ```
@@ -234,7 +234,7 @@ Login with email and password.
 {
   "user": {
     "id": "...",
-    "email": "owner@tailorshop.com",
+    "email": "owner@hameesattire.com",
     "name": "Shop Owner",
     "role": "OWNER"
   }

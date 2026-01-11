@@ -43,21 +43,21 @@ async function main() {
 
   const owner = await prisma.user.create({
     data: {
-      email: 'owner@tailorshop.com',
+      email: 'owner@hameesattire.com',
       password: hashedPassword,
       name: 'Shop Owner',
       role: UserRole.OWNER,
-      phone: '+91-98765-43210',
+      phone: '+91-8400008096',
     },
   })
 
   const inventoryManager = await prisma.user.create({
     data: {
-      email: 'inventory@tailorshop.com',
+      email: 'inventory@hameesattire.com',
       password: hashedPassword,
       name: 'Inventory Manager',
       role: UserRole.INVENTORY_MANAGER,
-      phone: '+91-98765-43211',
+      phone: '+91-8400008097',
     },
   })
 
@@ -404,22 +404,22 @@ async function main() {
     data: [
       {
         key: 'shop_name',
-        value: 'Elite Tailors',
+        value: 'Hamees Attire',
         description: 'Name of the tailor shop',
       },
       {
         key: 'shop_phone',
-        value: '+91-98765-00000',
+        value: '+91-8400008096',
         description: 'Shop contact number',
       },
       {
         key: 'shop_email',
-        value: 'contact@elitetailors.com',
+        value: 'contact@hameesattire.com',
         description: 'Shop email address',
       },
       {
         key: 'shop_address',
-        value: '789 Fashion Street, Mumbai, Maharashtra 400001',
+        value: 'Amritsar, Punjab, India',
         description: 'Shop address',
       },
       {
@@ -468,7 +468,7 @@ async function main() {
   console.log(`  Orders: 1`)
   console.log(`  Settings: 7`)
   console.log('\n🔑 Login Credentials:')
-  console.log(`  Email: owner@tailorshop.com`)
+  console.log(`  Email: owner@hameesattire.com`)
   console.log(`  Password: admin123`)
 }
 

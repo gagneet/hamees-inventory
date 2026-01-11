@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     const data = clothInventorySchema.parse(body)
 
     // Generate SKU if not provided
-    const sku = data.sku || `CLT-${data.type.substring(0, 3).toUpperCase()}-${data.brand.substring(0, 3).toUpperCase()}-${Date.now().toString().slice(-6)}`
+    const sku = data.sku || `CLT-${(data.type || 'UNK').substring(0, 3).toUpperCase()}-${(data.brand || 'UNK').substring(0, 3).toUpperCase()}-${Date.now().toString().slice(-6)}`
 
     const clothItem = await prisma.clothInventory.create({
       data: {
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Create stock movement for initial stock
-    if (data.currentStock > 0) {
+    if (data.currentStock && data.currentStock > 0) {
       await prisma.stockMovement.create({
         data: {
           clothInventoryId: clothItem.id,

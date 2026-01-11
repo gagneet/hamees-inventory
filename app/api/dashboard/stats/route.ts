@@ -34,15 +34,15 @@ export async function GET() {
     })
 
     const lowStockItems = clothInventory.filter(
-      (item) => item.currentStock - item.reserved < item.minimum
+      (item: typeof clothInventory[0]) => item.currentStock - item.reserved < item.minimum
     ).length
 
     const criticalStockItems = clothInventory.filter(
-      (item) => item.currentStock - item.reserved < item.minimum * 0.5
+      (item: typeof clothInventory[0]) => item.currentStock - item.reserved < item.minimum * 0.5
     ).length
 
     const totalInventoryWorth = clothInventory.reduce(
-      (sum, item) => sum + item.currentStock * item.pricePerMeter,
+      (sum: number, item: typeof clothInventory[0]) => sum + item.currentStock * item.pricePerMeter,
       0
     )
 
@@ -143,7 +143,7 @@ export async function GET() {
       },
     })
 
-    const statusData = ordersByStatus.map((item) => ({
+    const statusData = ordersByStatus.map((item: typeof ordersByStatus[0]) => ({
       status: item.status,
       count: item._count.status,
     }))
@@ -164,8 +164,8 @@ export async function GET() {
 
     const topFabricsWithDetails = await Promise.all(
       topFabrics
-        .filter((item) => item.clothInventoryId)
-        .map(async (item) => {
+        .filter((item: typeof topFabrics[0]) => item.clothInventoryId)
+        .map(async (item: typeof topFabrics[0]) => {
           const cloth = await prisma.clothInventory.findUnique({
             where: { id: item.clothInventoryId! },
             select: { name: true, type: true },

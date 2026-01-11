@@ -150,3 +150,177 @@ Learn More: https://nextjs.org/docs/messages/node-module-in-edge-runtime
     at async c (.next/server/chunks/[root-of-the-server]__776f3d60._.js:1:7112)
     at async u (.next/server/chunks/[root-of-the-server]__776f3d60._.js:1:8153)
     at async Module.b (.next/server/chunks/[root-of-the-server]__776f3d60._.js:1:9231)
+2026-01-11T11:47:03: Error creating cloth inventory: Error [ZodError]: [
+  {
+    "expected": "string",
+    "code": "invalid_type",
+    "path": [
+      "sku"
+    ],
+    "message": "Invalid input: expected string, received null"
+  }
+]
+    at u (.next/server/chunks/[root-of-the-server]__776f3d60._.js:1:2732)
+    at async c (.next/server/chunks/[root-of-the-server]__776f3d60._.js:1:7112)
+    at async u (.next/server/chunks/[root-of-the-server]__776f3d60._.js:1:8153)
+    at async Module.b (.next/server/chunks/[root-of-the-server]__776f3d60._.js:1:9231)
+2026-01-11T11:47:35: Auth error: Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.user.findUnique()` invocation:
+
+
+Cannot find module './query_compiler_bg.js'
+Require stack:
+- /home/gagneet/hamees/node_modules/.prisma/client/index.js
+- /home/gagneet/hamees/node_modules/.prisma/client/default.js
+- /home/gagneet/hamees/node_modules/.pnpm/@prisma+client@7.2.0_prisma@7.2.0_@types+react@19.2.8_react-dom@19.2.3_react@19.2.3__re_cc6a828049883b98ef5d9d9c4971082c/node_modules/@prisma/client/default.js
+- /home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__32af4235._.js
+- /home/gagneet/hamees/.next/server/chunks/[turbopack]_runtime.js
+- /home/gagneet/hamees/.next/server/app/api/auth/[...nextauth]/route.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/require.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/load-components.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/utils.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/swc/options.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/swc/index.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/next-config-ts/transpile-config.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/config.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/cli/next-test.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/bin/next
+    at async Object.authorize (.next/server/chunks/_27ecaa8c._.js:440:171867)
+    at async ad (.next/server/chunks/_27ecaa8c._.js:404:40796)
+    at async ax (.next/server/chunks/_27ecaa8c._.js:404:50360)
+    at async a$ (.next/server/chunks/_27ecaa8c._.js:404:54610) {
+  code: 'MODULE_NOT_FOUND',
+  meta: [Object],
+  clientVersion: '7.2.0'
+}
+2026-01-11T11:47:35: [31m[auth][error][0m CredentialsSignin: Read more at https://errors.authjs.dev#credentialssignin
+2026-01-11T11:47:35:     at ad (/home/gagneet/hamees/.next/server/chunks/_27ecaa8c._.js:404:40935)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async ax (/home/gagneet/hamees/.next/server/chunks/_27ecaa8c._.js:404:50360)
+    at async a$ (/home/gagneet/hamees/.next/server/chunks/_27ecaa8c._.js:404:54610)
+    at async rU.do (/home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:5:20169)
+    at async rU.handle (/home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:5:24949)
+    at async u (/home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__32af4235._.js:1:4873)
+    at async rU.handleResponse (/home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:1:101467)
+    at async d (/home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__32af4235._.js:1:5914)
+    at async Module.C (/home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__32af4235._.js:1:6992)
+2026-01-11T11:47:45: Auth error: Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.user.findUnique()` invocation:
+
+
+Cannot find module './query_compiler_bg.js'
+Require stack:
+- /home/gagneet/hamees/node_modules/.prisma/client/index.js
+- /home/gagneet/hamees/node_modules/.prisma/client/default.js
+- /home/gagneet/hamees/node_modules/.pnpm/@prisma+client@7.2.0_prisma@7.2.0_@types+react@19.2.8_react-dom@19.2.3_react@19.2.3__re_cc6a828049883b98ef5d9d9c4971082c/node_modules/@prisma/client/default.js
+- /home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__32af4235._.js
+- /home/gagneet/hamees/.next/server/chunks/[turbopack]_runtime.js
+- /home/gagneet/hamees/.next/server/app/api/auth/[...nextauth]/route.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/require.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/load-components.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/utils.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/swc/options.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/swc/index.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/next-config-ts/transpile-config.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/config.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/cli/next-test.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/bin/next
+    at async Object.authorize (.next/server/chunks/_27ecaa8c._.js:440:171867)
+    at async ad (.next/server/chunks/_27ecaa8c._.js:404:40796)
+    at async ax (.next/server/chunks/_27ecaa8c._.js:404:50360)
+    at async a$ (.next/server/chunks/_27ecaa8c._.js:404:54610) {
+  code: 'MODULE_NOT_FOUND',
+  meta: [Object],
+  clientVersion: '7.2.0'
+}
+2026-01-11T11:47:45: [31m[auth][error][0m CredentialsSignin: Read more at https://errors.authjs.dev#credentialssignin
+2026-01-11T11:47:45:     at ad (/home/gagneet/hamees/.next/server/chunks/_27ecaa8c._.js:404:40935)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async ax (/home/gagneet/hamees/.next/server/chunks/_27ecaa8c._.js:404:50360)
+    at async a$ (/home/gagneet/hamees/.next/server/chunks/_27ecaa8c._.js:404:54610)
+    at async rU.do (/home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:5:20169)
+    at async rU.handle (/home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:5:24949)
+    at async u (/home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__32af4235._.js:1:4873)
+    at async rU.handleResponse (/home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:1:101467)
+    at async d (/home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__32af4235._.js:1:5914)
+    at async Module.C (/home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__32af4235._.js:1:6992)
+2026-01-11T11:47:46: Auth error: Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.user.findUnique()` invocation:
+
+
+Cannot find module './query_compiler_bg.js'
+Require stack:
+- /home/gagneet/hamees/node_modules/.prisma/client/index.js
+- /home/gagneet/hamees/node_modules/.prisma/client/default.js
+- /home/gagneet/hamees/node_modules/.pnpm/@prisma+client@7.2.0_prisma@7.2.0_@types+react@19.2.8_react-dom@19.2.3_react@19.2.3__re_cc6a828049883b98ef5d9d9c4971082c/node_modules/@prisma/client/default.js
+- /home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__32af4235._.js
+- /home/gagneet/hamees/.next/server/chunks/[turbopack]_runtime.js
+- /home/gagneet/hamees/.next/server/app/api/auth/[...nextauth]/route.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/require.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/load-components.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/utils.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/swc/options.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/swc/index.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/next-config-ts/transpile-config.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/config.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/cli/next-test.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/bin/next
+    at async Object.authorize (.next/server/chunks/_27ecaa8c._.js:440:171867)
+    at async ad (.next/server/chunks/_27ecaa8c._.js:404:40796)
+    at async ax (.next/server/chunks/_27ecaa8c._.js:404:50360)
+    at async a$ (.next/server/chunks/_27ecaa8c._.js:404:54610) {
+  code: 'MODULE_NOT_FOUND',
+  meta: [Object],
+  clientVersion: '7.2.0'
+}
+2026-01-11T11:47:46: [31m[auth][error][0m CredentialsSignin: Read more at https://errors.authjs.dev#credentialssignin
+2026-01-11T11:47:46:     at ad (/home/gagneet/hamees/.next/server/chunks/_27ecaa8c._.js:404:40935)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async ax (/home/gagneet/hamees/.next/server/chunks/_27ecaa8c._.js:404:50360)
+    at async a$ (/home/gagneet/hamees/.next/server/chunks/_27ecaa8c._.js:404:54610)
+    at async rU.do (/home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:5:20169)
+    at async rU.handle (/home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:5:24949)
+    at async u (/home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__32af4235._.js:1:4873)
+    at async rU.handleResponse (/home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:1:101467)
+    at async d (/home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__32af4235._.js:1:5914)
+    at async Module.C (/home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__32af4235._.js:1:6992)
+2026-01-11T11:48:53: Auth error: Error [PrismaClientKnownRequestError]: 
+Invalid `prisma.user.findUnique()` invocation:
+
+
+Cannot find module './query_compiler_bg.js'
+Require stack:
+- /home/gagneet/hamees/node_modules/.prisma/client/index.js
+- /home/gagneet/hamees/node_modules/.prisma/client/default.js
+- /home/gagneet/hamees/node_modules/.pnpm/@prisma+client@7.2.0_prisma@7.2.0_@types+react@19.2.8_react-dom@19.2.3_react@19.2.3__re_cc6a828049883b98ef5d9d9c4971082c/node_modules/@prisma/client/default.js
+- /home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__32af4235._.js
+- /home/gagneet/hamees/.next/server/chunks/[turbopack]_runtime.js
+- /home/gagneet/hamees/.next/server/app/api/auth/[...nextauth]/route.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/require.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/load-components.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/utils.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/swc/options.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/swc/index.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/build/next-config-ts/transpile-config.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/config.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/cli/next-test.js
+- /home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/bin/next
+    at async Object.authorize (.next/server/chunks/_27ecaa8c._.js:440:171867)
+    at async ad (.next/server/chunks/_27ecaa8c._.js:404:40796)
+    at async ax (.next/server/chunks/_27ecaa8c._.js:404:50360)
+    at async a$ (.next/server/chunks/_27ecaa8c._.js:404:54610) {
+  code: 'MODULE_NOT_FOUND',
+  meta: [Object],
+  clientVersion: '7.2.0'
+}
+2026-01-11T11:48:53: [31m[auth][error][0m CredentialsSignin: Read more at https://errors.authjs.dev#credentialssignin
+2026-01-11T11:48:53:     at ad (/home/gagneet/hamees/.next/server/chunks/_27ecaa8c._.js:404:40935)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async ax (/home/gagneet/hamees/.next/server/chunks/_27ecaa8c._.js:404:50360)
+    at async a$ (/home/gagneet/hamees/.next/server/chunks/_27ecaa8c._.js:404:54610)
+    at async rU.do (/home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:5:20169)
+    at async rU.handle (/home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:5:24949)
+    at async u (/home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__32af4235._.js:1:4873)
+    at async rU.handleResponse (/home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:1:101467)
+    at async d (/home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__32af4235._.js:1:5914)
+    at async Module.C (/home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__32af4235._.js:1:6992)

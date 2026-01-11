@@ -49,21 +49,21 @@ async function main() {
 
   const owner = await prisma.user.create({
     data: {
-      email: 'owner@tailorshop.com',
+      email: 'owner@hameesattire.com',
       password: hashedPassword,
       name: 'Shop Owner',
       role: UserRole.OWNER,
-      phone: '+91-98765-43210',
+      phone: '+91-8400008096',
     },
   })
 
   const inventoryManager = await prisma.user.create({
     data: {
-      email: 'inventory@tailorshop.com',
+      email: 'inventory@hameesattire.com',
       password: hashedPassword,
       name: 'Inventory Manager',
       role: UserRole.INVENTORY_MANAGER,
-      phone: '+91-98765-43211',
+      phone: '+91-8400008097',
     },
   })
 
@@ -561,7 +561,7 @@ async function main() {
   console.log(`  Orders: ${totalOrders}`)
   console.log(`  Settings: 7`)
   console.log('\n🔑 Login Credentials:')
-  console.log(`  Email: owner@tailorshop.com`)
+  console.log(`  Email: owner@hameesattire.com`)
   console.log(`  Password: admin123`)
   console.log(`\n🌐 Dashboard URL: https://hamees.gagneet.com/dashboard`)
 }

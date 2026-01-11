@@ -4,18 +4,18 @@
   --background: #ffffff;
   --foreground: #171717;
 
-  /* Design System Colors */
-  --primary: #1E3A8A; /* Indigo */
-  --primary-light: #3B82F6;
-  --primary-dark: #1E40AF;
+  /* Hamees Attire Brand Colors */
+  --primary: #7C2D12; /* Rich Burgundy - Wedding & Luxury */
+  --primary-light: #991B1B;
+  --primary-dark: #5C1F0A;
 
-  --secondary: #991B1B; /* Burgundy */
-  --secondary-light: #DC2626;
-  --secondary-dark: #7F1D1D;
+  --secondary: #C49A6C; /* Royal Gold - Elegance */
+  --secondary-light: #D4AF76;
+  --secondary-dark: #9B7B54;
 
-  --accent: #F59E0B; /* Gold */
-  --accent-light: #FBBF24;
-  --accent-dark: #D97706;
+  --accent: #1E3A8A; /* Deep Royal Blue - Tradition */
+  --accent-light: #3B82F6;
+  --accent-dark: #1E40AF;
 
   --success: #10B981;
   --success-light: #34D399;
