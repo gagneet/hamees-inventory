@@ -1,0 +1,1579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tailor Inventory System - Complete Interactive Demo with Measurements</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1F2937 0%, #111827 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .demo-header {
+            text-align: center;
+            color: white;
+            margin-bottom: 20px;
+            max-width: 428px;
+            width: 100%;
+        }
+
+        .demo-header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #3B82F6 0%, #8B5CF6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .demo-header p {
+            font-size: 13px;
+            color: #9CA3AF;
+            margin-bottom: 8px;
+        }
+
+        .demo-controls {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 8px;
+            backdrop-filter: blur(10px);
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .demo-controls button {
+            background: rgba(59, 130, 246, 0.9);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .demo-controls button:hover {
+            background: #3B82F6;
+            transform: translateY(-2px);
+        }
+
+        .demo-controls button.danger {
+            background: rgba(239, 68, 68, 0.9);
+        }
+
+        .demo-controls button.danger:hover {
+            background: #EF4444;
+        }
+
+        .phone-frame {
+            width: 100%;
+            max-width: 428px;
+            background: #000;
+            border-radius: 40px;
+            padding: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            position: relative;
+        }
+
+        .phone-notch {
+            position: absolute;
+            top: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 150px;
+            height: 30px;
+            background: #000;
+            border-radius: 0 0 20px 20px;
+            z-index: 1000;
+        }
+
+        .phone-screen {
+            background: #F9FAFB;
+            border-radius: 32px;
+            overflow: hidden;
+            height: 844px;
+            position: relative;
+        }
+
+        .screen-content {
+            height: 100%;
+            overflow-y: auto;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        .screen-content::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .screen-content::-webkit-scrollbar-thumb {
+            background: #D1D5DB;
+            border-radius: 2px;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #1E3A8A 0%, #312E81 100%);
+            color: white;
+            padding: 16px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 4px 20px rgba(30, 58, 138, 0.15);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .back-button, .action-button {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            font-size: 20px;
+            border-radius: 8px;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .back-button:active, .action-button:active {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .header-title {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: white;
+            border-radius: 12px;
+            padding: 16px 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            max-width: 380px;
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+        .toast.success { border-left: 4px solid #10B981; }
+        .toast.warning { border-left: 4px solid #F59E0B; }
+        .toast.error { border-left: 4px solid #EF4444; }
+        .toast.info { border-left: 4px solid #3B82F6; }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 8px;
+        }
+
+        .form-input, .form-select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #E5E7EB;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: #1E3A8A;
+            box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.1);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background: #1E3A8A;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #1E40AF;
+        }
+
+        .btn-primary:disabled {
+            background: #9CA3AF;
+            cursor: not-allowed;
+        }
+
+        .btn-outline {
+            background: white;
+            color: #1E3A8A;
+            border: 2px solid #1E3A8A;
+        }
+
+        .btn-success {
+            background: #10B981;
+            color: white;
+        }
+
+        /* Card */
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 12px;
+        }
+
+        /* Progress Bar */
+        .progress-bar-container {
+            width: 100%;
+            height: 8px;
+            background: #E5E7EB;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 12px 0;
+        }
+
+        .progress-bar {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.5s ease-out;
+        }
+
+        /* Measurement Form Styles */
+        .measurement-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .measurement-field {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .measurement-field label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #6B7280;
+            margin-bottom: 6px;
+        }
+
+        .measurement-field input {
+            padding: 10px 12px;
+            border: 2px solid #E5E7EB;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: 600;
+        }
+
+        .measurement-field input:focus {
+            border-color: #1E3A8A;
+            outline: none;
+        }
+
+        .measurement-illustration {
+            background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .measurement-illustration img {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .measurement-note {
+            background: #FEF3C7;
+            border-left: 4px solid #F59E0B;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #92400E;
+            margin-bottom: 20px;
+        }
+
+        /* Inventory Summary */
+        .inventory-summary {
+            background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .inventory-item-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .inventory-item-row:last-child {
+            border-bottom: none;
+        }
+
+        .inventory-change {
+            font-weight: 700;
+            color: #EF4444;
+        }
+
+        /* Material Calculator */
+        .material-calculator {
+            background: white;
+            border: 2px solid #1E3A8A;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .calculator-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            font-size: 14px;
+        }
+
+        .calculator-row.total {
+            border-top: 2px solid #1E3A8A;
+            margin-top: 8px;
+            padding-top: 12px;
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .calculator-value {
+            font-weight: 600;
+            color: #1E3A8A;
+        }
+
+        /* Bottom Nav */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            max-width: 428px;
+            width: 100%;
+            background: white;
+            border-top: 1px solid #E5E7EB;
+            padding: 8px 0;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+            z-index: 1000;
+        }
+
+        .nav-item {
+            background: none;
+            border: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: 8px;
+            color: #6B7280;
+            transition: all 0.2s;
+        }
+
+        .nav-item.active {
+            color: #1E3A8A;
+        }
+
+        .nav-icon {
+            font-size: 22px;
+        }
+
+        .nav-label {
+            font-size: 11px;
+            font-weight: 500;
+        }
+
+        .nav-item.active .nav-label {
+            font-weight: 600;
+        }
+
+        .nav-indicator {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 32px;
+            height: 3px;
+            background: #1E3A8A;
+            border-radius: 0 0 4px 4px;
+        }
+
+        /* Animations */
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .slide-up {
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 428px) {
+            .phone-frame {
+                border-radius: 0;
+                padding: 0;
+            }
+            .phone-notch {
+                display: none;
+            }
+            .phone-screen {
+                border-radius: 0;
+            }
+            body {
+                padding: 0;
+                background: #F9FAFB;
+            }
+            .demo-header {
+                display: none;
+            }
+        }
+
+        /* Step Indicator */
+        .step-indicator {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding: 0 20px;
+        }
+
+        .step {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        .step-number {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #E5E7EB;
+            color: #6B7280;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 16px;
+            margin-bottom: 8px;
+            z-index: 1;
+            transition: all 0.3s;
+        }
+
+        .step.active .step-number {
+            background: #1E3A8A;
+            color: white;
+        }
+
+        .step.completed .step-number {
+            background: #10B981;
+            color: white;
+        }
+
+        .step-label {
+            font-size: 11px;
+            color: #6B7280;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .step.active .step-label {
+            color: #1E3A8A;
+            font-weight: 600;
+        }
+
+        .step-line {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            width: 100%;
+            height: 2px;
+            background: #E5E7EB;
+            z-index: 0;
+        }
+
+        .step:last-child .step-line {
+            display: none;
+        }
+
+        .step.completed .step-line {
+            background: #10B981;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-header">
+        <h1>🧵 Tailor Inventory System</h1>
+        <p>Complete Interactive Demo with Measurements</p>
+        <div class="demo-controls">
+            <button onclick="resetDemo()">🔄 Reset Demo</button>
+            <button onclick="navigateTo('dashboard')">🏠 Dashboard</button>
+            <button onclick="navigateTo('inventory')">📦 Inventory</button>
+            <button onclick="startFullDemo()" class="danger">⚡ Full Demo</button>
+        </div>
+    </div>
+
+    <div class="phone-frame">
+        <div class="phone-notch"></div>
+        <div class="phone-screen">
+            <!-- Dashboard Screen -->
+            <div id="dashboard-screen" class="screen-content"></div>
+
+            <!-- Inventory Screen -->
+            <div id="inventory-screen" class="screen-content" style="display: none;"></div>
+
+            <!-- Create Order Screen -->
+            <div id="create-order-screen" class="screen-content" style="display: none;"></div>
+
+            <!-- Measurements Screen -->
+            <div id="measurements-screen" class="screen-content" style="display: none;"></div>
+
+            <!-- Order Review Screen -->
+            <div id="review-screen" class="screen-content" style="display: none;"></div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <script>
+        // Application State
+        let appState = {
+            currentScreen: 'dashboard',
+            currentStep: 1,
+            inventory: [
+                {
+                    id: 1,
+                    name: 'Premium Wool Grey',
+                    sku: 'CLT-SUIT-001',
+                    currentStock: 85,
+                    totalStock: 120,
+                    reserved: 15,
+                    minimum: 20,
+                    costPerMeter: 450,
+                    colorPreview: '#808080',
+                    type: 'cloth',
+                    category: 'Wool'
+                },
+                {
+                    id: 2,
+                    name: 'Italian Wool Navy',
+                    sku: 'CLT-SUIT-002',
+                    currentStock: 65,
+                    totalStock: 120,
+                    reserved: 10,
+                    minimum: 20,
+                    costPerMeter: 550,
+                    colorPreview: '#000080',
+                    type: 'cloth',
+                    category: 'Wool'
+                },
+                {
+                    id: 3,
+                    name: 'Cotton Blue Premium',
+                    sku: 'CLT-001',
+                    currentStock: 45,
+                    totalStock: 120,
+                    reserved: 8,
+                    minimum: 15,
+                    costPerMeter: 150,
+                    colorPreview: '#3B82F6',
+                    type: 'cloth',
+                    category: 'Cotton'
+                },
+                {
+                    id: 4,
+                    name: 'Linen Beige Summer',
+                    sku: 'CLT-SUIT-004',
+                    currentStock: 55,
+                    totalStock: 120,
+                    reserved: 5,
+                    minimum: 15,
+                    costPerMeter: 380,
+                    colorPreview: '#D4A574',
+                    type: 'cloth',
+                    category: 'Linen'
+                }
+            ],
+            currentOrder: {
+                customer: {
+                    name: '',
+                    phone: '',
+                    email: ''
+                },
+                garmentType: 'suit',
+                clothId: null,
+                quantity: 1,
+                bodyType: 'regular',
+                measurements: {
+                    // Jacket measurements
+                    chest: '',
+                    waist: '',
+                    hip: '',
+                    shoulder: '',
+                    sleeveLength: '',
+                    jacketLength: '',
+                    
+                    // Trouser measurements
+                    trouserWaist: '',
+                    trouserHip: '',
+                    inseam: '',
+                    outseam: '',
+                    thigh: '',
+                    
+                    // Additional
+                    notes: ''
+                },
+                deliveryDate: '',
+                advancePayment: 0
+            },
+            garmentTypes: {
+                suit: {
+                    name: "Men's Suit",
+                    materialPerUnit: 3.5,
+                    description: 'Complete 2-piece suit (Jacket + Trouser)',
+                    icon: '🤵'
+                }
+            }
+        };
+
+        // Initialize
+        function initApp() {
+            updateInventory();
+            renderDashboard();
+            renderInventory();
+        }
+
+        // Navigation
+        function navigateTo(screen) {
+            document.querySelectorAll('.screen-content').forEach(s => s.style.display = 'none');
+            document.getElementById(screen + '-screen').style.display = 'block';
+            appState.currentScreen = screen;
+            
+            if (screen === 'dashboard') renderDashboard();
+            if (screen === 'inventory') renderInventory();
+        }
+
+        // Toast Notifications
+        function showToast(message, type = 'success', duration = 3000) {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            const icons = {
+                success: '✅',
+                warning: '⚠️',
+                error: '🚨',
+                info: 'ℹ️'
+            };
+            
+            toast.innerHTML = `
+                <div style="font-size: 24px;">${icons[type]}</div>
+                <div>
+                    <div style="font-weight: 600; margin-bottom: 2px;">${message}</div>
+                </div>
+            `;
+            
+            document.getElementById('toast-container').appendChild(toast);
+            
+            setTimeout(() => toast.classList.add('show'), 100);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+
+        // Update Inventory
+        function updateInventory() {
+            appState.inventory.forEach(item => {
+                item.available = item.currentStock - item.reserved;
+            });
+        }
+
+        // Get Stock Status
+        function getStockStatus(item) {
+            const available = item.available;
+            const minimum = item.minimum;
+            
+            if (available < minimum * 0.5) {
+                return { type: 'critical', color: '#EF4444', label: '🚨 Critical' };
+            } else if (available < minimum) {
+                return { type: 'low', color: '#F59E0B', label: '⚠️ Low Stock' };
+            }
+            return { type: 'healthy', color: '#10B981', label: '✅ Healthy' };
+        }
+
+        // Render Dashboard
+        function renderDashboard() {
+            const low = appState.inventory.filter(i => i.available < i.minimum).length;
+            const critical = appState.inventory.filter(i => i.available < i.minimum * 0.5).length;
+
+            const content = `
+                <div class="header">
+                    <div class="header-content">
+                        <div class="header-left">
+                            <div style="font-size: 18px; font-weight: 600;">Tailor Pro</div>
+                        </div>
+                        <div style="display: flex; gap: 12px;">
+                            <button class="action-button">🔔</button>
+                            <button class="action-button">👤</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="padding: 20px; background: linear-gradient(135deg, #1E3A8A 0%, #312E81 100%); color: white;">
+                    <div style="font-size: 24px; font-weight: 600; margin-bottom: 4px;">👋 Welcome Back</div>
+                    <div style="font-size: 14px; opacity: 0.9;">📅 ${new Date().toLocaleDateString()}</div>
+                </div>
+
+                <div style="padding: 20px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+                        <div class="card" style="text-align: center; cursor: pointer;" onclick="navigateTo('inventory')">
+                            <div style="font-size: 32px; font-weight: 700; color: ${low > 0 ? '#F59E0B' : '#10B981'}; margin-bottom: 4px;">${low}</div>
+                            <div style="font-size: 13px; color: #6B7280;">Low Stock Items</div>
+                        </div>
+                        <div class="card" style="text-align: center;">
+                            <div style="font-size: 32px; font-weight: 700; color: ${critical > 0 ? '#EF4444' : '#10B981'}; margin-bottom: 4px;">${critical}</div>
+                            <div style="font-size: 13px; color: #6B7280;">Critical Items</div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-title">Quick Actions</div>
+                        <button class="btn btn-primary" onclick="startOrderFlow()" style="margin-bottom: 12px;">
+                            <span style="font-size: 20px; margin-right: 8px;">🤵</span>
+                            Create Suit Order
+                        </button>
+                        <button class="btn btn-outline" onclick="navigateTo('inventory')">
+                            <span style="font-size: 20px; margin-right: 8px;">📦</span>
+                            View Inventory
+                        </button>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-title">Suit Fabrics Available</div>
+                        ${appState.inventory.filter(i => i.category === 'Wool' || i.category === 'Linen').map(item => {
+                            const status = getStockStatus(item);
+                            return `
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #F3F4F6;">
+                                    <div style="display: flex; align-items: center; gap: 12px;">
+                                        <div style="width: 32px; height: 32px; background: ${item.colorPreview}; border-radius: 6px; border: 2px solid #E5E7EB;"></div>
+                                        <div>
+                                            <div style="font-weight: 600; font-size: 14px;">${item.name}</div>
+                                            <div style="font-size: 12px; color: #6B7280;">${item.available}m available</div>
+                                        </div>
+                                    </div>
+                                    <div style="font-size: 20px;">${status.label.split(' ')[0]}</div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+
+                <div style="height: 80px;"></div>
+            `;
+
+            document.getElementById('dashboard-screen').innerHTML = content + getBottomNav('home');
+        }
+
+        // Render Inventory
+        function renderInventory() {
+            let content = `
+                <div class="header">
+                    <div class="header-content">
+                        <div class="header-left">
+                            <button class="back-button" onclick="navigateTo('dashboard')">←</button>
+                            <div class="header-title">Inventory</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="padding: 20px;">
+            `;
+
+            appState.inventory.forEach(item => {
+                const status = getStockStatus(item);
+                const percentage = (item.currentStock / item.totalStock) * 100;
+                
+                content += `
+                    <div class="card fade-in">
+                        <div style="display: flex; align-items: start; gap: 12px; margin-bottom: 12px;">
+                            <div style="width: 48px; height: 48px; background: ${item.colorPreview}; border-radius: 8px; border: 2px solid #E5E7EB;"></div>
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; margin-bottom: 4px;">${item.name}</div>
+                                <div style="font-size: 13px; color: #6B7280;">SKU: ${item.sku}</div>
+                            </div>
+                            <div style="width: 12px; height: 12px; background: ${status.color}; border-radius: 50%; box-shadow: 0 0 8px ${status.color};"></div>
+                        </div>
+
+                        <div style="background: #F9FAFB; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+                            <div style="font-size: 13px; color: #6B7280; margin-bottom: 8px;">
+                                Stock: ${item.currentStock}m / ${item.totalStock}m
+                            </div>
+                            <div class="progress-bar-container">
+                                <div class="progress-bar" style="width: ${percentage}%; background: ${status.color};"></div>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; margin-top: 8px;">
+                                <div>
+                                    <span style="color: #9CA3AF;">Reserved:</span>
+                                    <span style="font-weight: 600;">${item.reserved}m</span>
+                                </div>
+                                <div>
+                                    <span style="color: #9CA3AF;">Available:</span>
+                                    <span style="font-weight: 600;">${item.available}m</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="background: ${status.type === 'critical' ? '#FEE2E2' : status.type === 'low' ? '#FEF3C7' : '#D1FAE5'}; color: ${status.type === 'critical' ? '#991B1B' : status.type === 'low' ? '#92400E' : '#065F46'}; padding: 8px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; text-align: center;">
+                            ${status.label}
+                        </div>
+                    </div>
+                `;
+            });
+
+            content += `</div><div style="height: 80px;"></div>`;
+            
+            document.getElementById('inventory-screen').innerHTML = content + getBottomNav('inventory');
+        }
+
+        // Start Order Flow
+        function startOrderFlow() {
+            appState.currentStep = 1;
+            renderOrderStep1();
+            navigateTo('create-order');
+        }
+
+        // Step 1: Customer & Basic Details
+        function renderOrderStep1() {
+            const content = `
+                <div class="header">
+                    <div class="header-content">
+                        <div class="header-left">
+                            <button class="back-button" onclick="navigateTo('dashboard')">←</button>
+                            <div class="header-title">New Suit Order</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="padding: 20px;">
+                    <div class="step-indicator">
+                        <div class="step active">
+                            <div class="step-number">1</div>
+                            <div class="step-label">Customer</div>
+                            <div class="step-line"></div>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">2</div>
+                            <div class="step-label">Fabric</div>
+                            <div class="step-line"></div>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">3</div>
+                            <div class="step-label">Measure</div>
+                            <div class="step-line"></div>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">4</div>
+                            <div class="step-label">Review</div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-title">Customer Information</div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Customer Name *</label>
+                            <input type="text" class="form-input" id="customer-name" placeholder="Enter customer name" value="${appState.currentOrder.customer.name}">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Phone Number *</label>
+                            <input type="tel" class="form-input" id="customer-phone" placeholder="+91 98765 43210" value="${appState.currentOrder.customer.phone}">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Email (Optional)</label>
+                            <input type="email" class="form-input" id="customer-email" placeholder="customer@email.com" value="${appState.currentOrder.customer.email}">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Expected Delivery Date *</label>
+                            <input type="date" class="form-input" id="delivery-date" value="${appState.currentOrder.deliveryDate}" min="${new Date().toISOString().split('T')[0]}">
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label">Advance Payment (₹)</label>
+                            <input type="number" class="form-input" id="advance-payment" placeholder="5000" value="${appState.currentOrder.advancePayment || ''}">
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="saveStep1()">
+                        Next: Select Fabric →
+                    </button>
+                </div>
+
+                <div style="height: 80px;"></div>
+            `;
+
+            document.getElementById('create-order-screen').innerHTML = content + getBottomNav('order');
+        }
+
+        // Save Step 1
+        function saveStep1() {
+            const name = document.getElementById('customer-name').value.trim();
+            const phone = document.getElementById('customer-phone').value.trim();
+            const email = document.getElementById('customer-email').value.trim();
+            const deliveryDate = document.getElementById('delivery-date').value;
+            const advancePayment = parseFloat(document.getElementById('advance-payment').value) || 0;
+
+            if (!name || !phone || !deliveryDate) {
+                showToast('Please fill all required fields', 'error');
+                return;
+            }
+
+            appState.currentOrder.customer = { name, phone, email };
+            appState.currentOrder.deliveryDate = deliveryDate;
+            appState.currentOrder.advancePayment = advancePayment;
+            appState.currentStep = 2;
+
+            renderOrderStep2();
+        }
+
+        // Step 2: Fabric Selection
+        function renderOrderStep2() {
+            const suitFabrics = appState.inventory.filter(i => i.category === 'Wool' || i.category === 'Linen');
+
+            const content = `
+                <div class="header">
+                    <div class="header-content">
+                        <div class="header-left">
+                            <button class="back-button" onclick="renderOrderStep1()">←</button>
+                            <div class="header-title">Select Fabric</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="padding: 20px;">
+                    <div class="step-indicator">
+                        <div class="step completed">
+                            <div class="step-number">✓</div>
+                            <div class="step-label">Customer</div>
+                            <div class="step-line"></div>
+                        </div>
+                        <div class="step active">
+                            <div class="step-number">2</div>
+                            <div class="step-label">Fabric</div>
+                            <div class="step-line"></div>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">3</div>
+                            <div class="step-label">Measure</div>
+                            <div class="step-line"></div>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">4</div>
+                            <div class="step-label">Review</div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-title">Choose Suit Fabric</div>
+                        <p style="font-size: 13px; color: #6B7280; margin-bottom: 16px;">
+                            Required: 3.5 meters per suit (Jacket + Trouser)
+                        </p>
+
+                        ${suitFabrics.map(fabric => {
+                            const status = getStockStatus(fabric);
+                            const canUse = fabric.available >= 3.5;
+                            const isSelected = appState.currentOrder.clothId === fabric.id;
+
+                            return `
+                                <div class="card" style="border: 2px solid ${isSelected ? '#1E3A8A' : canUse ? '#E5E7EB' : '#FEE2E2'}; cursor: ${canUse ? 'pointer' : 'not-allowed'}; ${!canUse ? 'opacity: 0.6;' : ''}" onclick="${canUse ? `selectFabric(${fabric.id})` : ''}">
+                                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                                        <div style="width: 48px; height: 48px; background: ${fabric.colorPreview}; border-radius: 8px; border: 2px solid #E5E7EB;"></div>
+                                        <div style="flex: 1;">
+                                            <div style="font-weight: 600; margin-bottom: 4px;">${fabric.name}</div>
+                                            <div style="font-size: 13px; color: #6B7280;">₹${fabric.costPerMeter}/meter</div>
+                                        </div>
+                                        ${isSelected ? '<div style="font-size: 24px;">✓</div>' : ''}
+                                    </div>
+
+                                    <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 8px;">
+                                        <span style="color: #6B7280;">Available:</span>
+                                        <span style="font-weight: 600; color: ${canUse ? '#10B981' : '#EF4444'};">${fabric.available}m ${canUse ? '✅' : '⚠️ Insufficient'}</span>
+                                    </div>
+
+                                    <div style="display: flex; justify-content: space-between; font-size: 13px;">
+                                        <span style="color: #6B7280;">Estimated Cost:</span>
+                                        <span style="font-weight: 600;">₹${(fabric.costPerMeter * 3.5).toFixed(0)}</span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+
+                    ${appState.currentOrder.clothId ? `
+                        <div class="material-calculator slide-up">
+                            <div style="font-weight: 600; margin-bottom: 12px; color: #1E3A8A;">Material Calculation</div>
+                            <div class="calculator-row">
+                                <span>Suit requirement:</span>
+                                <span class="calculator-value">3.5m</span>
+                            </div>
+                            <div class="calculator-row">
+                                <span>Quantity:</span>
+                                <span class="calculator-value">1</span>
+                            </div>
+                            <div class="calculator-row total">
+                                <span>Total Required:</span>
+                                <span class="calculator-value">3.5m</span>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-primary" onclick="saveStep2()">
+                            Next: Take Measurements →
+                        </button>
+                    ` : ''}
+                </div>
+
+                <div style="height: 80px;"></div>
+            `;
+
+            document.getElementById('create-order-screen').innerHTML = content + getBottomNav('order');
+        }
+
+        // Select Fabric
+        function selectFabric(fabricId) {
+            appState.currentOrder.clothId = fabricId;
+            renderOrderStep2();
+        }
+
+        // Save Step 2
+        function saveStep2() {
+            if (!appState.currentOrder.clothId) {
+                showToast('Please select a fabric', 'error');
+                return;
+            }
+
+            appState.currentStep = 3;
+            renderMeasurementsScreen();
+            navigateTo('measurements');
+        }
+
+        // Render Measurements Screen
+        function renderMeasurementsScreen() {
+            const content = `
+                <div class="header">
+                    <div class="header-content">
+                        <div class="header-left">
+                            <button class="back-button" onclick="renderOrderStep2(); navigateTo('create-order');">←</button>
+                            <div class="header-title">Measurements</div>
+                        </div>
+                        <button class="action-button" onclick="saveMeasurements()">✓</button>
+                    </div>
+                </div>
+
+                <div style="padding: 20px;">
+                    <div class="step-indicator">
+                        <div class="step completed">
+                            <div class="step-number">✓</div>
+                            <div class="step-label">Customer</div>
+                            <div class="step-line"></div>
+                        </div>
+                        <div class="step completed">
+                            <div class="step-number">✓</div>
+                            <div class="step-label">Fabric</div>
+                            <div class="step-line"></div>
+                        </div>
+                        <div class="step active">
+                            <div class="step-number">3</div>
+                            <div class="step-label">Measure</div>
+                            <div class="step-line"></div>
+                        </div>
+                        <div class="step">
+                            <div class="step-number">4</div>
+                            <div class="step-label">Review</div>
+                        </div>
+                    </div>
+
+                    <div class="measurement-note">
+                        💡 <strong>Tip:</strong> All measurements should be taken in inches. Stand straight and relax shoulders while measuring.
+                    </div>
+
+                    <div class="card">
+                        <div class="card-title">🧥 Jacket Measurements</div>
+                        
+                        <div class="measurement-grid">
+                            <div class="measurement-field">
+                                <label>Chest *</label>
+                                <input type="number" step="0.5" placeholder="40" id="chest" value="${appState.currentOrder.measurements.chest}">
+                            </div>
+                            <div class="measurement-field">
+                                <label>Waist *</label>
+                                <input type="number" step="0.5" placeholder="34" id="waist" value="${appState.currentOrder.measurements.waist}">
+                            </div>
+                            <div class="measurement-field">
+                                <label>Hip *</label>
+                                <input type="number" step="0.5" placeholder="38" id="hip" value="${appState.currentOrder.measurements.hip}">
+                            </div>
+                            <div class="measurement-field">
+                                <label>Shoulder *</label>
+                                <input type="number" step="0.5" placeholder="18" id="shoulder" value="${appState.currentOrder.measurements.shoulder}">
+                            </div>
+                            <div class="measurement-field">
+                                <label>Sleeve Length *</label>
+                                <input type="number" step="0.5" placeholder="25" id="sleeveLength" value="${appState.currentOrder.measurements.sleeveLength}">
+                            </div>
+                            <div class="measurement-field">
+                                <label>Jacket Length *</label>
+                                <input type="number" step="0.5" placeholder="28" id="jacketLength" value="${appState.currentOrder.measurements.jacketLength}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-title">👖 Trouser Measurements</div>
+                        
+                        <div class="measurement-grid">
+                            <div class="measurement-field">
+                                <label>Waist *</label>
+                                <input type="number" step="0.5" placeholder="34" id="trouserWaist" value="${appState.currentOrder.measurements.trouserWaist}">
+                            </div>
+                            <div class="measurement-field">
+                                <label>Hip *</label>
+                                <input type="number" step="0.5" placeholder="38" id="trouserHip" value="${appState.currentOrder.measurements.trouserHip}">
+                            </div>
+                            <div class="measurement-field">
+                                <label>Inseam *</label>
+                                <input type="number" step="0.5" placeholder="32" id="inseam" value="${appState.currentOrder.measurements.inseam}">
+                            </div>
+                            <div class="measurement-field">
+                                <label>Outseam *</label>
+                                <input type="number" step="0.5" placeholder="42" id="outseam" value="${appState.currentOrder.measurements.outseam}">
+                            </div>
+                            <div class="measurement-field">
+                                <label>Thigh</label>
+                                <input type="number" step="0.5" placeholder="24" id="thigh" value="${appState.currentOrder.measurements.thigh}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-title">📝 Additional Notes</div>
+                        <textarea class="form-input" id="notes" rows="3" placeholder="Any special instructions or preferences..." style="resize: vertical;">${appState.currentOrder.measurements.notes}</textarea>
+                    </div>
+
+                    <button class="btn btn-success" onclick="saveMeasurements()">
+                        Save & Continue to Review →
+                    </button>
+                </div>
+
+                <div style="height: 80px;"></div>
+            `;
+
+            document.getElementById('measurements-screen').innerHTML = content + getBottomNav('order');
+        }
+
+        // Save Measurements
+        function saveMeasurements() {
+            const measurements = {
+                chest: document.getElementById('chest').value,
+                waist: document.getElementById('waist').value,
+                hip: document.getElementById('hip').value,
+                shoulder: document.getElementById('shoulder').value,
+                sleeveLength: document.getElementById('sleeveLength').value,
+                jacketLength: document.getElementById('jacketLength').value,
+                trouserWaist: document.getElementById('trouserWaist').value,
+                trouserHip: document.getElementById('trouserHip').value,
+                inseam: document.getElementById('inseam').value,
+                outseam: document.getElementById('outseam').value,
+                thigh: document.getElementById('thigh').value,
+                notes: document.getElementById('notes').value
+            };
+
+            // Validate required fields
+            const requiredFields = ['chest', 'waist', 'hip', 'shoulder', 'sleeveLength', 'jacketLength', 'trouserWaist', 'trouserHip', 'inseam', 'outseam'];
+            const missing = requiredFields.filter(field => !measurements[field]);
+
+            if (missing.length > 0) {
+                showToast('Please fill all required measurements', 'error');
+                return;
+            }
+
+            appState.currentOrder.measurements = measurements;
+            appState.currentStep = 4;
+
+            renderReviewScreen();
+            navigateTo('review');
+        }
+
+        // Render Review Screen
+        function renderReviewScreen() {
+            const selectedFabric = appState.inventory.find(i => i.id === appState.currentOrder.clothId);
+            const totalCost = selectedFabric.costPerMeter * 3.5;
+
+            const content = `
+                <div class="header">
+                    <div class="header-content">
+                        <div class="header-left">
+                            <button class="back-button" onclick="renderMeasurementsScreen(); navigateTo('measurements');">←</button>
+                            <div class="header-title">Review Order</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="padding: 20px;">
+                    <div class="step-indicator">
+                        <div class="step completed">
+                            <div class="step-number">✓</div>
+                            <div class="step-label">Customer</div>
+                            <div class="step-line"></div>
+                        </div>
+                        <div class="step completed">
+                            <div class="step-number">✓</div>
+                            <div class="step-label">Fabric</div>
+                            <div class="step-line"></div>
+                        </div>
+                        <div class="step completed">
+                            <div class="step-number">✓</div>
+                            <div class="step-label">Measure</div>
+                            <div class="step-line"></div>
+                        </div>
+                        <div class="step active">
+                            <div class="step-number">4</div>
+                            <div class="step-label">Review</div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-title">Customer Details</div>
+                        <div style="font-size: 14px; line-height: 1.8;">
+                            <div><strong>Name:</strong> ${appState.currentOrder.customer.name}</div>
+                            <div><strong>Phone:</strong> ${appState.currentOrder.customer.phone}</div>
+                            ${appState.currentOrder.customer.email ? `<div><strong>Email:</strong> ${appState.currentOrder.customer.email}</div>` : ''}
+                            <div><strong>Delivery:</strong> ${new Date(appState.currentOrder.deliveryDate).toLocaleDateString()}</div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-title">Fabric & Cost</div>
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                            <div style="width: 48px; height: 48px; background: ${selectedFabric.colorPreview}; border-radius: 8px; border: 2px solid #E5E7EB;"></div>
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600;">${selectedFabric.name}</div>
+                                <div style="font-size: 13px; color: #6B7280;">₹${selectedFabric.costPerMeter}/m × 3.5m</div>
+                            </div>
+                        </div>
+                        <div style="background: #F9FAFB; border-radius: 8px; padding: 12px;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span>Material Cost:</span>
+                                <span style="font-weight: 600;">₹${totalCost.toFixed(0)}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span>Stitching Charges:</span>
+                                <span style="font-weight: 600;">₹2,500</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; padding-top: 8px; border-top: 2px solid #E5E7EB; font-weight: 700; color: #1E3A8A;">
+                                <span>Total:</span>
+                                <span>₹${(totalCost + 2500).toFixed(0)}</span>
+                            </div>
+                            ${appState.currentOrder.advancePayment > 0 ? `
+                                <div style="display: flex; justify-content: space-between; margin-top: 8px; color: #10B981;">
+                                    <span>Advance Paid:</span>
+                                    <span style="font-weight: 600;">₹${appState.currentOrder.advancePayment}</span>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; margin-top: 4px; color: #EF4444;">
+                                    <span>Balance:</span>
+                                    <span style="font-weight: 600;">₹${(totalCost + 2500 - appState.currentOrder.advancePayment).toFixed(0)}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-title">Measurements Summary</div>
+                        <div style="font-size: 13px;">
+                            <strong>Jacket:</strong> Chest ${appState.currentOrder.measurements.chest}", Waist ${appState.currentOrder.measurements.waist}", Shoulder ${appState.currentOrder.measurements.shoulder}", Sleeve ${appState.currentOrder.measurements.sleeveLength}", Length ${appState.currentOrder.measurements.jacketLength}"
+                            <br><br>
+                            <strong>Trouser:</strong> Waist ${appState.currentOrder.measurements.trouserWaist}", Hip ${appState.currentOrder.measurements.trouserHip}", Inseam ${appState.currentOrder.measurements.inseam}", Outseam ${appState.currentOrder.measurements.outseam}"
+                            ${appState.currentOrder.measurements.notes ? `<br><br><strong>Notes:</strong> ${appState.currentOrder.measurements.notes}` : ''}
+                        </div>
+                    </div>
+
+                    <div class="inventory-summary">
+                        <div style="font-weight: 600; margin-bottom: 12px; color: #1E3A8A;">📦 Inventory Impact</div>
+                        <div class="inventory-item-row">
+                            <span>Current Stock:</span>
+                            <span style="font-weight: 600;">${selectedFabric.currentStock}m</span>
+                        </div>
+                        <div class="inventory-item-row">
+                            <span>Will be Reserved:</span>
+                            <span class="inventory-change">-3.5m</span>
+                        </div>
+                        <div class="inventory-item-row">
+                            <span>Available After Order:</span>
+                            <span style="font-weight: 700; color: ${selectedFabric.available - 3.5 < selectedFabric.minimum ? '#EF4444' : '#10B981'};">${(selectedFabric.available - 3.5).toFixed(1)}m</span>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-success" onclick="confirmOrder()" style="margin-bottom: 12px;">
+                        ✓ Confirm Order
+                    </button>
+                    <button class="btn btn-outline" onclick="renderOrderStep1(); navigateTo('create-order');">
+                        Edit Order
+                    </button>
+                </div>
+
+                <div style="height: 80px;"></div>
+            `;
+
+            document.getElementById('review-screen').innerHTML = content + getBottomNav('order');
+        }
+
+        // Confirm Order
+        function confirmOrder() {
+            const selectedFabric = appState.inventory.find(i => i.id === appState.currentOrder.clothId);
+            
+            // Update inventory
+            selectedFabric.reserved += 3.5;
+            updateInventory();
+
+            // Show success
+            showToast('Order Created Successfully!', 'success', 4000);
+            
+            setTimeout(() => {
+                showToast(`${selectedFabric.name} reserved: 3.5m`, 'info', 3000);
+            }, 500);
+
+            // Check if now low stock
+            if (selectedFabric.available < selectedFabric.minimum) {
+                setTimeout(() => {
+                    showToast(`⚠️ ${selectedFabric.name} is now below minimum stock!`, 'warning', 4000);
+                }, 1500);
+            }
+
+            // Reset order
+            setTimeout(() => {
+                appState.currentOrder = {
+                    customer: { name: '', phone: '', email: '' },
+                    garmentType: 'suit',
+                    clothId: null,
+                    quantity: 1,
+                    bodyType: 'regular',
+                    measurements: {
+                        chest: '', waist: '', hip: '', shoulder: '', sleeveLength: '', jacketLength: '',
+                        trouserWaist: '', trouserHip: '', inseam: '', outseam: '', thigh: '', notes: ''
+                    },
+                    deliveryDate: '',
+                    advancePayment: 0
+                };
+                
+                renderDashboard();
+                renderInventory();
+                navigateTo('dashboard');
+            }, 3000);
+        }
+
+        // Full Demo
+        function startFullDemo() {
+            // Auto-fill customer details
+            setTimeout(() => {
+                startOrderFlow();
+                
+                setTimeout(() => {
+                    document.getElementById('customer-name').value = 'Amit Sharma';
+                    document.getElementById('customer-phone').value = '+91 98765 43210';
+                    document.getElementById('customer-email').value = 'amit@email.com';
+                    document.getElementById('delivery-date').value = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                    document.getElementById('advance-payment').value = '5000';
+                    
+                    showToast('Customer details auto-filled', 'info', 2000);
+                    
+                    setTimeout(() => {
+                        saveStep1();
+                        
+                        setTimeout(() => {
+                            selectFabric(1); // Select first fabric
+                            showToast('Premium Wool Grey selected', 'info', 2000);
+                            
+                            setTimeout(() => {
+                                saveStep2();
+                                
+                                setTimeout(() => {
+                                    // Auto-fill measurements
+                                    document.getElementById('chest').value = '40';
+                                    document.getElementById('waist').value = '34';
+                                    document.getElementById('hip').value = '38';
+                                    document.getElementById('shoulder').value = '18';
+                                    document.getElementById('sleeveLength').value = '25';
+                                    document.getElementById('jacketLength').value = '28';
+                                    document.getElementById('trouserWaist').value = '34';
+                                    document.getElementById('trouserHip').value = '38';
+                                    document.getElementById('inseam').value = '32';
+                                    document.getElementById('outseam').value = '42';
+                                    document.getElementById('thigh').value = '24';
+                                    document.getElementById('notes').value = 'Customer prefers slim fit';
+                                    
+                                    showToast('Measurements auto-filled', 'info', 2000);
+                                    
+                                    setTimeout(() => {
+                                        saveMeasurements();
+                                        
+                                        showToast('Review the complete order', 'info', 3000);
+                                    }, 2000);
+                                }, 1000);
+                            }, 2000);
+                        }, 1500);
+                    }, 2000);
+                }, 500);
+            }, 500);
+        }
+
+        // Reset Demo
+        function resetDemo() {
+            // Reset inventory to original state
+            appState.inventory[0].reserved = 15;
+            appState.inventory[0].currentStock = 85;
+            appState.inventory[1].reserved = 10;
+            appState.inventory[1].currentStock = 65;
+            
+            updateInventory();
+            
+            appState.currentOrder = {
+                customer: { name: '', phone: '', email: '' },
+                garmentType: 'suit',
+                clothId: null,
+                quantity: 1,
+                bodyType: 'regular',
+                measurements: {
+                    chest: '', waist: '', hip: '', shoulder: '', sleeveLength: '', jacketLength: '',
+                    trouserWaist: '', trouserHip: '', inseam: '', outseam: '', thigh: '', notes: ''
+                },
+                deliveryDate: '',
+                advancePayment: 0
+            };
+            
+            renderDashboard();
+            renderInventory();
+            navigateTo('dashboard');
+            
+            showToast('Demo reset successfully', 'success');
+        }
+
+        // Bottom Navigation
+        function getBottomNav(active) {
+            const navItems = [
+                { id: 'home', icon: '🏠', label: 'Home', screen: 'dashboard' },
+                { id: 'inventory', icon: '📦', label: 'Inventory', screen: 'inventory' },
+                { id: 'order', icon: '📋', label: 'Orders', screen: 'create-order' },
+                { id: 'alerts', icon: '🔔', label: 'Alerts', screen: 'dashboard' },
+                { id: 'more', icon: '👤', label: 'More', screen: 'dashboard' }
+            ];
+
+            let navHTML = '<div class="bottom-nav">';
+            
+            navItems.forEach(item => {
+                const isActive = item.id === active;
+                navHTML += `
+                    <button class="nav-item ${isActive ? 'active' : ''}" onclick="navigateTo('${item.screen}')">
+                        <div class="nav-icon">${item.icon}</div>
+                        <div class="nav-label">${item.label}</div>
+                        ${isActive ? '<div class="nav-indicator"></div>' : ''}
+                    </button>
+                `;
+            });
+
+            navHTML += '</div>';
+            return navHTML;
+        }
+
+        // Initialize on load
+        window.onload = initApp;
+    </script>
+</body>
+</html>
