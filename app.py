@@ -18,6 +18,16 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-i
 db.init_app(app)
 
 
+def parse_delivery_date(date_string):
+    """Parse delivery date string to datetime object with error handling"""
+    if not date_string:
+        return None
+    try:
+        return datetime.fromisoformat(date_string.replace('Z', '+00:00'))
+    except (ValueError, AttributeError):
+        return None
+
+
 @app.route('/')
 def index():
     """Welcome endpoint"""
@@ -165,9 +175,7 @@ def orders():
         data = request.json
         
         # Parse delivery date if provided
-        delivery_date = None
-        if data.get('delivery_date'):
-            delivery_date = datetime.fromisoformat(data['delivery_date'].replace('Z', '+00:00'))
+        delivery_date = parse_delivery_date(data.get('delivery_date'))
         
         order = TailoringOrder(
             customer_id=data['customer_id'],
@@ -214,8 +222,8 @@ def order_detail(order_id):
         data = request.json
         
         # Update delivery date if provided
-        if 'delivery_date' in data and data['delivery_date']:
-            order.delivery_date = datetime.fromisoformat(data['delivery_date'].replace('Z', '+00:00'))
+        if 'delivery_date' in data:
+            order.delivery_date = parse_delivery_date(data['delivery_date'])
         
         # Update order fields
         order.status = data.get('status', order.status)

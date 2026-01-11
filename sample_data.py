@@ -334,7 +334,7 @@ if __name__ == '__main__':
     print("WARNING: This will clear all existing data!")
     response = input("Continue? (yes/no): ")
     
-    if response.lower() == 'yes':
+    if response.lower().strip() in ['yes', 'y']:
         clear_database()
         add_sample_data()
         print("\nYou can now start the application with: python app.py")
