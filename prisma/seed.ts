@@ -1,7 +1,19 @@
 import { PrismaClient, UserRole, OrderStatus, OrderPriority, BodyType, StockMovementType } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
+import { Pool } from 'pg'
 import * as bcrypt from 'bcryptjs'
+import * as dotenv from 'dotenv'
 
-const prisma = new PrismaClient()
+dotenv.config()
+
+const connectionString = process.env.DATABASE_URL!
+const pool = new Pool({ connectionString })
+const adapter = new PrismaPg(pool)
+
+const prisma = new PrismaClient({
+  adapter,
+  log: ['error'],
+})
 
 async function main() {
   console.log('🌱 Starting seed...')

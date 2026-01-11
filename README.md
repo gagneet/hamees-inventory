@@ -41,8 +41,10 @@ A comprehensive inventory and order management system built specifically for tai
 - Node.js 18+
 - PostgreSQL 14+
 - pnpm (recommended)
+- nginx (for production)
+- PM2 (for production process management)
 
-### Installation
+### Development Setup
 
 1. **Clone or navigate to the project**
    ```bash
@@ -91,7 +93,7 @@ A comprehensive inventory and order management system built specifically for tai
 
 7. **Open in browser**
 
-   Visit http://localhost:3000
+   Visit http://localhost:3009 (development) or https://hamees.gagneet.com (production)
 
 ### Default Login
 
@@ -99,6 +101,129 @@ After seeding, use these credentials:
 
 - **Email:** owner@tailorshop.com
 - **Password:** admin123
+
+## 🌐 Production Deployment
+
+### Database Setup
+
+1. **Create dedicated PostgreSQL user**
+   ```bash
+   psql -U postgres -d postgres
+   CREATE USER hamees_user WITH PASSWORD 'your_secure_password';
+   GRANT ALL PRIVILEGES ON DATABASE tailor_inventory TO hamees_user;
+   \c tailor_inventory
+   GRANT ALL PRIVILEGES ON SCHEMA public TO hamees_user;
+   GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO hamees_user;
+   GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO hamees_user;
+   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO hamees_user;
+   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO hamees_user;
+   \q
+   ```
+
+2. **Update .env for production**
+   ```bash
+   DATABASE_URL="postgresql://hamees_user:your_secure_password@localhost:5432/tailor_inventory?schema=public"
+   NEXTAUTH_URL="https://hamees.gagneet.com"
+   NEXTAUTH_SECRET="generate_with_openssl_rand_-base64_32"
+   NODE_ENV="production"
+   ```
+
+3. **Generate secure secret**
+   ```bash
+   openssl rand -base64 32
+   ```
+
+### Application Deployment
+
+1. **Install dependencies and build**
+   ```bash
+   pnpm install
+   pnpm build
+   ```
+
+2. **Install PM2 globally**
+   ```bash
+   npm install -g pm2
+   ```
+
+3. **Start with PM2**
+   ```bash
+   pm2 start ecosystem.config.js
+   pm2 save
+   ```
+
+4. **Enable PM2 startup on boot**
+   ```bash
+   pm2 startup
+   # Run the command that PM2 outputs
+   ```
+
+### Nginx Configuration
+
+The application is configured to run behind nginx as a reverse proxy on port 3009.
+
+1. **Test nginx configuration**
+   ```bash
+   sudo nginx -t
+   ```
+
+2. **Reload nginx**
+   ```bash
+   sudo systemctl reload nginx
+   ```
+
+### SSL Certificate Setup
+
+1. **Install certbot (if not installed)**
+   ```bash
+   sudo apt install certbot python3-certbot-nginx
+   ```
+
+2. **Obtain SSL certificate**
+   ```bash
+   sudo certbot --nginx -d hamees.gagneet.com
+   ```
+
+3. **Auto-renewal** (certbot sets this up automatically)
+   ```bash
+   sudo certbot renew --dry-run
+   ```
+
+### Production Management
+
+**Check application status:**
+```bash
+pm2 status
+pm2 logs hamees-inventory
+pm2 monit
+```
+
+**Restart application:**
+```bash
+pm2 restart hamees-inventory
+```
+
+**View logs:**
+```bash
+pm2 logs hamees-inventory --lines 100
+tail -f logs/out.log
+tail -f logs/err.log
+```
+
+**Database management:**
+```bash
+pnpm db:studio          # Open Prisma Studio
+psql -U hamees_user -d tailor_inventory
+```
+
+### Current Production Setup
+
+- **URL:** https://hamees.gagneet.com
+- **Port:** 3009
+- **Database:** tailor_inventory (user: hamees_user)
+- **Process Manager:** PM2
+- **Web Server:** nginx
+- **SSL:** Let's Encrypt (certbot)
 
 ## 📚 Documentation
 
@@ -119,8 +244,10 @@ After seeding, use these credentials:
 ### Backend
 - **Runtime:** Node.js 20
 - **Database:** PostgreSQL 16
-- **ORM:** Prisma 7
+- **ORM:** Prisma 7 (with @prisma/adapter-pg)
 - **Authentication:** NextAuth.js v5
+- **Process Manager:** PM2 (production)
+- **Web Server:** nginx (production)
 
 ### Development
 - **Language:** TypeScript 5
@@ -132,9 +259,9 @@ After seeding, use these credentials:
 
 ```bash
 # Development
-pnpm dev              # Start development server (http://localhost:3000)
+pnpm dev              # Start development server (http://localhost:3009)
 pnpm build            # Build for production
-pnpm start            # Start production server
+pnpm start            # Start production server (port 3009)
 pnpm lint             # Run ESLint
 
 # Database
@@ -143,6 +270,13 @@ pnpm db:migrate       # Create and run migrations
 pnpm db:seed          # Seed database with sample data
 pnpm db:studio        # Open Prisma Studio (http://localhost:5555)
 pnpm db:reset         # Reset database and reseed
+
+# Production (PM2)
+pm2 start ecosystem.config.js    # Start application
+pm2 restart hamees-inventory     # Restart application
+pm2 stop hamees-inventory        # Stop application
+pm2 logs hamees-inventory        # View logs
+pm2 monit                        # Monitor resources
 ```
 
 ## 📁 Project Structure
@@ -180,6 +314,36 @@ tailor-inventory/
 ├── types/                  # TypeScript type definitions
 ├── .env                    # Environment variables (not committed)
 └── .env.example            # Environment template
+```
+
+## ⚙️ Technical Notes
+
+### Prisma 7 Configuration
+
+This project uses Prisma 7, which requires a database adapter. The PostgreSQL adapter is configured in:
+
+- **`lib/db.ts`**: Main Prisma client with PrismaPg adapter
+- **`prisma/seed.ts`**: Seed script with adapter configuration
+- **`prisma/schema.prisma`**: Schema with `engineType = "binary"`
+
+**Required dependencies:**
+```json
+{
+  "@prisma/adapter-pg": "^7.2.0",
+  "@prisma/client": "^7.2.0",
+  "pg": "^8.16.3"
+}
+```
+
+**Adapter usage example:**
+```typescript
+import { PrismaClient } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
+import { Pool } from 'pg'
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+const adapter = new PrismaPg(pool)
+const prisma = new PrismaClient({ adapter })
 ```
 
 ## 🎨 Design System
