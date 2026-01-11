@@ -196,11 +196,12 @@ Routes under `app/(dashboard)/` will be protected via NextAuth middleware (to be
 ## Current Development Status
 
 - ✅ Phase 1 Complete: Database schema, seed data, project setup
+- ✅ Phase 2 Complete: Authentication system (NextAuth.js v5, JWT sessions, route protection)
+- ✅ Phase 3 Complete: API routes for inventory CRUD, barcode lookup, stock movements
 - ✅ Production Deployment: PM2, nginx, database configured
-- ⏳ Phase 2 In Progress: Authentication system (NextAuth.js)
-- 📋 Phase 3: API routes for CRUD operations
-- 📋 Phase 4: UI components (shadcn/ui integration)
-- 📋 Phase 5: Dashboard and feature pages
+- ⏳ Phase 4 In Progress: UI components (Radix UI, login form, barcode scanner)
+- ⏳ Phase 5 In Progress: Landing page, inventory management page
+- 📋 Phase 6 Partial: Barcode scanning complete (camera + manual)
 
 ## Production Environment
 
@@ -260,8 +261,89 @@ NODE_ENV="production"
 - [ ] nginx configuration tested and reloaded (requires sudo)
 - [ ] SSL certificate obtained via certbot (requires sudo)
 
+## New Features (v0.2.0)
+
+### Authentication System
+
+**Location:** `lib/auth.ts`, `middleware.ts`, `app/api/auth/[...nextauth]/route.ts`
+
+- **NextAuth.js v5** with credentials provider
+- **JWT sessions** (not database sessions)
+- **Password hashing** with bcryptjs (10 rounds)
+- **Route protection** via middleware
+- **Automatic redirects** for auth states
+
+**Login Flow:**
+1. User enters email/password on landing page (`app/page.tsx`)
+2. Credentials validated against database (`lib/auth.ts`)
+3. JWT token created with user ID and role
+4. Session stored in cookie
+5. Protected routes check session via middleware (`middleware.ts`)
+
+**Demo Credentials:**
+- `owner@tailorshop.com` / `admin123` (OWNER role)
+- `inventory@tailorshop.com` / `admin123` (INVENTORY_MANAGER role)
+
+### Barcode Scanning System
+
+**Location:** `components/barcode-scanner.tsx`, `app/(dashboard)/inventory/page.tsx`
+
+- **html5-qrcode library** for camera scanning
+- **Dual mode:** Camera or Manual entry
+- **Auto-SKU generation** for new items
+- **Real-time lookup** via API
+
+**Supported Formats:**
+- QR codes
+- UPC/EAN (product barcodes)
+- Code128
+- Any text-based SKU/barcode
+
+**Workflow:**
+1. User clicks "Scan Barcode" on inventory page
+2. Choose Camera or Manual mode
+3. Scanner reads barcode (or user types SKU)
+4. System calls `/api/inventory/barcode?barcode={sku}`
+5. If found: Display item details
+6. If not found: Show form to create new item (SKU pre-filled)
+
+**SKU Format:**
+- Cloth: `CLT-{TYPE}-{BRAND}-{TIMESTAMP}`
+- Accessories: `ACC-{TYPE}-{TIMESTAMP}` (schema pending update)
+
+**Note:** Accessory barcode scanning disabled pending database schema update (requires table ownership permissions).
+
+### API Endpoints
+
+**Authentication:**
+- `GET/POST /api/auth/[...nextauth]` - NextAuth handlers
+
+**Inventory:**
+- `GET /api/inventory/cloth` - List cloth inventory (supports `?lowStock=true`)
+- `POST /api/inventory/cloth` - Create cloth item with auto SKU generation
+- `GET /api/inventory/accessories` - List accessories (supports `?lowStock=true&type=Button`)
+- `POST /api/inventory/accessories` - Create accessory item
+- `GET /api/inventory/barcode?barcode={sku}` - Lookup item by barcode/SKU
+
+**Response Format:**
+```typescript
+// Barcode lookup success
+{
+  found: true,
+  type: 'cloth' | 'accessory',
+  item: { /* full item object */ }
+}
+
+// Barcode lookup not found
+{
+  found: false,
+  barcode: 'CLT-XXX-XXX-123456'
+}
+```
+
 ## References
 
+- **AUTHENTICATION_AND_BARCODE.md**: Complete guide for authentication system and barcode scanning functionality
 - **SETUP.md**: Detailed PostgreSQL setup, troubleshooting, and installation steps
 - **README.md**: Feature documentation, tech stack details, production deployment guide
 - **prisma/schema.prisma**: Complete database schema with relationships and indexes

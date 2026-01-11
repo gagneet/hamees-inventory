@@ -4,12 +4,21 @@ A comprehensive inventory and order management system built specifically for tai
 
 ## ✨ Features
 
+### Authentication & Security
+- **NextAuth.js v5**: Secure credentials-based authentication
+- **Role-Based Access**: OWNER, ADMIN, INVENTORY_MANAGER, SALES_MANAGER, TAILOR, VIEWER
+- **Protected Routes**: Automatic middleware-based route protection
+- **JWT Sessions**: Secure session management
+- **Password Hashing**: bcryptjs with 10 salt rounds
+
 ### Inventory Management
 - **Cloth Inventory**: Track fabrics by type, color, pattern, quality
 - **Accessories**: Manage buttons, threads, zippers, and other supplies
+- **Barcode Scanning**: Mobile camera or manual barcode/SKU entry for quick item lookup
 - **Stock Levels**: Real-time available stock (current - reserved)
 - **Auto Alerts**: Low stock and critical stock notifications
 - **Supplier Tracking**: Link inventory to suppliers with pricing history
+- **Auto SKU Generation**: Automatic SKU generation for new items
 
 ### Order Management
 - **Order Creation**: Create orders with customer measurements
@@ -395,36 +404,61 @@ const prisma = new PrismaClient({ adapter })
 - [x] Seed data
 - [x] Configuration
 
-### Phase 2: Authentication (In Progress)
-- [ ] NextAuth setup
-- [ ] Login/Logout
-- [ ] Route protection
-- [ ] Role-based access
+### Phase 2: Authentication ✅ Complete
+- [x] NextAuth.js v5 setup
+- [x] Credentials provider with bcrypt
+- [x] Login/Logout functionality
+- [x] Route protection middleware
+- [x] Role-based access control
+- [x] JWT session management
 
-### Phase 3: API Development
-- [ ] Inventory CRUD
-- [ ] Order management
-- [ ] Alert system
+### Phase 3: API Development (In Progress)
+- [x] Inventory CRUD APIs (cloth & accessories)
+- [x] Barcode lookup API
+- [x] Stock movement tracking
+- [ ] Order management APIs
+- [ ] Alert system APIs
 - [ ] Customer/Supplier APIs
 
-### Phase 4: UI Components
-- [ ] shadcn/ui setup
-- [ ] Layout components
-- [ ] Feature components
-- [ ] Forms
+### Phase 4: UI Components (In Progress)
+- [x] Radix UI components (Button, Input, Card, Label, Tabs)
+- [x] Landing page with split-screen design
+- [x] Login form component
+- [x] Barcode scanner component (html5-qrcode)
+- [x] Inventory forms (cloth & accessories)
+- [ ] Dashboard components
+- [ ] Order forms
 
-### Phase 5: Pages & Features
-- [ ] Dashboard
-- [ ] Inventory management
-- [ ] Order tracking
-- [ ] Alerts
+### Phase 5: Pages & Features (In Progress)
+- [x] Landing/Login page with branding
+- [x] Inventory management page (with barcode scanning)
+- [ ] Dashboard with analytics
+- [ ] Order tracking and management
+- [ ] Customers page
+- [ ] Suppliers page
+- [ ] Alerts page
 - [ ] Reports
 
 ### Phase 6: Advanced Features
 - [ ] Measurements system
-- [ ] Barcode/QR codes
-- [ ] Advanced reports
+- [x] Barcode/QR code scanning (camera + manual)
+- [ ] Advanced reports & analytics
 - [ ] Mobile app
+- [ ] Multi-language support
+
+## 📚 Documentation
+
+### Quick Links
+- **[AUTHENTICATION_AND_BARCODE.md](AUTHENTICATION_AND_BARCODE.md)** - Complete guide for authentication system and barcode scanning
+- **[SETUP.md](SETUP.md)** - Database setup and installation instructions
+- **[CLAUDE.md](CLAUDE.md)** - Project overview and development guidelines
+
+### Key Topics
+- **Authentication**: NextAuth.js v5 setup, login flow, route protection
+- **Barcode Scanning**: Camera-based and manual SKU entry for inventory
+- **API Reference**: Complete API documentation for all endpoints
+- **Troubleshooting**: Common issues and solutions
+- **Security**: Best practices for production deployment
 
 ## 🤝 Contributing
 
@@ -450,6 +484,7 @@ For setup issues, see [SETUP.md](SETUP.md) or check the troubleshooting section.
 
 **Built with ❤️ for the tailoring community**
 
-**Version:** 0.1.0
-**Status:** Phase 1 Complete, Phase 2 In Progress
+**Version:** 0.2.0
+**Status:** Phase 2 & 3 Complete | Phase 4 & 5 In Progress
+**Features:** Authentication ✅ | Barcode Scanning ✅ | Inventory APIs ✅
 **Last Updated:** January 11, 2026
