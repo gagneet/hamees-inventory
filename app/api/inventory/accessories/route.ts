@@ -4,13 +4,13 @@ import { prisma } from '@/lib/db'
 import { z } from 'zod'
 
 const accessoryInventorySchema = z.object({
-  type: z.enum(['Button', 'Thread', 'Zipper', 'Lining', 'Elastic', 'Hook', 'Other']),
-  name: z.string().min(1),
-  color: z.string().optional(),
-  currentStock: z.number().nonnegative(),
-  pricePerUnit: z.number().positive(),
-  minimum: z.number().nonnegative(),
-  supplierId: z.string().optional(),
+  type: z.enum(['Button', 'Thread', 'Zipper', 'Lining', 'Elastic', 'Hook', 'Other']).nullish(),
+  name: z.string().nullish(),
+  color: z.string().nullish(),
+  currentStock: z.number().nullish(),
+  pricePerUnit: z.number().nullish(),
+  minimum: z.number().nullish(),
+  supplierId: z.string().nullish(),
 })
 
 // GET all accessory inventory

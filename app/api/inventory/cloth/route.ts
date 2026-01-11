@@ -4,21 +4,21 @@ import { prisma } from '@/lib/db'
 import { z } from 'zod'
 
 const clothInventorySchema = z.object({
-  sku: z.string().optional(),
-  name: z.string().min(1),
-  type: z.string().min(1),
-  brand: z.string().min(1),
-  color: z.string().min(1),
-  colorHex: z.string().default('#000000'),
-  pattern: z.string().min(1),
-  quality: z.string().min(1),
-  pricePerMeter: z.number().positive(),
-  currentStock: z.number().nonnegative(),
-  minimum: z.number().nonnegative(),
-  supplier: z.string().min(1),
-  supplierId: z.string().optional(),
-  location: z.string().optional(),
-  notes: z.string().optional(),
+  sku: z.string().nullish(),
+  name: z.string().nullish(),
+  type: z.string().nullish(),
+  brand: z.string().nullish(),
+  color: z.string().nullish(),
+  colorHex: z.string().nullish().default('#000000'),
+  pattern: z.string().nullish(),
+  quality: z.string().nullish(),
+  pricePerMeter: z.number().nullish(),
+  currentStock: z.number().nullish(),
+  minimum: z.number().nullish(),
+  supplier: z.string().nullish(),
+  supplierId: z.string().nullish(),
+  location: z.string().nullish(),
+  notes: z.string().nullish(),
 })
 
 // GET all cloth inventory

@@ -6,7 +6,64 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a comprehensive inventory and order management system built specifically for tailor shops. It manages fabric inventory, tracks orders with customer measurements, monitors stock levels with automatic reservation, and provides alerts for low stock and order delays.
 
-**Stack:** Next.js 16 (App Router), React 19, TypeScript 5, Prisma 7 (PostgreSQL 16), NextAuth.js v5, Tailwind CSS 4, Radix UI
+**Stack:** Next.js 16 (App Router), React 19, TypeScript 5, Prisma 7 (PostgreSQL 16), NextAuth.js v5, Tailwind CSS 4, Radix UI, Recharts
+
+## 🎉 Recent Updates (January 2026)
+
+### ✅ Dashboard Analytics & Charts (v0.3.0)
+
+**What's New:**
+- **Interactive Dashboard** with real-time analytics and charts
+- **Revenue Trend Chart** showing 6-month revenue history
+- **Order Status Distribution** pie chart
+- **Top Fabrics Usage** bar chart
+- **KPI Cards** with month-over-month growth indicators
+- **Inventory Health Summary** with alerts
+
+**New Files Added:**
+- `app/api/dashboard/stats/route.ts` - Analytics API endpoint
+- `components/dashboard/revenue-chart.tsx` - Revenue line chart
+- `components/dashboard/orders-status-chart.tsx` - Order status pie chart
+- `components/dashboard/top-fabrics-chart.tsx` - Fabric usage bar chart
+- `components/dashboard/kpi-card.tsx` - Reusable KPI card component
+- `prisma/seed-enhanced.ts` - Enhanced seed with 27 orders across 6 months
+
+**Dependencies Added:**
+```bash
+pnpm add recharts date-fns
+```
+
+### ✅ Bug Fixes
+
+**Inventory Form Validation (Fixed):**
+- Issue: 400 Bad Request when adding cloth/accessory items
+- Root Cause: Zod schema validation rejecting `null` values from forms
+- Solution: Changed `.optional()` to `.nullish()` in validation schemas
+- Files Fixed: `app/api/inventory/cloth/route.ts`, `app/api/inventory/accessories/route.ts`
+
+### ✅ Enhanced Seed Data
+
+Run enhanced seed for comprehensive testing:
+```bash
+pnpm tsx prisma/seed-enhanced.ts
+```
+
+**Seed Data Includes:**
+- 2 Users (Owner, Inventory Manager)
+- 2 Suppliers (ABC Fabrics, XYZ Textiles)
+- 6 Cloth Items (Cotton, Silk, Linen, Wool varieties)
+- 3 Accessories (Buttons, Thread, Zipper)
+- 4 Garment Patterns (Shirt, Trouser, Suit, Sherwani)
+- 5 Customers with complete measurements
+- **27 Orders** spanning last 6 months with various statuses
+- Stock movements tracking all inventory changes
+- Auto-generated alerts for low/critical stock
+
+**How to Use:**
+1. Reset database: `pnpm db:reset` OR run enhanced seed: `pnpm tsx prisma/seed-enhanced.ts`
+2. Login: `owner@tailorshop.com` / `admin123`
+3. View dashboard at: https://hamees.gagneet.com/dashboard
+4. Explore charts, KPIs, and order history
 
 ## Essential Commands
 
@@ -20,11 +77,12 @@ pnpm lint             # Run ESLint
 
 ### Database Operations
 ```bash
-pnpm db:push          # Push schema changes (development only)
-pnpm db:migrate       # Create and run migrations (production-ready)
-pnpm db:seed          # Seed with sample data (2 users, suppliers, inventory, etc.)
-pnpm db:studio        # Open Prisma Studio at http://localhost:5555
-pnpm db:reset         # Reset database and reseed
+pnpm db:push                      # Push schema changes (development only)
+pnpm db:migrate                   # Create and run migrations (production-ready)
+pnpm db:seed                      # Seed with basic sample data
+pnpm tsx prisma/seed-enhanced.ts  # Seed with comprehensive test data (27 orders, 5 customers)
+pnpm db:studio                    # Open Prisma Studio at http://localhost:5555
+pnpm db:reset                     # Reset database and reseed
 ```
 
 ### Production Operations (PM2)
@@ -198,10 +256,11 @@ Routes under `app/(dashboard)/` will be protected via NextAuth middleware (to be
 - ✅ Phase 1 Complete: Database schema, seed data, project setup
 - ✅ Phase 2 Complete: Authentication system (NextAuth.js v5, JWT sessions, route protection)
 - ✅ Phase 3 Complete: API routes for inventory CRUD, barcode lookup, stock movements
+- ✅ Phase 4 Complete: Dashboard with analytics, charts, and KPIs
+- ✅ Phase 5 Complete: Landing page, inventory management page with barcode scanner
+- ✅ Phase 6 Complete: Enhanced seed data with 6-month order history
 - ✅ Production Deployment: PM2, nginx, database configured
-- ⏳ Phase 4 In Progress: UI components (Radix UI, login form, barcode scanner)
-- ⏳ Phase 5 In Progress: Landing page, inventory management page
-- 📋 Phase 6 Partial: Barcode scanning complete (camera + manual)
+- 🔄 Next: Order management pages, customer portal, measurements UI
 
 ## Production Environment
 
@@ -318,6 +377,14 @@ NODE_ENV="production"
 **Authentication:**
 - `GET/POST /api/auth/[...nextauth]` - NextAuth handlers
 
+**Dashboard:**
+- `GET /api/dashboard/stats` - Comprehensive analytics data including:
+  - Inventory stats (total value, low stock, critical stock)
+  - Order stats (pending, delivered, monthly trends)
+  - Revenue tracking (6-month trend with MoM growth)
+  - Top 5 most-used fabrics
+  - Recent unread alerts
+
 **Inventory:**
 - `GET /api/inventory/cloth` - List cloth inventory (supports `?lowStock=true`)
 - `POST /api/inventory/cloth` - Create cloth item with auto SKU generation
@@ -339,12 +406,89 @@ NODE_ENV="production"
   found: false,
   barcode: 'CLT-XXX-XXX-123456'
 }
+
+// Dashboard stats response
+{
+  inventory: {
+    totalItems: number,
+    lowStock: number,
+    criticalStock: number,
+    totalValue: number,
+    totalMeters: number
+  },
+  orders: {
+    total: number,
+    pending: number,
+    ready: number,
+    delivered: number,
+    thisMonth: number,
+    lastMonth: number,
+    growth: number  // percentage
+  },
+  revenue: {
+    thisMonth: number,
+    lastMonth: number,
+    growth: number,  // percentage
+    byMonth: Array<{ month: string, revenue: number }>
+  },
+  charts: {
+    ordersByStatus: Array<{ status: string, count: number }>,
+    topFabrics: Array<{ name: string, type: string, metersUsed: number }>,
+    stockMovements: number
+  },
+  alerts: {
+    unread: number,
+    recent: Array<Alert>
+  }
+}
 ```
+
+## Testing the Application
+
+### Quick Walkthrough
+
+1. **Login to Dashboard:**
+   - URL: https://hamees.gagneet.com
+   - Email: `owner@tailorshop.com`
+   - Password: `admin123`
+
+2. **Explore Dashboard:**
+   - View KPI cards showing revenue, orders, and inventory health
+   - Check revenue trend chart (last 6 months)
+   - Review order status distribution
+   - See top 5 most-used fabrics
+   - Check low stock and critical stock alerts
+
+3. **Inventory Management:**
+   - Click "Manage Inventory" or navigate to `/inventory`
+   - View all cloth items with stock levels
+   - Add new items using the form (validation bug is fixed!)
+   - Use barcode scanner for quick lookup
+   - Check color-coded stock status indicators
+
+4. **Test Data Available:**
+   - 6 different fabric types with varied stock levels
+   - 27 orders across different statuses (NEW to DELIVERED)
+   - 5 customers with complete measurements
+   - Historical data spanning 6 months for trend analysis
+
+### Analytics Features to Test
+
+- **Revenue Growth:** Compare this month vs last month
+- **Order Trends:** See order volume changes over time
+- **Fabric Usage:** Identify which fabrics are most popular
+- **Stock Alerts:** Check which items need reordering
+- **Inventory Value:** Total value of current stock
 
 ## References
 
+- **docs/Claude-Implementation-Guide.md**: 18-step guide for building with Claude AI
+- **docs/Complete-Interactive-Demo-With-Measurements.html**: Interactive demo showcasing full order workflow
+- **docs/Complete-Project-Summary.md**: Complete project deliverables and business plan
+- **docs/Extended-Features-Guide.md**: 28 additional features for future development
 - **AUTHENTICATION_AND_BARCODE.md**: Complete guide for authentication system and barcode scanning functionality
 - **SETUP.md**: Detailed PostgreSQL setup, troubleshooting, and installation steps
 - **README.md**: Feature documentation, tech stack details, production deployment guide
 - **prisma/schema.prisma**: Complete database schema with relationships and indexes
+- **prisma/seed-enhanced.ts**: Enhanced seed script with comprehensive test data
 - **ecosystem.config.js**: PM2 process configuration

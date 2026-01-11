@@ -72,3 +72,81 @@ Learn More: https://nextjs.org/docs/messages/node-module-in-edge-runtime
     at a$ (/home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__99f343e3._.js:404:53919)
     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
     at async rU.do (/home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:5:20169)
+2026-01-11T11:07:56: Error creating cloth inventory: Error [ZodError]: [
+  {
+    "expected": "string",
+    "code": "invalid_type",
+    "path": [
+      "sku"
+    ],
+    "message": "Invalid input: expected string, received null"
+  }
+]
+    at u (.next/server/chunks/[root-of-the-server]__776f3d60._.js:1:2732)
+    at async c (.next/server/chunks/[root-of-the-server]__776f3d60._.js:1:7112)
+    at async u (.next/server/chunks/[root-of-the-server]__776f3d60._.js:1:8153)
+    at async Module.b (.next/server/chunks/[root-of-the-server]__776f3d60._.js:1:9231)
+2026-01-11T11:08:01: Error creating cloth inventory: Error [ZodError]: [
+  {
+    "expected": "string",
+    "code": "invalid_type",
+    "path": [
+      "sku"
+    ],
+    "message": "Invalid input: expected string, received null"
+  }
+]
+    at u (.next/server/chunks/[root-of-the-server]__776f3d60._.js:1:2732)
+    at async c (.next/server/chunks/[root-of-the-server]__776f3d60._.js:1:7112)
+    at async u (.next/server/chunks/[root-of-the-server]__776f3d60._.js:1:8153)
+    at async Module.b (.next/server/chunks/[root-of-the-server]__776f3d60._.js:1:9231)
+2026-01-11T11:33:28: Error creating cloth inventory: Error [ZodError]: [
+  {
+    "expected": "string",
+    "code": "invalid_type",
+    "path": [
+      "sku"
+    ],
+    "message": "Invalid input: expected string, received null"
+  }
+]
+    at u (.next/server/chunks/[root-of-the-server]__776f3d60._.js:1:2732)
+    at async c (.next/server/chunks/[root-of-the-server]__776f3d60._.js:1:7112)
+    at async u (.next/server/chunks/[root-of-the-server]__776f3d60._.js:1:8153)
+    at async Module.b (.next/server/chunks/[root-of-the-server]__776f3d60._.js:1:9231)
+2026-01-11T11:44:19: [31m[auth][error][0m MissingCSRF: CSRF token was missing during an action signout. Read more at https://errors.authjs.dev#missingcsrf
+2026-01-11T11:44:19:     at t5 (/home/gagneet/hamees/.next/server/chunks/_27ecaa8c._.js:1:80495)
+    at ax (/home/gagneet/hamees/.next/server/chunks/_27ecaa8c._.js:404:50504)
+    at async a$ (/home/gagneet/hamees/.next/server/chunks/_27ecaa8c._.js:404:54610)
+    at async rU.do (/home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:5:20169)
+    at async rU.handle (/home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:5:24949)
+    at async u (/home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__32af4235._.js:1:4873)
+    at async rU.handleResponse (/home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:1:101467)
+    at async d (/home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__32af4235._.js:1:5914)
+    at async Module.C (/home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__32af4235._.js:1:6992)
+    at async NextNodeServer.renderToResponseWithComponentsImpl (/home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/base-server.js:1422:9)
+2026-01-11T11:44:24: [31m[auth][error][0m MissingCSRF: CSRF token was missing during an action signout. Read more at https://errors.authjs.dev#missingcsrf
+2026-01-11T11:44:24:     at t5 (/home/gagneet/hamees/.next/server/chunks/_27ecaa8c._.js:1:80495)
+    at ax (/home/gagneet/hamees/.next/server/chunks/_27ecaa8c._.js:404:50504)
+    at async a$ (/home/gagneet/hamees/.next/server/chunks/_27ecaa8c._.js:404:54610)
+    at async rU.do (/home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:5:20169)
+    at async rU.handle (/home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:5:24949)
+    at async u (/home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__32af4235._.js:1:4873)
+    at async rU.handleResponse (/home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:1:101467)
+    at async d (/home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__32af4235._.js:1:5914)
+    at async Module.C (/home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__32af4235._.js:1:6992)
+    at async NextNodeServer.renderToResponseWithComponentsImpl (/home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/server/base-server.js:1422:9)
+2026-01-11T11:45:07: Error creating cloth inventory: Error [ZodError]: [
+  {
+    "expected": "string",
+    "code": "invalid_type",
+    "path": [
+      "sku"
+    ],
+    "message": "Invalid input: expected string, received null"
+  }
+]
+    at u (.next/server/chunks/[root-of-the-server]__776f3d60._.js:1:2732)
+    at async c (.next/server/chunks/[root-of-the-server]__776f3d60._.js:1:7112)
+    at async u (.next/server/chunks/[root-of-the-server]__776f3d60._.js:1:8153)
+    at async Module.b (.next/server/chunks/[root-of-the-server]__776f3d60._.js:1:9231)
