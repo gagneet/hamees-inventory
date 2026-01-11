@@ -38,3 +38,27 @@ Learn More: https://nextjs.org/docs/messages/node-module-in-edge-runtime
     at N (.next/server/edge/chunks/60948_next_dist_esm_build_templates_edge-wrapper_a79cca89.js:4:418)
     at n.r (.next/server/edge/chunks/60948_next_dist_esm_build_templates_edge-wrapper_a79cca89.js:1:2844)
     at module evaluation (.next/server/edge/chunks/[root-of-the-server]__21653651._.js:73:52784)
+2026-01-11T10:41:42: Error: The edge runtime does not support Node.js 'crypto' module.
+Learn More: https://nextjs.org/docs/messages/node-module-in-edge-runtime
+    at Object.get (.next/server/edge/chunks/[root-of-the-server]__21653651._.js:74:317)
+    at module evaluation (.next/server/edge/chunks/[root-of-the-server]__21653651._.js:73:49331)
+    at q (.next/server/edge/chunks/60948_next_dist_esm_build_templates_edge-wrapper_a79cca89.js:4:877)
+    at N (.next/server/edge/chunks/60948_next_dist_esm_build_templates_edge-wrapper_a79cca89.js:4:418)
+    at n.r (.next/server/edge/chunks/60948_next_dist_esm_build_templates_edge-wrapper_a79cca89.js:1:2844)
+    at module evaluation (.next/server/edge/chunks/[root-of-the-server]__21653651._.js:73:50889)
+    at q (.next/server/edge/chunks/60948_next_dist_esm_build_templates_edge-wrapper_a79cca89.js:4:877)
+    at N (.next/server/edge/chunks/60948_next_dist_esm_build_templates_edge-wrapper_a79cca89.js:4:418)
+    at n.r (.next/server/edge/chunks/60948_next_dist_esm_build_templates_edge-wrapper_a79cca89.js:1:2844)
+    at module evaluation (.next/server/edge/chunks/[root-of-the-server]__21653651._.js:73:52784)
+2026-01-11T10:41:42: Error: The edge runtime does not support Node.js 'crypto' module.
+Learn More: https://nextjs.org/docs/messages/node-module-in-edge-runtime
+    at Object.get (.next/server/edge/chunks/[root-of-the-server]__21653651._.js:74:317)
+    at module evaluation (.next/server/edge/chunks/[root-of-the-server]__21653651._.js:73:49331)
+    at q (.next/server/edge/chunks/60948_next_dist_esm_build_templates_edge-wrapper_a79cca89.js:4:877)
+    at N (.next/server/edge/chunks/60948_next_dist_esm_build_templates_edge-wrapper_a79cca89.js:4:418)
+    at n.r (.next/server/edge/chunks/60948_next_dist_esm_build_templates_edge-wrapper_a79cca89.js:1:2844)
+    at module evaluation (.next/server/edge/chunks/[root-of-the-server]__21653651._.js:73:50889)
+    at q (.next/server/edge/chunks/60948_next_dist_esm_build_templates_edge-wrapper_a79cca89.js:4:877)
+    at N (.next/server/edge/chunks/60948_next_dist_esm_build_templates_edge-wrapper_a79cca89.js:4:418)
+    at n.r (.next/server/edge/chunks/60948_next_dist_esm_build_templates_edge-wrapper_a79cca89.js:1:2844)
+    at module evaluation (.next/server/edge/chunks/[root-of-the-server]__21653651._.js:73:52784)
