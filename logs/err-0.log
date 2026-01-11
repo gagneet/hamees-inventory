@@ -62,3 +62,13 @@ Learn More: https://nextjs.org/docs/messages/node-module-in-edge-runtime
     at N (.next/server/edge/chunks/60948_next_dist_esm_build_templates_edge-wrapper_a79cca89.js:4:418)
     at n.r (.next/server/edge/chunks/60948_next_dist_esm_build_templates_edge-wrapper_a79cca89.js:1:2844)
     at module evaluation (.next/server/edge/chunks/[root-of-the-server]__21653651._.js:73:52784)
+2026-01-11T10:50:43: [31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: https://hamees.gagneet.com/api/auth/providers. Read more at https://errors.authjs.dev#untrustedhost
+2026-01-11T10:50:43:     at /home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__99f343e3._.js:404:51254
+    at a$ (/home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__99f343e3._.js:404:53919)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async rU.do (/home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:5:20169)
+2026-01-11T10:50:43: [31m[auth][error][0m UntrustedHost: Host must be trusted. URL was: https://hamees.gagneet.com/api/auth/error. Read more at https://errors.authjs.dev#untrustedhost
+2026-01-11T10:50:43:     at /home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__99f343e3._.js:404:51254
+    at a$ (/home/gagneet/hamees/.next/server/chunks/[root-of-the-server]__99f343e3._.js:404:53919)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async rU.do (/home/gagneet/hamees/node_modules/.pnpm/next@16.1.1_@babel+core@7.28.5_babel-plugin-react-compiler@1.0.0_react-dom@19.2.3_react@19.2.3__react@19.2.3/node_modules/next/dist/compiled/next-server/app-route-turbo.runtime.prod.js:5:20169)
