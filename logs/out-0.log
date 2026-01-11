@@ -148,3 +148,25 @@ Require stack:
 2026-01-11T12:02:53: 
 2026-01-11T12:02:53: ✓ Starting...
 2026-01-11T12:02:53: ✓ Ready in 683ms
+2026-01-11T12:06:37: prisma:error 
+Invalid `prisma.stockMovement.create()` invocation:
+
+
+Foreign key constraint violated on the constraint: `StockMovement_userId_fkey`
+2026-01-11T12:06:47: prisma:error 
+Invalid `prisma.stockMovement.create()` invocation:
+
+
+Foreign key constraint violated on the constraint: `StockMovement_userId_fkey`
+2026-01-11T12:08:53: ▲ Next.js 16.1.1
+2026-01-11T12:08:53: - Local:         http://localhost:3009
+2026-01-11T12:08:53: - Network:       http://192.168.4.27:3009
+2026-01-11T12:08:53: 
+2026-01-11T12:08:53: ✓ Starting...
+2026-01-11T12:08:54: ✓ Ready in 614ms
+2026-01-11T12:14:22: ▲ Next.js 16.1.1
+2026-01-11T12:14:22: - Local:         http://localhost:3009
+2026-01-11T12:14:22: - Network:       http://192.168.4.27:3009
+2026-01-11T12:14:22: 
+2026-01-11T12:14:22: ✓ Starting...
+2026-01-11T12:14:22: ✓ Ready in 591ms
