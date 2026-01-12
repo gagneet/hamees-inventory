@@ -1,9 +1,17 @@
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Users, Plus, Search, Phone, Mail, MapPin } from 'lucide-react'
+import { Users, Plus, Search, Phone, Mail, MapPin, Home } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb'
 import { PermissionGuard } from '@/components/auth/permission-guard'
 
 async function getCustomers() {
@@ -37,17 +45,24 @@ export default async function CustomersPage() {
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
+          <Breadcrumb className="mb-3">
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/dashboard">
+                  <Home className="h-4 w-4" />
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Customers</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Link href="/dashboard">
-                <Button variant="ghost" size="sm">
-                  ← Back
-                </Button>
-              </Link>
-              <div>
-                <h1 className="text-xl md:text-2xl font-bold text-slate-900">Customers</h1>
-                <p className="text-xs md:text-sm text-slate-600">{customers.length} total customers</p>
-              </div>
+            <div>
+              <h1 className="text-xl md:text-2xl font-bold text-slate-900">Customers</h1>
+              <p className="text-xs md:text-sm text-slate-600">{customers.length} total customers</p>
             </div>
             <PermissionGuard permission="manage_customers">
               <Link href="/customers/new">

@@ -6,6 +6,7 @@ import {
   Package,
   ShoppingBag,
   Users,
+  Home,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -16,6 +17,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+} from "@/components/ui/breadcrumb"
 import DashboardLayout from "@/components/DashboardLayout"
 
 // Dashboard specific components
@@ -40,6 +47,16 @@ export default async function Dashboard() {
 
   return (
     <DashboardLayout>
+      <Breadcrumb className="mb-4">
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbPage>
+              <Home className="h-4 w-4" />
+            </BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
       <div className="flex items-center">
         <h1 className="text-lg font-semibold md:text-2xl">Dashboard</h1>
       </div>
