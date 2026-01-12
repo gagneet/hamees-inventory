@@ -44,72 +44,63 @@ A comprehensive inventory and order management system built specifically for tai
 - **Order Analytics**: Sales trends, popular items
 - **Supplier Performance**: Delivery times, pricing trends
 
-## 🚀 Quick Start
+## 🚀 Quick Start (5-Minute Setup)
 
 ### Prerequisites
 - Node.js 18+
 - PostgreSQL 14+
-- pnpm (recommended)
-- nginx (for production)
-- PM2 (for production process management)
+- pnpm
 
-### Development Setup
+### Step 1: Create PostgreSQL User (30 seconds)
+Open your terminal and run:
+```bash
+sudo -u postgres psql -c "CREATE ROLE gagneet WITH LOGIN SUPERUSER CREATEDB CREATEROLE;"
+```
+**Expected Output:** `CREATE ROLE`
+If you see "already exists", that's fine!
 
-1. **Clone or navigate to the project**
-   ```bash
-   cd tailor-inventory
-   ```
+### Step 2: Create Database (30 seconds)
+```bash
+sudo -u postgres psql -c "CREATE DATABASE tailor_inventory OWNER gagneet;"
+```
+**Expected Output:** `CREATE DATABASE`
+If you see "already exists", that's fine!
 
-2. **Install dependencies**
-   ```bash
-   pnpm install
-   ```
+### Step 3: Configure Environment Variables (1 minute)
+```bash
+# Copy example env file
+cp .env.example .env
+```
+Now, open the `.env` file and update the `DATABASE_URL` with your PostgreSQL credentials. It should look like this:
+`DATABASE_URL="postgresql://gagneet:<YOUR_PASSWORD>@localhost:5432/tailor_inventory?schema=public"`
 
-3. **Set up PostgreSQL**
+### Step 4: Install Dependencies (1 minute)
+```bash
+pnpm install
+```
 
-   See [SETUP.md](SETUP.md) for detailed PostgreSQL configuration.
+### Step 5: Push Database Schema (30 seconds)
+```bash
+pnpm db:push
+```
+**Expected Output:** `✔ Generated Prisma Client... Your database is now in sync with your Prisma schema.`
 
-   Quick setup:
-   ```bash
-   # Create PostgreSQL user (if needed)
-   sudo -u postgres createuser -s $(whoami)
+### Step 6: Seed Sample Data (30 seconds)
+```bash
+pnpm db:seed
+```
+This will populate your database with sample users, inventory, orders, and more.
 
-   # Create database
-   createdb tailor_inventory
-   ```
-
-4. **Configure environment variables**
-   ```bash
-   # Copy example env file
-   cp .env.example .env
-
-   # Update DATABASE_URL in .env with your credentials
-   ```
-
-5. **Initialize database**
-   ```bash
-   # Push schema to database
-   pnpm db:push
-
-   # Seed with sample data
-   pnpm db:seed
-   ```
-
-6. **Start development server**
-   ```bash
-   pnpm dev
-   ```
-
-7. **Open in browser**
-
-   Visit http://localhost:3009 (development) or https://hamees.gagneet.com (production)
+### Step 7: Start Development Server (10 seconds)
+```bash
+pnpm dev
+```
+The application will be running at **http://localhost:3009**.
 
 ### Default Login
-
 After seeding, use these credentials:
-
-- **Email:** owner@hameesattire.com
-- **Password:** admin123
+- **Email:** `owner@hameesattire.com`
+- **Password:** `admin123`
 
 ## 🌐 Production Deployment
 
@@ -294,35 +285,41 @@ pm2 monit                        # Monitor resources
 tailor-inventory/
 ├── app/                    # Next.js app directory
 │   ├── (dashboard)/        # Dashboard routes (protected)
-│   │   ├── dashboard/      # Main dashboard
-│   │   ├── inventory/      # Inventory management
-│   │   ├── orders/         # Order management
-│   │   ├── alerts/         # Alerts page
-│   │   ├── customers/      # Customer management
-│   │   └── suppliers/      # Supplier management
+│   │   ├── dashboard/
+│   │   ├── inventory/
+│   │   ├── orders/
+│   │   ├── alerts/
+│   │   ├── customers/
+│   │   └── suppliers/
 │   ├── api/                # API routes
-│   │   ├── auth/           # Authentication
-│   │   ├── inventory/      # Inventory endpoints
-│   │   ├── orders/         # Order endpoints
-│   │   └── alerts/         # Alert endpoints
-│   ├── globals.css         # Global styles & design system
-│   └── layout.tsx          # Root layout
+│   │   ├── auth/
+│   │   ├── alerts/
+│   │   ├── customers/
+│   │   ├── dashboard/
+│   │   ├── expenses/
+│   │   ├── garment-patterns/
+│   │   ├── inventory/
+│   │   ├── orders/
+│   │   ├── purchase-orders/
+│   │   └── suppliers/
+│   ├── globals.css
+│   └── layout.tsx
 ├── components/             # React components
-│   ├── ui/                 # Base UI components
-│   ├── layout/             # Layout components
-│   ├── inventory/          # Inventory components
-│   └── orders/             # Order components
+│   ├── ui/
+│   ├── auth/
+│   ├── dashboard/
+│   └── providers/
 ├── lib/                    # Utility libraries
-│   ├── db.ts               # Prisma client
-│   ├── auth.ts             # Auth configuration
-│   └── utils.ts            # Helper functions
+│   ├── db.ts
+│   ├── auth.ts
+│   └── utils.ts
 ├── prisma/                 # Database files
-│   ├── schema.prisma       # Database schema
-│   ├── seed.ts             # Seed script
-│   └── migrations/         # Migration files
+│   ├── schema.prisma
+│   ├── seed.ts
+│   └── migrations/
 ├── types/                  # TypeScript type definitions
-├── .env                    # Environment variables (not committed)
-└── .env.example            # Environment template
+├── .env.example
+└── package.json
 ```
 
 ## ⚙️ Technical Notes
