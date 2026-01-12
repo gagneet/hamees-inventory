@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { BarcodeScanner } from "@/components/barcode-scanner"
 import { InventoryType } from "@/lib/types"
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast"
 
 export default function InventoryPageClient() {
   const router = useRouter()
@@ -94,23 +94,17 @@ export default function InventoryPageClient() {
       })
       if (!response.ok) throw new Error('Failed to create cloth item')
       const newItem = await response.json()
-      
       toast({
         title: "Success",
         description: "Cloth item created successfully",
-        variant: "success",
       })
-      
       router.push(`/inventory/cloth/${newItem.id}`)
     } catch (error) {
       console.error(error)
-      
       toast({
-        title: "Error",
-        description: error instanceof Error 
-          ? error.message 
-          : "Failed to create cloth item. Please try again.",
         variant: "destructive",
+        title: "Error",
+        description: "Failed to create cloth item. Please try again.",
       })
     } finally {
       setIsLoading(false)
@@ -131,23 +125,17 @@ export default function InventoryPageClient() {
       })
       if (!response.ok) throw new Error('Failed to create accessory item')
       const newItem = await response.json()
-      
       toast({
         title: "Success",
         description: "Accessory item created successfully",
-        variant: "success",
       })
-      
       router.push(`/inventory/accessory/${newItem.id}`)
     } catch (error) {
       console.error(error)
-      
       toast({
-        title: "Error",
-        description: error instanceof Error 
-          ? error.message 
-          : "Failed to create accessory item. Please try again.",
         variant: "destructive",
+        title: "Error",
+        description: "Failed to create accessory item. Please try again.",
       })
     } finally {
       setIsLoading(false)
