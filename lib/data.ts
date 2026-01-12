@@ -108,7 +108,8 @@ export async function getDashboardStats(): Promise<DashboardStats | null> {
     ).length
 
     const criticalStockItems = clothInventory.filter(
-      (item: { currentStock: number; reserved: number; minimum: number }) => (item.currentStock - item.reserved) / item.minimum <= 0.5
+      (item: { currentStock: number; reserved: number; minimum: number }) =>
+        item.minimum > 0 && (item.currentStock - item.reserved) / item.minimum <= 0.5
     ).length
 
     const totalInventoryWorth = clothInventory.reduce(
