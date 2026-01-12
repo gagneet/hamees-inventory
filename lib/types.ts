@@ -42,8 +42,10 @@ export type DashboardStats = {
       count: number;
     }[];
     topFabrics: {
+      id: string;
       name: string;
       type: string;
+      color: string;
       metersUsed: number;
     }[];
   };

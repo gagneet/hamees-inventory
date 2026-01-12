@@ -168,11 +168,13 @@ export async function GET() {
         .map(async (item: typeof topFabrics[0]) => {
           const cloth = await prisma.clothInventory.findUnique({
             where: { id: item.clothInventoryId! },
-            select: { name: true, type: true },
+            select: { id: true, name: true, type: true, color: true },
           })
           return {
+            id: cloth?.id || '',
             name: cloth?.name || 'Unknown',
             type: cloth?.type || 'Unknown',
+            color: cloth?.color || '#1E3A8A',
             metersUsed: item._sum.actualMetersUsed || 0,
           }
         })

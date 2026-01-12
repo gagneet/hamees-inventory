@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # Clean Build Script for Hamees Inventory
-# Deletes .next, node_modules, and rebuilds the application
+# - Always deletes .next and rebuilds
+# - Deletes node_modules only if package.json has been updated since last install
 
 set -e  # Exit on any error
 
@@ -16,29 +17,33 @@ else
   echo "ℹ️  .next directory not found, skipping..."
 fi
 
-# Remove node_modules directory
+# Check if node_modules needs to be reinstalled
+REINSTALL_DEPS=false
+
 if [ -d "node_modules" ]; then
-  echo "📁 Removing node_modules directory..."
-  rm -rf node_modules
-  echo "✅ node_modules directory removed"
+  # Check if package.json is newer than node_modules
+  if [ "package.json" -nt "node_modules" ]; then
+    echo "📦 package.json has been updated since last install"
+    echo "📁 Removing node_modules directory..."
+    rm -rf node_modules
+    echo "✅ node_modules directory removed"
+    REINSTALL_DEPS=true
+  else
+    echo "ℹ️  package.json unchanged, keeping node_modules"
+  fi
 else
-  echo "ℹ️  node_modules directory not found, skipping..."
+  echo "ℹ️  node_modules not found"
+  REINSTALL_DEPS=true
 fi
 
-# Remove pnpm lock file (optional - uncomment if you want a completely fresh install)
-# if [ -f "pnpm-lock.yaml" ]; then
-#   echo "📁 Removing pnpm-lock.yaml..."
-#   rm pnpm-lock.yaml
-#   echo "✅ pnpm-lock.yaml removed"
-# fi
+# Install dependencies if needed
+if [ "$REINSTALL_DEPS" = true ]; then
+  echo "📦 Installing dependencies with pnpm..."
+  pnpm install
 
-# Install dependencies
-echo "📦 Installing dependencies with pnpm..."
-pnpm install
-
-# Generate Prisma client
-echo "🔧 Generating Prisma client..."
-pnpm prisma generate
+  echo "🔧 Generating Prisma client..."
+  pnpm prisma generate
+fi
 
 # Build the application
 echo "🔨 Building application..."

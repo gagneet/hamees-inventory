@@ -142,53 +142,10 @@ export default async function Dashboard() {
         </Card>
       )}
 
-      {/* Charts Section */}
+      {/* 1. Inventory Summary and 2. Orders by Status */}
       {stats && (
-        <div className="grid gap-6 md:grid-cols-2 mb-8">
-          {/* Revenue Chart */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Revenue Trend (Last 6 Months)</CardTitle>
-              <CardDescription>Monthly revenue from delivered orders</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <RevenueChart data={stats.revenue.byMonth} />
-            </CardContent>
-          </Card>
-
-          {/* Orders by Status */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Orders by Status</CardTitle>
-              <CardDescription>Current distribution of order statuses</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {stats.charts.ordersByStatus.length > 0 ? (
-                <OrdersStatusChart data={stats.charts.ordersByStatus} />
-              ) : (
-                <div className="h-[300px] flex items-center justify-center text-slate-500">
-                  <p>No orders yet</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Top Fabrics and Additional Stats */}
-      {stats && stats.charts.topFabrics.length > 0 && (
-        <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2 mb-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Top 5 Most Used Fabrics</CardTitle>
-              <CardDescription>Fabrics by total meters used in orders</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <TopFabricsChart data={stats.charts.topFabrics} />
-            </CardContent>
-          </Card>
-
-          {/* Inventory Summary */}
+        <div className="grid gap-6 md:grid-cols-2 mb-6">
+          {/* 1. Inventory Summary */}
           <Card>
             <CardHeader>
               <CardTitle>Inventory Summary</CardTitle>
@@ -239,6 +196,50 @@ export default async function Dashboard() {
                   </div>
                 )}
               </div>
+            </CardContent>
+          </Card>
+
+          {/* 2. Orders by Status */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Orders by Status</CardTitle>
+              <CardDescription>Current distribution of order statuses</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {stats.charts.ordersByStatus.length > 0 ? (
+                <OrdersStatusChart data={stats.charts.ordersByStatus} />
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-slate-500">
+                  <p>No orders yet</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* 3. Top Fabrics and 4. Revenue Trend */}
+      {stats && stats.charts.topFabrics.length > 0 && (
+        <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2 mb-8">
+          {/* 3. Top 5 Most Used Fabrics */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Top 5 Most Used Fabrics</CardTitle>
+              <CardDescription>Fabrics by total meters used in orders</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <TopFabricsChart data={stats.charts.topFabrics} />
+            </CardContent>
+          </Card>
+
+          {/* 4. Revenue Chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Revenue Trend (Last 6 Months)</CardTitle>
+              <CardDescription>Monthly revenue from delivered orders</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <RevenueChart data={stats.revenue.byMonth} />
             </CardContent>
           </Card>
         </div>

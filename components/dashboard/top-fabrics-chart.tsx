@@ -10,11 +10,14 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
+  Cell,
 } from 'recharts'
 
 interface FabricData {
+  id: string
   name: string
   type: string
+  color: string
   metersUsed: number
 }
 
@@ -28,8 +31,8 @@ export function TopFabricsChart({ data }: TopFabricsChartProps) {
   const handleClick = (data: any) => {
     if (data && data.activePayload && data.activePayload[0]) {
       const fabricData = data.activePayload[0].payload
-      // Navigate to inventory page with search filter
-      router.push(`/inventory?search=${encodeURIComponent(fabricData.name)}`)
+      // Navigate to specific cloth detail page
+      router.push(`/inventory/cloth/${fabricData.id}`)
     }
   }
 
@@ -69,14 +72,17 @@ export function TopFabricsChart({ data }: TopFabricsChartProps) {
           <Legend wrapperStyle={{ fontSize: 12 }} />
           <Bar
             dataKey="metersUsed"
-            fill="#1E3A8A"
             radius={[8, 8, 0, 0]}
             name="Meters Used"
-          />
+          >
+            {data.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={entry.color} />
+            ))}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
       <p className="text-xs text-center text-slate-500 mt-2">
-        Click on any bar to view fabric details in inventory
+        Click on any bar to view fabric details
       </p>
     </div>
   )

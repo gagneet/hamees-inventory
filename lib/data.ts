@@ -78,18 +78,21 @@ export async function getDashboardStats(): Promise<DashboardStats | null> {
         id: true,
         name: true,
         type: true,
+        color: true,
       },
     })
     const clothMap = new Map(
-      cloths.map((cloth: { id: string; name: string | null; type: string | null }) => [cloth.id, cloth])
+      cloths.map((cloth: { id: string; name: string | null; type: string | null; color: string | null }) => [cloth.id, cloth])
     )
     const topFabricsWithDetails = topFabrics
       .filter((item: { clothInventoryId: string | null }) => item.clothInventoryId)
       .map((item: { clothInventoryId: string | null; _sum: { estimatedMeters: number | null } }) => {
         const cloth = clothMap.get(item.clothInventoryId as string)
         return {
+          id: cloth?.id || '',
           name: cloth?.name || 'Unknown',
           type: cloth?.type || 'Unknown',
+          color: cloth?.color || '#1E3A8A',
           metersUsed: item._sum.estimatedMeters || 0,
         }
       })

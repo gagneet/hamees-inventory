@@ -18,6 +18,12 @@ const orderSchema = z.object({
       clothInventoryId: z.string().min(1),
       quantity: z.number().int().positive().default(1),
       bodyType: z.nativeEnum(BodyType).default(BodyType.REGULAR),
+      accessories: z.array(
+        z.object({
+          accessoryId: z.string(),
+          quantity: z.number().int().positive().default(1),
+        })
+      ).optional().default([]),
     })
   ).min(1, 'At least one item is required'),
 })
@@ -187,7 +193,21 @@ export async function POST(request: Request) {
         )
       }
 
-      const itemTotal = estimatedMeters * cloth.pricePerMeter
+      let itemTotal = estimatedMeters * cloth.pricePerMeter
+
+      // Calculate accessories cost
+      if (item.accessories && item.accessories.length > 0) {
+        for (const acc of item.accessories) {
+          const accessory = await prisma.accessoryInventory.findUnique({
+            where: { id: acc.accessoryId },
+          })
+          if (accessory) {
+            const accessoryTotal = acc.quantity * item.quantity * accessory.pricePerUnit
+            itemTotal += accessoryTotal
+          }
+        }
+      }
+
       totalAmount += itemTotal
 
       orderItems.push({

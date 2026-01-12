@@ -16,21 +16,37 @@ import { Home, ArrowLeft, User, Phone, Mail, MapPin, Calendar, ShoppingBag, Rule
 import { formatCurrency } from '@/lib/utils'
 import DashboardLayout from '@/components/DashboardLayout'
 import { PermissionGuard } from '@/components/auth/permission-guard'
+import { prisma } from '@/lib/db'
 
 async function getCustomerDetails(id: string) {
   try {
-    const res = await fetch(`${process.env.NEXTAUTH_URL}/api/customers/${id}`, {
-      cache: 'no-store',
+    console.log('[Customer Detail] Fetching customer:', id)
+    const customer = await prisma.customer.findUnique({
+      where: { id },
+      include: {
+        measurements: {
+          orderBy: { createdAt: 'desc' },
+        },
+        orders: {
+          include: {
+            items: {
+              include: {
+                garmentPattern: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
     })
 
-    if (!res.ok) {
-      return null
+    console.log('[Customer Detail] Customer found:', customer ? 'yes' : 'no')
+    if (!customer) {
+      console.log('[Customer Detail] Customer not found in database')
     }
-
-    const data = await res.json()
-    return data.customer
+    return customer
   } catch (error) {
-    console.error('Error fetching customer details:', error)
+    console.error('[Customer Detail] Error fetching customer details:', error)
     return null
   }
 }

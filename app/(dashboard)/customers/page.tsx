@@ -142,8 +142,11 @@ export default function CustomersPage() {
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {customers.map((customer: any) => (
-              <Link key={customer.id} href={`/customers/${customer.id}`}>
-                <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
+              <Card
+                key={customer.id}
+                className="hover:shadow-lg transition-shadow cursor-pointer h-full"
+                onClick={() => router.push(`/customers/${customer.id}`)}
+              >
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -197,7 +200,6 @@ export default function CustomersPage() {
                     )}
                   </CardContent>
                 </Card>
-              </Link>
             ))}
           </div>
         )}

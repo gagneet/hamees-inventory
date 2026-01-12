@@ -58,11 +58,26 @@ type ClothInventory = {
   pricePerMeter: number
 }
 
+type Accessory = {
+  id: string
+  name: string
+  type: string
+  color?: string
+  pricePerUnit: number
+  currentStock: number
+}
+
+type OrderItemAccessory = {
+  accessoryId: string
+  quantity: number
+}
+
 type OrderItem = {
   garmentPatternId: string
   clothInventoryId: string
   quantity: number
   bodyType: 'SLIM' | 'REGULAR' | 'LARGE' | 'XL'
+  accessories: OrderItemAccessory[]
 }
 
 function NewOrderForm() {
@@ -85,12 +100,14 @@ function NewOrderForm() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [garmentPatterns, setGarmentPatterns] = useState<GarmentPattern[]>([])
   const [clothInventory, setClothInventory] = useState<ClothInventory[]>([])
+  const [accessories, setAccessories] = useState<Accessory[]>([])
 
   // Load initial data
   useEffect(() => {
     loadCustomers()
     loadGarmentPatterns()
     loadClothInventory()
+    loadAccessories()
   }, [])
 
   const loadCustomers = async () => {
@@ -147,12 +164,31 @@ function NewOrderForm() {
     }
   }
 
+  const loadAccessories = async () => {
+    try {
+      const res = await fetch('/api/inventory/accessories', {
+        credentials: 'include',
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setAccessories(data.accessories || [])
+      } else {
+        console.error('Failed to load accessories:', await res.text())
+        setAccessories([])
+      }
+    } catch (err) {
+      console.error('Failed to load accessories:', err)
+      setAccessories([])
+    }
+  }
+
   const addItem = () => {
     setItems([...items, {
       garmentPatternId: '',
       clothInventoryId: '',
       quantity: 1,
       bodyType: 'REGULAR',
+      accessories: [],
     }])
   }
 
@@ -162,12 +198,51 @@ function NewOrderForm() {
 
   const updateItem = (index: number, field: keyof OrderItem, value: any) => {
     const newItems = [...items]
-    newItems[index] = { ...newItems[index], [field]: value }
+    if (field === 'garmentPatternId' && value !== newItems[index].garmentPatternId) {
+      // When garment pattern changes, initialize accessories from pattern
+      const pattern = garmentPatterns.find(p => p.id === value)
+      const defaultAccessories = pattern?.accessories?.map(ga => ({
+        accessoryId: ga.accessory.id,
+        quantity: ga.quantity,
+      })) || []
+      newItems[index] = { ...newItems[index], [field]: value, accessories: defaultAccessories }
+    } else {
+      newItems[index] = { ...newItems[index], [field]: value }
+    }
     setItems(newItems)
   }
 
+  const addAccessoryToItem = (itemIndex: number, accessoryId: string) => {
+    const newItems = [...items]
+    const existingAcc = newItems[itemIndex].accessories.find(a => a.accessoryId === accessoryId)
+    if (!existingAcc) {
+      newItems[itemIndex].accessories = [
+        ...newItems[itemIndex].accessories,
+        { accessoryId, quantity: 1 }
+      ]
+      setItems(newItems)
+    }
+  }
+
+  const removeAccessoryFromItem = (itemIndex: number, accessoryId: string) => {
+    const newItems = [...items]
+    newItems[itemIndex].accessories = newItems[itemIndex].accessories.filter(
+      a => a.accessoryId !== accessoryId
+    )
+    setItems(newItems)
+  }
+
+  const updateAccessoryQuantity = (itemIndex: number, accessoryId: string, quantity: number) => {
+    const newItems = [...items]
+    const acc = newItems[itemIndex].accessories.find(a => a.accessoryId === accessoryId)
+    if (acc) {
+      acc.quantity = Math.max(1, quantity)
+      setItems(newItems)
+    }
+  }
+
   const calculateEstimate = () => {
-    if (!garmentPatterns || !clothInventory || !items) {
+    if (!garmentPatterns || !clothInventory || !items || !accessories) {
       return 0
     }
 
@@ -185,11 +260,14 @@ function NewOrderForm() {
         const meters = (pattern.baseMeters + adjustment) * item.quantity
         total += meters * cloth.pricePerMeter
 
-        // Add accessory costs
-        if (pattern.accessories) {
-          for (const garmentAcc of pattern.accessories) {
-            const accessoryTotal = garmentAcc.quantity * item.quantity * garmentAcc.accessory.pricePerUnit
-            total += accessoryTotal
+        // Add accessory costs from item's accessories
+        if (item.accessories && item.accessories.length > 0) {
+          for (const itemAcc of item.accessories) {
+            const accessory = accessories.find(a => a.id === itemAcc.accessoryId)
+            if (accessory) {
+              const accessoryTotal = itemAcc.quantity * item.quantity * accessory.pricePerUnit
+              total += accessoryTotal
+            }
           }
         }
       }
@@ -204,7 +282,7 @@ function NewOrderForm() {
     setLoading(true)
 
     try {
-      // Validate
+      // Minimal validation - only check for customer
       if (!customerId) {
         setError('Please select a customer')
         setLoading(false)
@@ -217,19 +295,16 @@ function NewOrderForm() {
         return
       }
 
-      if (!deliveryDate) {
-        setError('Please set a delivery date')
+      // Set default delivery date if not provided (7 days from now)
+      const finalDeliveryDate = deliveryDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+
+      // Filter out incomplete items
+      const validItems = items.filter(item => item.garmentPatternId && item.clothInventoryId)
+
+      if (validItems.length === 0) {
+        setError('Please complete at least one order item with both garment type and fabric selected')
         setLoading(false)
         return
-      }
-
-      // Check all items are filled
-      for (const item of items) {
-        if (!item.garmentPatternId || !item.clothInventoryId) {
-          setError('Please complete all order items')
-          setLoading(false)
-          return
-        }
       }
 
       const res = await fetch('/api/orders', {
@@ -237,10 +312,10 @@ function NewOrderForm() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customerId,
-          deliveryDate,
-          advancePaid,
-          notes,
-          items,
+          deliveryDate: finalDeliveryDate,
+          advancePaid: advancePaid || 0,
+          notes: notes || '',
+          items: validItems,
         }),
       })
 
@@ -450,32 +525,88 @@ function NewOrderForm() {
                         </select>
                       </div>
 
-                      {/* Show accessories for selected garment */}
-                      {item.garmentPatternId && (() => {
-                        const selectedPattern = garmentPatterns.find(p => p.id === item.garmentPatternId)
-                        if (selectedPattern?.accessories && selectedPattern.accessories.length > 0) {
-                          return (
-                            <div className="md:col-span-2">
-                              <label className="block text-sm font-medium text-slate-700 mb-2">
-                                Required Accessories
-                              </label>
-                              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                                <div className="flex flex-wrap gap-2">
-                                  {selectedPattern.accessories.map((garmentAcc) => (
-                                    <Badge key={garmentAcc.id} variant="secondary" className="text-xs">
-                                      {garmentAcc.accessory.name} ({garmentAcc.accessory.type})
-                                      {garmentAcc.accessory.color && ` - ${garmentAcc.accessory.color}`}
-                                      : {garmentAcc.quantity} × {item.quantity} = {garmentAcc.quantity * item.quantity} units
-                                      @ ₹{garmentAcc.accessory.pricePerUnit}/unit
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </div>
+                      {/* Accessories Section */}
+                      {item.garmentPatternId && (
+                        <div className="md:col-span-2">
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="block text-sm font-medium text-slate-700">
+                              Accessories
+                            </label>
+                            <select
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  addAccessoryToItem(index, e.target.value)
+                                  e.target.value = ''
+                                }
+                              }}
+                              className="text-xs px-3 py-1 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="">+ Add Accessory</option>
+                              {accessories
+                                .filter(acc => !item.accessories.find(ia => ia.accessoryId === acc.id))
+                                .map((acc) => (
+                                  <option key={acc.id} value={acc.id}>
+                                    {acc.name} ({acc.type}) - ₹{acc.pricePerUnit}/unit
+                                  </option>
+                                ))}
+                            </select>
+                          </div>
+
+                          {item.accessories.length > 0 ? (
+                            <div className="space-y-2">
+                              {item.accessories.map((itemAcc) => {
+                                const accessory = accessories.find(a => a.id === itemAcc.accessoryId)
+                                if (!accessory) return null
+                                return (
+                                  <div
+                                    key={itemAcc.accessoryId}
+                                    className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg"
+                                  >
+                                    <div className="flex-1">
+                                      <p className="text-sm font-medium text-slate-900">
+                                        {accessory.name}
+                                        {accessory.color && ` - ${accessory.color}`}
+                                      </p>
+                                      <p className="text-xs text-slate-600">
+                                        {accessory.type} • ₹{accessory.pricePerUnit}/unit • Stock: {accessory.currentStock}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="tel"
+                                        inputMode="numeric"
+                                        pattern="[0-9]*"
+                                        min="1"
+                                        value={itemAcc.quantity}
+                                        onChange={(e) => {
+                                          const val = e.target.value.replace(/[^0-9]/g, '')
+                                          updateAccessoryQuantity(index, itemAcc.accessoryId, parseInt(val) || 1)
+                                        }}
+                                        className="w-16 px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                      />
+                                      <span className="text-xs text-slate-600">
+                                        × {item.quantity} = {itemAcc.quantity * item.quantity}
+                                      </span>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => removeAccessoryFromItem(index, itemAcc.accessoryId)}
+                                        className="h-8 w-8 p-0"
+                                      >
+                                        <Trash2 className="h-4 w-4 text-red-600" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )
+                              })}
                             </div>
-                          )
-                        }
-                        return null
-                      })()}
+                          ) : (
+                            <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg text-center text-sm text-slate-500">
+                              No accessories added. Use the dropdown above to add accessories.
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -498,10 +629,15 @@ function NewOrderForm() {
                           Quantity
                         </label>
                         <input
-                          type="number"
+                          type="tel"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
                           min="1"
                           value={item.quantity}
-                          onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 1)}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/[^0-9]/g, '')
+                            updateItem(index, 'quantity', parseInt(val) || 1)
+                          }}
                           className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
@@ -567,10 +703,11 @@ function NewOrderForm() {
                     <input
                       type="number"
                       min="0"
+                      step="0.01"
                       value={advancePaid}
                       onChange={(e) => setAdvancePaid(parseFloat(e.target.value) || 0)}
                       className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="0"
+                      placeholder="0.00"
                     />
                   </div>
 
@@ -606,16 +743,16 @@ function NewOrderForm() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-600">Estimated Total:</span>
-                    <span className="font-semibold text-slate-900">₹{estimatedTotal.toLocaleString('en-IN')}</span>
+                    <span className="font-semibold text-slate-900">₹{estimatedTotal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-600">Advance Paid:</span>
-                    <span className="font-semibold text-green-600">₹{advancePaid.toLocaleString('en-IN')}</span>
+                    <span className="font-semibold text-green-600">₹{advancePaid.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                   </div>
                   <div className="flex justify-between pt-3 border-t">
                     <span className="text-slate-600">Balance Amount:</span>
                     <span className="font-semibold text-lg text-orange-600">
-                      ₹{balanceAmount.toLocaleString('en-IN')}
+                      ₹{balanceAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                     </span>
                   </div>
                 </div>
@@ -630,7 +767,7 @@ function NewOrderForm() {
                   </Button>
                   <Button
                     onClick={handleSubmit}
-                    disabled={loading || !deliveryDate}
+                    disabled={loading}
                   >
                     {loading ? 'Creating Order...' : 'Create Order'}
                   </Button>
