@@ -24,17 +24,19 @@ export default function InventoryPageClient() {
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<InventoryType>("cloth")
   const [isLoading, setIsLoading] = useState(false)
+interface InventoryLookupResult {
+  found: boolean
+  type?: string
+  item?: Record<string, unknown>
+}
+
+export default function InventoryPageClient() {
+  const router = useRouter()
+  const [activeTab, setActiveTab] = useState<InventoryType>("cloth")
+  const [isLoading, setIsLoading] = useState(false)
   const [scannedBarcode, setScannedBarcode] = useState<string | null>(null)
   const [showScanner, setShowScanner] = useState(false)
-  const [lookupResult, setLookupResult] = useState<{
-    found: boolean
-    type?: string
-    item?: {
-      id: string
-      name: string
-      [key: string]: unknown
-    }
-  } | null>(null)
+  const [lookupResult, setLookupResult] = useState<InventoryLookupResult | null>(null)
 
   const handleScanSuccess = async (barcode: string) => {
     setScannedBarcode(barcode)
