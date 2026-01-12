@@ -2,6 +2,20 @@ import { prisma } from "@/lib/db"
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns'
 import type { OrderStatus } from "@/lib/types"
 
+/**
+ * Retrieves aggregated statistics for the dashboard view.
+ *
+ * The data includes, among other things:
+ * - Revenue aggregated by month for the most recent six months.
+ * - Order counts grouped by their current status.
+ *
+ * The exact shape of the returned object is intended for internal dashboard
+ * consumption and may include additional derived metrics.
+ *
+ * @returns {Promise<Record<string, unknown> | null>} A promise that resolves
+ * to an object containing dashboard statistics, or `null` if an error
+ * occurs while querying or aggregating the data.
+ */
 export async function getDashboardStats() {
   try {
     const sixMonthsAgo = subMonths(new Date(), 5)
