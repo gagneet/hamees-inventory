@@ -21,7 +21,10 @@ import { InventoryType } from "@/lib/types"
 interface InventoryItem {
   id: string
   currentStock: number
-  [key: string]: unknown
+  sku?: string
+  name?: string
+  type?: string
+  brand?: string
 }
 
 interface LookupResult {
@@ -155,7 +158,14 @@ export default function InventoryPageClient() {
                   </p>
                   <p><strong>Type:</strong> {lookupResult.type}</p>
                   <p><strong>Stock:</strong> {lookupResult.item?.currentStock ?? 0} {lookupResult.type === 'cloth' ? 'meters' : 'units'}</p>
-                  <Button className="w-full mt-4" onClick={() => router.push(`/inventory/${lookupResult.type}/${lookupResult.item?.id}`)}>
+                  <Button 
+                    className="w-full mt-4" 
+                    onClick={() => {
+                      if (lookupResult.item?.id && lookupResult.type) {
+                        router.push(`/inventory/${lookupResult.type}/${lookupResult.item.id}`)
+                      }
+                    }}
+                  >
                     View Details
                   </Button>
                 </div>
