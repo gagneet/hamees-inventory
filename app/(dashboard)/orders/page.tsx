@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/breadcrumb'
 import { PermissionGuard } from '@/components/auth/permission-guard'
 import { OrderStatus } from '@/lib/types'
+import DashboardLayout from '@/components/DashboardLayout'
 
 async function getOrders() {
   try {
@@ -64,43 +65,37 @@ export default async function OrdersPage() {
   const { orders } = await getOrders()
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
-        <div className="container mx-auto px-4 py-4">
-          <Breadcrumb className="mb-3">
-            <BreadcrumbList>
-              <BreadcrumbItem>
-                <BreadcrumbLink href="/dashboard">
-                  <Home className="h-4 w-4" />
-                </BreadcrumbLink>
-              </BreadcrumbItem>
-              <BreadcrumbSeparator />
-              <BreadcrumbItem>
-                <BreadcrumbPage>Orders</BreadcrumbPage>
-              </BreadcrumbItem>
-            </BreadcrumbList>
-          </Breadcrumb>
+    <DashboardLayout>
+      <Breadcrumb className="mb-4">
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink href="/dashboard">
+              <Home className="h-4 w-4" />
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Orders</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
 
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl md:text-2xl font-bold text-slate-900">Orders</h1>
-              <p className="text-xs md:text-sm text-slate-600">{orders.length} total orders</p>
-            </div>
-            <PermissionGuard permission="create_order">
-              <Link href="/orders/new">
-                <Button size="sm" className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  <span className="hidden sm:inline">New Order</span>
-                </Button>
-              </Link>
-            </PermissionGuard>
-          </div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">Orders</h1>
+          <p className="text-xs md:text-sm text-slate-600 dark:text-slate-300">{orders.length} total orders</p>
         </div>
-      </header>
+        <PermissionGuard permission="create_order">
+          <Link href="/orders/new">
+            <Button size="sm" className="gap-2">
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">New Order</span>
+            </Button>
+          </Link>
+        </PermissionGuard>
+      </div>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-6">
         {/* Filters */}
         <Card className="mb-6">
           <CardContent className="pt-6">
@@ -219,7 +214,6 @@ export default async function OrdersPage() {
             })}
           </div>
         )}
-      </main>
-    </div>
+    </DashboardLayout>
   )
 }

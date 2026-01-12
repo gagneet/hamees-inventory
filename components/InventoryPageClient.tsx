@@ -530,7 +530,11 @@ export default function InventoryPageClient() {
                         const available = item.currentStock - item.reserved
                         const status = getStockStatus(item.currentStock, item.reserved, item.minimum)
                         return (
-                          <TableRow key={item.id}>
+                          <TableRow
+                            key={item.id}
+                            className="cursor-pointer hover:bg-slate-50"
+                            onClick={() => router.push(`/inventory/cloth/${item.id}`)}
+                          >
                             <TableCell className="font-mono text-xs">{item.sku}</TableCell>
                             <TableCell className="font-medium">{item.name}</TableCell>
                             <TableCell>{item.type}</TableCell>
@@ -554,7 +558,7 @@ export default function InventoryPageClient() {
                             <TableCell>
                               <Badge variant={status.variant}>{status.label}</Badge>
                             </TableCell>
-                            <TableCell>
+                            <TableCell onClick={(e) => e.stopPropagation()}>
                               <div className="flex gap-1">
                                 <Button
                                   size="sm"
@@ -565,6 +569,15 @@ export default function InventoryPageClient() {
                                 >
                                   <ShoppingCart className="h-4 w-4" />
                                 </Button>
+                                <Link href={`/inventory/cloth/${item.id}`}>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    title="View details"
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                </Link>
                               </div>
                             </TableCell>
                           </TableRow>
@@ -619,7 +632,11 @@ export default function InventoryPageClient() {
                       {accessoryInventory.map((item) => {
                         const status = getStockStatus(item.currentStock, 0, item.minimum)
                         return (
-                          <TableRow key={item.id}>
+                          <TableRow
+                            key={item.id}
+                            className="cursor-pointer hover:bg-slate-50"
+                            onClick={() => router.push(`/inventory/accessories/${item.id}`)}
+                          >
                             <TableCell>
                               <Badge variant="outline">{item.type}</Badge>
                             </TableCell>
@@ -631,7 +648,7 @@ export default function InventoryPageClient() {
                             <TableCell>
                               <Badge variant={status.variant}>{status.label}</Badge>
                             </TableCell>
-                            <TableCell>
+                            <TableCell onClick={(e) => e.stopPropagation()}>
                               <div className="flex gap-1">
                                 <Button
                                   size="sm"
@@ -642,6 +659,15 @@ export default function InventoryPageClient() {
                                 >
                                   <ShoppingCart className="h-4 w-4" />
                                 </Button>
+                                <Link href={`/inventory/accessories/${item.id}`}>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    title="View details"
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                </Link>
                               </div>
                             </TableCell>
                           </TableRow>
