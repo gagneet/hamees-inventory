@@ -18,17 +18,28 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { BarcodeScanner } from "@/components/barcode-scanner"
 import { InventoryType } from "@/lib/types"
 
+interface InventoryItem {
+  id: string
+  currentStock: number
+  sku?: string
+  name?: string
+  type?: string
+  brand?: string
+}
+
+interface LookupResult {
+  found: boolean
+  type?: string
+  item?: InventoryItem
+}
+
 export default function InventoryPageClient() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<InventoryType>("cloth")
   const [isLoading, setIsLoading] = useState(false)
   const [scannedBarcode, setScannedBarcode] = useState<string | null>(null)
   const [showScanner, setShowScanner] = useState(false)
-  const [lookupResult, setLookupResult] = useState<{
-    found: boolean
-    type?: string
-    item?: any
-  } | null>(null)
+  const [lookupResult, setLookupResult] = useState<LookupResult | null>(null)
 
   const handleScanSuccess = async (barcode: string) => {
     setScannedBarcode(barcode)
@@ -135,7 +146,7 @@ export default function InventoryPageClient() {
             />
           )}
 
-          {scannedBarcode && lookupResult?.found && (
+          {scannedBarcode && lookupResult?.found && lookupResult.item && (
             <Card className="mt-6">
               <CardHeader>
                 <CardTitle>Item Found</CardTitle>
@@ -146,8 +157,15 @@ export default function InventoryPageClient() {
                     SKU: {scannedBarcode}
                   </p>
                   <p><strong>Type:</strong> {lookupResult.type}</p>
-                  <p><strong>Stock:</strong> {lookupResult.item.currentStock} {lookupResult.item.unit}</p>
-                  <Button className="w-full mt-4" onClick={() => router.push(`/inventory/${lookupResult.type}/${lookupResult.item.id}`)}>
+                  <p><strong>Stock:</strong> {lookupResult.item?.currentStock ?? 0} {lookupResult.type === 'cloth' ? 'meters' : 'units'}</p>
+                  <Button 
+                    className="w-full mt-4" 
+                    onClick={() => {
+                      if (lookupResult.item?.id && lookupResult.type) {
+                        router.push(`/inventory/${lookupResult.type}/${lookupResult.item.id}`)
+                      }
+                    }}
+                  >
                     View Details
                   </Button>
                 </div>
