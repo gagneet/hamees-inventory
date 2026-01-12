@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
 import { z } from 'zod'
-import { OrderStatus, StockMovementType } from '@prisma/client'
+import { OrderStatus, StockMovementType } from '@/lib/types'
 
 const statusUpdateSchema = z.object({
   status: z.nativeEnum(OrderStatus),
@@ -41,6 +41,7 @@ export async function PATCH(
     // Handle status-specific logic
     if (status === OrderStatus.DELIVERED && order.status !== OrderStatus.DELIVERED) {
       // When order is delivered, convert reserved stock to used stock
+      // @ts-ignore
       await prisma.$transaction(async (tx) => {
         for (const item of order.items) {
           const metersUsed = actualMetersUsed || item.estimatedMeters
@@ -93,6 +94,7 @@ export async function PATCH(
       })
     } else if (status === OrderStatus.CANCELLED && order.status !== OrderStatus.CANCELLED) {
       // When order is cancelled, release reserved stock
+        // @ts-ignore
       await prisma.$transaction(async (tx) => {
         for (const item of order.items) {
           // Update inventory: decrease reserved

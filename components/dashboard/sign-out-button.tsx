@@ -1,20 +1,11 @@
-import { signOut } from '@/lib/auth'
+'use client'
+
+import { signOut } from '@/lib/actions'
 import { Button } from '@/components/ui/button'
-import { redirect } from 'next/navigation'
 
 export function SignOutButton() {
   return (
-    <form
-      action={async () => {
-        'use server'
-        try {
-          await signOut({ redirectTo: '/' })
-        } catch (error) {
-          console.error('Failed to sign out:', error)
-          redirect('/?error=signout')
-        }
-      }}
-    >
+    <form action={signOut}>
       <Button variant="outline" type="submit">
         Logout
       </Button>
