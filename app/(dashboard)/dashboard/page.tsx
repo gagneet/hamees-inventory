@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { redirect } from "next/navigation"
 import {
   AlertCircle,
   BoxIcon,
@@ -33,7 +34,7 @@ import type { UserRole } from "@/lib/types"
 export default async function Dashboard() {
   const session = await auth()
   if (!session?.user) {
-    return <div>Not authenticated</div>
+    redirect('/')
   }
 
   const stats = await getDashboardStats()
