@@ -28,7 +28,7 @@ import { getDashboardStats } from "@/lib/data"
 import { auth } from "@/lib/auth"
 import { hasPermission } from "@/lib/permissions"
 import { formatCurrency } from "@/lib/utils"
-import type { UserRole } from "@/lib/types"
+import type { UserRole, Alert } from "@/lib/types"
 
 export default async function Dashboard() {
   const session = await auth()
@@ -255,7 +255,7 @@ export default async function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {stats.alerts.recent.map((alert: any) => (
+              {stats.alerts.recent.map((alert: Alert) => (
                 <div
                   key={alert.id}
                   className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200"
