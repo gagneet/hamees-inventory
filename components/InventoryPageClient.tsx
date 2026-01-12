@@ -17,9 +17,11 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { BarcodeScanner } from "@/components/barcode-scanner"
 import { InventoryType } from "@/lib/types"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function InventoryPageClient() {
   const router = useRouter()
+  const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<InventoryType>("cloth")
   const [isLoading, setIsLoading] = useState(false)
   const [scannedBarcode, setScannedBarcode] = useState<string | null>(null)
@@ -27,7 +29,11 @@ export default function InventoryPageClient() {
   const [lookupResult, setLookupResult] = useState<{
     found: boolean
     type?: string
-    item?: any
+    item?: {
+      id: string
+      name: string
+      [key: string]: unknown
+    }
   } | null>(null)
 
   const handleScanSuccess = async (barcode: string) => {
@@ -37,11 +43,38 @@ export default function InventoryPageClient() {
 
     try {
       const response = await fetch(`/api/inventory/lookup?barcode=${barcode}`)
+      
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`)
+      }
+      
       const result = await response.json()
       setLookupResult(result)
+      
+      if (result.found) {
+        toast({
+          title: "Item Found",
+          description: `Found ${result.type} item: ${result.item?.name || barcode}`,
+          variant: "success",
+        })
+      } else {
+        toast({
+          title: "Item Not Found",
+          description: `No item found with barcode: ${barcode}. You can create a new item below.`,
+          variant: "default",
+        })
+      }
     } catch (error) {
       console.error("Lookup failed:", error)
       setLookupResult({ found: false })
+      
+      toast({
+        title: "Lookup Failed",
+        description: error instanceof Error 
+          ? `Network error: ${error.message}. Please check your connection and try again.`
+          : "Unable to lookup barcode. Please check your connection and try again.",
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -61,10 +94,24 @@ export default function InventoryPageClient() {
       })
       if (!response.ok) throw new Error('Failed to create cloth item')
       const newItem = await response.json()
+      
+      toast({
+        title: "Success",
+        description: "Cloth item created successfully",
+        variant: "success",
+      })
+      
       router.push(`/inventory/cloth/${newItem.id}`)
     } catch (error) {
       console.error(error)
-      alert('Failed to create cloth item')
+      
+      toast({
+        title: "Error",
+        description: error instanceof Error 
+          ? error.message 
+          : "Failed to create cloth item. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -84,10 +131,24 @@ export default function InventoryPageClient() {
       })
       if (!response.ok) throw new Error('Failed to create accessory item')
       const newItem = await response.json()
+      
+      toast({
+        title: "Success",
+        description: "Accessory item created successfully",
+        variant: "success",
+      })
+      
       router.push(`/inventory/accessory/${newItem.id}`)
     } catch (error) {
       console.error(error)
-      alert('Failed to create accessory item')
+      
+      toast({
+        title: "Error",
+        description: error instanceof Error 
+          ? error.message 
+          : "Failed to create accessory item. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
