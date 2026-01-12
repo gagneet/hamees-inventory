@@ -18,6 +18,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { BarcodeScanner } from "@/components/barcode-scanner"
 import { InventoryType } from "@/lib/types"
 
+/**
+ * Client-side inventory management page.
+ *
+ * This component coordinates barcode scanning, manual data entry, and
+ * navigation for creating and looking up inventory items. It provides
+ * tabbed forms for different inventory types (e.g. cloth and accessories),
+ * and maintains local UI state such as the active tab, loading indicators,
+ * and the most recent barcode scan and lookup result.
+ *
+ * Integration with the inventory API:
+ * - Performs item lookup by barcode via `GET /api/inventory/lookup`.
+ * - Creates cloth items via `POST /api/inventory/cloth`.
+ * - Creates accessory items via `POST /api/inventory/accessory`.
+ * After a successful creation, it uses Next.js routing to navigate to
+ * the detail page for the newly created item.
+ */
 export default function InventoryPageClient() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<InventoryType>("cloth")
