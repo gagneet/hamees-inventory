@@ -1,248 +1,490 @@
-# Hamees Attire - Inventory Management System
+# 🧵 Tailor Inventory Management System
 
-A comprehensive inventory management system designed for Hamees Attire tailoring business. This system manages inventory items (fabrics, accessories, garments) and handles tailoring orders with customer measurements and requirements.
+A comprehensive inventory and order management system built specifically for tailor shops. Manage fabric inventory, track orders, monitor stock levels, and streamline your tailoring business operations.
 
-## Features
+## ✨ Features
+
+### Authentication & Security
+- **NextAuth.js v5**: Secure credentials-based authentication
+- **Role-Based Access**: OWNER, ADMIN, INVENTORY_MANAGER, SALES_MANAGER, TAILOR, VIEWER
+- **Protected Routes**: Automatic middleware-based route protection
+- **JWT Sessions**: Secure session management
+- **Password Hashing**: bcryptjs with 10 salt rounds
 
 ### Inventory Management
-- **Track Items**: Manage fabrics, accessories, threads, buttons, and other materials
-- **Stock Levels**: Monitor quantities with automatic low-stock alerts
-- **Categories**: Organize items by category (fabric, accessory, garment, etc.)
-- **Supplier Information**: Store supplier details for reordering
-- **Units**: Support various units (meters, yards, pieces, etc.)
+- **Cloth Inventory**: Track fabrics by type, color, pattern, quality
+- **Accessories**: Manage buttons, threads, zippers, and other supplies
+- **Barcode Scanning**: Mobile camera or manual barcode/SKU entry for quick item lookup
+- **Stock Levels**: Real-time available stock (current - reserved)
+- **Auto Alerts**: Low stock and critical stock notifications
+- **Supplier Tracking**: Link inventory to suppliers with pricing history
+- **Auto SKU Generation**: Automatic SKU generation for new items
 
-### Tailoring Order Management
-- **Customer Records**: Maintain customer information and contact details
-- **Detailed Measurements**: Store comprehensive body measurements (chest, waist, shoulder, sleeve length, etc.)
-- **Order Tracking**: Track orders through their lifecycle (pending → in_progress → completed → delivered)
-- **Inventory Integration**: Link orders to inventory items used
-- **Payment Tracking**: Record total price, advance payments, and balance due
-- **Special Instructions**: Capture custom requirements for each order
+### Order Management
+- **Order Creation**: Create orders with customer measurements
+- **Garment Patterns**: Pre-configured patterns (Shirt, Trouser, Suit, Sherwani)
+- **Material Calculation**: Automatic fabric calculation based on pattern and body type
+- **Stock Reservation**: Auto-reserve fabric when order is created
+- **Status Tracking**: NEW → CUTTING → STITCHING → FINISHING → READY → DELIVERED
+- **Payment Tracking**: Advance payment and balance management
+
+### Customer Management
+- **Customer Profiles**: Contact info, address, order history
+- **Measurements**: Store detailed measurements by garment type
+- **Measurement History**: Track measurement changes over time
+
+### Alerts & Notifications
+- **Low Stock Alerts**: Automatic alerts when stock < minimum
+- **Critical Alerts**: High-priority warnings for very low stock
+- **Order Delays**: Track overdue orders
 
 ### Reporting & Analytics
-- **Low Stock Alerts**: Automatically identify items needing reorder
-- **Order Statistics**: View pending, in-progress, and completed orders
-- **System Overview**: Dashboard statistics for business insights
+- **Dashboard**: Real-time statistics and metrics
+- **Stock Reports**: Inventory value, movement history
+- **Order Analytics**: Sales trends, popular items
+- **Supplier Performance**: Delivery times, pricing trends
 
-## Technology Stack
-
-- **Backend**: Python Flask
-- **Database**: SQLite (easily upgradeable to PostgreSQL/MySQL)
-- **ORM**: SQLAlchemy
-- **API**: RESTful JSON API
-
-## Installation
+## 🚀 Quick Start
 
 ### Prerequisites
-- Python 3.8 or higher
-- pip (Python package manager)
+- Node.js 18+
+- PostgreSQL 14+
+- pnpm (recommended)
+- nginx (for production)
+- PM2 (for production process management)
 
-### Setup Instructions
+### Development Setup
 
-1. **Clone the repository**
+1. **Clone or navigate to the project**
    ```bash
-   git clone https://github.com/gagneet/hamees-inventory.git
-   cd hamees-inventory
+   cd tailor-inventory
    ```
 
-2. **Create a virtual environment** (recommended)
+2. **Install dependencies**
    ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pnpm install
    ```
 
-3. **Install dependencies**
+3. **Set up PostgreSQL**
+
+   See [SETUP.md](SETUP.md) for detailed PostgreSQL configuration.
+
+   Quick setup:
    ```bash
-   pip install -r requirements.txt
+   # Create PostgreSQL user (if needed)
+   sudo -u postgres createuser -s $(whoami)
+
+   # Create database
+   createdb tailor_inventory
    ```
 
-4. **Initialize the database**
+4. **Configure environment variables**
    ```bash
-   python app.py
-   ```
-   This will create the SQLite database with all necessary tables.
+   # Copy example env file
+   cp .env.example .env
 
-5. **(Optional) Enable debug mode for development**
+   # Update DATABASE_URL in .env with your credentials
+   ```
+
+5. **Initialize database**
    ```bash
-   export FLASK_DEBUG=true  # Linux/Mac
-   # OR
-   set FLASK_DEBUG=true     # Windows
+   # Push schema to database
+   pnpm db:push
+
+   # Seed with sample data
+   pnpm db:seed
    ```
-   **Note:** Debug mode should NEVER be enabled in production for security reasons.
 
-## Usage
+6. **Start development server**
+   ```bash
+   pnpm dev
+   ```
 
-### Starting the Server
+7. **Open in browser**
 
+   Visit http://localhost:3009 (development) or https://hamees.gagneet.com (production)
+
+### Default Login
+
+After seeding, use these credentials:
+
+- **Email:** owner@hameesattire.com
+- **Password:** admin123
+
+## 🌐 Production Deployment
+
+### Database Setup
+
+1. **Create dedicated PostgreSQL user**
+   ```bash
+   psql -U postgres -d postgres
+   CREATE USER hamees_user WITH PASSWORD 'your_secure_password';
+   GRANT ALL PRIVILEGES ON DATABASE tailor_inventory TO hamees_user;
+   \c tailor_inventory
+   GRANT ALL PRIVILEGES ON SCHEMA public TO hamees_user;
+   GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO hamees_user;
+   GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO hamees_user;
+   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO hamees_user;
+   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO hamees_user;
+   \q
+   ```
+
+2. **Update .env for production**
+   ```bash
+   DATABASE_URL="postgresql://hamees_user:your_secure_password@localhost:5432/tailor_inventory?schema=public"
+   NEXTAUTH_URL="https://hamees.gagneet.com"
+   NEXTAUTH_SECRET="generate_with_openssl_rand_-base64_32"
+   NODE_ENV="production"
+   ```
+
+3. **Generate secure secret**
+   ```bash
+   openssl rand -base64 32
+   ```
+
+### Application Deployment
+
+1. **Install dependencies and build**
+   ```bash
+   pnpm install
+   pnpm build
+   ```
+
+2. **Install PM2 globally**
+   ```bash
+   npm install -g pm2
+   ```
+
+3. **Start with PM2**
+   ```bash
+   pm2 start ecosystem.config.js
+   pm2 save
+   ```
+
+4. **Enable PM2 startup on boot**
+   ```bash
+   pm2 startup
+   # Run the command that PM2 outputs
+   ```
+
+### Nginx Configuration
+
+The application is configured to run behind nginx as a reverse proxy on port 3009.
+
+1. **Test nginx configuration**
+   ```bash
+   sudo nginx -t
+   ```
+
+2. **Reload nginx**
+   ```bash
+   sudo systemctl reload nginx
+   ```
+
+### SSL Certificate Setup
+
+1. **Install certbot (if not installed)**
+   ```bash
+   sudo apt install certbot python3-certbot-nginx
+   ```
+
+2. **Obtain SSL certificate**
+   ```bash
+   sudo certbot --nginx -d hamees.gagneet.com
+   ```
+
+3. **Auto-renewal** (certbot sets this up automatically)
+   ```bash
+   sudo certbot renew --dry-run
+   ```
+
+### Production Management
+
+**Check application status:**
 ```bash
-python app.py
+pm2 status
+pm2 logs hamees-inventory
+pm2 monit
 ```
 
-The server will start on `http://localhost:5000`
-
-### API Endpoints
-
-#### Customer Management
-
-- **GET** `/api/customers` - List all customers
-- **POST** `/api/customers` - Create a new customer
-- **GET** `/api/customers/<id>` - Get customer details
-- **PUT** `/api/customers/<id>` - Update customer
-- **DELETE** `/api/customers/<id>` - Delete customer
-
-#### Inventory Management
-
-- **GET** `/api/inventory` - List all inventory items
-  - Query params: `?category=fabric` - Filter by category
-- **POST** `/api/inventory` - Add new inventory item
-- **GET** `/api/inventory/<id>` - Get item details
-- **PUT** `/api/inventory/<id>` - Update inventory item
-- **DELETE** `/api/inventory/<id>` - Remove item
-- **GET** `/api/inventory/low-stock` - Get low stock items
-
-#### Order Management
-
-- **GET** `/api/orders` - List all orders
-  - Query params: `?status=pending` or `?customer_id=1`
-- **POST** `/api/orders` - Create new tailoring order
-- **GET** `/api/orders/<id>` - Get order details
-- **PUT** `/api/orders/<id>` - Update order
-- **DELETE** `/api/orders/<id>` - Delete order
-- **POST** `/api/orders/<id>/complete` - Complete order and deduct inventory
-
-#### Statistics
-
-- **GET** `/api/stats` - Get system statistics
-
-### Example API Calls
-
-#### Create a Customer
+**Restart application:**
 ```bash
-curl -X POST http://localhost:5000/api/customers \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "John Doe",
-    "phone": "+1234567890",
-    "email": "john@example.com",
-    "address": "123 Main St, City"
-  }'
+pm2 restart hamees-inventory
 ```
 
-#### Add Inventory Item
+**View logs:**
 ```bash
-curl -X POST http://localhost:5000/api/inventory \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Premium Cotton Fabric",
-    "category": "fabric",
-    "description": "High quality cotton fabric for shirts",
-    "quantity": 50,
-    "unit": "meters",
-    "price_per_unit": 25.50,
-    "reorder_level": 10,
-    "supplier_name": "ABC Textiles",
-    "supplier_contact": "+9876543210"
-  }'
+pm2 logs hamees-inventory --lines 100
+tail -f logs/out.log
+tail -f logs/err.log
 ```
 
-#### Create Tailoring Order
+**Database management:**
 ```bash
-curl -X POST http://localhost:5000/api/orders \
-  -H "Content-Type: application/json" \
-  -d '{
-    "customer_id": 1,
-    "garment_type": "shirt",
-    "delivery_date": "2024-02-15T00:00:00",
-    "chest": 40,
-    "waist": 34,
-    "shoulder": 18,
-    "sleeve_length": 24,
-    "shirt_length": 30,
-    "neck": 15.5,
-    "special_instructions": "Extra button on collar",
-    "total_price": 150.00,
-    "advance_payment": 50.00,
-    "items_used": [
-      {
-        "inventory_item_id": 1,
-        "quantity_used": 2.5
-      }
-    ]
-  }'
+pnpm db:studio          # Open Prisma Studio
+psql -U hamees_user -d tailor_inventory
 ```
 
-#### Complete an Order
+### Current Production Setup
+
+- **URL:** https://hamees.gagneet.com
+- **Port:** 3009
+- **Database:** tailor_inventory (user: hamees_user)
+- **Process Manager:** PM2
+- **Web Server:** nginx
+- **SSL:** Let's Encrypt (certbot)
+
+## 📚 Documentation
+
+- **[SETUP.md](SETUP.md)** - Detailed setup instructions and troubleshooting
+- **[PROGRESS.md](PROGRESS.md)** - Development progress and roadmap
+
+## 🛠️ Tech Stack
+
+### Frontend
+- **Framework:** Next.js 16 (App Router)
+- **UI Library:** React 19
+- **Styling:** Tailwind CSS 4
+- **Components:** Radix UI
+- **Icons:** Lucide React
+- **Charts:** Recharts
+- **Forms:** React Hook Form + Zod
+
+### Backend
+- **Runtime:** Node.js 20
+- **Database:** PostgreSQL 16
+- **ORM:** Prisma 7 (with @prisma/adapter-pg)
+- **Authentication:** NextAuth.js v5
+- **Process Manager:** PM2 (production)
+- **Web Server:** nginx (production)
+
+### Development
+- **Language:** TypeScript 5
+- **Package Manager:** pnpm
+- **Linting:** ESLint
+- **Version Control:** Git
+
+## 📦 Available Scripts
+
 ```bash
-curl -X POST http://localhost:5000/api/orders/1/complete
+# Development
+pnpm dev              # Start development server (http://localhost:3009)
+pnpm build            # Build for production
+pnpm start            # Start production server (port 3009)
+pnpm lint             # Run ESLint
+
+# Database
+pnpm db:push          # Push schema changes to database
+pnpm db:migrate       # Create and run migrations
+pnpm db:seed          # Seed database with sample data
+pnpm db:studio        # Open Prisma Studio (http://localhost:5555)
+pnpm db:reset         # Reset database and reseed
+
+# Production (PM2)
+pm2 start ecosystem.config.js    # Start application
+pm2 restart hamees-inventory     # Restart application
+pm2 stop hamees-inventory        # Stop application
+pm2 logs hamees-inventory        # View logs
+pm2 monit                        # Monitor resources
 ```
 
-## Data Models
+## 📁 Project Structure
 
-### Customer
-- id, name, phone, email, address, created_at
+```
+tailor-inventory/
+├── app/                    # Next.js app directory
+│   ├── (dashboard)/        # Dashboard routes (protected)
+│   │   ├── dashboard/      # Main dashboard
+│   │   ├── inventory/      # Inventory management
+│   │   ├── orders/         # Order management
+│   │   ├── alerts/         # Alerts page
+│   │   ├── customers/      # Customer management
+│   │   └── suppliers/      # Supplier management
+│   ├── api/                # API routes
+│   │   ├── auth/           # Authentication
+│   │   ├── inventory/      # Inventory endpoints
+│   │   ├── orders/         # Order endpoints
+│   │   └── alerts/         # Alert endpoints
+│   ├── globals.css         # Global styles & design system
+│   └── layout.tsx          # Root layout
+├── components/             # React components
+│   ├── ui/                 # Base UI components
+│   ├── layout/             # Layout components
+│   ├── inventory/          # Inventory components
+│   └── orders/             # Order components
+├── lib/                    # Utility libraries
+│   ├── db.ts               # Prisma client
+│   ├── auth.ts             # Auth configuration
+│   └── utils.ts            # Helper functions
+├── prisma/                 # Database files
+│   ├── schema.prisma       # Database schema
+│   ├── seed.ts             # Seed script
+│   └── migrations/         # Migration files
+├── types/                  # TypeScript type definitions
+├── .env                    # Environment variables (not committed)
+└── .env.example            # Environment template
+```
 
-### InventoryItem
-- id, name, category, description, quantity, unit, price_per_unit
-- reorder_level, supplier_name, supplier_contact
-- created_at, updated_at
+## ⚙️ Technical Notes
 
-### TailoringOrder
-- id, customer_id, order_date, delivery_date, status, garment_type
-- Measurements: chest, waist, shoulder, sleeve_length, shirt_length, neck, hip, inseam
-- special_instructions, total_price, advance_payment
-- created_at, updated_at
+### Prisma 7 Configuration
 
-### OrderItem (Junction Table)
-- id, order_id, inventory_item_id, quantity_used
+This project uses Prisma 7, which requires a database adapter. The PostgreSQL adapter is configured in:
 
-## Business Logic
+- **`lib/db.ts`**: Main Prisma client with PrismaPg adapter
+- **`prisma/seed.ts`**: Seed script with adapter configuration
+- **`prisma/schema.prisma`**: Schema with `engineType = "binary"`
 
-### Order Completion Flow
-1. Order is created with status "pending"
-2. Order can be updated to "in_progress" when work begins
-3. When order is marked as "completed", inventory is automatically deducted
-4. System validates sufficient inventory before completion
-5. Order can be marked as "delivered" after customer pickup
+**Required dependencies:**
+```json
+{
+  "@prisma/adapter-pg": "^7.2.0",
+  "@prisma/client": "^7.2.0",
+  "pg": "^8.16.3"
+}
+```
 
-### Low Stock Alerts
-- Items are flagged when quantity <= reorder_level
-- Use `/api/inventory/low-stock` endpoint to get all items needing reorder
+**Adapter usage example:**
+```typescript
+import { PrismaClient } from '@prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
+import { Pool } from 'pg'
 
-## Security Considerations
+const pool = new Pool({ connectionString: process.env.DATABASE_URL })
+const adapter = new PrismaPg(pool)
+const prisma = new PrismaClient({ adapter })
+```
 
-### Production Deployment
+## 🎨 Design System
 
-**Important:** This application is configured for development by default. Before deploying to production:
+### Colors
+- **Primary (Indigo):** #1E3A8A - Main brand color
+- **Secondary (Burgundy):** #991B1B - Accent
+- **Accent (Gold):** #F59E0B - Highlights
+- **Success (Green):** #10B981 - Success states
+- **Warning (Orange):** #F59E0B - Warnings
+- **Error (Red):** #EF4444 - Errors
 
-1. **Disable Debug Mode**: Debug mode is controlled by the `FLASK_DEBUG` environment variable and is disabled by default. Never set `FLASK_DEBUG=true` in production.
-2. **Change Secret Key**: Update the `SECRET_KEY` in `app.py` to a strong, random value
-3. **Use Production Database**: Replace SQLite with PostgreSQL or MySQL
-4. **Use Production WSGI Server**: Deploy with Gunicorn, uWSGI, or similar instead of Flask's development server
-5. **Enable HTTPS**: Use SSL/TLS certificates for encrypted communication
-6. **Add Authentication**: Implement user authentication and authorization
-7. **Input Validation**: Add comprehensive input validation and sanitization
-8. **Rate Limiting**: Implement API rate limiting to prevent abuse
+### Typography
+- **Font:** System fonts (optimized for performance)
+- **Headings:** Font weight 600-700
+- **Body:** Font weight 400
 
-## Future Enhancements
+## 🔐 Security
 
-Potential features for future versions:
-- User authentication and authorization
-- Invoice generation (PDF)
-- SMS/Email notifications for order updates
-- Barcode/QR code support for inventory items
-- Advanced reporting and analytics
-- Multi-branch support
-- Payment gateway integration
-- Customer portal for order tracking
+- **Password Hashing:** bcryptjs with salt rounds
+- **Authentication:** NextAuth.js with JWT
+- **Role-Based Access:** OWNER, ADMIN, INVENTORY_MANAGER, SALES_MANAGER, TAILOR, VIEWER
+- **Input Validation:** Zod schemas on all forms
+- **SQL Injection Prevention:** Prisma ORM
+- **Environment Variables:** Never committed to git
 
-## Contributing
+## 📊 Database Schema
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+### Core Models
+- **User** - User accounts with roles
+- **ClothInventory** - Fabric inventory
+- **AccessoryInventory** - Accessories (buttons, threads, etc.)
+- **Customer** - Customer information
+- **Measurement** - Customer measurements
+- **GarmentPattern** - Garment templates
+- **Order** - Customer orders
+- **OrderItem** - Individual garments in orders
+- **StockMovement** - Complete audit trail
+- **Supplier** - Supplier information
+- **PurchaseOrder** - Restocking orders
+- **Alert** - Notification system
+- **Settings** - App configuration
 
-## License
+## 🚧 Development Roadmap
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+### Phase 1: Foundation ✅
+- [x] Project setup
+- [x] Database schema
+- [x] Seed data
+- [x] Configuration
 
-## Support
+### Phase 2: Authentication ✅ Complete
+- [x] NextAuth.js v5 setup
+- [x] Credentials provider with bcrypt
+- [x] Login/Logout functionality
+- [x] Route protection middleware
+- [x] Role-based access control
+- [x] JWT session management
 
-For questions or support, please contact the repository owner or open an issue on GitHub.
+### Phase 3: API Development (In Progress)
+- [x] Inventory CRUD APIs (cloth & accessories)
+- [x] Barcode lookup API
+- [x] Stock movement tracking
+- [ ] Order management APIs
+- [ ] Alert system APIs
+- [ ] Customer/Supplier APIs
+
+### Phase 4: UI Components (In Progress)
+- [x] Radix UI components (Button, Input, Card, Label, Tabs)
+- [x] Landing page with split-screen design
+- [x] Login form component
+- [x] Barcode scanner component (html5-qrcode)
+- [x] Inventory forms (cloth & accessories)
+- [ ] Dashboard components
+- [ ] Order forms
+
+### Phase 5: Pages & Features (In Progress)
+- [x] Landing/Login page with branding
+- [x] Inventory management page (with barcode scanning)
+- [ ] Dashboard with analytics
+- [ ] Order tracking and management
+- [ ] Customers page
+- [ ] Suppliers page
+- [ ] Alerts page
+- [ ] Reports
+
+### Phase 6: Advanced Features
+- [ ] Measurements system
+- [x] Barcode/QR code scanning (camera + manual)
+- [ ] Advanced reports & analytics
+- [ ] Mobile app
+- [ ] Multi-language support
+
+## 📚 Documentation
+
+### Quick Links
+- **[AUTHENTICATION_AND_BARCODE.md](AUTHENTICATION_AND_BARCODE.md)** - Complete guide for authentication system and barcode scanning
+- **[SETUP.md](SETUP.md)** - Database setup and installation instructions
+- **[CLAUDE.md](CLAUDE.md)** - Project overview and development guidelines
+
+### Key Topics
+- **Authentication**: NextAuth.js v5 setup, login flow, route protection
+- **Barcode Scanning**: Camera-based and manual SKU entry for inventory
+- **API Reference**: Complete API documentation for all endpoints
+- **Troubleshooting**: Common issues and solutions
+- **Security**: Best practices for production deployment
+
+## 🤝 Contributing
+
+This is a custom project built for tailor shops. Contributions and suggestions are welcome!
+
+## 📝 License
+
+Private project - All rights reserved
+
+## 🆘 Support
+
+For setup issues, see [SETUP.md](SETUP.md) or check the troubleshooting section.
+
+## 🎯 Goals
+
+1. **Simplify Inventory**: Never run out of fabric or over-order
+2. **Streamline Orders**: From measurement to delivery
+3. **Reduce Waste**: Track material usage and wastage
+4. **Improve Efficiency**: Automated calculations and alerts
+5. **Better Insights**: Reports and analytics for business decisions
+
+---
+
+**Built with ❤️ for the tailoring community**
+
+**Version:** 0.2.0
+**Status:** Phase 2 & 3 Complete | Phase 4 & 5 In Progress
+**Features:** Authentication ✅ | Barcode Scanning ✅ | Inventory APIs ✅
+**Last Updated:** January 11, 2026

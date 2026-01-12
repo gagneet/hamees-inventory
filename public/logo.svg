@@ -1,0 +1,35 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Outer ornamental border -->
+  <rect x="10" y="10" width="180" height="180" rx="8" stroke="#C49A6C" stroke-width="2" fill="none"/>
+  <rect x="15" y="15" width="170" height="170" rx="6" stroke="#C49A6C" stroke-width="1" fill="none"/>
+
+  <!-- Central monogram H with sherwani collar detail -->
+  <g transform="translate(100, 100)">
+    <!-- Letter H styled as traditional sherwani -->
+    <path d="M -35 -50 L -35 50 M -35 0 L 35 0 M 35 -50 L 35 50"
+          stroke="#7C2D12"
+          stroke-width="8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          fill="none"/>
+
+    <!-- Ornamental details at top (collar detail) -->
+    <circle cx="-35" cy="-50" r="5" fill="#C49A6C"/>
+    <circle cx="35" cy="-50" r="5" fill="#C49A6C"/>
+
+    <!-- Button details in center -->
+    <circle cx="0" cy="-15" r="3" fill="#C49A6C"/>
+    <circle cx="0" cy="0" r="3" fill="#C49A6C"/>
+    <circle cx="0" cy="15" r="3" fill="#C49A6C"/>
+
+    <!-- Ornamental details at bottom -->
+    <circle cx="-35" cy="50" r="5" fill="#C49A6C"/>
+    <circle cx="35" cy="50" r="5" fill="#C49A6C"/>
+  </g>
+
+  <!-- Corner decorative elements -->
+  <circle cx="25" cy="25" r="3" fill="#1E3A8A" opacity="0.6"/>
+  <circle cx="175" cy="25" r="3" fill="#1E3A8A" opacity="0.6"/>
+  <circle cx="25" cy="175" r="3" fill="#1E3A8A" opacity="0.6"/>
+  <circle cx="175" cy="175" r="3" fill="#1E3A8A" opacity="0.6"/>
+</svg>
