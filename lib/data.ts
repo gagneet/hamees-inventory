@@ -39,8 +39,10 @@ export async function getDashboardStats() {
 
     const revenueByMonth = Array.from({ length: 6 }).map((_, i) => {
       const monthDate = subMonths(new Date(), i)
+      const monthKey = format(monthDate, 'yyyy-MM')
       const monthName = format(monthDate, 'MMM')
       return {
+        monthKey,
         month: monthName,
         revenue: 0,
       }
@@ -48,8 +50,8 @@ export async function getDashboardStats() {
 
     monthlyRevenue.forEach((revenue: { completedDate: Date | null; _sum: { totalAmount: number | null } }) => {
       if (revenue.completedDate) {
-        const monthName = format(revenue.completedDate, 'MMM')
-        const monthData = revenueByMonth.find((m) => m.month === monthName)
+        const monthKey = format(revenue.completedDate, 'yyyy-MM')
+        const monthData = revenueByMonth.find((m) => m.monthKey === monthKey)
         if (monthData) {
           monthData.revenue += revenue._sum.totalAmount || 0
         }
@@ -126,7 +128,7 @@ export async function getDashboardStats() {
 
     return {
       revenue: {
-        byMonth: revenueByMonth,
+        byMonth: revenueByMonth.map(({ month, revenue }) => ({ month, revenue })),
       },
       charts: {
         ordersByStatus: statusData,
