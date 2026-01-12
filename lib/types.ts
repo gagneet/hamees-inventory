@@ -4,11 +4,14 @@ import {
   StockMovementType,
   OrderPriority,
   BodyType,
+  AlertType,
+  AlertSeverity,
 } from '@prisma/client';
 import type {
   ClothInventory,
   OrderItem,
   Order,
+  Alert,
 } from '@prisma/client';
 
 export {
@@ -17,12 +20,15 @@ export {
   StockMovementType,
   OrderPriority,
   BodyType,
+  AlertType,
+  AlertSeverity,
 };
 
 export type {
   ClothInventory,
   OrderItem,
   Order,
+  Alert,
 };
 
 export type InventoryType = "cloth" | "accessory";
