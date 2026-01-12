@@ -1,7 +1,9 @@
-import { auth } from '@/lib/auth'
-import { redirect } from 'next/navigation'
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ShoppingBag, Plus, Filter, Calendar, User, Home } from 'lucide-react'
+import { ShoppingBag, Plus, Filter, Calendar, User, Home, X } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -15,49 +17,6 @@ import {
 import { PermissionGuard } from '@/components/auth/permission-guard'
 import { OrderStatus } from '@/lib/types'
 import DashboardLayout from '@/components/DashboardLayout'
-import { prisma } from '@/lib/db'
-
-async function getOrders() {
-  try {
-    const orders = await prisma.order.findMany({
-      include: {
-        customer: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            email: true,
-          },
-        },
-        items: {
-          include: {
-            garmentPattern: true,
-            clothInventory: {
-              select: {
-                id: true,
-                name: true,
-                color: true,
-                colorHex: true,
-              },
-            },
-          },
-        },
-        user: {
-          select: {
-            name: true,
-            email: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    })
-
-    return orders
-  } catch (error) {
-    console.error('Error fetching orders:', error)
-    return []
-  }
-}
 
 const statusColors: Record<OrderStatus, { bg: string; text: string; border: string }> = {
   NEW: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
@@ -81,14 +40,92 @@ const statusLabels: Record<OrderStatus, string> = {
   CANCELLED: 'Cancelled',
 }
 
-export default async function OrdersPage() {
-  const session = await auth()
+export default function OrdersPage() {
+  const router = useRouter()
+  const [orders, setOrders] = useState<any[]>([])
+  const [fabrics, setFabrics] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
-  if (!session?.user) {
-    redirect('/')
+  // Filter states
+  const [status, setStatus] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [fabricId, setFabricId] = useState('')
+  const [minAmount, setMinAmount] = useState('')
+  const [maxAmount, setMaxAmount] = useState('')
+  const [deliveryDateFrom, setDeliveryDateFrom] = useState('')
+  const [deliveryDateTo, setDeliveryDateTo] = useState('')
+  const [isOverdue, setIsOverdue] = useState(false)
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
+
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm)
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [searchTerm])
+
+  // Fetch fabrics for filter
+  useEffect(() => {
+    async function fetchFabrics() {
+      try {
+        const response = await fetch('/api/inventory/cloth')
+        const data = await response.json()
+        if (data.items) {
+          setFabrics(data.items)
+        }
+      } catch (error) {
+        console.error('Error fetching fabrics:', error)
+      }
+    }
+    fetchFabrics()
+  }, [])
+
+  // Fetch orders
+  useEffect(() => {
+    async function fetchOrders() {
+      setLoading(true)
+      try {
+        const params = new URLSearchParams()
+        if (status) params.append('status', status)
+        if (debouncedSearch) params.append('search', debouncedSearch)
+        if (fabricId) params.append('fabricId', fabricId)
+        if (minAmount) params.append('minAmount', minAmount)
+        if (maxAmount) params.append('maxAmount', maxAmount)
+        if (deliveryDateFrom) params.append('deliveryDateFrom', deliveryDateFrom)
+        if (deliveryDateTo) params.append('deliveryDateTo', deliveryDateTo)
+        if (isOverdue) params.append('isOverdue', 'true')
+
+        const response = await fetch(`/api/orders?${params.toString()}`)
+        const data = await response.json()
+
+        if (data.orders) {
+          setOrders(data.orders)
+        }
+      } catch (error) {
+        console.error('Error fetching orders:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchOrders()
+  }, [status, debouncedSearch, fabricId, minAmount, maxAmount, deliveryDateFrom, deliveryDateTo, isOverdue])
+
+  const clearFilters = () => {
+    setStatus('')
+    setSearchTerm('')
+    setFabricId('')
+    setMinAmount('')
+    setMaxAmount('')
+    setDeliveryDateFrom('')
+    setDeliveryDateTo('')
+    setIsOverdue(false)
   }
 
-  const orders = await getOrders()
+  const hasActiveFilters = status || searchTerm || fabricId || minAmount || maxAmount || deliveryDateFrom || deliveryDateTo || isOverdue
 
   return (
     <DashboardLayout>
@@ -125,43 +162,174 @@ export default async function OrdersPage() {
         {/* Filters */}
         <Card className="mb-6">
           <CardContent className="pt-6">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
-                <select className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  <option value="">All Statuses</option>
-                  {Object.entries(statusLabels).map(([key, label]) => (
-                    <option key={key} value={key}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
+            {/* Basic Filters */}
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Status</label>
+                  <select
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value)}
+                  >
+                    <option value="">All Statuses</option>
+                    {Object.entries(statusLabels).map(([key, label]) => (
+                      <option key={key} value={key}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Search</label>
+                  <input
+                    type="text"
+                    placeholder="Search by order number or customer..."
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
               </div>
-              <div className="flex-1">
-                <input
-                  type="text"
-                  placeholder="Search by order number or customer..."
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+
+              {/* Advanced Filters Toggle */}
+              <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                  className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700"
+                >
+                  <Filter className="h-4 w-4" />
+                  {showAdvancedFilters ? 'Hide' : 'Show'} Advanced Filters
+                </button>
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-700"
+                  >
+                    <X className="h-4 w-4" />
+                    Clear All Filters
+                  </button>
+                )}
               </div>
+
+              {/* Advanced Filters */}
+              {showAdvancedFilters && (
+                <div className="pt-4 space-y-4 border-t border-slate-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Fabric Filter */}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Fabric</label>
+                      <select
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={fabricId}
+                        onChange={(e) => setFabricId(e.target.value)}
+                      >
+                        <option value="">All Fabrics</option>
+                        {fabrics.map((fabric) => (
+                          <option key={fabric.id} value={fabric.id}>
+                            {fabric.name} ({fabric.color})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Min Amount */}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Min Amount (₹)</label>
+                      <input
+                        type="number"
+                        placeholder="0"
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={minAmount}
+                        onChange={(e) => setMinAmount(e.target.value)}
+                      />
+                    </div>
+
+                    {/* Max Amount */}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Max Amount (₹)</label>
+                      <input
+                        type="number"
+                        placeholder="999999"
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={maxAmount}
+                        onChange={(e) => setMaxAmount(e.target.value)}
+                      />
+                    </div>
+
+                    {/* Delivery Date From */}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Delivery From</label>
+                      <input
+                        type="date"
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={deliveryDateFrom}
+                        onChange={(e) => setDeliveryDateFrom(e.target.value)}
+                      />
+                    </div>
+
+                    {/* Delivery Date To */}
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-2">Delivery To</label>
+                      <input
+                        type="date"
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        value={deliveryDateTo}
+                        onChange={(e) => setDeliveryDateTo(e.target.value)}
+                      />
+                    </div>
+
+                    {/* Overdue Checkbox */}
+                    <div className="flex items-end">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
+                          checked={isOverdue}
+                          onChange={(e) => setIsOverdue(e.target.checked)}
+                        />
+                        <span className="text-sm font-medium text-slate-700">Show Overdue Only</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
 
         {/* Order List */}
-        {orders.length === 0 ? (
+        {loading ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span className="ml-3 text-slate-600">Loading orders...</span>
+              </div>
+            </CardContent>
+          </Card>
+        ) : orders.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
               <ShoppingBag className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">No orders yet</h3>
-              <p className="text-slate-600 mb-4">Create your first order to get started</p>
-              <PermissionGuard permission="create_order">
-                <Link href="/orders/new">
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Order
-                  </Button>
-                </Link>
-              </PermissionGuard>
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                {hasActiveFilters ? 'No orders found' : 'No orders yet'}
+              </h3>
+              <p className="text-slate-600 mb-4">
+                {hasActiveFilters ? 'Try adjusting your filters' : 'Create your first order to get started'}
+              </p>
+              {!hasActiveFilters && (
+                <PermissionGuard permission="create_order">
+                  <Link href="/orders/new">
+                    <Button>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Order
+                    </Button>
+                  </Link>
+                </PermissionGuard>
+              )}
             </CardContent>
           </Card>
         ) : (

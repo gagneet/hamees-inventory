@@ -1,5 +1,7 @@
-import { auth } from '@/lib/auth'
-import { redirect } from 'next/navigation'
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Users, Plus, Search, Phone, Mail, MapPin, Home } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,45 +16,48 @@ import {
 } from '@/components/ui/breadcrumb'
 import { PermissionGuard } from '@/components/auth/permission-guard'
 import DashboardLayout from '@/components/DashboardLayout'
-import { prisma } from '@/lib/db'
 
-async function getCustomers() {
-  try {
-    const customers = await prisma.customer.findMany({
-      include: {
-        measurements: {
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-        },
-        orders: {
-          select: {
-            id: true,
-            orderNumber: true,
-            status: true,
-            totalAmount: true,
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 5,
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    })
+export default function CustomersPage() {
+  const router = useRouter()
+  const [customers, setCustomers] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
 
-    return customers
-  } catch (error) {
-    console.error('Error fetching customers:', error)
-    return []
-  }
-}
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm)
+    }, 300)
 
-export default async function CustomersPage() {
-  const session = await auth()
+    return () => clearTimeout(timer)
+  }, [searchTerm])
 
-  if (!session?.user) {
-    redirect('/')
-  }
+  // Fetch customers
+  useEffect(() => {
+    async function fetchCustomers() {
+      setLoading(true)
+      try {
+        const params = new URLSearchParams()
+        if (debouncedSearch) {
+          params.append('search', debouncedSearch)
+        }
 
-  const customers = await getCustomers()
+        const response = await fetch(`/api/customers?${params.toString()}`)
+        const data = await response.json()
+
+        if (data.customers) {
+          setCustomers(data.customers)
+        }
+      } catch (error) {
+        console.error('Error fetching customers:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchCustomers()
+  }, [debouncedSearch])
 
   return (
     <DashboardLayout>
@@ -95,26 +100,43 @@ export default async function CustomersPage() {
                 type="text"
                 placeholder="Search customers by name, email, or phone..."
                 className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
           </CardContent>
         </Card>
 
         {/* Customer List */}
-        {customers.length === 0 ? (
+        {loading ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span className="ml-3 text-slate-600">Loading customers...</span>
+              </div>
+            </CardContent>
+          </Card>
+        ) : customers.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
               <Users className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">No customers yet</h3>
-              <p className="text-slate-600 mb-4">Get started by adding your first customer</p>
-              <PermissionGuard permission="manage_customers">
-                <Link href="/customers/new">
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Customer
-                  </Button>
-                </Link>
-              </PermissionGuard>
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                {searchTerm ? 'No customers found' : 'No customers yet'}
+              </h3>
+              <p className="text-slate-600 mb-4">
+                {searchTerm ? 'Try adjusting your search' : 'Get started by adding your first customer'}
+              </p>
+              {!searchTerm && (
+                <PermissionGuard permission="manage_customers">
+                  <Link href="/customers/new">
+                    <Button>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Customer
+                    </Button>
+                  </Link>
+                </PermissionGuard>
+              )}
             </CardContent>
           </Card>
         ) : (

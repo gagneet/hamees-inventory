@@ -31,22 +31,37 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const lowStock = searchParams.get('lowStock') === 'true'
+    const search = searchParams.get('search')
 
-    const clothInventory = await prisma.clothInventory.findMany({
-      where: lowStock
-        ? {
-            OR: [
-              { currentStock: { lte: prisma.clothInventory.fields.minimum } },
-            ],
-          }
-        : undefined,
+    const where: any = {}
+
+    // Low stock filter
+    if (lowStock) {
+      where.OR = [
+        { currentStock: { lte: prisma.clothInventory.fields.minimum } },
+      ]
+    }
+
+    // Search filter
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { sku: { contains: search, mode: 'insensitive' } },
+        { type: { contains: search, mode: 'insensitive' } },
+        { brand: { contains: search, mode: 'insensitive' } },
+        { color: { contains: search, mode: 'insensitive' } },
+      ]
+    }
+
+    const items = await prisma.clothInventory.findMany({
+      where: Object.keys(where).length > 0 ? where : undefined,
       include: {
         supplierRel: true,
       },
       orderBy: { createdAt: 'desc' },
     })
 
-    return NextResponse.json({ clothInventory })
+    return NextResponse.json({ items })
   } catch (error) {
     console.error('Error fetching cloth inventory:', error)
     return NextResponse.json(

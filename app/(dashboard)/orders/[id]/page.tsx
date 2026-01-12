@@ -24,6 +24,7 @@ async function getOrderDetails(id: string) {
       include: {
         customer: {
           select: {
+            id: true,
             name: true,
             phone: true,
             email: true,
@@ -252,7 +253,7 @@ export default async function OrderDetailPage({
                   </div>
                 )}
                 <div className="pt-3 border-t">
-                  <Link href={`/customers/${order.customerId}`}>
+                  <Link href={`/customers/${order.customer.id}`}>
                     <Button variant="outline" size="sm" className="w-full">
                       View Customer Profile
                     </Button>

@@ -86,26 +86,42 @@ export default function InventoryPageClient() {
   const [clothInventory, setClothInventory] = useState<ClothInventoryItem[]>([])
   const [accessoryInventory, setAccessoryInventory] = useState<AccessoryInventoryItem[]>([])
   const [isFetchingInventory, setIsFetchingInventory] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
 
-  // Fetch inventory on mount and tab change
+  // Debounce search term
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm)
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [searchTerm])
+
+  // Fetch inventory on mount, tab change, and search change
   useEffect(() => {
     fetchInventory()
-  }, [activeTab])
+  }, [activeTab, debouncedSearch])
 
   const fetchInventory = async () => {
     setIsFetchingInventory(true)
     try {
+      const params = new URLSearchParams()
+      if (debouncedSearch) {
+        params.append('search', debouncedSearch)
+      }
+
       if (activeTab === "cloth") {
-        const response = await fetch('/api/inventory/cloth')
+        const response = await fetch(`/api/inventory/cloth?${params.toString()}`)
         if (response.ok) {
           const data = await response.json()
-          setClothInventory(data)
+          setClothInventory(data.items || [])
         }
       } else {
-        const response = await fetch('/api/inventory/accessories')
+        const response = await fetch(`/api/inventory/accessories?${params.toString()}`)
         if (response.ok) {
           const data = await response.json()
-          setAccessoryInventory(data)
+          setAccessoryInventory(data.items || [])
         }
       }
     } catch (error) {
@@ -480,8 +496,27 @@ export default function InventoryPageClient() {
         </div>
       )}
 
+      {/* Search Bar */}
+      <Card className="mb-6">
+        <CardContent className="pt-6">
+          <div className="relative">
+            <Input
+              type="text"
+              placeholder={`Search ${activeTab === 'cloth' ? 'cloth inventory by name, SKU, type, brand, or color' : 'accessories by name, type, or color'}...`}
+              className="pl-10"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <Package className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Main Inventory Display */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as InventoryType)} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={(v) => {
+        setActiveTab(v as InventoryType)
+        setSearchTerm('') // Clear search when switching tabs
+      }} className="space-y-4">
         <TabsList>
           <TabsTrigger value="cloth">Cloth Inventory</TabsTrigger>
           <TabsTrigger value="accessory">Accessories</TabsTrigger>
@@ -496,11 +531,15 @@ export default function InventoryPageClient() {
             <Card>
               <CardContent className="py-12 text-center">
                 <Package className="h-12 w-12 mx-auto text-slate-400 mb-4" />
-                <p className="text-slate-500 mb-4">No cloth items in inventory</p>
-                <Button onClick={() => setShowAddForm(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add First Item
-                </Button>
+                <p className="text-slate-500 mb-4">
+                  {searchTerm ? 'No cloth items found matching your search' : 'No cloth items in inventory'}
+                </p>
+                {!searchTerm && (
+                  <Button onClick={() => setShowAddForm(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add First Item
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ) : (
@@ -600,11 +639,15 @@ export default function InventoryPageClient() {
             <Card>
               <CardContent className="py-12 text-center">
                 <Package className="h-12 w-12 mx-auto text-slate-400 mb-4" />
-                <p className="text-slate-500 mb-4">No accessories in inventory</p>
-                <Button onClick={() => setShowAddForm(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add First Item
-                </Button>
+                <p className="text-slate-500 mb-4">
+                  {searchTerm ? 'No accessories found matching your search' : 'No accessories in inventory'}
+                </p>
+                {!searchTerm && (
+                  <Button onClick={() => setShowAddForm(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add First Item
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ) : (

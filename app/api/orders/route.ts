@@ -31,6 +31,12 @@ export async function GET(request: Request) {
     const status = searchParams.get('status')
     const customerId = searchParams.get('customerId')
     const search = searchParams.get('search')
+    const fabricId = searchParams.get('fabricId')
+    const minAmount = searchParams.get('minAmount')
+    const maxAmount = searchParams.get('maxAmount')
+    const deliveryDateFrom = searchParams.get('deliveryDateFrom')
+    const deliveryDateTo = searchParams.get('deliveryDateTo')
+    const isOverdue = searchParams.get('isOverdue')
 
     const where: any = {}
 
@@ -47,6 +53,48 @@ export async function GET(request: Request) {
         { orderNumber: { contains: search, mode: 'insensitive' } },
         { customer: { name: { contains: search, mode: 'insensitive' } } },
       ]
+    }
+
+    // Filter by fabric (clothInventoryId)
+    if (fabricId) {
+      where.items = {
+        some: {
+          clothInventoryId: fabricId
+        }
+      }
+    }
+
+    // Filter by amount range
+    if (minAmount || maxAmount) {
+      where.totalAmount = {}
+      if (minAmount) {
+        where.totalAmount.gte = parseFloat(minAmount)
+      }
+      if (maxAmount) {
+        where.totalAmount.lte = parseFloat(maxAmount)
+      }
+    }
+
+    // Filter by delivery date range
+    if (deliveryDateFrom || deliveryDateTo) {
+      where.deliveryDate = {}
+      if (deliveryDateFrom) {
+        where.deliveryDate.gte = new Date(deliveryDateFrom)
+      }
+      if (deliveryDateTo) {
+        where.deliveryDate.lte = new Date(deliveryDateTo)
+      }
+    }
+
+    // Filter overdue orders (delivery date < today AND not delivered/cancelled)
+    if (isOverdue === 'true') {
+      where.deliveryDate = {
+        ...where.deliveryDate,
+        lt: new Date()
+      }
+      where.status = {
+        notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED]
+      }
     }
 
     const orders = await prisma.order.findMany({

@@ -24,21 +24,38 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const lowStock = searchParams.get('lowStock') === 'true'
     const type = searchParams.get('type')
+    const search = searchParams.get('search')
 
-    const accessories = await prisma.accessoryInventory.findMany({
-      where: {
-        ...(lowStock && {
-          currentStock: { lte: prisma.accessoryInventory.fields.minimum },
-        }),
-        ...(type && { type }),
-      },
+    const where: any = {}
+
+    // Low stock filter
+    if (lowStock) {
+      where.currentStock = { lte: prisma.accessoryInventory.fields.minimum }
+    }
+
+    // Type filter
+    if (type) {
+      where.type = type
+    }
+
+    // Search filter
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { type: { contains: search, mode: 'insensitive' } },
+        { color: { contains: search, mode: 'insensitive' } },
+      ]
+    }
+
+    const items = await prisma.accessoryInventory.findMany({
+      where: Object.keys(where).length > 0 ? where : undefined,
       include: {
         supplierRel: true,
       },
       orderBy: { createdAt: 'desc' },
     })
 
-    return NextResponse.json(accessories)
+    return NextResponse.json({ items })
   } catch (error) {
     console.error('Error fetching accessory inventory:', error)
     return NextResponse.json(

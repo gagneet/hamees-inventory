@@ -57,64 +57,81 @@ export default async function Dashboard() {
         </BreadcrumbList>
       </Breadcrumb>
 
-      <div className="flex items-center">
+      <div className="flex items-center mb-6">
         <h1 className="text-lg font-semibold md:text-2xl">Dashboard</h1>
       </div>
 
-      {/* Loading State */}
-      {!stats && (
-        <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">--</div>
-              <p className="text-xs text-muted-foreground">Loading...</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Inventory</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">--</div>
-              <p className="text-xs text-muted-foreground">Loading...</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Orders</CardTitle>
-              <ShoppingBag className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">--</div>
-              <p className="text-xs text-muted-foreground">Loading...</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending Orders</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">--</div>
-              <p className="text-xs text-muted-foreground">Loading...</p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Alerts</CardTitle>
-              <AlertCircle className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">--</div>
-              <p className="text-xs text-muted-foreground">Loading...</p>
-            </CardContent>
-          </Card>
-        </div>
+      {/* Quick Actions */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Quick Actions</CardTitle>
+          <CardDescription>Common tasks and shortcuts</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+            {hasPermission(session.user.role as UserRole, 'view_inventory') && (
+              <Link href="/inventory" className="w-full">
+                <Button className="w-full" variant="default">
+                  <Package className="mr-2 h-4 w-4" />
+                  <span className="hidden sm:inline">Manage </span>Inventory
+                </Button>
+              </Link>
+            )}
+            {hasPermission(session.user.role as UserRole, 'view_orders') && (
+              <Link href="/orders" className="w-full">
+                <Button className="w-full" variant="outline">
+                  <ShoppingBag className="mr-2 h-4 w-4" />
+                  <span className="hidden sm:inline">View </span>Orders
+                </Button>
+              </Link>
+            )}
+            {hasPermission(session.user.role as UserRole, 'view_customers') && (
+              <Link href="/customers" className="w-full">
+                <Button className="w-full" variant="outline">
+                  <Users className="mr-2 h-4 w-4" />
+                  <span className="hidden sm:inline">View </span>Customers
+                </Button>
+              </Link>
+            )}
+            {hasPermission(session.user.role as UserRole, 'view_alerts') && (
+              <Link href="/alerts" className="w-full">
+                <Button className="w-full" variant="outline">
+                  <AlertCircle className="mr-2 h-4 w-4" />
+                  <span className="hidden sm:inline">View </span>Alerts
+                </Button>
+              </Link>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Recent Alerts */}
+      {stats && stats.alerts.recent.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>Recent Alerts</CardTitle>
+            <CardDescription>Latest system notifications</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {stats.alerts.recent.map((alert: any) => (
+                <div
+                  key={alert.id}
+                  className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200"
+                >
+                  <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-slate-900">{alert.type}</p>
+                    <p className="text-xs text-slate-600 mt-1">{alert.message}</p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      {new Date(alert.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Charts Section */}
@@ -217,79 +234,6 @@ export default async function Dashboard() {
             </CardContent>
           </Card>
         </div>
-      )}
-
-      {/* Quick Actions */}
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-          <CardDescription>Common tasks and shortcuts</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-            {hasPermission(session.user.role as UserRole, 'view_inventory') && (
-              <Link href="/inventory" className="w-full">
-                <Button className="w-full" variant="default">
-                  <Package className="mr-2 h-4 w-4" />
-                  <span className="hidden sm:inline">Manage </span>Inventory
-                </Button>
-              </Link>
-            )}
-            {hasPermission(session.user.role as UserRole, 'view_orders') && (
-              <Link href="/orders" className="w-full">
-                <Button className="w-full" variant="outline">
-                  <ShoppingBag className="mr-2 h-4 w-4" />
-                  <span className="hidden sm:inline">View </span>Orders
-                </Button>
-              </Link>
-            )}
-            {hasPermission(session.user.role as UserRole, 'view_customers') && (
-              <Link href="/customers" className="w-full">
-                <Button className="w-full" variant="outline">
-                  <Users className="mr-2 h-4 w-4" />
-                  <span className="hidden sm:inline">View </span>Customers
-                </Button>
-              </Link>
-            )}
-            {hasPermission(session.user.role as UserRole, 'view_alerts') && (
-              <Link href="/alerts" className="w-full">
-                <Button className="w-full" variant="outline">
-                  <AlertCircle className="mr-2 h-4 w-4" />
-                  <span className="hidden sm:inline">View </span>Alerts
-                </Button>
-              </Link>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Recent Alerts */}
-      {stats && stats.alerts.recent.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Alerts</CardTitle>
-            <CardDescription>Latest system notifications</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {stats.alerts.recent.map((alert: any) => (
-                <div
-                  key={alert.id}
-                  className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200"
-                >
-                  <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-slate-900">{alert.type}</p>
-                    <p className="text-xs text-slate-600 mt-1">{alert.message}</p>
-                    <p className="text-xs text-slate-400 mt-1">
-                      {new Date(alert.createdAt).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
       )}
     </DashboardLayout>
   )
