@@ -11,6 +11,8 @@ import {
   Users,
   AlertCircle,
   Menu,
+  LayoutGrid,
+  LogOut,
 } from 'lucide-react';
 import Image from 'next/image';
 import { SignOutButton } from './dashboard/sign-out-button';
@@ -23,16 +25,6 @@ const navItems = [
   { href: '/alerts', icon: AlertCircle, label: 'Alerts' },
 ];
 
-/**
- * DashboardLayout provides the main shell for all dashboard pages, including
- * the sidebar navigation, header with mobile menu, and content area.
- *
- * Use this layout to wrap dashboard-related pages so they share a consistent
- * navigation structure and styling across the application.
- *
- * @param children - Page content to be rendered within the dashboard layout.
- * @returns The complete dashboard page layout with navigation and header.
- */
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <div className="grid min-h-screen w-full md:grid-cols-[220px_1fr] lg:grid-cols-[280px_1fr]">

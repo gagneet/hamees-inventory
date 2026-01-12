@@ -41,7 +41,7 @@ export async function PATCH(
     // Handle status-specific logic
     if (status === OrderStatus.DELIVERED && order.status !== OrderStatus.DELIVERED) {
       // When order is delivered, convert reserved stock to used stock
-      // @ts-expect-error Prisma's $transaction callback type is incompatible with our current Prisma client typings.
+      // @ts-ignore
       await prisma.$transaction(async (tx) => {
         for (const item of order.items) {
           const metersUsed = actualMetersUsed || item.estimatedMeters
