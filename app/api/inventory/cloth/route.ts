@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'desc' },
     })
 
-    return NextResponse.json(clothInventory)
+    return NextResponse.json({ clothInventory })
   } catch (error) {
     console.error('Error fetching cloth inventory:', error)
     return NextResponse.json(

@@ -8,6 +8,13 @@ export async function GET(request: Request) {
 
   try {
     const patterns = await prisma.garmentPattern.findMany({
+      include: {
+        accessories: {
+          include: {
+            accessory: true,
+          },
+        },
+      },
       orderBy: { name: 'asc' },
     })
 

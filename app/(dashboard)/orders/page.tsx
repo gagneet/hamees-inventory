@@ -15,21 +15,47 @@ import {
 import { PermissionGuard } from '@/components/auth/permission-guard'
 import { OrderStatus } from '@/lib/types'
 import DashboardLayout from '@/components/DashboardLayout'
+import { prisma } from '@/lib/db'
 
 async function getOrders() {
   try {
-    const res = await fetch(`${process.env.NEXTAUTH_URL}/api/orders`, {
-      cache: 'no-store',
+    const orders = await prisma.order.findMany({
+      include: {
+        customer: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            email: true,
+          },
+        },
+        items: {
+          include: {
+            garmentPattern: true,
+            clothInventory: {
+              select: {
+                id: true,
+                name: true,
+                color: true,
+                colorHex: true,
+              },
+            },
+          },
+        },
+        user: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
     })
 
-    if (!res.ok) {
-      return { orders: [] }
-    }
-
-    return await res.json()
+    return orders
   } catch (error) {
     console.error('Error fetching orders:', error)
-    return { orders: [] }
+    return []
   }
 }
 
@@ -62,7 +88,7 @@ export default async function OrdersPage() {
     redirect('/')
   }
 
-  const { orders } = await getOrders()
+  const orders = await getOrders()
 
   return (
     <DashboardLayout>

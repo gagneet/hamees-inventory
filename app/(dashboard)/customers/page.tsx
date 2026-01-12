@@ -14,21 +14,34 @@ import {
 } from '@/components/ui/breadcrumb'
 import { PermissionGuard } from '@/components/auth/permission-guard'
 import DashboardLayout from '@/components/DashboardLayout'
+import { prisma } from '@/lib/db'
 
 async function getCustomers() {
   try {
-    const res = await fetch(`${process.env.NEXTAUTH_URL}/api/customers`, {
-      cache: 'no-store',
+    const customers = await prisma.customer.findMany({
+      include: {
+        measurements: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+        orders: {
+          select: {
+            id: true,
+            orderNumber: true,
+            status: true,
+            totalAmount: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 5,
+        },
+      },
+      orderBy: { createdAt: 'desc' },
     })
 
-    if (!res.ok) {
-      return { customers: [] }
-    }
-
-    return await res.json()
+    return customers
   } catch (error) {
     console.error('Error fetching customers:', error)
-    return { customers: [] }
+    return []
   }
 }
 
@@ -39,7 +52,7 @@ export default async function CustomersPage() {
     redirect('/')
   }
 
-  const { customers } = await getCustomers()
+  const customers = await getCustomers()
 
   return (
     <DashboardLayout>

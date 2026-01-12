@@ -32,6 +32,17 @@ type GarmentPattern = {
   regularAdjustment: number
   largeAdjustment: number
   xlAdjustment: number
+  accessories?: Array<{
+    id: string
+    quantity: number
+    accessory: {
+      id: string
+      name: string
+      type: string
+      color?: string
+      pricePerUnit: number
+    }
+  }>
 }
 
 type ClothInventory = {
@@ -173,6 +184,14 @@ function NewOrderForm() {
 
         const meters = (pattern.baseMeters + adjustment) * item.quantity
         total += meters * cloth.pricePerMeter
+
+        // Add accessory costs
+        if (pattern.accessories) {
+          for (const garmentAcc of pattern.accessories) {
+            const accessoryTotal = garmentAcc.quantity * item.quantity * garmentAcc.accessory.pricePerUnit
+            total += accessoryTotal
+          }
+        }
       }
     }
     // Add stitching charges
@@ -430,6 +449,33 @@ function NewOrderForm() {
                           ))}
                         </select>
                       </div>
+
+                      {/* Show accessories for selected garment */}
+                      {item.garmentPatternId && (() => {
+                        const selectedPattern = garmentPatterns.find(p => p.id === item.garmentPatternId)
+                        if (selectedPattern?.accessories && selectedPattern.accessories.length > 0) {
+                          return (
+                            <div className="md:col-span-2">
+                              <label className="block text-sm font-medium text-slate-700 mb-2">
+                                Required Accessories
+                              </label>
+                              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                <div className="flex flex-wrap gap-2">
+                                  {selectedPattern.accessories.map((garmentAcc) => (
+                                    <Badge key={garmentAcc.id} variant="secondary" className="text-xs">
+                                      {garmentAcc.accessory.name} ({garmentAcc.accessory.type})
+                                      {garmentAcc.accessory.color && ` - ${garmentAcc.accessory.color}`}
+                                      : {garmentAcc.quantity} × {item.quantity} = {garmentAcc.quantity * item.quantity} units
+                                      @ ₹{garmentAcc.accessory.pricePerUnit}/unit
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        }
+                        return null
+                      })()}
 
                       <div>
                         <label className="block text-sm font-medium text-slate-700 mb-2">
