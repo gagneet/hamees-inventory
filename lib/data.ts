@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/db"
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns'
-import type { OrderStatus } from "@/lib/types"
+import type { OrderStatus, DashboardStats } from "@/lib/types"
 
-export async function getDashboardStats() {
+export async function getDashboardStats(): Promise<DashboardStats | null> {
   try {
     const sixMonthsAgo = subMonths(new Date(), 5)
     const firstDayOfSixMonthsAgo = startOfMonth(sixMonthsAgo)
@@ -67,21 +67,32 @@ export async function getDashboardStats() {
       take: 5,
     })
 
-    const topFabricsWithDetails = await Promise.all(
-      topFabrics
-        .filter((item: { clothInventoryId: string | null }) => item.clothInventoryId)
-        .map(async (item: { clothInventoryId: string | null; _sum: { estimatedMeters: number | null } }) => {
-          const cloth = await prisma.clothInventory.findUnique({
-            where: { id: item.clothInventoryId! },
-            select: { name: true, type: true },
-          })
-          return {
-            name: cloth?.name || 'Unknown',
-            type: cloth?.type || 'Unknown',
-            metersUsed: item._sum.estimatedMeters || 0,
-          }
-        })
+    const clothIds = topFabrics
+      .filter((item: { clothInventoryId: string | null }) => item.clothInventoryId)
+      .map((item: { clothInventoryId: string | null }) => item.clothInventoryId!) as string[]
+    const cloths = await prisma.clothInventory.findMany({
+      where: {
+        id: { in: clothIds },
+      },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+      },
+    })
+    const clothMap = new Map(
+      cloths.map((cloth: { id: string; name: string | null; type: string | null }) => [cloth.id, cloth])
     )
+    const topFabricsWithDetails = topFabrics
+      .filter((item: { clothInventoryId: string | null }) => item.clothInventoryId)
+      .map((item: { clothInventoryId: string | null; _sum: { estimatedMeters: number | null } }) => {
+        const cloth = clothMap.get(item.clothInventoryId as string)
+        return {
+          name: cloth?.name || 'Unknown',
+          type: cloth?.type || 'Unknown',
+          metersUsed: item._sum.estimatedMeters || 0,
+        }
+      })
 
     const clothInventory = await prisma.clothInventory.findMany({
       select: {

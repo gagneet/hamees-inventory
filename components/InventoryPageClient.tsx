@@ -29,7 +29,11 @@ export default function InventoryPageClient() {
   const [lookupResult, setLookupResult] = useState<{
     found: boolean
     type?: string
-    item?: any
+    item?: {
+      id: string
+      name: string
+      [key: string]: unknown
+    }
   } | null>(null)
 
   const handleScanSuccess = async (barcode: string) => {
@@ -39,11 +43,38 @@ export default function InventoryPageClient() {
 
     try {
       const response = await fetch(`/api/inventory/lookup?barcode=${barcode}`)
+      
+      if (!response.ok) {
+        throw new Error(`API request failed with status ${response.status}`)
+      }
+      
       const result = await response.json()
       setLookupResult(result)
+      
+      if (result.found) {
+        toast({
+          title: "Item Found",
+          description: `Found ${result.type} item: ${result.item?.name || barcode}`,
+          variant: "success",
+        })
+      } else {
+        toast({
+          title: "Item Not Found",
+          description: `No item found with barcode: ${barcode}. You can create a new item below.`,
+          variant: "default",
+        })
+      }
     } catch (error) {
       console.error("Lookup failed:", error)
       setLookupResult({ found: false })
+      
+      toast({
+        title: "Lookup Failed",
+        description: error instanceof Error 
+          ? `Network error: ${error.message}. Please check your connection and try again.`
+          : "Unable to lookup barcode. Please check your connection and try again.",
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
