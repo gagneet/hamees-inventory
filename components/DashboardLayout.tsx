@@ -11,8 +11,6 @@ import {
   Users,
   AlertCircle,
   Menu,
-  LayoutGrid,
-  LogOut,
 } from 'lucide-react';
 import Image from 'next/image';
 import { SignOutButton } from './dashboard/sign-out-button';
