@@ -17,9 +17,11 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { BarcodeScanner } from "@/components/barcode-scanner"
 import { InventoryType } from "@/lib/types"
+import { useToast } from "@/hooks/use-toast"
 
 export default function InventoryPageClient() {
   const router = useRouter()
+  const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<InventoryType>("cloth")
   const [isLoading, setIsLoading] = useState(false)
   const [scannedBarcode, setScannedBarcode] = useState<string | null>(null)
@@ -61,10 +63,19 @@ export default function InventoryPageClient() {
       })
       if (!response.ok) throw new Error('Failed to create cloth item')
       const newItem = await response.json()
+      toast({
+        title: "Success",
+        description: "Cloth item created successfully",
+        variant: "success",
+      })
       router.push(`/inventory/cloth/${newItem.id}`)
     } catch (error) {
       console.error(error)
-      alert('Failed to create cloth item')
+      toast({
+        title: "Error",
+        description: "Failed to create cloth item. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -84,10 +95,19 @@ export default function InventoryPageClient() {
       })
       if (!response.ok) throw new Error('Failed to create accessory item')
       const newItem = await response.json()
+      toast({
+        title: "Success",
+        description: "Accessory item created successfully",
+        variant: "success",
+      })
       router.push(`/inventory/accessory/${newItem.id}`)
     } catch (error) {
       console.error(error)
-      alert('Failed to create accessory item')
+      toast({
+        title: "Error",
+        description: "Failed to create accessory item. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
