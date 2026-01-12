@@ -19,11 +19,6 @@ import { BarcodeScanner } from "@/components/barcode-scanner"
 import { InventoryType } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
 
-export default function InventoryPageClient() {
-  const router = useRouter()
-  const { toast } = useToast()
-  const [activeTab, setActiveTab] = useState<InventoryType>("cloth")
-  const [isLoading, setIsLoading] = useState(false)
 interface InventoryLookupResult {
   found: boolean
   type?: string
@@ -32,6 +27,7 @@ interface InventoryLookupResult {
 
 export default function InventoryPageClient() {
   const router = useRouter()
+  const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<InventoryType>("cloth")
   const [isLoading, setIsLoading] = useState(false)
   const [scannedBarcode, setScannedBarcode] = useState<string | null>(null)
@@ -57,7 +53,6 @@ export default function InventoryPageClient() {
         toast({
           title: "Item Found",
           description: `Found ${result.type} item: ${result.item?.name || barcode}`,
-          variant: "success",
         })
       } else {
         toast({
@@ -186,7 +181,7 @@ export default function InventoryPageClient() {
             />
           )}
 
-          {scannedBarcode && lookupResult?.found && (
+          {scannedBarcode && lookupResult?.found && lookupResult.item && (
             <Card className="mt-6">
               <CardHeader>
                 <CardTitle>Item Found</CardTitle>
@@ -197,8 +192,8 @@ export default function InventoryPageClient() {
                     SKU: {scannedBarcode}
                   </p>
                   <p><strong>Type:</strong> {lookupResult.type}</p>
-                  <p><strong>Stock:</strong> {lookupResult.item.currentStock} {lookupResult.item.unit}</p>
-                  <Button className="w-full mt-4" onClick={() => router.push(`/inventory/${lookupResult.type}/${lookupResult.item.id}`)}>
+                  <p><strong>Stock:</strong> {String(lookupResult.item.currentStock)} {String(lookupResult.item.unit || '')}</p>
+                  <Button className="w-full mt-4" onClick={() => router.push(`/inventory/${lookupResult.type}/${lookupResult.item?.id}`)}>
                     View Details
                   </Button>
                 </div>
