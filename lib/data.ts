@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/db"
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns'
-import type { OrderStatus } from "@/lib/types"
+import type { OrderStatus, DashboardStats } from "@/lib/types"
 
-export async function getDashboardStats() {
+export async function getDashboardStats(): Promise<DashboardStats | null> {
   try {
     const sixMonthsAgo = subMonths(new Date(), 5)
     const firstDayOfSixMonthsAgo = startOfMonth(sixMonthsAgo)

@@ -17,31 +17,18 @@ import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { BarcodeScanner } from "@/components/barcode-scanner"
 import { InventoryType } from "@/lib/types"
-import { useToast } from "@/hooks/use-toast"
-
-interface InventoryItem {
-  id: string
-  currentStock: number
-  sku?: string
-  name?: string
-  type?: string
-  brand?: string
-}
-
-interface LookupResult {
-  found: boolean
-  type?: string
-  item?: InventoryItem
-}
 
 export default function InventoryPageClient() {
   const router = useRouter()
-  const { toast } = useToast()
   const [activeTab, setActiveTab] = useState<InventoryType>("cloth")
   const [isLoading, setIsLoading] = useState(false)
   const [scannedBarcode, setScannedBarcode] = useState<string | null>(null)
   const [showScanner, setShowScanner] = useState(false)
-  const [lookupResult, setLookupResult] = useState<LookupResult | null>(null)
+  const [lookupResult, setLookupResult] = useState<{
+    found: boolean
+    type?: string
+    item?: any
+  } | null>(null)
 
   const handleScanSuccess = async (barcode: string) => {
     setScannedBarcode(barcode)
@@ -74,19 +61,10 @@ export default function InventoryPageClient() {
       })
       if (!response.ok) throw new Error('Failed to create cloth item')
       const newItem = await response.json()
-      toast({
-        title: "Success",
-        description: "Cloth item created successfully",
-        variant: "success",
-      })
       router.push(`/inventory/cloth/${newItem.id}`)
     } catch (error) {
       console.error(error)
-      toast({
-        title: "Error",
-        description: "Failed to create cloth item. Please try again.",
-        variant: "destructive",
-      })
+      alert('Failed to create cloth item')
     } finally {
       setIsLoading(false)
     }
@@ -106,19 +84,10 @@ export default function InventoryPageClient() {
       })
       if (!response.ok) throw new Error('Failed to create accessory item')
       const newItem = await response.json()
-      toast({
-        title: "Success",
-        description: "Accessory item created successfully",
-        variant: "success",
-      })
       router.push(`/inventory/accessory/${newItem.id}`)
     } catch (error) {
       console.error(error)
-      toast({
-        title: "Error",
-        description: "Failed to create accessory item. Please try again.",
-        variant: "destructive",
-      })
+      alert('Failed to create accessory item')
     } finally {
       setIsLoading(false)
     }
@@ -166,7 +135,7 @@ export default function InventoryPageClient() {
             />
           )}
 
-          {scannedBarcode && lookupResult?.found && lookupResult.item && (
+          {scannedBarcode && lookupResult?.found && (
             <Card className="mt-6">
               <CardHeader>
                 <CardTitle>Item Found</CardTitle>
@@ -177,15 +146,8 @@ export default function InventoryPageClient() {
                     SKU: {scannedBarcode}
                   </p>
                   <p><strong>Type:</strong> {lookupResult.type}</p>
-                  <p><strong>Stock:</strong> {lookupResult.item?.currentStock ?? 0} {lookupResult.type === 'cloth' ? 'meters' : 'units'}</p>
-                  <Button 
-                    className="w-full mt-4" 
-                    onClick={() => {
-                      if (lookupResult.item?.id && lookupResult.type) {
-                        router.push(`/inventory/${lookupResult.type}/${lookupResult.item.id}`)
-                      }
-                    }}
-                  >
+                  <p><strong>Stock:</strong> {lookupResult.item.currentStock} {lookupResult.item.unit}</p>
+                  <Button className="w-full mt-4" onClick={() => router.push(`/inventory/${lookupResult.type}/${lookupResult.item.id}`)}>
                     View Details
                   </Button>
                 </div>
