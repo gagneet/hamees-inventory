@@ -16,8 +16,27 @@ import DashboardLayout from '@/components/DashboardLayout'
 
 async function getAlerts() {
   try {
+    const now = new Date()
+
+    // First, reset alerts that were dismissed but dismissal period has expired
+    await prisma.alert.updateMany({
+      where: {
+        isDismissed: true,
+        dismissedUntil: {
+          lte: now,
+        },
+      },
+      data: {
+        isDismissed: false,
+        dismissedUntil: null,
+      },
+    })
+
+    // Fetch non-dismissed alerts
     const alerts = await prisma.alert.findMany({
-      where: { isDismissed: false },
+      where: {
+        isDismissed: false,
+      },
       orderBy: { createdAt: 'desc' },
       take: 100,
     })

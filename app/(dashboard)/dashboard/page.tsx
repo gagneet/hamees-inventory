@@ -7,6 +7,7 @@ import {
   ShoppingBag,
   Users,
   Home,
+  TrendingUp,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -68,7 +69,7 @@ export default async function Dashboard() {
           <CardDescription>Common tasks and shortcuts</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
             {hasPermission(session.user.role as UserRole, 'view_inventory') && (
               <Link href="/inventory" className="w-full">
                 <Button className="w-full" variant="default">
@@ -93,6 +94,12 @@ export default async function Dashboard() {
                 </Button>
               </Link>
             )}
+            <Link href="/expenses" className="w-full">
+              <Button className="w-full" variant="outline">
+                <TrendingUp className="mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">View </span>Expenses
+              </Button>
+            </Link>
             {hasPermission(session.user.role as UserRole, 'view_alerts') && (
               <Link href="/alerts" className="w-full">
                 <Button className="w-full" variant="outline">
@@ -115,9 +122,10 @@ export default async function Dashboard() {
           <CardContent>
             <div className="space-y-3">
               {stats.alerts.recent.map((alert: any) => (
-                <div
+                <Link
                   key={alert.id}
-                  className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200"
+                  href={`/alerts/${alert.id}`}
+                  className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer"
                 >
                   <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
                   <div className="flex-1">
@@ -127,7 +135,7 @@ export default async function Dashboard() {
                       {new Date(alert.createdAt).toLocaleString()}
                     </p>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </CardContent>

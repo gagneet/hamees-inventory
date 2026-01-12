@@ -117,7 +117,25 @@ export async function getDashboardStats(): Promise<DashboardStats | null> {
       0
     )
 
+    // Reset expired dismissals
+    const now = new Date()
+    await prisma.alert.updateMany({
+      where: {
+        isDismissed: true,
+        dismissedUntil: {
+          lte: now,
+        },
+      },
+      data: {
+        isDismissed: false,
+        dismissedUntil: null,
+      },
+    })
+
     const recentAlerts = await prisma.alert.findMany({
+      where: {
+        isDismissed: false,
+      },
       orderBy: { createdAt: 'desc' },
       take: 5,
     })

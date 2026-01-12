@@ -13,6 +13,8 @@ import {
   Menu,
   LayoutGrid,
   LogOut,
+  TrendingUp,
+  ShoppingCart,
 } from 'lucide-react';
 import Image from 'next/image';
 import { SignOutButton } from './dashboard/sign-out-button';
@@ -22,6 +24,8 @@ const navItems = [
   { href: '/inventory', icon: Package, label: 'Inventory' },
   { href: '/orders', icon: ShoppingBag, label: 'Orders' },
   { href: '/customers', icon: Users, label: 'Customers' },
+  { href: '/purchase-orders', icon: ShoppingCart, label: 'Purchase Orders' },
+  { href: '/expenses', icon: TrendingUp, label: 'Expenses' },
   { href: '/alerts', icon: AlertCircle, label: 'Alerts' },
 ];
 

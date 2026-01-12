@@ -1,5 +1,6 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import {
   PieChart,
   Pie,
@@ -39,11 +40,20 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 export function OrdersStatusChart({ data }: OrdersStatusChartProps) {
+  const router = useRouter()
+
   const chartData = data.map((item) => ({
     name: STATUS_LABELS[item.status] || item.status,
     value: item.count,
     originalStatus: item.status,
   }))
+
+  const handleClick = (data: any) => {
+    if (data && data.originalStatus) {
+      // Navigate to orders page with status filter
+      router.push(`/orders?status=${data.originalStatus}`)
+    }
+  }
 
   return (
     <div className="w-full h-[300px]">
@@ -60,6 +70,8 @@ export function OrdersStatusChart({ data }: OrdersStatusChartProps) {
             outerRadius={80}
             fill="#8884d8"
             dataKey="value"
+            onClick={handleClick}
+            style={{ cursor: 'pointer' }}
           >
             {chartData.map((entry, index) => (
               <Cell
@@ -75,6 +87,7 @@ export function OrdersStatusChart({ data }: OrdersStatusChartProps) {
               borderRadius: '8px',
               padding: '8px 12px',
             }}
+            cursor={{ fill: 'rgba(0, 0, 0, 0.1)' }}
           />
           <Legend
             wrapperStyle={{ fontSize: 12 }}
@@ -85,6 +98,9 @@ export function OrdersStatusChart({ data }: OrdersStatusChartProps) {
           />
         </PieChart>
       </ResponsiveContainer>
+      <p className="text-xs text-center text-slate-500 mt-2">
+        Click on any segment to view orders by status
+      </p>
     </div>
   )
 }

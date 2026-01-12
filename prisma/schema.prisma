@@ -421,11 +421,13 @@ model Alert {
   relatedType   String?       // Type of related entity
   isRead        Boolean       @default(false)
   isDismissed   Boolean       @default(false)
+  dismissedUntil DateTime?    // When the alert should reappear (null = not dismissed)
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
   @@index([isRead])
   @@index([isDismissed])
+  @@index([dismissedUntil])
   @@index([createdAt])
   @@index([severity])
 }

@@ -178,10 +178,24 @@ export async function GET() {
         })
     )
 
-    // Recent alerts
+    // Recent alerts - reset expired dismissals first
+    await prisma.alert.updateMany({
+      where: {
+        isDismissed: true,
+        dismissedUntil: {
+          lte: now,
+        },
+      },
+      data: {
+        isDismissed: false,
+        dismissedUntil: null,
+      },
+    })
+
     const recentAlerts = await prisma.alert.findMany({
       where: {
         isRead: false,
+        isDismissed: false,
       },
       orderBy: {
         createdAt: 'desc',

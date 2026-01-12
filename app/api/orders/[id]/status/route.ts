@@ -83,11 +83,12 @@ export async function PATCH(
           })
         }
 
-        // Update order status
+        // Update order status and set completedDate
         await tx.order.update({
           where: { id },
           data: {
             status,
+            completedDate: new Date(),
             notes: notes || order.notes,
           },
         })
