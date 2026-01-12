@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
 import { z } from 'zod'
-import { OrderStatus, StockMovementType } from '@prisma/client'
+import { OrderStatus, StockMovementType } from '@/lib/types'
 
 const statusUpdateSchema = z.object({
   status: z.nativeEnum(OrderStatus),
