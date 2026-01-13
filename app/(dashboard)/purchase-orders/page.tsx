@@ -51,6 +51,7 @@ interface PurchaseOrder {
   items: Array<{
     id: string
     itemName: string
+    itemType: string
     quantity: number
     receivedQuantity: number
     unit: string
@@ -256,6 +257,17 @@ export default function PurchaseOrdersPage() {
                   </div>
                 </CardHeader>
                 <CardContent>
+                  <div className="mb-4">
+                    <p className="text-slate-500 text-sm mb-2">Items:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {po.items.map((item) => (
+                        <Badge key={item.id} variant="outline">
+                          {item.itemType === 'CLOTH' ? '🧵' : '📌'} {item.itemName} ({item.quantity} {item.unit})
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
                       <p className="text-slate-500">Order Date</p>

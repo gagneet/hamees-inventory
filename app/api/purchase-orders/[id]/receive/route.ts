@@ -10,6 +10,7 @@ const receiveSchema = z.object({
       id: z.string(),
       receivedQuantity: z.number().nonnegative(),
       clothInventoryId: z.string().nullish(),
+      accessoryInventoryId: z.string().nullish(),
     })
   ),
   paidAmount: z.number().nonnegative().optional(),
@@ -48,10 +49,16 @@ export async function POST(
     await prisma.$transaction(async (tx) => {
       // Update PO items with received quantities
       for (const item of items) {
+        const poItem = purchaseOrder.items.find((i) => i.id === item.id)
+        if (!poItem) continue
+
+        // Add to existing received quantity instead of replacing
+        const newReceivedQuantity = poItem.receivedQuantity + item.receivedQuantity
+
         await tx.pOItem.update({
           where: { id: item.id },
           data: {
-            receivedQuantity: item.receivedQuantity,
+            receivedQuantity: newReceivedQuantity,
           },
         })
 
@@ -85,17 +92,39 @@ export async function POST(
             })
           }
         }
+
+        // If accessory item and inventory ID provided, update stock
+        if (item.accessoryInventoryId && item.receivedQuantity > 0) {
+          const accessory = await tx.accessoryInventory.findUnique({
+            where: { id: item.accessoryInventoryId },
+          })
+
+          if (accessory) {
+            const newStock = accessory.currentStock + Math.round(item.receivedQuantity)
+
+            await tx.accessoryInventory.update({
+              where: { id: item.accessoryInventoryId },
+              data: {
+                currentStock: newStock,
+              },
+            })
+          }
+        }
       }
 
-      // Check if all items fully received
+      // Check if all items fully received (check total received quantity)
       const allFullyReceived = items.every((item) => {
         const poItem = purchaseOrder.items.find((i) => i.id === item.id)
-        return poItem && item.receivedQuantity >= poItem.quantity
+        if (!poItem) return false
+        const totalReceived = poItem.receivedQuantity + item.receivedQuantity
+        return totalReceived >= poItem.quantity
       })
 
       const anyPartiallyReceived = items.some((item) => {
         const poItem = purchaseOrder.items.find((i) => i.id === item.id)
-        return poItem && item.receivedQuantity > 0 && item.receivedQuantity < poItem.quantity
+        if (!poItem) return false
+        const totalReceived = poItem.receivedQuantity + item.receivedQuantity
+        return totalReceived > 0 && totalReceived < poItem.quantity
       })
 
       const newStatus = allFullyReceived

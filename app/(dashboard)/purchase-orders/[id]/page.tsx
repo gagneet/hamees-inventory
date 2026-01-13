@@ -78,6 +78,12 @@ interface ClothInventory {
   type: string
 }
 
+interface AccessoryInventory {
+  id: string
+  name: string
+  type: string
+}
+
 export default function PurchaseOrderDetailPage({
   params,
 }: {
@@ -87,6 +93,7 @@ export default function PurchaseOrderDetailPage({
   const [resolvedParams, setResolvedParams] = useState<{ id: string } | null>(null)
   const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrder | null>(null)
   const [clothInventory, setClothInventory] = useState<ClothInventory[]>([])
+  const [accessoryInventory, setAccessoryInventory] = useState<AccessoryInventory[]>([])
   const [loading, setLoading] = useState(true)
   const [receiving, setReceiving] = useState(false)
   const [showReceiveDialog, setShowReceiveDialog] = useState(false)
@@ -96,6 +103,7 @@ export default function PurchaseOrderDetailPage({
       id: string
       receivedQuantity: number
       clothInventoryId: string | null
+      accessoryInventoryId: string | null
     }>
     paidAmount: number
     notes: string
@@ -113,6 +121,7 @@ export default function PurchaseOrderDetailPage({
     if (resolvedParams) {
       fetchPurchaseOrder()
       fetchClothInventory()
+      fetchAccessoryInventory()
     }
   }, [resolvedParams])
 
@@ -131,6 +140,7 @@ export default function PurchaseOrderDetailPage({
           id: item.id,
           receivedQuantity: item.receivedQuantity || 0,
           clothInventoryId: null,
+          accessoryInventoryId: null,
         })),
         paidAmount: data.purchaseOrder.paidAmount,
         notes: '',
@@ -149,6 +159,16 @@ export default function PurchaseOrderDetailPage({
       setClothInventory(data.clothItems || [])
     } catch (error) {
       console.error('Error fetching cloth inventory:', error)
+    }
+  }
+
+  const fetchAccessoryInventory = async () => {
+    try {
+      const response = await fetch('/api/inventory/accessories')
+      const data = await response.json()
+      setAccessoryInventory(data.accessories || [])
+    } catch (error) {
+      console.error('Error fetching accessory inventory:', error)
     }
   }
 
@@ -200,7 +220,7 @@ export default function PurchaseOrderDetailPage({
 
   const updateReceiveItem = (
     itemId: string,
-    field: 'receivedQuantity' | 'clothInventoryId',
+    field: 'receivedQuantity' | 'clothInventoryId' | 'accessoryInventoryId',
     value: any
   ) => {
     setReceiveData({
@@ -278,7 +298,7 @@ export default function PurchaseOrderDetailPage({
               </DialogTrigger>
               <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>Receive Purchase Order</DialogTitle>
+                  <DialogTitle className="text-slate-900">Receive Purchase Order</DialogTitle>
                   <DialogDescription>
                     Enter received quantities and link items to inventory
                   </DialogDescription>
@@ -289,23 +309,23 @@ export default function PurchaseOrderDetailPage({
                     const receiveItem = receiveData.items.find((i) => i.id === item.id)
 
                     return (
-                      <div key={item.id} className="border p-4 rounded-lg">
-                        <h4 className="font-semibold mb-2">{item.itemName}</h4>
+                      <div key={item.id} className="border border-slate-200 p-4 rounded-lg bg-slate-50">
+                        <h4 className="font-semibold mb-2 text-slate-900">{item.itemName}</h4>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
-                            <Label>Ordered Quantity</Label>
-                            <p className="text-sm">
+                            <Label className="text-slate-700">Ordered Quantity</Label>
+                            <p className="text-sm text-slate-900">
                               {item.quantity} {item.unit}
                             </p>
                           </div>
                           <div>
-                            <Label>Already Received</Label>
-                            <p className="text-sm">
+                            <Label className="text-slate-700">Already Received</Label>
+                            <p className="text-sm text-slate-900">
                               {item.receivedQuantity} {item.unit}
                             </p>
                           </div>
                           <div>
-                            <Label>Received Now *</Label>
+                            <Label className="text-slate-700">Received Now *</Label>
                             <Input
                               type="number"
                               step="0.01"
@@ -323,7 +343,7 @@ export default function PurchaseOrderDetailPage({
                           </div>
                           {item.itemType === 'CLOTH' && (
                             <div>
-                              <Label>Link to Inventory Item</Label>
+                              <Label className="text-slate-700">Link to Inventory Item</Label>
                               <Select
                                 value={receiveItem?.clothInventoryId || ''}
                                 onValueChange={(value) =>
@@ -343,6 +363,28 @@ export default function PurchaseOrderDetailPage({
                               </Select>
                             </div>
                           )}
+                          {item.itemType === 'ACCESSORY' && (
+                            <div>
+                              <Label className="text-slate-700">Link to Inventory Item</Label>
+                              <Select
+                                value={receiveItem?.accessoryInventoryId || ''}
+                                onValueChange={(value) =>
+                                  updateReceiveItem(item.id, 'accessoryInventoryId', value)
+                                }
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select inventory item" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {accessoryInventory.map((accessory) => (
+                                    <SelectItem key={accessory.id} value={accessory.id}>
+                                      {accessory.name} ({accessory.type})
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )
@@ -350,7 +392,7 @@ export default function PurchaseOrderDetailPage({
 
                   <div className="grid gap-4">
                     <div>
-                      <Label>Payment Amount</Label>
+                      <Label className="text-slate-700">Payment Amount</Label>
                       <Input
                         type="number"
                         step="0.01"
@@ -366,7 +408,7 @@ export default function PurchaseOrderDetailPage({
                       />
                     </div>
                     <div>
-                      <Label>Notes</Label>
+                      <Label className="text-slate-700">Notes</Label>
                       <Textarea
                         value={receiveData.notes}
                         onChange={(e) =>
@@ -531,7 +573,7 @@ export default function PurchaseOrderDetailPage({
             <CardTitle>Notes</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-slate-700 whitespace-pre-wrap">{purchaseOrder.notes}</p>
+            <p className="text-white whitespace-pre-wrap">{purchaseOrder.notes}</p>
           </CardContent>
         </Card>
       )}
