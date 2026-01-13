@@ -82,6 +82,7 @@ model User {
   // Relations
   orders        Order[]
   stockMovements StockMovement[]
+  orderHistory  OrderHistory[]
 }
 
 model ClothInventory {
@@ -262,11 +263,31 @@ model Order {
   measurement     Measurement? @relation(fields: [measurementId], references: [id])
   items           OrderItem[]
   stockMovements  StockMovement[]
+  history         OrderHistory[]
 
   @@index([orderNumber])
   @@index([customerId])
   @@index([status])
   @@index([deliveryDate])
+}
+
+model OrderHistory {
+  id              String    @id @default(cuid())
+  orderId         String
+  userId          String    // Who made the change
+  changeType      String    // STATUS_UPDATE, ORDER_EDIT, ITEM_ADDED, ITEM_REMOVED, etc.
+  fieldName       String?   // Field that was changed (status, deliveryDate, etc.)
+  oldValue        String?   // Previous value (JSON string for complex data)
+  newValue        String?   // New value (JSON string for complex data)
+  description     String    // Human-readable description of the change
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user            User      @relation(fields: [userId], references: [id])
+
+  @@index([orderId])
+  @@index([createdAt])
 }
 
 model OrderItem {

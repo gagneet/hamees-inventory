@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Home, Shirt, ArrowLeft } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Home, Shirt, ArrowLeft, Pencil, Trash2 } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -50,9 +51,11 @@ export default function GarmentTypeDetailPage({
 }: {
   params: Promise<{ id: string }>
 }) {
+  const router = useRouter()
   const [resolvedParams, setResolvedParams] = useState<{ id: string } | null>(null)
   const [pattern, setPattern] = useState<GarmentPattern | null>(null)
   const [loading, setLoading] = useState(true)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     params.then((p) => setResolvedParams(p))
@@ -76,6 +79,35 @@ export default function GarmentTypeDetailPage({
       console.error('Error fetching garment pattern:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!resolvedParams || !pattern) return
+
+    const confirmed = confirm(
+      `Are you sure you want to delete "${pattern.name}"? This action cannot be undone.`
+    )
+    if (!confirmed) return
+
+    setDeleting(true)
+    try {
+      const response = await fetch(`/api/garment-patterns/${resolvedParams.id}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to delete garment type')
+      }
+
+      alert('Garment type deleted successfully!')
+      router.push('/garment-types')
+    } catch (error) {
+      console.error('Error deleting garment type:', error)
+      alert(error instanceof Error ? error.message : 'Failed to delete garment type')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -119,12 +151,28 @@ export default function GarmentTypeDetailPage({
             )}
           </div>
         </div>
-        <Button variant="outline" asChild>
-          <Link href="/garment-types">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to List
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href="/garment-types">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to List
+            </Link>
+          </Button>
+          <Button variant="default" asChild>
+            <Link href={`/garment-types/${pattern.id}/edit`}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit
+            </Link>
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={handleDelete}
+            disabled={deleting}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            {deleting ? 'Deleting...' : 'Delete'}
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 mb-6">

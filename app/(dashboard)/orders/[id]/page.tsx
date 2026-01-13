@@ -16,6 +16,8 @@ import {
 import { Home, ArrowLeft, ShoppingBag, User, Calendar, Package, DollarSign, Phone, Mail } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import DashboardLayout from '@/components/DashboardLayout'
+import { OrderActions } from '@/components/orders/order-actions'
+import { OrderHistory } from '@/components/orders/order-history'
 
 async function getOrderDetails(id: string) {
   try {
@@ -52,6 +54,19 @@ async function getOrderDetails(id: string) {
                 description: true,
               },
             },
+          },
+        },
+        history: {
+          include: {
+            user: {
+              select: {
+                name: true,
+                email: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
           },
         },
       },
@@ -162,8 +177,7 @@ export default async function OrderDetailPage({
             <CardContent>
               <div className="space-y-4">
                 {order.items.map((item) => (
-                  <Link key={item.id} href={`/inventory/cloth/${item.clothInventory.id}`}>
-                    <div className="p-4 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors">
+                    <div key={item.id} className="p-4 border border-slate-200 rounded-lg bg-white">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-start gap-3">
                           <div
@@ -213,7 +227,6 @@ export default async function OrderDetailPage({
                         </div>
                       )}
                     </div>
-                  </Link>
                 ))}
               </div>
             </CardContent>
@@ -363,14 +376,15 @@ export default async function OrderDetailPage({
             </CardHeader>
             <CardContent className="space-y-2">
               {order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
-                <>
-                  <Button className="w-full" variant="outline" size="sm">
-                    Update Status
-                  </Button>
-                  <Button className="w-full" variant="outline" size="sm">
-                    Edit Order
-                  </Button>
-                </>
+                <OrderActions
+                  orderId={order.id}
+                  currentStatus={order.status}
+                  deliveryDate={order.deliveryDate.toISOString()}
+                  advancePaid={order.advancePaid}
+                  notes={order.notes}
+                  priority={order.priority}
+                  totalAmount={order.totalAmount}
+                />
               )}
               <Button className="w-full" variant="outline" size="sm">
                 Print Invoice
@@ -382,6 +396,13 @@ export default async function OrderDetailPage({
           </Card>
         </div>
       </div>
+
+      {/* Order History */}
+      {order.history && order.history.length > 0 && (
+        <div className="mt-6">
+          <OrderHistory history={order.history} />
+        </div>
+      )}
     </DashboardLayout>
   )
 }

@@ -92,6 +92,19 @@ export async function PATCH(
             notes: notes || order.notes,
           },
         })
+
+        // Create audit history record
+        await tx.orderHistory.create({
+          data: {
+            orderId: order.id,
+            userId: session.user.id,
+            changeType: 'STATUS_UPDATE',
+            fieldName: 'status',
+            oldValue: order.status,
+            newValue: status,
+            description: `Status changed from ${order.status} to ${status}. Order delivered.`,
+          },
+        })
       })
     } else if (status === OrderStatus.CANCELLED && order.status !== OrderStatus.CANCELLED) {
       // When order is cancelled, release reserved stock
@@ -130,15 +143,44 @@ export async function PATCH(
             notes: notes || order.notes,
           },
         })
+
+        // Create audit history record
+        await tx.orderHistory.create({
+          data: {
+            orderId: order.id,
+            userId: session.user.id,
+            changeType: 'STATUS_UPDATE',
+            fieldName: 'status',
+            oldValue: order.status,
+            newValue: status,
+            description: `Status changed from ${order.status} to ${status}. Order cancelled and stock released.`,
+          },
+        })
       })
     } else {
       // Simple status update
-      await prisma.order.update({
-        where: { id },
-        data: {
-          status,
-          notes: notes || order.notes,
-        },
+        // @ts-ignore
+      await prisma.$transaction(async (tx) => {
+        await tx.order.update({
+          where: { id },
+          data: {
+            status,
+            notes: notes || order.notes,
+          },
+        })
+
+        // Create audit history record
+        await tx.orderHistory.create({
+          data: {
+            orderId: order.id,
+            userId: session.user.id,
+            changeType: 'STATUS_UPDATE',
+            fieldName: 'status',
+            oldValue: order.status,
+            newValue: status,
+            description: `Status changed from ${order.status} to ${status}`,
+          },
+        })
       })
     }
 
