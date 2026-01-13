@@ -48,7 +48,7 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAnyPermission(['manage_customers'])
+  const { session, error } = await requireAnyPermission(['manage_customers'])
   if (error) return error
 
   try {
@@ -72,6 +72,7 @@ export async function POST(
       data: {
         ...restData,
         customerId: id,
+        userId: session!.user.id,
         additionalMeasurements: additionalMeasurements || undefined,
       },
     })

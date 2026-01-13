@@ -13,7 +13,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
-import { Home, ArrowLeft, ShoppingBag, User, Calendar, Package, DollarSign, Phone, Mail } from 'lucide-react'
+import { Home, ArrowLeft, ShoppingBag, User, Calendar, Package, DollarSign, Phone, Mail, Ruler } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import DashboardLayout from '@/components/DashboardLayout'
 import { OrderActions } from '@/components/orders/order-actions'
@@ -52,6 +52,16 @@ async function getOrderDetails(id: string) {
               select: {
                 name: true,
                 description: true,
+              },
+            },
+            measurement: {
+              include: {
+                createdBy: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
               },
             },
           },
@@ -226,6 +236,70 @@ export default async function OrderDetailPage({
                           <p className="text-sm text-slate-600">{item.notes}</p>
                         </div>
                       )}
+
+                      {/* Measurement Information */}
+                      {item.measurement && (
+                        <div className="mt-3 pt-3 border-t border-slate-200">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Ruler className="h-4 w-4 text-primary" />
+                                <span className="text-sm font-medium text-slate-900">
+                                  Measurements: {item.measurement.garmentType}
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 text-xs">
+                                {item.measurement.chest && (
+                                  <div>
+                                    <span className="text-slate-500">Chest:</span>{' '}
+                                    <span className="font-medium">{item.measurement.chest} cm</span>
+                                  </div>
+                                )}
+                                {item.measurement.waist && (
+                                  <div>
+                                    <span className="text-slate-500">Waist:</span>{' '}
+                                    <span className="font-medium">{item.measurement.waist} cm</span>
+                                  </div>
+                                )}
+                                {item.measurement.shoulder && (
+                                  <div>
+                                    <span className="text-slate-500">Shoulder:</span>{' '}
+                                    <span className="font-medium">{item.measurement.shoulder} cm</span>
+                                  </div>
+                                )}
+                                {item.measurement.sleeveLength && (
+                                  <div>
+                                    <span className="text-slate-500">Sleeve:</span>{' '}
+                                    <span className="font-medium">{item.measurement.sleeveLength} cm</span>
+                                  </div>
+                                )}
+                                {item.measurement.inseam && (
+                                  <div>
+                                    <span className="text-slate-500">Inseam:</span>{' '}
+                                    <span className="font-medium">{item.measurement.inseam} cm</span>
+                                  </div>
+                                )}
+                                {item.measurement.hip && (
+                                  <div>
+                                    <span className="text-slate-500">Hip:</span>{' '}
+                                    <span className="font-medium">{item.measurement.hip} cm</span>
+                                  </div>
+                                )}
+                              </div>
+                              {item.measurement.createdBy && (
+                                <p className="text-xs text-slate-500 mt-2">
+                                  Measured by: {item.measurement.createdBy.name}
+                                </p>
+                              )}
+                            </div>
+                            <Link href={`/customers/${order.customer.id}?highlight=measurements`}>
+                              <Button variant="ghost" size="sm" className="ml-2">
+                                View All
+                              </Button>
+                            </Link>
+                          </div>
+                        </div>
+                      )}
                     </div>
                 ))}
               </div>
@@ -265,10 +339,16 @@ export default async function OrderDetailPage({
                     )}
                   </div>
                 )}
-                <div className="pt-3 border-t">
+                <div className="pt-3 border-t space-y-2">
                   <Link href={`/customers/${order.customer.id}`}>
                     <Button variant="outline" size="sm" className="w-full">
                       View Customer Profile
+                    </Button>
+                  </Link>
+                  <Link href={`/customers/${order.customer.id}?highlight=measurements`}>
+                    <Button variant="outline" size="sm" className="w-full">
+                      <Ruler className="h-4 w-4 mr-2" />
+                      View Measurements
                     </Button>
                   </Link>
                 </div>

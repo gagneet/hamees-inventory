@@ -26,6 +26,15 @@ async function getCustomerDetails(id: string) {
       include: {
         measurements: {
           orderBy: { createdAt: 'desc' },
+          include: {
+            createdBy: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
         },
         orders: {
           include: {
@@ -53,13 +62,16 @@ async function getCustomerDetails(id: string) {
 
 export default async function CustomerDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ highlight?: string }>
 }) {
   const session = await auth()
   if (!session?.user) redirect('/')
 
   const { id } = await params
+  const { highlight } = await searchParams
   const customer = await getCustomerDetails(id)
 
   if (!customer) {
@@ -284,7 +296,7 @@ export default async function CustomerDetailPage({
         {/* Right Column - Measurements */}
         <div className="space-y-6">
           {/* Measurements */}
-          <Card>
+          <Card id="measurements" className={highlight === 'measurements' ? 'ring-2 ring-primary' : ''}>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
@@ -292,9 +304,11 @@ export default async function CustomerDetailPage({
                   Measurements
                 </CardTitle>
                 <PermissionGuard permission="manage_customers">
-                  <Button size="sm" variant="outline">
-                    Add
-                  </Button>
+                  <Link href={`/customers/${customer.id}/measurements/new`}>
+                    <Button size="sm" variant="outline">
+                      Add
+                    </Button>
+                  </Link>
                 </PermissionGuard>
               </div>
               <CardDescription>
@@ -307,9 +321,11 @@ export default async function CustomerDetailPage({
                   <Ruler className="h-12 w-12 text-slate-400 mx-auto mb-3" />
                   <p className="text-sm text-slate-600 mb-4">No measurements yet</p>
                   <PermissionGuard permission="manage_customers">
-                    <Button size="sm" variant="outline">
-                      Add Measurements
-                    </Button>
+                    <Link href={`/customers/${customer.id}/measurements/new`}>
+                      <Button size="sm" variant="outline">
+                        Add Measurements
+                      </Button>
+                    </Link>
                   </PermissionGuard>
                 </div>
               ) : (

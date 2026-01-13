@@ -83,6 +83,7 @@ model User {
   orders        Order[]
   stockMovements StockMovement[]
   orderHistory  OrderHistory[]
+  measurements  Measurement[]
 }
 
 model ClothInventory {
@@ -165,6 +166,7 @@ model Customer {
 model Measurement {
   id            String    @id @default(cuid())
   customerId    String
+  userId        String?   // Who created this measurement (for audit trail)
   garmentType   String    // Shirt, Trouser, Suit, Sherwani
 
   // Common measurements (in cm)
@@ -192,10 +194,13 @@ model Measurement {
 
   // Relations
   customer      Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdBy     User?     @relation(fields: [userId], references: [id])
   orders        Order[]
+  orderItems    OrderItem[]
 
   @@index([customerId])
   @@index([garmentType])
+  @@index([userId])
 }
 
 model GarmentPattern {
@@ -295,6 +300,7 @@ model OrderItem {
   orderId           String
   garmentPatternId  String
   clothInventoryId  String
+  measurementId     String?   // Which measurement was used for this item
 
   quantity          Int       @default(1)
   bodyType          BodyType  @default(REGULAR)
@@ -315,8 +321,10 @@ model OrderItem {
   order             Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
   garmentPattern    GarmentPattern @relation(fields: [garmentPatternId], references: [id])
   clothInventory    ClothInventory @relation(fields: [clothInventoryId], references: [id])
+  measurement       Measurement? @relation(fields: [measurementId], references: [id])
 
   @@index([orderId])
+  @@index([measurementId])
 }
 
 model StockMovement {
