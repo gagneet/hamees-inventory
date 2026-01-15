@@ -33,16 +33,17 @@ const navItems = [
 
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   return (
-    <div className="grid min-h-screen w-full md:grid-cols-[180px_1fr] lg:grid-cols-[220px_1fr]">
-      <div className="hidden border-r bg-neutral-100/40 md:block dark:bg-neutral-800/40">
-        <div className="flex h-full max-h-screen flex-col gap-2">
+    <div className="min-h-screen w-full">
+      {/* Fixed Sidebar for Desktop */}
+      <div className="hidden md:block fixed left-0 top-0 z-30 h-screen w-[180px] lg:w-[220px] border-r bg-neutral-100/40 dark:bg-neutral-800/40">
+        <div className="flex h-full flex-col gap-2">
           <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
             <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
               <Image src="/logo.svg" alt="Hamees Attire" width={32} height={32} />
               <span className="">Hamees Attire</span>
             </Link>
           </div>
-          <div className="flex-1">
+          <div className="flex-1 overflow-y-auto">
             <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
               {navItems.map((item) => (
                 <Link
@@ -56,13 +57,15 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
               ))}
             </nav>
           </div>
-          <div className="mt-auto p-4">
+          <div className="mt-auto p-4 border-t">
             <SignOutButton />
           </div>
         </div>
       </div>
-      <div className="flex flex-col">
-        <header className="flex h-14 items-center gap-4 border-b bg-neutral-100/40 px-4 lg:h-[60px] lg:px-6 dark:bg-neutral-800/40">
+
+      {/* Main Content Area with Left Margin for Desktop */}
+      <div className="flex flex-col md:ml-[180px] lg:ml-[220px]">
+        <header className="sticky top-0 z-20 flex h-14 items-center gap-4 border-b bg-neutral-100/40 px-4 lg:h-[60px] lg:px-6 dark:bg-neutral-800/40">
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="outline" size="icon" className="shrink-0 md:hidden">
