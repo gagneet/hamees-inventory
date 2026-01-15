@@ -2,6 +2,13 @@ import { prisma } from "@/lib/db"
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns'
 import type { OrderStatus, DashboardStats } from "@/lib/types"
 
+type ClothInventoryDetail = {
+  id: string
+  name: string | null
+  type: string | null
+  color: string | null
+}
+
 export async function getDashboardStats(): Promise<DashboardStats | null> {
   try {
     const sixMonthsAgo = subMonths(new Date(), 5)
@@ -81,8 +88,8 @@ export async function getDashboardStats(): Promise<DashboardStats | null> {
         color: true,
       },
     })
-    const clothMap = new Map(
-      cloths.map((cloth: { id: string; name: string | null; type: string | null; color: string | null }) => [cloth.id, cloth])
+    const clothMap = new Map<string, ClothInventoryDetail>(
+      cloths.map((cloth: ClothInventoryDetail) => [cloth.id, cloth])
     )
     const topFabricsWithDetails = topFabrics
       .filter((item: { clothInventoryId: string | null }) => item.clothInventoryId)

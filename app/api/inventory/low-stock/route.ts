@@ -2,6 +2,39 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 
+type ClothInventoryItem = Awaited<ReturnType<typeof getClothInventory>>[number]
+type AccessoryInventoryItem = Awaited<ReturnType<typeof getAccessoryInventory>>[number]
+
+async function getClothInventory() {
+  return await prisma.clothInventory.findMany({
+    select: {
+      id: true,
+      name: true,
+      type: true,
+      color: true,
+      brand: true,
+      currentStock: true,
+      reserved: true,
+      minimum: true,
+      pricePerMeter: true,
+    },
+  })
+}
+
+async function getAccessoryInventory() {
+  return await prisma.accessoryInventory.findMany({
+    select: {
+      id: true,
+      name: true,
+      type: true,
+      supplier: true,
+      currentStock: true,
+      minimum: true,
+      pricePerUnit: true,
+    },
+  })
+}
+
 export async function GET(request: Request) {
   try {
     const session = await auth()
@@ -13,52 +46,30 @@ export async function GET(request: Request) {
     const type = searchParams.get('type') // 'low' or 'critical'
 
     // Get cloth inventory with low/critical stock
-    const clothInventory = await prisma.clothInventory.findMany({
-      select: {
-        id: true,
-        name: true,
-        type: true,
-        color: true,
-        brand: true,
-        currentStock: true,
-        reserved: true,
-        minimum: true,
-        pricePerMeter: true,
-      },
-    })
+    const clothInventory = await getClothInventory()
 
     // Get accessory inventory with low/critical stock
-    const accessoryInventory = await prisma.accessoryInventory.findMany({
-      select: {
-        id: true,
-        name: true,
-        type: true,
-        supplier: true,
-        currentStock: true,
-        minimum: true,
-        pricePerUnit: true,
-      },
-    })
+    const accessoryInventory = await getAccessoryInventory()
 
     // Filter based on type
     let lowStockCloth = clothInventory.filter(
-      (item) => item.currentStock - item.reserved < item.minimum
+      (item: ClothInventoryItem) => item.currentStock - item.reserved < item.minimum
     )
     let lowStockAccessories = accessoryInventory.filter(
-      (item) => item.currentStock < item.minimum
+      (item: AccessoryInventoryItem) => item.currentStock < item.minimum
     )
 
     if (type === 'critical') {
       lowStockCloth = clothInventory.filter(
-        (item) => item.currentStock - item.reserved < item.minimum * 0.5
+        (item: ClothInventoryItem) => item.currentStock - item.reserved < item.minimum * 0.5
       )
       lowStockAccessories = accessoryInventory.filter(
-        (item) => item.currentStock < item.minimum * 0.5
+        (item: AccessoryInventoryItem) => item.currentStock < item.minimum * 0.5
       )
     }
 
     // Format cloth items
-    const clothItems = lowStockCloth.map((item) => ({
+    const clothItems = lowStockCloth.map((item: ClothInventoryItem) => ({
       id: item.id,
       name: item.name,
       type: item.type,
@@ -75,7 +86,7 @@ export async function GET(request: Request) {
     }))
 
     // Format accessory items
-    const accessoryItems = lowStockAccessories.map((item) => ({
+    const accessoryItems = lowStockAccessories.map((item: AccessoryInventoryItem) => ({
       id: item.id,
       name: item.name,
       type: item.type,

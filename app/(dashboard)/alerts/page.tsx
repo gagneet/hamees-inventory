@@ -14,6 +14,8 @@ import {
 import { Bell, AlertTriangle, Info, CheckCircle, Home, X } from 'lucide-react'
 import DashboardLayout from '@/components/DashboardLayout'
 
+type Alert = Awaited<ReturnType<typeof getAlerts>>[number]
+
 async function getAlerts() {
   try {
     const now = new Date()
@@ -55,7 +57,7 @@ export default async function AlertsPage() {
   }
 
   const alerts = await getAlerts()
-  const unreadCount = alerts.filter((a) => !a.isRead).length
+  const unreadCount = alerts.filter((a: Alert) => !a.isRead).length
 
   const severityConfig = {
     LOW: {
@@ -136,7 +138,7 @@ export default async function AlertsPage() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {alerts.map((alert) => {
+            {alerts.map((alert: Alert) => {
               const config = severityConfig[alert.severity as keyof typeof severityConfig]
               const Icon = config.icon
 

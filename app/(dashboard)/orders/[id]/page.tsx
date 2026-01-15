@@ -19,6 +19,9 @@ import DashboardLayout from '@/components/DashboardLayout'
 import { OrderActions } from '@/components/orders/order-actions'
 import { OrderHistory } from '@/components/orders/order-history'
 
+type OrderDetails = NonNullable<Awaited<ReturnType<typeof getOrderDetails>>>
+type OrderItem = OrderDetails['items'][number]
+
 async function getOrderDetails(id: string) {
   try {
     const order = await prisma.order.findUnique({
@@ -186,7 +189,7 @@ export default async function OrderDetailPage({
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {order.items.map((item) => (
+                {order.items.map((item: OrderItem) => (
                     <div key={item.id} className="p-4 border border-slate-200 rounded-lg bg-white">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-start gap-3">

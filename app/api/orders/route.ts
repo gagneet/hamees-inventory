@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { Prisma } from '@prisma/client'
 import { requireAnyPermission } from '@/lib/api-permissions'
 import { z } from 'zod'
 import { OrderStatus, OrderPriority, BodyType, StockMovementType } from '@/lib/types'
+
+type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 
 const orderSchema = z.object({
   customerId: z.string().min(1, 'Customer is required'),
@@ -231,7 +232,7 @@ export async function POST(request: Request) {
     const orderNumber = `ORD-${Date.now()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`
 
     // Create order in transaction
-    const order = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const order = await prisma.$transaction(async (tx: TransactionClient) => {
       // Create order
       const newOrder = await tx.order.create({
         data: {

@@ -4,6 +4,17 @@ import { requireAnyPermission } from '@/lib/api-permissions'
 import { z } from 'zod'
 import { StockMovementType } from '@/lib/types'
 
+type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
+type PurchaseOrder = Awaited<ReturnType<typeof getPurchaseOrder>>
+type POItem = NonNullable<PurchaseOrder>['items'][number]
+
+async function getPurchaseOrder(id: string) {
+  return await prisma.purchaseOrder.findUnique({
+    where: { id },
+    include: { items: true },
+  })
+}
+
 const receiveSchema = z.object({
   items: z.array(
     z.object({
@@ -29,10 +40,7 @@ export async function POST(
     const body = await request.json()
     const { items, paidAmount, notes } = receiveSchema.parse(body)
 
-    const purchaseOrder = await prisma.purchaseOrder.findUnique({
-      where: { id },
-      include: { items: true },
-    })
+    const purchaseOrder = await getPurchaseOrder(id)
 
     if (!purchaseOrder) {
       return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 })
@@ -45,11 +53,10 @@ export async function POST(
       )
     }
 
-    // @ts-ignore
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: TransactionClient) => {
       // Update PO items with received quantities
       for (const item of items) {
-        const poItem = purchaseOrder.items.find((i) => i.id === item.id)
+        const poItem = purchaseOrder.items.find((i: POItem) => i.id === item.id)
         if (!poItem) continue
 
         // Add to existing received quantity instead of replacing
@@ -114,14 +121,14 @@ export async function POST(
 
       // Check if all items fully received (check total received quantity)
       const allFullyReceived = items.every((item) => {
-        const poItem = purchaseOrder.items.find((i) => i.id === item.id)
+        const poItem = purchaseOrder.items.find((i: POItem) => i.id === item.id)
         if (!poItem) return false
         const totalReceived = poItem.receivedQuantity + item.receivedQuantity
         return totalReceived >= poItem.quantity
       })
 
       const anyPartiallyReceived = items.some((item) => {
-        const poItem = purchaseOrder.items.find((i) => i.id === item.id)
+        const poItem = purchaseOrder.items.find((i: POItem) => i.id === item.id)
         if (!poItem) return false
         const totalReceived = poItem.receivedQuantity + item.receivedQuantity
         return totalReceived > 0 && totalReceived < poItem.quantity

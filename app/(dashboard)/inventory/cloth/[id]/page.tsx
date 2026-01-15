@@ -17,6 +17,9 @@ import { Home, Package, ArrowLeft, ShoppingBag, AlertTriangle } from 'lucide-rea
 import { formatCurrency } from '@/lib/utils'
 import DashboardLayout from '@/components/DashboardLayout'
 
+type ClothDetails = NonNullable<Awaited<ReturnType<typeof getClothDetails>>>
+type OrderItem = ClothDetails['orderItems'][number]
+
 async function getClothDetails(id: string) {
   try {
     const cloth = await prisma.clothInventory.findUnique({
@@ -198,7 +201,7 @@ export default async function ClothDetailPage({
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {cloth.orderItems.map((item) => (
+                    {cloth.orderItems.map((item: OrderItem) => (
                       <Link key={item.id} href={`/orders/${item.order.id}`}>
                         <div className="p-4 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition-colors">
                           <div className="flex items-start justify-between mb-2">

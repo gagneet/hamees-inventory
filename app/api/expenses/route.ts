@@ -3,6 +3,76 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { startOfMonth, endOfMonth, subMonths, format, parse } from 'date-fns'
 
+type DeliveredOrder = Awaited<ReturnType<typeof getDeliveredOrders>>[number]
+type InventoryPurchase = Awaited<ReturnType<typeof getInventoryPurchases>>[number]
+
+async function getDeliveredOrders(monthStart: Date, monthEnd: Date) {
+  return await prisma.order.findMany({
+    where: {
+      status: 'DELIVERED',
+      completedDate: {
+        gte: monthStart,
+        lte: monthEnd,
+      },
+    },
+    include: {
+      customer: {
+        select: {
+          name: true,
+          email: true,
+        },
+      },
+      items: {
+        include: {
+          clothInventory: {
+            select: {
+              name: true,
+              type: true,
+            },
+          },
+          garmentPattern: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: {
+      completedDate: 'desc',
+    },
+  })
+}
+
+async function getInventoryPurchases(monthStart: Date, monthEnd: Date) {
+  return await prisma.stockMovement.findMany({
+    where: {
+      type: 'PURCHASE',
+      createdAt: {
+        gte: monthStart,
+        lte: monthEnd,
+      },
+    },
+    include: {
+      clothInventory: {
+        select: {
+          name: true,
+          type: true,
+          pricePerMeter: true,
+        },
+      },
+      user: {
+        select: {
+          name: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  })
+}
+
 export async function GET(request: Request) {
   try {
     const session = await auth()
@@ -32,85 +102,26 @@ export async function GET(request: Request) {
     }
 
     // Get all delivered orders for the month
-    const deliveredOrders = await prisma.order.findMany({
-      where: {
-        status: 'DELIVERED',
-        completedDate: {
-          gte: monthStart,
-          lte: monthEnd,
-        },
-      },
-      include: {
-        customer: {
-          select: {
-            name: true,
-            email: true,
-          },
-        },
-        items: {
-          include: {
-            clothInventory: {
-              select: {
-                name: true,
-                type: true,
-              },
-            },
-            garmentPattern: {
-              select: {
-                name: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: {
-        completedDate: 'desc',
-      },
-    })
+    const deliveredOrders = await getDeliveredOrders(monthStart, monthEnd)
 
     // Get inventory purchases for the month (stock movements of type PURCHASE)
-    const inventoryPurchases = await prisma.stockMovement.findMany({
-      where: {
-        type: 'PURCHASE',
-        createdAt: {
-          gte: monthStart,
-          lte: monthEnd,
-        },
-      },
-      include: {
-        clothInventory: {
-          select: {
-            name: true,
-            type: true,
-            pricePerMeter: true,
-          },
-        },
-        user: {
-          select: {
-            name: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    })
+    const inventoryPurchases = await getInventoryPurchases(monthStart, monthEnd)
 
     // Calculate totals
     const totalRevenue = deliveredOrders.reduce(
-      (sum, order) => sum + order.totalAmount,
+      (sum: number, order: DeliveredOrder) => sum + order.totalAmount,
       0
     )
 
     const totalExpenses = inventoryPurchases.reduce(
-      (sum, purchase) => sum + (purchase.quantity * (purchase.clothInventory?.pricePerMeter || 0)),
+      (sum: number, purchase: InventoryPurchase) => sum + (purchase.quantity * (purchase.clothInventory?.pricePerMeter || 0)),
       0
     )
 
     const netProfit = totalRevenue - totalExpenses
 
     // Format the data for the UI
-    const formattedOrders = deliveredOrders.map((order) => ({
+    const formattedOrders = deliveredOrders.map((order: DeliveredOrder) => ({
       id: order.id,
       orderNumber: order.orderNumber,
       customerName: order.customer.name,
@@ -119,7 +130,7 @@ export async function GET(request: Request) {
       advancePaid: order.advancePaid,
       balanceAmount: order.balanceAmount,
       completedDate: order.completedDate,
-      items: order.items.map((item) => ({
+      items: order.items.map((item: DeliveredOrder['items'][number]) => ({
         garmentName: item.garmentPattern?.name || 'Unknown',
         fabricName: item.clothInventory?.name || 'Unknown',
         fabricType: item.clothInventory?.type || 'Unknown',
@@ -128,7 +139,7 @@ export async function GET(request: Request) {
       })),
     }))
 
-    const formattedPurchases = inventoryPurchases.map((purchase) => ({
+    const formattedPurchases = inventoryPurchases.map((purchase: InventoryPurchase) => ({
       id: purchase.id,
       fabricName: purchase.clothInventory?.name || 'Unknown',
       fabricType: purchase.clothInventory?.type || 'Unknown',

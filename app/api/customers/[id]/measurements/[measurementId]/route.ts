@@ -3,6 +3,8 @@ import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
 import { z } from 'zod'
 
+type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
+
 const measurementUpdateSchema = z.object({
   garmentType: z.string().min(1, 'Garment type is required').optional(),
   bodyType: z.enum(['SLIM', 'REGULAR', 'LARGE', 'XL']).nullish(),
@@ -99,7 +101,7 @@ export async function PATCH(
     // Create new measurement version
     const { additionalMeasurements, ...restData } = validatedData
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: TransactionClient) => {
       // Mark old measurement as inactive
       await tx.measurement.update({
         where: { id: measurementId },
