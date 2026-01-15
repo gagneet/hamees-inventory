@@ -5,6 +5,70 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2026-01-15
+
+### Enhanced - Measurement Edit UX Improvements
+
+#### Changed
+
+**Measurement Edit Dialog Behavior** (`components/measurement-edit-dialog.tsx`)
+- **Auto-population:** Previous measurement values now auto-populate when editing
+- **All Fields Visible:** All measurement fields are now visible in edit mode (reverted from field hiding)
+- **Garment Type Locked:** Garment type dropdown is disabled in edit mode to prevent accidental changes
+- **Helper Text:** Added clarification that garment type cannot be changed during edit
+- **Improved Description:** Updated dialog description to clarify auto-population behavior
+
+#### Rationale
+
+Users need the ability to add measurements that may have been missed in previous sessions. By showing all fields (even if previously empty), users can:
+- Add missed measurements during edit operations
+- Update incomplete records without creating new measurements
+- See the full measurement template for reference
+
+Previous values are automatically populated from the last active measurement, providing:
+- Quick reference to existing data
+- Easy identification of what needs updating
+- Reduced data entry errors
+
+Garment type remains locked to maintain data integrity:
+- Prevents accidental conversion of SHIRT measurements to TROUSER
+- Ensures measurement fields remain appropriate for garment type
+- Users must use "Add Measurements" for new garment types
+
+#### Developer Notes
+
+The auto-population works through the existing state initialization:
+```typescript
+const [formData, setFormData] = useState<MeasurementData>({
+  garmentType: measurement?.garmentType || 'SHIRT',
+  bodyType: measurement?.bodyType || 'REGULAR',
+  neck: measurement?.neck || null,
+  // ... all other fields populated from measurement prop
+})
+```
+
+When `mode === 'edit'`, the `measurement` prop contains the current active measurement, and all fields are initialized with those values. Empty fields show as blank (null) and can be filled during edit.
+
+---
+
+## [0.5.1] - 2026-01-15
+
+### Added - Customer Details Edit Functionality
+
+#### Features
+- Enable editing of customer basic information (name, email, phone, address)
+- Edit button added to customer detail page header
+- Inline editing with save/cancel actions
+- Real-time validation and error handling
+
+#### UI/UX
+- Seamless transition between view and edit modes
+- Form validation with error messages
+- Loading states during save operations
+- Success feedback on completion
+
+---
+
 ## [0.5.0] - 2026-01-15
 
 ### Added - Measurement Edit/Update with History & Audit Trail
@@ -190,6 +254,8 @@ const allMeasurements = await fetch('/api/customers/123/measurements?includeInac
 
 ---
 
+[0.5.2]: https://github.com/gagneet/hamees-inventory/compare/v0.5.1...v0.5.2
+[0.5.1]: https://github.com/gagneet/hamees-inventory/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/gagneet/hamees-inventory/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/gagneet/hamees-inventory/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/gagneet/hamees-inventory/compare/v0.2.0...v0.3.0

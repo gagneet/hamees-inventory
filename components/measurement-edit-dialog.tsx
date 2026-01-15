@@ -146,7 +146,7 @@ export function MeasurementEditDialog({
           <DialogDescription>
             {mode === 'create'
               ? 'Enter customer measurements. All fields are optional except garment type.'
-              : 'Update measurements. This will create a new version and preserve the history.'}
+              : 'Update measurements. Previous values are auto-populated. This will create a new version and preserve the history.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -155,7 +155,7 @@ export function MeasurementEditDialog({
             {/* Garment Type and Body Type */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="garmentType">
+                <Label htmlFor="garmentType" className="text-slate-700 font-medium">
                   Garment Type <span className="text-red-500">*</span>
                 </Label>
                 <Select
@@ -163,6 +163,7 @@ export function MeasurementEditDialog({
                   onValueChange={(value) =>
                     setFormData((prev) => ({ ...prev, garmentType: value }))
                   }
+                  disabled={mode === 'edit'}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -175,10 +176,15 @@ export function MeasurementEditDialog({
                     ))}
                   </SelectContent>
                 </Select>
+                {mode === 'edit' && (
+                  <p className="text-xs text-slate-500">
+                    Garment type cannot be changed when editing
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="bodyType">Body Type</Label>
+                <Label htmlFor="bodyType" className="text-slate-700 font-medium">Body Type</Label>
                 <Select
                   value={formData.bodyType || ''}
                   onValueChange={(value) =>
@@ -201,10 +207,10 @@ export function MeasurementEditDialog({
 
             {/* Common Measurements */}
             <div className="space-y-2">
-              <h4 className="text-sm font-medium">Common Measurements (cm)</h4>
+              <h4 className="text-sm font-medium text-slate-700">Common Measurements (cm)</h4>
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-1">
-                  <Label htmlFor="neck" className="text-xs">
+                  <Label htmlFor="neck" className="text-xs text-slate-700">
                     Neck
                   </Label>
                   <Input
@@ -218,7 +224,7 @@ export function MeasurementEditDialog({
                 </div>
 
                 <div className="space-y-1">
-                  <Label htmlFor="chest" className="text-xs">
+                  <Label htmlFor="chest" className="text-xs text-slate-700">
                     Chest
                   </Label>
                   <Input
@@ -232,7 +238,7 @@ export function MeasurementEditDialog({
                 </div>
 
                 <div className="space-y-1">
-                  <Label htmlFor="waist" className="text-xs">
+                  <Label htmlFor="waist" className="text-xs text-slate-700">
                     Waist
                   </Label>
                   <Input
@@ -246,7 +252,7 @@ export function MeasurementEditDialog({
                 </div>
 
                 <div className="space-y-1">
-                  <Label htmlFor="hip" className="text-xs">
+                  <Label htmlFor="hip" className="text-xs text-slate-700">
                     Hip
                   </Label>
                   <Input
@@ -260,7 +266,7 @@ export function MeasurementEditDialog({
                 </div>
 
                 <div className="space-y-1">
-                  <Label htmlFor="shoulder" className="text-xs">
+                  <Label htmlFor="shoulder" className="text-xs text-slate-700">
                     Shoulder
                   </Label>
                   <Input
@@ -274,7 +280,7 @@ export function MeasurementEditDialog({
                 </div>
 
                 <div className="space-y-1">
-                  <Label htmlFor="sleeveLength" className="text-xs">
+                  <Label htmlFor="sleeveLength" className="text-xs text-slate-700">
                     Sleeve Length
                   </Label>
                   <Input
@@ -288,7 +294,7 @@ export function MeasurementEditDialog({
                 </div>
 
                 <div className="space-y-1">
-                  <Label htmlFor="shirtLength" className="text-xs">
+                  <Label htmlFor="shirtLength" className="text-xs text-slate-700">
                     Shirt Length
                   </Label>
                   <Input
@@ -302,7 +308,7 @@ export function MeasurementEditDialog({
                 </div>
 
                 <div className="space-y-1">
-                  <Label htmlFor="inseam" className="text-xs">
+                  <Label htmlFor="inseam" className="text-xs text-slate-700">
                     Inseam
                   </Label>
                   <Input
@@ -316,7 +322,7 @@ export function MeasurementEditDialog({
                 </div>
 
                 <div className="space-y-1">
-                  <Label htmlFor="outseam" className="text-xs">
+                  <Label htmlFor="outseam" className="text-xs text-slate-700">
                     Outseam
                   </Label>
                   <Input
@@ -330,7 +336,7 @@ export function MeasurementEditDialog({
                 </div>
 
                 <div className="space-y-1">
-                  <Label htmlFor="thigh" className="text-xs">
+                  <Label htmlFor="thigh" className="text-xs text-slate-700">
                     Thigh
                   </Label>
                   <Input
@@ -344,7 +350,7 @@ export function MeasurementEditDialog({
                 </div>
 
                 <div className="space-y-1">
-                  <Label htmlFor="knee" className="text-xs">
+                  <Label htmlFor="knee" className="text-xs text-slate-700">
                     Knee
                   </Label>
                   <Input
@@ -358,7 +364,7 @@ export function MeasurementEditDialog({
                 </div>
 
                 <div className="space-y-1">
-                  <Label htmlFor="bottomOpening" className="text-xs">
+                  <Label htmlFor="bottomOpening" className="text-xs text-slate-700">
                     Bottom Opening
                   </Label>
                   <Input
@@ -376,10 +382,10 @@ export function MeasurementEditDialog({
             {/* Suit/Sherwani Specific */}
             {(formData.garmentType === 'SUIT' || formData.garmentType === 'SHERWANI') && (
               <div className="space-y-2">
-                <h4 className="text-sm font-medium">Jacket Measurements (cm)</h4>
+                <h4 className="text-sm font-medium text-slate-700">Jacket Measurements (cm)</h4>
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-1">
-                    <Label htmlFor="jacketLength" className="text-xs">
+                    <Label htmlFor="jacketLength" className="text-xs text-slate-700">
                       Jacket Length
                     </Label>
                     <Input
@@ -393,7 +399,7 @@ export function MeasurementEditDialog({
                   </div>
 
                   <div className="space-y-1">
-                    <Label htmlFor="lapelWidth" className="text-xs">
+                    <Label htmlFor="lapelWidth" className="text-xs text-slate-700">
                       Lapel Width
                     </Label>
                     <Input
@@ -411,7 +417,7 @@ export function MeasurementEditDialog({
 
             {/* Notes */}
             <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
+              <Label htmlFor="notes" className="text-slate-700 font-medium">Notes</Label>
               <Textarea
                 id="notes"
                 value={formData.notes ?? ''}
