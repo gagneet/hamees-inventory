@@ -17,7 +17,7 @@ export async function GET() {
     const lastMonthStart = startOfMonth(subMonths(now, 1))
     const lastMonthEnd = endOfMonth(subMonths(now, 1))
 
-    // Inventory Stats
+    // Inventory Stats - Cloth
     const totalInventoryValue = await prisma.clothInventory.aggregate({
       _sum: {
         currentStock: true,
@@ -33,18 +33,46 @@ export async function GET() {
       },
     })
 
-    const lowStockItems = clothInventory.filter(
+    const clothLowStock = clothInventory.filter(
       (item: typeof clothInventory[0]) => item.currentStock - item.reserved < item.minimum
     ).length
 
-    const criticalStockItems = clothInventory.filter(
+    const clothCriticalStock = clothInventory.filter(
       (item: typeof clothInventory[0]) => item.currentStock - item.reserved < item.minimum * 0.5
     ).length
 
-    const totalInventoryWorth = clothInventory.reduce(
+    const totalClothWorth = clothInventory.reduce(
       (sum: number, item: typeof clothInventory[0]) => sum + item.currentStock * item.pricePerMeter,
       0
     )
+
+    // Inventory Stats - Accessories
+    const accessoryInventory = await prisma.accessoryInventory.findMany({
+      select: {
+        currentStock: true,
+        minimum: true,
+        pricePerUnit: true,
+      },
+    })
+
+    const accessoryLowStock = accessoryInventory.filter(
+      (item: typeof accessoryInventory[0]) => item.currentStock < item.minimum
+    ).length
+
+    const accessoryCriticalStock = accessoryInventory.filter(
+      (item: typeof accessoryInventory[0]) => item.currentStock < item.minimum * 0.5
+    ).length
+
+    const totalAccessoryWorth = accessoryInventory.reduce(
+      (sum: number, item: typeof accessoryInventory[0]) => sum + item.currentStock * item.pricePerUnit,
+      0
+    )
+
+    // Combined inventory stats
+    const lowStockItems = clothLowStock + accessoryLowStock
+    const criticalStockItems = clothCriticalStock + accessoryCriticalStock
+    const totalInventoryWorth = totalClothWorth + totalAccessoryWorth
+    const totalInventoryItems = clothInventory.length + accessoryInventory.length
 
     // Order Stats
     const totalOrders = await prisma.order.count()
@@ -148,7 +176,7 @@ export async function GET() {
       count: item._count.status,
     }))
 
-    // Top 5 selling fabrics
+    // Top 10 selling fabrics
     const topFabrics = await prisma.orderItem.groupBy({
       by: ['clothInventoryId'],
       _sum: {
@@ -159,7 +187,7 @@ export async function GET() {
           actualMetersUsed: 'desc',
         },
       },
-      take: 5,
+      take: 10,
     })
 
     const topFabricsWithDetails = await Promise.all(
@@ -234,7 +262,7 @@ export async function GET() {
 
     return NextResponse.json({
       inventory: {
-        totalItems: clothInventory.length,
+        totalItems: totalInventoryItems,
         lowStock: lowStockItems,
         criticalStock: criticalStockItems,
         totalValue: totalInventoryWorth,

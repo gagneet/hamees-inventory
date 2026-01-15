@@ -30,6 +30,7 @@ import DashboardLayout from "@/components/DashboardLayout"
 import { RevenueChart } from "@/components/dashboard/revenue-chart"
 import { OrdersStatusChart } from "@/components/dashboard/orders-status-chart"
 import { TopFabricsChart } from "@/components/dashboard/top-fabrics-chart"
+import { InventorySummary } from "@/components/dashboard/inventory-summary"
 
 // Data fetching and session
 import { getDashboardStats } from "@/lib/data"
@@ -149,53 +150,10 @@ export default async function Dashboard() {
           <Card>
             <CardHeader>
               <CardTitle>Inventory Summary</CardTitle>
-              <CardDescription>Overview of your inventory status</CardDescription>
+              <CardDescription>Overview of your inventory status (cloth + accessories)</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
-                  <div className="flex items-center gap-3">
-                    <BoxIcon className="h-8 w-8 text-blue-600" />
-                    <div>
-                      <p className="text-sm font-medium text-slate-600">Total Inventory Value</p>
-                      <p className="text-2xl font-bold text-slate-900">
-                        {formatCurrency(stats.inventory.totalValue)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-slate-50 rounded-lg">
-                    <p className="text-sm font-medium text-slate-600">Total Items</p>
-                    <p className="text-xl font-bold text-slate-900">{stats.inventory.totalItems}</p>
-                  </div>
-                  <div className="p-4 bg-slate-50 rounded-lg">
-                    <p className="text-sm font-medium text-slate-600">Total Meters</p>
-                    <p className="text-xl font-bold text-slate-900">{stats.inventory.totalMeters}m</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                    <p className="text-sm font-medium text-yellow-800">Low Stock</p>
-                    <p className="text-xl font-bold text-yellow-900">{stats.inventory.lowStock}</p>
-                  </div>
-                  <div className="p-4 bg-red-50 rounded-lg border border-red-200">
-                    <p className="text-sm font-medium text-red-800">Critical Stock</p>
-                    <p className="text-xl font-bold text-red-900">{stats.inventory.criticalStock}</p>
-                  </div>
-                </div>
-
-                {(stats.inventory.lowStock > 0 || stats.inventory.criticalStock > 0) && (
-                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                    <p className="text-sm font-medium text-amber-900">⚠️ Action Required</p>
-                    <p className="text-xs text-amber-700 mt-1">
-                      You have items that need reordering. Check your inventory to avoid stockouts.
-                    </p>
-                  </div>
-                )}
-              </div>
+              <InventorySummary stats={stats.inventory} />
             </CardContent>
           </Card>
 
@@ -221,10 +179,10 @@ export default async function Dashboard() {
       {/* 3. Top Fabrics and 4. Revenue Trend */}
       {stats && stats.charts.topFabrics.length > 0 && (
         <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2 mb-8">
-          {/* 3. Top 5 Most Used Fabrics */}
+          {/* 3. Top 10 Most Used Fabrics */}
           <Card>
             <CardHeader>
-              <CardTitle>Top 5 Most Used Fabrics</CardTitle>
+              <CardTitle>Top 10 Most Used Fabrics</CardTitle>
               <CardDescription>Fabrics by total meters used in orders</CardDescription>
             </CardHeader>
             <CardContent>

@@ -444,16 +444,37 @@ async function main() {
 
   // 9. Create Alerts for low stock items
   console.log('🔔 Creating alerts...')
+
+  // Alert for low stock cloth
   await prisma.alert.create({
     data: {
       type: 'LOW_STOCK',
       severity: 'MEDIUM',
-      title: 'Low Stock Alert',
+      title: 'Low Stock Alert - Cloth',
       message: `${cloth2.name} is running low. Current: ${cloth2.currentStock}m, Minimum: ${cloth2.minimum}m`,
       relatedId: cloth2.id,
       relatedType: 'ClothInventory',
     },
   })
+
+  // Check for low stock accessories and create alerts
+  const allAccessories = await prisma.accessoryInventory.findMany()
+  const lowStockAccessories = allAccessories.filter(item => item.currentStock < item.minimum)
+
+  for (const item of lowStockAccessories) {
+    const severity = item.currentStock < (item.minimum * 0.5) ? 'HIGH' : 'MEDIUM'
+
+    await prisma.alert.create({
+      data: {
+        type: severity === 'HIGH' ? 'CRITICAL_STOCK' : 'LOW_STOCK',
+        severity,
+        title: `${severity === 'HIGH' ? 'Critical' : 'Low'} Stock Alert - Accessory`,
+        message: `${item.name} is running ${severity === 'HIGH' ? 'critically' : ''} low. Available: ${item.currentStock} pcs, Minimum: ${item.minimum} pcs`,
+        relatedId: item.id,
+        relatedType: 'AccessoryInventory',
+      },
+    })
+  }
 
   console.log('✅ Alerts created')
 
