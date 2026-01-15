@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { ShoppingBag, Plus, Filter, Calendar, User, Home, X } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -40,8 +40,9 @@ const statusLabels: Record<OrderStatus, string> = {
   CANCELLED: 'Cancelled',
 }
 
-export default function OrdersPage() {
+function OrdersContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [orders, setOrders] = useState<any[]>([])
   const [fabrics, setFabrics] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -57,6 +58,19 @@ export default function OrdersPage() {
   const [deliveryDateTo, setDeliveryDateTo] = useState('')
   const [isOverdue, setIsOverdue] = useState(false)
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
+
+  // Initialize filter states from URL params on mount
+  useEffect(() => {
+    setStatus(searchParams.get('status') || '')
+    setSearchTerm(searchParams.get('search') || '')
+    setDebouncedSearch(searchParams.get('search') || '')
+    setFabricId(searchParams.get('fabricId') || '')
+    setMinAmount(searchParams.get('minAmount') || '')
+    setMaxAmount(searchParams.get('maxAmount') || '')
+    setDeliveryDateFrom(searchParams.get('deliveryDateFrom') || '')
+    setDeliveryDateTo(searchParams.get('deliveryDateTo') || '')
+    setIsOverdue(searchParams.get('isOverdue') === 'true')
+  }, [searchParams])
 
   // Debounce search term
   useEffect(() => {
@@ -409,5 +423,20 @@ export default function OrdersPage() {
           </div>
         )}
     </DashboardLayout>
+  )
+}
+
+export default function OrdersPage() {
+  return (
+    <Suspense fallback={
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-96">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <span className="ml-3 text-slate-600">Loading orders...</span>
+        </div>
+      </DashboardLayout>
+    }>
+      <OrdersContent />
+    </Suspense>
   )
 }
