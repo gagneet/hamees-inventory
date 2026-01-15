@@ -168,6 +168,7 @@ model Measurement {
   customerId    String
   userId        String?   // Who created this measurement (for audit trail)
   garmentType   String    // Shirt, Trouser, Suit, Sherwani
+  bodyType      BodyType? // Body type for this measurement
 
   // Common measurements (in cm)
   neck          Float?
@@ -188,6 +189,10 @@ model Measurement {
   // Additional measurements as JSON for flexibility
   additionalMeasurements Json?
 
+  // History tracking
+  replacesId    String?   // ID of the measurement this replaces (for version history)
+  isActive      Boolean   @default(true) // Current active version
+
   notes         String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -198,9 +203,15 @@ model Measurement {
   orders        Order[]
   orderItems    OrderItem[]
 
+  // Self-referencing for history
+  replaces      Measurement?  @relation("MeasurementHistory", fields: [replacesId], references: [id], onDelete: SetNull)
+  replacedBy    Measurement[] @relation("MeasurementHistory")
+
   @@index([customerId])
   @@index([garmentType])
   @@index([userId])
+  @@index([replacesId])
+  @@index([isActive])
 }
 
 model GarmentPattern {

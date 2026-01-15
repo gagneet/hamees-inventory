@@ -12,10 +12,12 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
-import { Home, ArrowLeft, User, Phone, Mail, MapPin, Calendar, ShoppingBag, Ruler, Edit } from 'lucide-react'
+import { Home, ArrowLeft, User, Phone, Mail, MapPin, Calendar, ShoppingBag, Edit } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import DashboardLayout from '@/components/DashboardLayout'
 import { PermissionGuard } from '@/components/auth/permission-guard'
+import { CustomerMeasurementsSection } from '@/components/customer-measurements-section'
+import { hasPermission } from '@/lib/permissions'
 import { prisma } from '@/lib/db'
 
 async function getCustomerDetails(id: string) {
@@ -25,6 +27,7 @@ async function getCustomerDetails(id: string) {
       where: { id },
       include: {
         measurements: {
+          where: { isActive: true }, // Only fetch active measurements
           orderBy: { createdAt: 'desc' },
           include: {
             createdBy: {
@@ -78,6 +81,9 @@ export default async function CustomerDetailPage({
     redirect('/customers')
   }
 
+  // Check if user can manage measurements
+  const canManageMeasurements = hasPermission(session.user.role as any, 'manage_customers')
+
   const statusColors: Record<string, { bg: string; text: string; border: string }> = {
     NEW: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
     MATERIAL_SELECTED: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
@@ -98,13 +104,6 @@ export default async function CustomerDetailPage({
     READY: 'Ready',
     DELIVERED: 'Delivered',
     CANCELLED: 'Cancelled',
-  }
-
-  const garmentTypeLabels: Record<string, string> = {
-    SHIRT: 'Shirt',
-    TROUSER: 'Trouser',
-    SUIT: 'Suit',
-    SHERWANI: 'Sherwani',
   }
 
   return (
@@ -296,116 +295,12 @@ export default async function CustomerDetailPage({
         {/* Right Column - Measurements */}
         <div className="space-y-6">
           {/* Measurements */}
-          <Card id="measurements" className={highlight === 'measurements' ? 'ring-2 ring-primary' : ''}>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Ruler className="h-5 w-5" />
-                  Measurements
-                </CardTitle>
-                <PermissionGuard permission="manage_customers">
-                  <Link href={`/customers/${customer.id}/measurements/new`}>
-                    <Button size="sm" variant="outline">
-                      Add
-                    </Button>
-                  </Link>
-                </PermissionGuard>
-              </div>
-              <CardDescription>
-                {customer.measurements?.length || 0} measurement records
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {!customer.measurements || customer.measurements.length === 0 ? (
-                <div className="py-8 text-center">
-                  <Ruler className="h-12 w-12 text-slate-400 mx-auto mb-3" />
-                  <p className="text-sm text-slate-600 mb-4">No measurements yet</p>
-                  <PermissionGuard permission="manage_customers">
-                    <Link href={`/customers/${customer.id}/measurements/new`}>
-                      <Button size="sm" variant="outline">
-                        Add Measurements
-                      </Button>
-                    </Link>
-                  </PermissionGuard>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {customer.measurements.map((measurement: any) => (
-                    <div key={measurement.id} className="border border-slate-200 rounded-lg p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <p className="font-semibold text-slate-900">
-                            {garmentTypeLabels[measurement.garmentType]}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            {new Date(measurement.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
-                          </p>
-                        </div>
-                        <Badge variant="outline" className="text-xs">
-                          {measurement.bodyType}
-                        </Badge>
-                      </div>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                        {measurement.length && (
-                          <div>
-                            <span className="text-slate-500">Length:</span>{' '}
-                            <span className="font-medium">{measurement.length} cm</span>
-                          </div>
-                        )}
-                        {measurement.chest && (
-                          <div>
-                            <span className="text-slate-500">Chest:</span>{' '}
-                            <span className="font-medium">{measurement.chest} cm</span>
-                          </div>
-                        )}
-                        {measurement.waist && (
-                          <div>
-                            <span className="text-slate-500">Waist:</span>{' '}
-                            <span className="font-medium">{measurement.waist} cm</span>
-                          </div>
-                        )}
-                        {measurement.shoulder && (
-                          <div>
-                            <span className="text-slate-500">Shoulder:</span>{' '}
-                            <span className="font-medium">{measurement.shoulder} cm</span>
-                          </div>
-                        )}
-                        {measurement.sleeve && (
-                          <div>
-                            <span className="text-slate-500">Sleeve:</span>{' '}
-                            <span className="font-medium">{measurement.sleeve} cm</span>
-                          </div>
-                        )}
-                        {measurement.neck && (
-                          <div>
-                            <span className="text-slate-500">Neck:</span>{' '}
-                            <span className="font-medium">{measurement.neck} cm</span>
-                          </div>
-                        )}
-                        {measurement.hip && (
-                          <div>
-                            <span className="text-slate-500">Hip:</span>{' '}
-                            <span className="font-medium">{measurement.hip} cm</span>
-                          </div>
-                        )}
-                        {measurement.inseam && (
-                          <div>
-                            <span className="text-slate-500">Inseam:</span>{' '}
-                            <span className="font-medium">{measurement.inseam} cm</span>
-                          </div>
-                        )}
-                      </div>
-                      {measurement.notes && (
-                        <div className="mt-3 pt-3 border-t">
-                          <p className="text-xs text-slate-600">{measurement.notes}</p>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <CustomerMeasurementsSection
+            customerId={customer.id}
+            measurements={customer.measurements as any}
+            canManage={canManageMeasurements}
+            highlight={highlight}
+          />
 
           {/* Quick Stats */}
           <Card>

@@ -5,6 +5,7 @@ import { z } from 'zod'
 
 const measurementSchema = z.object({
   garmentType: z.string().min(1, 'Garment type is required'),
+  bodyType: z.enum(['SLIM', 'REGULAR', 'LARGE', 'XL']).nullish(),
   neck: z.number().nullish(),
   chest: z.number().nullish(),
   waist: z.number().nullish(),
@@ -15,7 +16,10 @@ const measurementSchema = z.object({
   inseam: z.number().nullish(),
   outseam: z.number().nullish(),
   thigh: z.number().nullish(),
-  crotch: z.number().nullish(),
+  knee: z.number().nullish(),
+  bottomOpening: z.number().nullish(),
+  jacketLength: z.number().nullish(),
+  lapelWidth: z.number().nullish(),
   notes: z.string().nullish(),
   additionalMeasurements: z.record(z.string(), z.any()).nullish(),
 })
@@ -29,8 +33,23 @@ export async function GET(
 
   try {
     const { id } = await params
+    const url = new URL(request.url)
+    const includeInactive = url.searchParams.get('includeInactive') === 'true'
+
     const measurements = await prisma.measurement.findMany({
-      where: { customerId: id },
+      where: {
+        customerId: id,
+        ...(includeInactive ? {} : { isActive: true }),
+      },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     })
 
@@ -74,6 +93,16 @@ export async function POST(
         customerId: id,
         userId: session!.user.id,
         additionalMeasurements: additionalMeasurements || undefined,
+        isActive: true, // New measurements are always active
+      },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
       },
     })
 
