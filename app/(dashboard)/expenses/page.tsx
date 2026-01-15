@@ -10,10 +10,11 @@ import {
   DollarSign,
   ShoppingCart,
   Package,
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
+  Receipt,
+  Wallet,
 } from 'lucide-react'
+import { DateRangePicker, type DateRangeWithLabel } from '@/components/date-range-picker'
+import { ExpensesFilter, type ExpenseFilters } from '@/components/expenses-filter'
 import {
   Card,
   CardContent,
@@ -37,21 +38,26 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Button } from '@/components/ui/button'
 import DashboardLayout from '@/components/DashboardLayout'
 import { formatCurrency } from '@/lib/utils'
-import { format, parse, addMonths, subMonths } from 'date-fns'
+import { format } from 'date-fns'
 
 interface ExpensesData {
-  month: string
-  monthStart: string
-  monthEnd: string
+  dateRange: {
+    from: string
+    to: string
+    label: string
+  }
   summary: {
     totalRevenue: number
     totalExpenses: number
     netProfit: number
     orderCount: number
     purchaseCount: number
+    expenseCount: number
+    gstCollected: number
+    gstPaid: number
+    netGST: number
   }
   orders: Array<{
     id: string
@@ -59,6 +65,10 @@ interface ExpensesData {
     customerName: string
     totalAmount: number
     completedDate: string
+    gstAmount: number
+    cgst: number
+    sgst: number
+    igst: number
     items: Array<{
       garmentName: string
       fabricName: string
@@ -75,28 +85,57 @@ interface ExpensesData {
     createdAt: string
     purchasedBy: string
   }>
+  expenses: Array<{
+    id: string
+    category: string
+    description: string
+    amount: number
+    gstAmount: number
+    totalAmount: number
+    expenseDate: string
+    vendorName: string | null
+    paymentMode: string
+    paidBy: string
+    notes: string | null
+  }>
 }
 
 function ExpensesContent() {
-  const searchParams = useSearchParams()
-  const monthParam = searchParams.get('month')
-
-  const [currentMonth, setCurrentMonth] = useState<string>(
-    monthParam || format(new Date(), 'MMM yyyy')
-  )
+  const [dateRange, setDateRange] = useState<DateRangeWithLabel | undefined>(undefined)
+  const [filters, setFilters] = useState<ExpenseFilters>({})
   const [data, setData] = useState<ExpensesData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchData(currentMonth)
-  }, [currentMonth])
+    fetchData(dateRange, filters)
+  }, [dateRange, filters])
 
-  const fetchData = async (month: string) => {
+  const fetchData = async (range: DateRangeWithLabel | undefined, filters: ExpenseFilters) => {
     setLoading(true)
     setError(null)
     try {
-      const response = await fetch(`/api/expenses?month=${encodeURIComponent(month)}`)
+      let url = '/api/expenses'
+      const params = new URLSearchParams()
+
+      if (range?.from && range?.to) {
+        params.append('from', range.from.toISOString())
+        params.append('to', range.to.toISOString())
+      }
+
+      // Add filters
+      if (filters.customerName) params.append('customerName', filters.customerName)
+      if (filters.category) params.append('category', filters.category)
+      if (filters.minAmount) params.append('minAmount', filters.minAmount)
+      if (filters.maxAmount) params.append('maxAmount', filters.maxAmount)
+      if (filters.paymentMode) params.append('paymentMode', filters.paymentMode)
+
+      const queryString = params.toString()
+      if (queryString) {
+        url = `${url}?${queryString}`
+      }
+
+      const response = await fetch(url)
       if (!response.ok) {
         throw new Error('Failed to fetch expenses data')
       }
@@ -109,16 +148,16 @@ function ExpensesContent() {
     }
   }
 
-  const handlePreviousMonth = () => {
-    const parsedDate = parse(currentMonth, 'MMM yyyy', new Date())
-    const prevMonth = subMonths(parsedDate, 1)
-    setCurrentMonth(format(prevMonth, 'MMM yyyy'))
+  const handleDateRangeChange = (range: DateRangeWithLabel) => {
+    setDateRange(range)
   }
 
-  const handleNextMonth = () => {
-    const parsedDate = parse(currentMonth, 'MMM yyyy', new Date())
-    const nextMonth = addMonths(parsedDate, 1)
-    setCurrentMonth(format(nextMonth, 'MMM yyyy'))
+  const handleFiltersChange = (newFilters: ExpenseFilters) => {
+    setFilters(newFilters)
+  }
+
+  const handleResetFilters = () => {
+    setFilters({})
   }
 
   if (loading) {
@@ -159,24 +198,20 @@ function ExpensesContent() {
         </BreadcrumbList>
       </Breadcrumb>
 
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-lg font-semibold md:text-2xl">Monthly Expenses & Revenue</h1>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={handlePreviousMonth}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <div className="flex items-center gap-2 px-4 py-2 bg-slate-100 rounded-md">
-            <Calendar className="h-4 w-4 text-slate-600" />
-            <span className="font-medium">{currentMonth}</span>
-          </div>
-          <Button variant="outline" size="sm" onClick={handleNextMonth}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
+        <h1 className="text-lg font-semibold md:text-2xl">Expenses & Revenue</h1>
+        <div className="flex gap-2">
+          <ExpensesFilter
+            filters={filters}
+            onChange={handleFiltersChange}
+            onReset={handleResetFilters}
+          />
+          <DateRangePicker value={dateRange} onChange={handleDateRangeChange} />
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3 mb-6">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
@@ -221,7 +256,56 @@ function ExpensesContent() {
             </p>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Net GST</CardTitle>
+            <Receipt className={`h-4 w-4 ${data.summary.netGST >= 0 ? 'text-purple-600' : 'text-green-600'}`} />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${data.summary.netGST >= 0 ? 'text-purple-600' : 'text-green-600'}`}>
+              {formatCurrency(data.summary.netGST)}
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              {data.summary.netGST >= 0 ? 'Payable' : 'Refund'}
+            </p>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* GST Summary */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Receipt className="h-5 w-5" />
+            GST Summary
+          </CardTitle>
+          <CardDescription>GST collected and paid for {data.dateRange.label}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div>
+              <p className="text-sm font-medium text-slate-500 mb-1">Output GST (Collected)</p>
+              <p className="text-2xl font-bold text-green-600">{formatCurrency(data.summary.gstCollected)}</p>
+              <p className="text-xs text-slate-500 mt-1">From {data.summary.orderCount} orders</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-slate-500 mb-1">Input Tax Credit (Paid)</p>
+              <p className="text-2xl font-bold text-orange-600">{formatCurrency(data.summary.gstPaid)}</p>
+              <p className="text-xs text-slate-500 mt-1">On purchases & expenses</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-slate-500 mb-1">Net GST Liability</p>
+              <p className={`text-2xl font-bold ${data.summary.netGST >= 0 ? 'text-purple-600' : 'text-blue-600'}`}>
+                {formatCurrency(Math.abs(data.summary.netGST))}
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                {data.summary.netGST >= 0 ? 'To be paid to government' : 'Refundable from government'}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Delivered Orders */}
       <Card className="mb-6">
@@ -230,7 +314,7 @@ function ExpensesContent() {
             <ShoppingCart className="h-5 w-5" />
             Delivered Orders ({data.orders.length})
           </CardTitle>
-          <CardDescription>Orders completed in {currentMonth}</CardDescription>
+          <CardDescription>Orders completed in {data.dateRange.label}</CardDescription>
         </CardHeader>
         <CardContent>
           {data.orders.length > 0 ? (
@@ -293,7 +377,7 @@ function ExpensesContent() {
             <Package className="h-5 w-5" />
             Inventory Purchases ({data.purchases.length})
           </CardTitle>
-          <CardDescription>Fabric purchases in {currentMonth}</CardDescription>
+          <CardDescription>Fabric purchases in {data.dateRange.label}</CardDescription>
         </CardHeader>
         <CardContent>
           {data.purchases.length > 0 ? (
@@ -333,6 +417,72 @@ function ExpensesContent() {
             <div className="text-center py-8 text-slate-500">
               <Package className="h-12 w-12 mx-auto mb-2 opacity-20" />
               <p>No inventory purchases this month</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Business Expenses */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Wallet className="h-5 w-5" />
+            Business Expenses ({data.expenses.length})
+          </CardTitle>
+          <CardDescription>Operating expenses in {data.dateRange.label}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {data.expenses.length > 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Vendor</TableHead>
+                    <TableHead>Payment Mode</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead className="text-right">GST</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.expenses.map((expense) => (
+                    <TableRow key={expense.id}>
+                      <TableCell className="text-sm text-slate-600">
+                        {format(new Date(expense.expenseDate), 'MMM dd, yyyy')}
+                      </TableCell>
+                      <TableCell>
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          {expense.category.replace(/_/g, ' ')}
+                        </span>
+                      </TableCell>
+                      <TableCell className="font-medium max-w-xs truncate">
+                        {expense.description}
+                      </TableCell>
+                      <TableCell className="text-sm text-slate-600">
+                        {expense.vendorName || '-'}
+                      </TableCell>
+                      <TableCell className="text-sm text-slate-600">
+                        {expense.paymentMode.replace(/_/g, ' ')}
+                      </TableCell>
+                      <TableCell className="text-right">{formatCurrency(expense.amount)}</TableCell>
+                      <TableCell className="text-right text-sm text-slate-600">
+                        {expense.gstAmount > 0 ? formatCurrency(expense.gstAmount) : '-'}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold text-red-600">
+                        {formatCurrency(expense.totalAmount)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-slate-500">
+              <Wallet className="h-12 w-12 mx-auto mb-2 opacity-20" />
+              <p>No expenses recorded for this period</p>
             </div>
           )}
         </CardContent>

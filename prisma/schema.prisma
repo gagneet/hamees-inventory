@@ -67,6 +67,30 @@ enum BodyType {
   XL
 }
 
+enum ExpenseCategory {
+  RENT
+  UTILITIES
+  SALARIES
+  TRANSPORT
+  MARKETING
+  MAINTENANCE
+  OFFICE_SUPPLIES
+  PROFESSIONAL_FEES
+  INSURANCE
+  DEPRECIATION
+  BANK_CHARGES
+  MISCELLANEOUS
+}
+
+enum PaymentMode {
+  CASH
+  UPI
+  CARD
+  BANK_TRANSFER
+  CHEQUE
+  NET_BANKING
+}
+
 // Models
 model User {
   id            String    @id @default(cuid())
@@ -85,6 +109,7 @@ model User {
   orderHistory  OrderHistory[]
   measurements  Measurement[]
   uploadHistory UploadHistory[]
+  expenses      Expense[]
 }
 
 model ClothInventory {
@@ -155,6 +180,10 @@ model Customer {
   active        Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
+  // GST fields
+  gstin         String?   // GST Identification Number (for B2B customers)
+  customerType  String    @default("B2C") // B2B or B2C
 
   // Relations
   orders        Order[]
@@ -269,6 +298,20 @@ model Order {
   advancePaid     Float        @default(0)
   balanceAmount   Float
 
+  // GST fields
+  subTotal        Float        @default(0)   // Amount before GST
+  gstRate         Float        @default(0)   // 5%, 12%, 18%, or 28%
+  cgst            Float        @default(0)   // Central GST (intra-state)
+  sgst            Float        @default(0)   // State GST (intra-state)
+  igst            Float        @default(0)   // Integrated GST (inter-state)
+  gstAmount       Float        @default(0)   // Total GST charged
+  taxableAmount   Float        @default(0)   // Base for GST calculation
+
+  // Invoice details
+  invoiceNumber   String?      @unique       // GST invoice number
+  invoiceDate     DateTime?                  // GST invoice date
+  placeOfSupply   String?                    // State for GST
+
   notes           String?
   active          Boolean      @default(true)
   createdAt       DateTime     @default(now())
@@ -281,11 +324,13 @@ model Order {
   items           OrderItem[]
   stockMovements  StockMovement[]
   history         OrderHistory[]
+  installments    PaymentInstallment[]
 
   @@index([orderNumber])
   @@index([customerId])
   @@index([status])
   @@index([deliveryDate])
+  @@index([invoiceDate])
 }
 
 model OrderHistory {
@@ -305,6 +350,40 @@ model OrderHistory {
 
   @@index([orderId])
   @@index([createdAt])
+}
+
+enum InstallmentStatus {
+  PENDING
+  PARTIAL
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model PaymentInstallment {
+  id                String            @id @default(cuid())
+  orderId           String
+  order             Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  installmentNumber Int               // 1, 2, 3, etc.
+  amount            Float             // Expected installment amount
+  dueDate           DateTime
+  paidDate          DateTime?
+  paidAmount        Float             @default(0)
+
+  paymentMode       PaymentMode?
+  transactionRef    String?           // Transaction ID or cheque number
+
+  status            InstallmentStatus @default(PENDING)
+  notes             String?
+
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([orderId])
+  @@index([dueDate])
+  @@index([status])
+  @@index([paidDate])
 }
 
 model OrderItem {
@@ -419,6 +498,22 @@ model PurchaseOrder {
   paidAmount    Float     @default(0)
   balanceAmount Float
 
+  // GST fields
+  subTotal        Float     @default(0)
+  gstRate         Float     @default(0)
+  cgst            Float     @default(0)
+  sgst            Float     @default(0)
+  igst            Float     @default(0)
+  gstAmount       Float     @default(0)
+
+  // Input Tax Credit tracking
+  isInputTaxCredit Boolean  @default(true)  // Eligible for ITC
+  itcClaimed      Boolean   @default(false) // ITC claimed in returns
+
+  // Invoice details
+  supplierInvoiceNumber String?
+  supplierInvoiceDate   DateTime?
+
   status        String    @default("PENDING") // PENDING, RECEIVED, PARTIAL, CANCELLED
   notes         String?
   active        Boolean   @default(true)
@@ -516,4 +611,71 @@ model UploadHistory {
   @@index([userId])
   @@index([status])
   @@index([startedAt])
+}
+
+model Expense {
+  id              String          @id @default(cuid())
+  category        ExpenseCategory
+  description     String
+  amount          Float                      // Amount before GST
+  gstAmount       Float           @default(0)
+  gstRate         Float           @default(0)
+  totalAmount     Float                      // amount + gstAmount
+
+  expenseDate     DateTime        @default(now())
+  vendorName      String?
+  vendorGstin     String?
+  invoiceNumber   String?
+
+  paymentMode     PaymentMode     @default(CASH)
+  paidBy          String                     // User ID
+  paidByUser      User            @relation(fields: [paidBy], references: [id])
+
+  // Tax deduction tracking
+  tdsAmount       Float           @default(0)  // TDS deducted (if applicable)
+  tdsRate         Float           @default(0)  // TDS rate %
+
+  // Recurring expense support
+  isRecurring     Boolean         @default(false)
+  recurringPeriod String?                    // MONTHLY, QUARTERLY, YEARLY
+
+  notes           String?
+  attachments     Json?                      // Store file paths/URLs
+
+  active          Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([category])
+  @@index([expenseDate])
+  @@index([paidBy])
+  @@index([createdAt])
+}
+
+model BusinessSettings {
+  id              String   @id @default(cuid())
+  businessName    String
+  gstin           String   @unique           // Business GST number
+  state           String                      // State for CGST/SGST calculation
+  address         String?
+  city            String?
+  pincode         String?
+  phone           String?
+  email           String?
+
+  // Default GST rates for different items
+  fabricGstRate   Float    @default(5)       // Default GST for fabrics
+  garmentGstRate  Float    @default(12)      // Default GST for readymade garments
+
+  // Financial year settings
+  fyStartMonth    Int      @default(4)       // April = 4 (Indian FY)
+
+  // Invoice settings
+  invoicePrefix   String   @default("INV")
+  invoiceCounter  Int      @default(1)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([gstin])
 }

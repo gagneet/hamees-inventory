@@ -18,6 +18,7 @@ import { formatCurrency } from '@/lib/utils'
 import DashboardLayout from '@/components/DashboardLayout'
 import { OrderActions } from '@/components/orders/order-actions'
 import { OrderHistory } from '@/components/orders/order-history'
+import { PaymentInstallments } from '@/components/payment-installments'
 
 type OrderDetails = NonNullable<Awaited<ReturnType<typeof getOrderDetails>>>
 type OrderItem = OrderDetails['items'][number]
@@ -479,6 +480,13 @@ export default async function OrderDetailPage({
           </Card>
         </div>
       </div>
+
+      {/* Payment Installments */}
+      {order.balanceAmount > 0 && (
+        <div className="mt-6">
+          <PaymentInstallments orderId={order.id} balanceAmount={order.balanceAmount} />
+        </div>
+      )}
 
       {/* Order History */}
       {order.history && order.history.length > 0 && (
