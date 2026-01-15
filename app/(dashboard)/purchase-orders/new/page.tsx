@@ -63,10 +63,10 @@ function NewPurchaseOrderContent() {
   const [items, setItems] = useState<POItem[]>([
     {
       itemName: searchParams.get('itemName') || '',
-      itemType: 'CLOTH' as const,
-      quantity: 0,
-      unit: 'meters',
-      pricePerUnit: 0,
+      itemType: (searchParams.get('itemType') as 'CLOTH' | 'ACCESSORY') || 'CLOTH',
+      quantity: parseFloat(searchParams.get('quantity') || '0') || 0,
+      unit: searchParams.get('unit') || 'meters',
+      pricePerUnit: parseFloat(searchParams.get('pricePerUnit') || '0') || 0,
     },
   ])
 

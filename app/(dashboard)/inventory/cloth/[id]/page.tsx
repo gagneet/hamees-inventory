@@ -13,7 +13,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
-import { Home, Package, ArrowLeft, ShoppingBag } from 'lucide-react'
+import { Home, Package, ArrowLeft, ShoppingBag, AlertTriangle } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import DashboardLayout from '@/components/DashboardLayout'
 
@@ -260,6 +260,24 @@ export default async function ClothDetailPage({
                     <span className="text-sm text-slate-500">Status</span>
                     <Badge variant={status.variant}>{status.label}</Badge>
                   </div>
+                  {available < cloth.minimum && (
+                    <Link
+                      href={`/purchase-orders/new?itemName=${encodeURIComponent(
+                        cloth.name
+                      )}&supplierId=${cloth.supplierId || ''}&itemType=CLOTH&quantity=${
+                        Math.max(cloth.minimum * 2 - cloth.currentStock, cloth.minimum)
+                      }&pricePerUnit=${cloth.pricePerMeter}&unit=meters&color=${encodeURIComponent(
+                        cloth.color
+                      )}&brand=${encodeURIComponent(cloth.brand)}&type=${encodeURIComponent(
+                        cloth.type
+                      )}`}
+                    >
+                      <Button variant="outline" size="sm" className="w-full mt-3 border-orange-500 text-orange-600 hover:bg-orange-50">
+                        <AlertTriangle className="h-4 w-4 mr-2" />
+                        Create Purchase Order
+                      </Button>
+                    </Link>
+                  )}
                 </div>
                 <div className="pt-4 border-t">
                   <div className="flex justify-between mb-2">
