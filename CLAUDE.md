@@ -10,6 +10,64 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Bulk Data Upload System (v0.6.0)
+
+**What's New:**
+- **Excel Import/Export** - Complete bulk upload system with Excel template generation
+- **Smart Validation** - Pre-upload validation with detailed error reporting
+- **Duplicate Detection** - Automatic duplicate detection with user confirmation
+- **Safe-Fail Mechanism** - Continues processing valid records even when some fail
+- **Relational Integrity** - Validates foreign key relationships before insertion
+- **Audit Trail** - Complete history of all bulk upload operations
+- **Final Reports** - Detailed summary of successful, failed, and skipped records
+
+**New Files Added:**
+- `scripts/export-to-excel.ts` - Excel export script with all current data
+- `lib/excel-upload.ts` - Validation utilities and duplicate detection
+- `lib/excel-processor.ts` - Main upload processor with safe-fail mechanism
+- `app/api/bulk-upload/preview/route.ts` - Preview upload without inserting
+- `app/api/bulk-upload/process/route.ts` - Process upload with confirmations
+- `app/api/bulk-upload/history/route.ts` - Retrieve upload history
+- `app/api/bulk-upload/download-template/route.ts` - Generate and download template
+- `app/(dashboard)/bulk-upload/page.tsx` - Bulk upload UI with preview and confirmation
+- `prisma/schema.prisma` - Added UploadHistory model for audit trail
+
+**Dependencies Added:**
+```bash
+pnpm add exceljs
+```
+
+**Key Features:**
+1. **Template Generation**: Download Excel file with current database data as template
+2. **Multi-Sheet Support**: Separate sheets for each table with proper headers and notes
+3. **Validation**: Zod schemas validate all data before insertion
+4. **Duplicate Handling**: User chooses to skip or overwrite each duplicate
+5. **Error Recovery**: Skips corrupted records and continues with valid ones
+6. **Dependency Management**: Processes tables in correct order (Users → Suppliers → Inventory → etc.)
+7. **Progress Tracking**: Real-time feedback during upload process
+8. **Comprehensive Reports**: Shows exactly what succeeded, failed, and why
+
+**Usage:**
+```bash
+# Generate Excel template with current data
+pnpm tsx scripts/export-to-excel.ts
+
+# Or download via UI at /bulk-upload
+```
+
+**Upload Process:**
+1. Download template from `/bulk-upload` page
+2. Fill in data following the format and dependency order
+3. Upload file - system validates and shows preview
+4. Review duplicates and choose action (skip/overwrite)
+5. Confirm upload - system processes with safe-fail
+6. View detailed report with success/failure breakdown
+
+**Database Schema:**
+- `UploadHistory` model tracks all upload operations
+- Fields: filename, counts, status, detailed results, timing
+- Relations: links to User who performed upload
+
 ### ✅ Role-Based Access Control & Order Management (v0.4.0)
 
 **What's New:**

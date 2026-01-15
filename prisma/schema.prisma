@@ -84,6 +84,7 @@ model User {
   stockMovements StockMovement[]
   orderHistory  OrderHistory[]
   measurements  Measurement[]
+  uploadHistory UploadHistory[]
 }
 
 model ClothInventory {
@@ -480,4 +481,39 @@ model Settings {
   updatedAt     DateTime  @updatedAt
 
   @@index([key])
+}
+
+model UploadHistory {
+  id              String    @id @default(cuid())
+  userId          String    // Who uploaded
+  filename        String    // Original filename
+  totalRecords    Int       // Total records in upload
+  successCount    Int       // Successfully uploaded
+  failureCount    Int       // Failed records
+  duplicateCount  Int       // Duplicates found
+  skippedCount    Int       // Skipped due to corruption
+
+  status          String    @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, FAILED, CANCELLED
+
+  // Detailed results
+  successDetails  Json?     // Array of successfully uploaded record IDs
+  failureDetails  Json?     // Array of failure messages with row numbers
+  duplicateDetails Json?    // Array of duplicate records with confirmation status
+
+  // Summary report
+  summary         String?   // Human-readable summary
+
+  // Timing
+  startedAt       DateTime  @default(now())
+  completedAt     DateTime?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  user            User      @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@index([startedAt])
 }
