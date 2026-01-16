@@ -19,6 +19,7 @@ import DashboardLayout from '@/components/DashboardLayout'
 import { OrderActions } from '@/components/orders/order-actions'
 import { OrderHistory } from '@/components/orders/order-history'
 import { PaymentInstallments } from '@/components/payment-installments'
+import { OrderItemEdit } from '@/components/orders/order-item-edit'
 
 async function getOrderDetails(id: string) {
   try {
@@ -71,6 +72,7 @@ async function getOrderDetails(id: string) {
             },
             garmentPattern: {
               select: {
+                id: true,
                 name: true,
                 description: true,
               },
@@ -215,6 +217,7 @@ export default async function OrderDetailPage({
                 {order.items.map((item: OrderItem) => (
                     <div key={item.id} className="p-4 border border-slate-200 rounded-lg bg-white">
                       <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
                         <div className="flex items-start gap-3">
                           <div
                             className="w-10 h-10 rounded border border-slate-300"
@@ -232,13 +235,24 @@ export default async function OrderDetailPage({
                             </p>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="font-semibold text-slate-900">
-                            {formatCurrency(item.totalPrice)}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            {formatCurrency(item.pricePerUnit)}/unit
-                          </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                          <div className="text-right">
+                            <p className="font-semibold text-slate-900">
+                              {formatCurrency(item.totalPrice)}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {formatCurrency(item.pricePerUnit)}/unit
+                            </p>
+                          </div>
+                          <OrderItemEdit
+                            orderId={order.id}
+                            itemId={item.id}
+                            currentGarmentPatternId={item.garmentPattern.id}
+                            currentClothInventoryId={item.clothInventory.id}
+                            currentGarmentName={item.garmentPattern.name}
+                            currentClothName={`${item.clothInventory.name} (${item.clothInventory.color})`}
+                          />
                         </div>
                       </div>
                       <div className="grid grid-cols-3 gap-4 text-sm">
@@ -320,7 +334,7 @@ export default async function OrderDetailPage({
                             </div>
                             <Link href={`/customers/${order.customer.id}?highlight=measurements`}>
                               <Button variant="ghost" size="sm" className="ml-2">
-                                View All
+                                Edit Measurements
                               </Button>
                             </Link>
                           </div>
@@ -374,7 +388,7 @@ export default async function OrderDetailPage({
                   <Link href={`/customers/${order.customer.id}?highlight=measurements`}>
                     <Button variant="outline" size="sm" className="w-full">
                       <Ruler className="h-4 w-4 mr-2" />
-                      View Measurements
+                      Edit Measurements
                     </Button>
                   </Link>
                 </div>

@@ -10,6 +10,137 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Order Item Editing & Measurement Management (v0.10.0)
+
+**What's New:**
+- **Edit Order Items** - Change garment type and fabric for existing order items
+- **Inline Measurement Editing** - Direct "Edit Measurements" button from order details
+- **Smart Stock Management** - Auto-updates stock reservations when items are edited
+- **Complete Audit Trail** - All item changes tracked in order history
+- **Enhanced Excel Export** - Added all GST and discount fields to bulk export
+
+**New Features:**
+
+1. **Order Item Editing System**
+   - **Edit Item Dialog** - Change garment type and fabric for any order item
+   - **Location:** `components/orders/order-item-edit.tsx`
+   - **API Endpoint:** `PATCH /api/orders/[id]/items/[itemId]`
+   - **Features:**
+     - Change garment pattern (e.g., Shirt → Trouser)
+     - Change fabric (e.g., Cotton Blue → Silk Red)
+     - Auto-recalculates fabric requirements based on new garment pattern
+     - Updates stock reservations automatically
+     - Prevents editing delivered/cancelled orders
+     - Permission-based access control
+   - **Stock Management Logic:**
+     - Releases fabric reservation from old cloth inventory
+     - Reserves new fabric amount based on updated calculation
+     - Creates stock movement records for audit trail
+     - Maintains accurate inventory levels
+
+2. **Enhanced Measurement Access**
+   - **"Edit Measurements" Button** - Replaces "View All" and "View Measurements"
+   - **Location:** Order detail page (app/(dashboard)/orders/[id]/page.tsx)
+   - **Two Locations:**
+     - Inline with each order item's measurement display
+     - Under Customer Information section
+   - **Action:** Links to customer profile with `?highlight=measurements` parameter
+   - **Benefit:** One-click access to edit measurements from order context
+
+3. **Bulk Upload Excel Export Enhancements**
+   - **Added Missing Order Fields** (scripts/export-to-excel.ts):
+     - `discount` - Discount amount
+     - `discountReason` - Reason for discount
+     - `subTotal` - Amount before GST
+     - `gstRate` - GST rate percentage (12%)
+     - `cgst` - Central GST (6%)
+     - `sgst` - State GST (6%)
+     - `igst` - Integrated GST (0%)
+     - `gstAmount` - Total GST charged
+     - `taxableAmount` - Base for GST calculation
+     - `invoiceNumber` - GST invoice number
+     - `invoiceDate` - GST invoice date
+     - `placeOfSupply` - State for GST
+   - **Documentation Update:**
+     - Added note that Orders/Order Items/POs are export-only
+     - Not supported for bulk import due to complexity
+     - Must create through UI to maintain stock reservations
+
+**API Endpoints Added:**
+- `PATCH /api/orders/[id]/items/[itemId]` - Update order item details
+  - **Body:** `{ garmentPatternId?, clothInventoryId?, quantity?, notes? }`
+  - **Returns:** Updated order item with relations
+  - **Side Effects:**
+    - Updates stock reservations if fabric changes
+    - Recalculates estimated meters if garment changes
+    - Creates stock movement records
+    - Creates order history entry
+  - **Permissions:** Requires `update_order` permission
+  - **Restrictions:** Cannot edit DELIVERED or CANCELLED orders
+
+**Technical Implementation:**
+
+1. **Stock Reservation Update Logic:**
+```typescript
+// When fabric changes:
+1. Release old reservation: clothInventory.reserved -= oldEstimatedMeters
+2. Reserve new fabric: clothInventory.reserved += newEstimatedMeters
+3. Create stock movements:
+   - ORDER_CANCELLED for old cloth (negative quantity)
+   - ORDER_RESERVED for new cloth (positive quantity)
+```
+
+2. **Fabric Requirement Calculation:**
+```typescript
+// When garment pattern changes:
+estimatedMeters = garmentPattern.baseMeters + bodyTypeAdjustment[bodyType]
+// bodyType adjustments: SLIM (0), REGULAR (0), LARGE (+0.3), XL (+0.5)
+```
+
+3. **Order History Tracking:**
+```typescript
+changeDescription = [
+  "Garment changed from Shirt to Trouser",
+  "Fabric changed from Cotton Blue to Silk Red"
+].join('; ')
+```
+
+**Files Modified:**
+- `app/(dashboard)/orders/[id]/page.tsx` - Added OrderItemEdit component, changed button labels
+- `scripts/export-to-excel.ts` - Added GST/discount fields, updated documentation
+
+**Files Added:**
+- `components/orders/order-item-edit.tsx` - Order item editing dialog component
+- `app/api/orders/[id]/items/[itemId]/route.ts` - Order item update API endpoint
+
+**Usage Examples:**
+
+```bash
+# Edit order item via API
+PATCH /api/orders/ord_123/items/itm_456
+{
+  "garmentPatternId": "gp_789",  // Change from Shirt to Trouser
+  "clothInventoryId": "cloth_012"  // Change from Cotton to Silk
+}
+
+# Response: Updated item with new calculations
+{
+  "id": "itm_456",
+  "estimatedMeters": 2.8,  // Recalculated based on new garment
+  "garmentPattern": { "name": "Men's Trouser" },
+  "clothInventory": { "name": "Silk", "color": "Red" }
+}
+```
+
+**Export Excel with All Fields:**
+```bash
+pnpm tsx scripts/export-to-excel.ts
+# Generates: exports/hamees-inventory-export-2026-01-16.xlsx
+# Includes: All Order GST fields, discount fields, invoice fields
+```
+
+---
+
 ### ✅ Arrears Management & Discount System (v0.9.0)
 
 **What's New:**
