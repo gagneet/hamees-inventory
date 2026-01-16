@@ -586,11 +586,11 @@ export default function InventoryPageClient() {
                                 {item.color}
                               </div>
                             </TableCell>
-                            <TableCell>{item.currentStock}m</TableCell>
+                            <TableCell>{item.currentStock.toFixed(2)}m</TableCell>
                             <TableCell>
-                              {available}m
+                              {available.toFixed(2)}m
                               {item.reserved > 0 && (
-                                <span className="text-xs text-slate-500"> ({item.reserved}m reserved)</span>
+                                <span className="text-xs text-slate-500"> ({item.reserved.toFixed(2)}m reserved)</span>
                               )}
                             </TableCell>
                             <TableCell>{formatCurrency(item.pricePerMeter)}/m</TableCell>

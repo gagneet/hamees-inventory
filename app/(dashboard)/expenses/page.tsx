@@ -342,7 +342,7 @@ function ExpensesContent() {
                         <div className="text-sm">
                           {order.items.slice(0, 2).map((item, idx) => (
                             <div key={idx} className="text-slate-600">
-                              {item.garmentName} ({item.metersUsed.toFixed(1)}m)
+                              {item.garmentName} ({item.metersUsed.toFixed(2)}m)
                             </div>
                           ))}
                           {order.items.length > 2 && (
@@ -399,7 +399,7 @@ function ExpensesContent() {
                     <TableRow key={purchase.id}>
                       <TableCell className="font-medium">{purchase.fabricName}</TableCell>
                       <TableCell className="text-slate-600">{purchase.fabricType}</TableCell>
-                      <TableCell className="text-right">{purchase.quantity.toFixed(1)}m</TableCell>
+                      <TableCell className="text-right">{purchase.quantity.toFixed(2)}m</TableCell>
                       <TableCell className="text-right">{formatCurrency(purchase.pricePerMeter)}</TableCell>
                       <TableCell className="text-right font-semibold text-red-600">
                         {formatCurrency(purchase.totalCost)}

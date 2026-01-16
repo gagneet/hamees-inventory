@@ -374,13 +374,13 @@ function OrdersContent() {
                         <div>
                           <p className="text-slate-500 mb-1">Total Amount</p>
                           <p className="font-semibold text-slate-900">
-                            ₹{order.totalAmount.toLocaleString('en-IN')}
+                            ₹{order.totalAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                           </p>
                         </div>
                         <div>
                           <p className="text-slate-500 mb-1">Balance</p>
                           <p className="font-semibold text-slate-900">
-                            ₹{order.balanceAmount.toLocaleString('en-IN')}
+                            ₹{order.balanceAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                           </p>
                         </div>
                         <div>

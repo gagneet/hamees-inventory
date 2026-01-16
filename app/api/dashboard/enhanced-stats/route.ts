@@ -103,8 +103,10 @@ export async function GET(request: Request) {
       }),
     ])
 
+    type OrderWithDetails = typeof ordersToday[number]
+
     const dueToday = ordersToday.filter(
-      (order) => differenceInDays(order.deliveryDate, now) === 0
+      (order: OrderWithDetails) => differenceInDays(order.deliveryDate, now) === 0
     ).length
 
     // Workload by garment type (for stitching phase)
@@ -122,8 +124,10 @@ export async function GET(request: Request) {
       },
     })
 
+    type WorkloadItem = typeof workloadByGarment[number]
+
     const workloadDetails = await Promise.all(
-      workloadByGarment.map(async (item) => {
+      workloadByGarment.map(async (item: WorkloadItem) => {
         const pattern = await prisma.garmentPattern.findUnique({
           where: { id: item.garmentPatternId },
           select: { name: true },
@@ -205,8 +209,10 @@ export async function GET(request: Request) {
       }),
     ])
 
+    type FabricUsageItem = typeof fabricUsage[number]
+
     const fastMovingFabrics = await Promise.all(
-      fabricUsage.map(async (item) => {
+      fabricUsage.map(async (item: FabricUsageItem) => {
         const cloth = await prisma.clothInventory.findUnique({
           where: { id: item.clothInventoryId },
           select: {
@@ -238,9 +244,11 @@ export async function GET(request: Request) {
       })
     )
 
+    type FabricDetail = typeof fastMovingFabrics[number]
+
     const fastMovingFiltered = fastMovingFabrics
-      .filter((f) => f !== null)
-      .sort((a, b) => (a!.daysRemaining - b!.daysRemaining))
+      .filter((f: FabricDetail) => f !== null)
+      .sort((a: FabricDetail, b: FabricDetail) => (a!.daysRemaining - b!.daysRemaining))
 
     // Committed vs Available stock
     const stockComparison = await prisma.clothInventory.findMany({
@@ -256,7 +264,9 @@ export async function GET(request: Request) {
       },
     })
 
-    const stockComparisonData = stockComparison.map((cloth) => ({
+    type StockComparisonItem = typeof stockComparison[number]
+
+    const stockComparisonData = stockComparison.map((cloth: StockComparisonItem) => ({
       name: cloth.name,
       type: cloth.type,
       available: cloth.currentStock - cloth.reserved,
@@ -312,22 +322,27 @@ export async function GET(request: Request) {
     ])
 
     const pipelineOrder = ['NEW', 'MATERIAL_SELECTED', 'CUTTING', 'STITCHING', 'FINISHING', 'READY']
+    type PipelineItem = typeof orderPipeline[number]
+
     const pipelineData = pipelineOrder.map((status) => {
-      const data = orderPipeline.find((p) => p.status === status)
+      const data = orderPipeline.find((p: PipelineItem) => p.status === status)
       return {
         status,
         count: data?._count.status || 0,
       }
     })
 
+    type TopCustomer = typeof topCustomers[number]
+    type CustomerOrder = TopCustomer['orders'][number]
+
     const customerStats = topCustomers
-      .map((customer) => {
+      .map((customer: TopCustomer) => {
         const totalOrders = customer.orders.length
         const totalSpent = customer.orders
-          .filter((o) => o.status === 'DELIVERED')
-          .reduce((sum, o) => sum + o.totalAmount, 0)
+          .filter((o: CustomerOrder) => o.status === 'DELIVERED')
+          .reduce((sum: number, o: CustomerOrder) => sum + o.totalAmount, 0)
         const pendingOrders = customer.orders.filter(
-          (o) => o.status !== 'DELIVERED' && o.status !== 'CANCELLED'
+          (o: CustomerOrder) => o.status !== 'DELIVERED' && o.status !== 'CANCELLED'
         ).length
 
         return {
@@ -341,14 +356,14 @@ export async function GET(request: Request) {
           isReturning: totalOrders > 1,
         }
       })
-      .sort((a, b) => b.totalSpent - a.totalSpent)
+      .sort((a: { totalSpent: number }, b: { totalSpent: number }) => b.totalSpent - a.totalSpent)
       .slice(0, 10)
 
     // ===================
     // OWNER/ADMIN DATA (Parallelized)
     // ===================
 
-    const [expensesThisMonth, expensesLastMonth] = await Promise.all([
+    const [expensesThisMonth, expensesLastMonth, poPaymentsThisMonth, poPaymentsLastMonth] = await Promise.all([
       // Expenses for this month
       prisma.expense.aggregate({
         where: {
@@ -374,7 +389,42 @@ export async function GET(request: Request) {
           totalAmount: true,
         },
       }),
+
+      // Purchase Order payments for this month
+      prisma.purchaseOrder.aggregate({
+        where: {
+          createdAt: {
+            gte: startOfMonth(now),
+            lte: endOfMonth(now),
+          },
+          paidAmount: {
+            gt: 0,
+          },
+        },
+        _sum: {
+          paidAmount: true,
+        },
+      }),
+
+      // Purchase Order payments for last month
+      prisma.purchaseOrder.aggregate({
+        where: {
+          createdAt: {
+            gte: startOfMonth(subMonths(now, 1)),
+            lte: endOfMonth(subMonths(now, 1)),
+          },
+          paidAmount: {
+            gt: 0,
+          },
+        },
+        _sum: {
+          paidAmount: true,
+        },
+      }),
     ])
+
+    const totalExpensesThisMonth = (expensesThisMonth._sum.totalAmount || 0) + (poPaymentsThisMonth._sum.paidAmount || 0)
+    const totalExpensesLastMonth = (expensesLastMonth._sum.totalAmount || 0) + (poPaymentsLastMonth._sum.paidAmount || 0)
 
     // Revenue vs Expenses for last 6 months (Parallelized)
     const financialTrend = await Promise.all(
@@ -383,10 +433,10 @@ export async function GET(request: Request) {
         const monthStart = startOfMonth(subMonths(now, i))
         const monthEnd = endOfMonth(subMonths(now, i))
 
-        const [revenue, expenses] = await Promise.all([
+        const [revenue, expenses, poPayments] = await Promise.all([
           prisma.order.aggregate({
             where: {
-              createdAt: {
+              completedDate: {
                 gte: monthStart,
                 lte: monthEnd,
               },
@@ -408,13 +458,30 @@ export async function GET(request: Request) {
               totalAmount: true,
             },
           }),
+
+          prisma.purchaseOrder.aggregate({
+            where: {
+              createdAt: {
+                gte: monthStart,
+                lte: monthEnd,
+              },
+              paidAmount: {
+                gt: 0,
+              },
+            },
+            _sum: {
+              paidAmount: true,
+            },
+          }),
         ])
+
+        const totalExpenses = (expenses._sum.totalAmount || 0) + (poPayments._sum.paidAmount || 0)
 
         return {
           month: format(monthStart, 'MMM yyyy'),
           revenue: revenue._sum.totalAmount || 0,
-          expenses: expenses._sum.totalAmount || 0,
-          profit: (revenue._sum.totalAmount || 0) - (expenses._sum.totalAmount || 0),
+          expenses: totalExpenses,
+          profit: (revenue._sum.totalAmount || 0) - totalExpenses,
         }
       })
     )
@@ -493,8 +560,10 @@ export async function GET(request: Request) {
       }),
     ])
 
+    type RevenueByFabricItem = typeof revenueByFabric[number]
+
     const fabricRevenueDetails = await Promise.all(
-      revenueByFabric.map(async (item) => {
+      revenueByFabric.map(async (item: RevenueByFabricItem) => {
         const cloth = await prisma.clothInventory.findUnique({
           where: { id: item.clothInventoryId },
           select: { name: true, type: true },
@@ -507,20 +576,25 @@ export async function GET(request: Request) {
       })
     )
 
-    const fulfillmentTimes = deliveredOrders.map((order) =>
+    type DeliveredOrder = typeof deliveredOrders[number]
+
+    const fulfillmentTimes = deliveredOrders.map((order: DeliveredOrder) =>
       differenceInDays(order.completedDate!, order.orderDate)
     )
 
     const avgFulfillmentTime =
       fulfillmentTimes.length > 0
-        ? fulfillmentTimes.reduce((sum, time) => sum + time, 0) / fulfillmentTimes.length
+        ? fulfillmentTimes.reduce((sum: number, time: number) => sum + time, 0) / fulfillmentTimes.length
         : 0
 
-    const returningCustomers = allCustomers.filter((c) => c.orders.length > 1).length
-    const newCustomers = allCustomers.filter((c) => c.orders.length === 1).length
+    type AllCustomer = typeof allCustomers[number]
+    type StockMovement = typeof stockMovements[number]
+
+    const returningCustomers = allCustomers.filter((c: AllCustomer) => c.orders.length > 1).length
+    const newCustomers = allCustomers.filter((c: AllCustomer) => c.orders.length === 1).length
 
     // Stock turnover ratio calculation (stockMovements already fetched above)
-    const fabricUsed = stockMovements.reduce((sum, m) => sum + Math.abs(m.quantity), 0)
+    const fabricUsed = stockMovements.reduce((sum: number, m: StockMovement) => sum + Math.abs(m.quantity), 0)
     const totalFabricValue = await prisma.clothInventory.aggregate({
       _sum: {
         currentStock: true,
@@ -531,6 +605,39 @@ export async function GET(request: Request) {
       (totalFabricValue._sum.currentStock || 0) > 0
         ? (fabricUsed / (totalFabricValue._sum.currentStock || 1)) * 100
         : 0
+
+    // ===================
+    // SHARED DATA (Alerts, Order Status)
+    // ===================
+
+    const [recentAlerts, ordersByStatus] = await Promise.all([
+      // Recent unread alerts
+      prisma.alert.findMany({
+        where: {
+          isRead: false,
+          isDismissed: false,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take: 5,
+      }),
+
+      // Orders by status for pie chart
+      prisma.order.groupBy({
+        by: ['status'],
+        _count: {
+          status: true,
+        },
+      }),
+    ])
+
+    type OrderStatusItem = typeof ordersByStatus[number]
+
+    const orderStatusData = ordersByStatus.map((item: OrderStatusItem) => ({
+      status: item.status,
+      count: item._count.status,
+    }))
 
     // ===================
     // RETURN RESPONSE
@@ -568,8 +675,8 @@ export async function GET(request: Request) {
 
       // Owner/Admin metrics
       financial: {
-        expensesThisMonth: expensesThisMonth._sum.totalAmount || 0,
-        expensesLastMonth: expensesLastMonth._sum.totalAmount || 0,
+        expensesThisMonth: totalExpensesThisMonth,
+        expensesLastMonth: totalExpensesLastMonth,
         financialTrend,
         outstandingPayments: outstandingPayments._sum.balanceAmount || 0,
         revenueByFabric: fabricRevenueDetails,
@@ -584,6 +691,14 @@ export async function GET(request: Request) {
         },
         stockTurnoverRatio: Math.round(stockTurnoverRatio * 10) / 10,
       },
+
+      // Shared data for all roles
+      alerts: {
+        unread: recentAlerts.length,
+        recent: recentAlerts,
+      },
+
+      orderStatus: orderStatusData,
     })
   } catch (error) {
     console.error('Error fetching enhanced dashboard stats:', error)

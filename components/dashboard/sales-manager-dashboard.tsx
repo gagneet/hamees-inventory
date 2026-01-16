@@ -85,7 +85,7 @@ export function SalesManagerDashboard({ stats, generalStats }: SalesManagerDashb
             <div className="text-3xl font-bold text-purple-600">{generalStats.orders.thisMonth}</div>
             <p className="text-xs text-muted-foreground mt-1">
               {generalStats.orders.growth >= 0 ? '+' : ''}
-              {generalStats.orders.growth.toFixed(1)}% vs last month
+              {generalStats.orders.growth.toFixed(2)}% vs last month
             </p>
           </CardContent>
         </Card>

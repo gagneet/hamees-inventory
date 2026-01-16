@@ -47,9 +47,11 @@ export async function GET(
     }
 
     // Calculate summary
-    const totalPaid = order.installments.reduce((sum, inst) => sum + inst.paidAmount, 0)
+    type Installment = typeof order.installments[number]
+
+    const totalPaid = order.installments.reduce((sum: number, inst: Installment) => sum + inst.paidAmount, 0)
     const totalDue = order.balanceAmount
-    const overdue = order.installments.filter(inst =>
+    const overdue = order.installments.filter((inst: Installment) =>
       inst.status === 'OVERDUE' || (inst.status === 'PENDING' && inst.dueDate < new Date())
     ).length
 

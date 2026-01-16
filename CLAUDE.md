@@ -10,6 +10,81 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Dashboard Enhancements & Production Data (v0.8.2)
+
+**What's New:**
+- **Interactive Financial Cards** - All dashboard financial KPI cards now clickable with detailed breakdowns
+- **Enhanced Charts** - Orders by Status chart improved with larger size, percentage-only labels, and white background
+- **Clickable Customer Retention** - Shows returning customers with 3+ orders across different months
+- **Production Seed Data** - Comprehensive seed script with 192 orders (July-Dec 2025), seasonal patterns, realistic fulfillment times
+- **Decimal Precision** - All currency, meters, and percentages standardized to exactly 2 decimal places
+- **Improved Expense Tracking** - Expenses now include both operational costs and Purchase Order payments
+
+**New Features:**
+
+1. **Interactive Financial Dashboard (components/dashboard/owner-dashboard.tsx:248-439)**
+   - Revenue card: Shows delivered orders breakdown with navigation to filtered orders
+   - Expenses card: Breakdown of operational expenses + PO payments with links
+   - Profit card: Shows calculation formula and components
+   - Outstanding Payments card: Lists customers with balance due
+
+2. **Customer Retention Analysis (components/dashboard/customer-retention-chart.tsx)**
+   - Clickable "View returning customers" button
+   - API endpoint `/api/customers/returning` filters customers with 3+ orders across different months
+   - Dialog shows customer details: total orders, months active, first/last order dates
+   - Direct links to customer profiles
+
+3. **Production Seed Script (prisma/seed-production.ts)**
+   - 192 orders from July-December 2025 with realistic seasonal patterns:
+     - July: 40 orders (high season)
+     - August: 12 orders (slow)
+     - September: 10 orders (slow)
+     - October: 50 orders (huge spurt)
+     - November: 35 orders (80% delivered)
+     - December: 45 orders (80% delivered)
+   - Average fulfillment time: 7.5 days (under 14-day target)
+   - 20 customers with repeat customer patterns
+   - 20 purchase orders with varied payment statuses
+   - 10 cloth items and 10 accessory items
+
+4. **Enhanced Charts**
+   - Orders by Status: Larger pie chart, white background, percentage-only labels
+   - All charts maintain consistent styling and interactivity
+
+**API Endpoints Added:**
+- `GET /api/customers/returning` - Returns customers with 3+ orders across different months
+
+**Bug Fixes:**
+- Fixed Expenses Filter error (removed empty string SelectItem values)
+- Fixed Expenses card calculation (now includes Purchase Order payments)
+- Fixed all decimal precision issues (2 decimal places everywhere)
+- Fixed TypeScript strict type checking errors across 10+ files
+
+**Data Quality:**
+- All financial values: Exactly 2 decimal places (₹1,234.56)
+- All percentage values: 2 decimal places (15.52%)
+- All meter values: 2 decimal places (3.53m)
+
+**Files Modified:**
+- `components/dashboard/owner-dashboard.tsx` - Interactive financial cards with Dialog popups
+- `components/dashboard/customer-retention-chart.tsx` - Clickable with returning customer details
+- `components/dashboard/orders-status-chart.tsx` - Enhanced styling and sizing
+- `app/api/dashboard/enhanced-stats/route.ts` - Added PO payment aggregation for expenses
+- `components/expenses-filter.tsx` - Removed empty SelectItem values
+- `app/api/customers/returning/route.ts` - New API for returning customers
+- `prisma/seed-production.ts` - Comprehensive production data generation
+
+**Usage:**
+```bash
+# Generate production seed data
+pnpm tsx prisma/seed-production.ts
+
+# Verify data
+- 192 orders across 6 months
+- Average fulfillment: ~7.5 days
+- Multiple returning customers
+```
+
 ### ✅ Bulk Data Upload System (v0.6.0)
 
 **What's New:**

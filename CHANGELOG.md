@@ -5,6 +5,144 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.2] - 2026-01-16
+
+### Added - Interactive Dashboard & Production Data
+
+#### Interactive Financial Cards
+- **Revenue Card** (`components/dashboard/owner-dashboard.tsx:248-284`)
+  - Clickable with Dialog showing all delivered orders
+  - Breakdown by order number, customer, amount
+  - Direct link to filtered orders page
+- **Expenses Card** (lines 286-334)
+  - Shows breakdown of operational expenses + Purchase Order payments
+  - Includes links to Expenses page and Purchase Orders page
+  - Accurate total including inventory purchases
+- **Profit Card** (lines 336-374)
+  - Displays calculation formula (Revenue - Expenses)
+  - Shows component breakdown
+  - Visual representation of profit margin
+- **Outstanding Payments Card** (lines 376-439)
+  - Lists all customers with pending balances
+  - Shows total balance due per customer
+  - Direct links to customer profiles
+
+#### Customer Retention Analysis
+- **Clickable Chart** (`components/dashboard/customer-retention-chart.tsx`)
+  - "View returning customers" button added
+  - Shows customers with 3+ orders across different months (not same month)
+  - Dialog displays:
+    - Total orders count
+    - Months active (e.g., "Jul 2025, Oct 2025, Dec 2025")
+    - First and last order dates
+    - Direct link to customer profile
+- **API Endpoint** (`app/api/customers/returning/route.ts`)
+  - `GET /api/customers/returning`
+  - Filters customers with 3+ orders spanning at least 2 different months
+  - Sorted by total orders descending
+
+#### Production Seed Data
+- **Comprehensive Script** (`prisma/seed-production.ts`)
+  - 192 orders from July-December 2025
+  - Seasonal patterns:
+    - July: 40 orders (high season)
+    - August: 12 orders (slow)
+    - September: 10 orders (slow)
+    - October: 50 orders (huge spurt)
+    - November: 35 orders (80% delivered)
+    - December: 45 orders (80% delivered)
+  - 20 customers with realistic repeat patterns (60% repeat customer rate)
+  - 20 purchase orders with varied payment statuses
+  - 10 cloth items (Linen, Cotton, Silk, Wool, Synthetic)
+  - 10 accessory items (Zippers, Buttons, Threads, etc.)
+  - Average fulfillment time: 7.5 days (all under 14 days)
+  - Usage: `pnpm tsx prisma/seed-production.ts`
+
+### Changed - Enhanced Charts & Precision
+
+#### Orders by Status Chart
+- **Increased Size** (`components/dashboard/orders-status-chart.tsx:70`)
+  - outerRadius increased from 80 to 100 pixels
+- **White Background** (line 59)
+  - Added `bg-white rounded-lg` for consistency with other charts
+- **Simplified Labels** (lines 67-68)
+  - Changed from "New (15%)" to just "15%"
+  - Full names remain in Legend for reference
+
+#### Decimal Precision Standardization
+- **All Currency Values**: Exactly 2 decimal places (₹1,234.56)
+  - Applied `.toFixed(2)` across all components
+- **All Meter Values**: Exactly 2 decimal places (3.53m)
+  - Fixed in inventory pages, dashboard, alerts, expenses
+- **All Percentages**: Changed from 1 to 2 decimal places (15.52%)
+  - Updated KPI cards, charts, growth indicators
+
+Files modified for precision:
+- `components/InventoryPageClient.tsx` - Inventory listing meters
+- `components/dashboard/inventory-summary.tsx` - Dashboard popup meters
+- `app/(dashboard)/inventory/cloth/[id]/page.tsx` - Detail page meters
+- `app/(dashboard)/alerts/[id]/page.tsx` - Alert details
+- `app/(dashboard)/expenses/page.tsx` - Expense items
+- `app/(dashboard)/orders/page.tsx` - Order amounts
+- `app/(dashboard)/orders/new/page.tsx` - Price displays
+- `components/dashboard/kpi-card.tsx` - Growth percentages
+- `components/dashboard/sales-manager-dashboard.tsx` - Stats percentages
+
+#### Expense Tracking Enhancement
+- **Purchase Order Payments** (`app/api/dashboard/enhanced-stats/route.ts:100-159`)
+  - Added parallel queries for PO payments
+  - Monthly expenses now include: Operational + PO payments
+  - 6-month financial trend includes PO payments
+  - Accurate expense totals for profit calculation
+
+### Fixed
+
+#### Expenses Filter Error
+- **Issue**: Radix UI SelectItem error with empty string values
+- **Fix** (`components/expenses-filter.tsx:127, 150`)
+  - Removed `<SelectItem value="">` entries
+  - Category and Payment Mode filters now work correctly
+- **Error**: "A <Select.Item /> must have a value prop that is not an empty string"
+
+#### Expenses Card Not Populating
+- **Issue**: Only showed operational expenses, missing PO payments
+- **Root Cause**: Dashboard API only queried Expense table
+- **Fix**: Added Purchase Order payment aggregation
+- **Impact**: Expenses card now shows accurate totals
+
+#### TypeScript Strict Type Checking
+- Fixed implicit `any` type errors in 10+ files:
+  - `app/api/customers/returning/route.ts` - Added explicit types for array callbacks
+  - `app/api/dashboard/enhanced-stats/route.ts` - 8+ type annotations added
+  - `app/api/orders/[id]/installments/route.ts` - Installment calculations typed
+- Added type aliases using `typeof` for better type inference
+- Fixed nullable email field in returning customers interface
+
+### Technical
+
+#### Type Safety Improvements
+- Added explicit TypeScript type annotations for all:
+  - `.map()` callbacks
+  - `.filter()` callbacks
+  - `.reduce()` callbacks
+  - `.sort()` callbacks
+- Pattern used: `typeof array[number]` for type inference
+- Improved compilation speed and IDE auto complete
+
+#### Build Process
+- Clean build from scratch (removed node_modules)
+- Fresh `pnpm install` of all dependencies
+- Regenerated Prisma Client
+- All TypeScript errors resolved
+- Production bundle built successfully
+
+### Performance
+- Parallel query execution in enhanced-stats API
+- Efficient type inference without manual type definitions
+- Optimized Dashboard rendering with memoized calculations
+
+---
+
 ## [0.5.2] - 2026-01-15
 
 ### Enhanced - Measurement Edit UX Improvements
@@ -254,6 +392,7 @@ const allMeasurements = await fetch('/api/customers/123/measurements?includeInac
 
 ---
 
+[0.8.2]: https://github.com/gagneet/hamees-inventory/compare/v0.5.2...v0.8.2
 [0.5.2]: https://github.com/gagneet/hamees-inventory/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/gagneet/hamees-inventory/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/gagneet/hamees-inventory/compare/v0.4.0...v0.5.0

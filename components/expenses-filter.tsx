@@ -124,7 +124,6 @@ export function ExpensesFilter({ filters, onChange, onReset }: ExpensesFilterPro
                 <SelectValue placeholder="All categories" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All categories</SelectItem>
                 {expenseCategories.map((cat) => (
                   <SelectItem key={cat} value={cat}>
                     {cat.replace(/_/g, ' ')}
@@ -147,7 +146,6 @@ export function ExpensesFilter({ filters, onChange, onReset }: ExpensesFilterPro
                 <SelectValue placeholder="All payment modes" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All payment modes</SelectItem>
                 {paymentModes.map((mode) => (
                   <SelectItem key={mode} value={mode}>
                     {mode.replace(/_/g, ' ')}

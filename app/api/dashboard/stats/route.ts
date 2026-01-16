@@ -111,10 +111,10 @@ export async function GET() {
       where: { status: 'DELIVERED' },
     })
 
-    // Revenue Stats
+    // Revenue Stats - Based on delivery/completion date
     const revenueThisMonth = await prisma.order.aggregate({
       where: {
-        createdAt: {
+        completedDate: {
           gte: currentMonthStart,
           lte: currentMonthEnd,
         },
@@ -127,7 +127,7 @@ export async function GET() {
 
     const revenueLastMonth = await prisma.order.aggregate({
       where: {
-        createdAt: {
+        completedDate: {
           gte: lastMonthStart,
           lte: lastMonthEnd,
         },
@@ -138,7 +138,7 @@ export async function GET() {
       },
     })
 
-    // Revenue by month for last 6 months
+    // Revenue by month for last 6 months - Based on delivery/completion date
     const revenueByMonth = []
     for (let i = 5; i >= 0; i--) {
       const monthStart = startOfMonth(subMonths(now, i))
@@ -146,7 +146,7 @@ export async function GET() {
 
       const revenue = await prisma.order.aggregate({
         where: {
-          createdAt: {
+          completedDate: {
             gte: monthStart,
             lte: monthEnd,
           },

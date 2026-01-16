@@ -519,7 +519,7 @@ function NewOrderForm() {
                           <option value="">Select fabric</option>
                           {clothInventory.map((cloth) => (
                             <option key={cloth.id} value={cloth.id}>
-                              {cloth.name} - {cloth.color} (₹{cloth.pricePerMeter}/m, Available: {cloth.currentStock - cloth.reserved}m)
+                              {cloth.name} - {cloth.color} (₹{cloth.pricePerMeter.toFixed(2)}/m, Available: {cloth.currentStock - cloth.reserved}m)
                             </option>
                           ))}
                         </select>
@@ -546,7 +546,7 @@ function NewOrderForm() {
                                 .filter(acc => !item.accessories.find(ia => ia.accessoryId === acc.id))
                                 .map((acc) => (
                                   <option key={acc.id} value={acc.id}>
-                                    {acc.name} ({acc.type}) - ₹{acc.pricePerUnit}/unit
+                                    {acc.name} ({acc.type}) - ₹{acc.pricePerUnit.toFixed(2)}/unit
                                   </option>
                                 ))}
                             </select>
@@ -568,7 +568,7 @@ function NewOrderForm() {
                                         {accessory.color && ` - ${accessory.color}`}
                                       </p>
                                       <p className="text-xs text-slate-600">
-                                        {accessory.type} • ₹{accessory.pricePerUnit}/unit • Stock: {accessory.currentStock}
+                                        {accessory.type} • ₹{accessory.pricePerUnit.toFixed(2)}/unit • Stock: {accessory.currentStock}
                                       </p>
                                     </div>
                                     <div className="flex items-center gap-2">

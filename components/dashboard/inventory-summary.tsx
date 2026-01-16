@@ -99,7 +99,7 @@ export function InventorySummary({ stats }: InventorySummaryProps) {
           </div>
           <div className="p-4 bg-slate-50 rounded-lg">
             <p className="text-sm font-medium text-slate-600">Total Meters</p>
-            <p className="text-xl font-bold text-slate-900">{stats.totalMeters}m</p>
+            <p className="text-xl font-bold text-slate-900">{stats.totalMeters.toFixed(2)}m</p>
           </div>
         </div>
 
@@ -195,20 +195,20 @@ export function InventorySummary({ stats }: InventorySummaryProps) {
 
                     <div className="space-y-1">
                       <p className={`text-sm font-medium ${getStockStatusColor(item)}`}>
-                        Available: {item.available} {item.unit}
+                        Available: {item.available.toFixed(2)} {item.unit}
                       </p>
                       {item.category === 'cloth' && item.reserved > 0 && (
                         <p className="text-xs text-slate-600">
-                          Total: {item.currentStock} (Reserved: {item.reserved})
+                          Total: {item.currentStock.toFixed(2)} (Reserved: {item.reserved.toFixed(2)})
                         </p>
                       )}
                       {item.category === 'accessory' && (
                         <p className="text-xs text-slate-600">
-                          Current: {item.currentStock}
+                          Current: {item.currentStock.toFixed(2)}
                         </p>
                       )}
                       <p className="text-xs text-slate-500">
-                        Minimum: {item.minimum} {item.unit}
+                        Minimum: {item.minimum.toFixed(2)} {item.unit}
                       </p>
                     </div>
 

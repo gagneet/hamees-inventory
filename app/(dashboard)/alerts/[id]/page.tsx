@@ -212,22 +212,22 @@ export default function AlertDetailPage({
                     ? 'text-red-600'
                     : 'text-green-600'
                 }`}>
-                  {relatedItem.currentStock.toFixed(1)}m
+                  {relatedItem.currentStock.toFixed(2)}m
                   {relatedItem.reserved > 0 && (
                     <span className="text-sm text-slate-500 ml-2">
-                      ({relatedItem.reserved.toFixed(1)}m reserved)
+                      ({relatedItem.reserved.toFixed(2)}m reserved)
                     </span>
                   )}
                 </p>
               </div>
               <div>
                 <p className="text-sm font-medium text-slate-500">Minimum Required</p>
-                <p className="text-lg">{relatedItem.minimum.toFixed(1)}m</p>
+                <p className="text-lg">{relatedItem.minimum.toFixed(2)}m</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-slate-500">Available Stock</p>
                 <p className="text-lg font-semibold">
-                  {(relatedItem.currentStock - relatedItem.reserved).toFixed(1)}m
+                  {(relatedItem.currentStock - relatedItem.reserved).toFixed(2)}m
                 </p>
               </div>
               <div>

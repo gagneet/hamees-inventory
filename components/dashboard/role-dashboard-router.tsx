@@ -132,6 +132,8 @@ export function RoleDashboardRouter({ userRole, dateRange = 'month' }: RoleDashb
         <OwnerDashboard
           stats={enhancedStats.financial}
           generalStats={generalStats}
+          alerts={enhancedStats.alerts}
+          orderStatus={enhancedStats.orderStatus}
         />
       )
 
@@ -141,6 +143,8 @@ export function RoleDashboardRouter({ userRole, dateRange = 'month' }: RoleDashb
         <OwnerDashboard
           stats={enhancedStats.financial}
           generalStats={generalStats}
+          alerts={enhancedStats.alerts}
+          orderStatus={enhancedStats.orderStatus}
         />
       )
 

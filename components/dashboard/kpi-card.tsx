@@ -50,7 +50,7 @@ export function KPICard({
           <p className="text-3xl font-bold text-gray-900">{value}</p>
           {change !== undefined && (
             <p className={cn('text-sm font-medium mt-1', getTrendColor())}>
-              {getTrendIcon()} {Math.abs(change).toFixed(1)}%{' '}
+              {getTrendIcon()} {Math.abs(change).toFixed(2)}%{' '}
               {changeLabel || 'vs last month'}
             </p>
           )}

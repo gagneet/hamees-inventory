@@ -285,19 +285,19 @@ export default async function ClothDetailPage({
                 <div className="pt-4 border-t">
                   <div className="flex justify-between mb-2">
                     <span className="text-slate-600">Total Stock:</span>
-                    <span className="font-semibold">{cloth.currentStock}m</span>
+                    <span className="font-semibold">{cloth.currentStock.toFixed(2)}m</span>
                   </div>
                   <div className="flex justify-between mb-2">
                     <span className="text-slate-600">Reserved:</span>
-                    <span className="font-semibold text-orange-600">{cloth.reserved}m</span>
+                    <span className="font-semibold text-orange-600">{cloth.reserved.toFixed(2)}m</span>
                   </div>
                   <div className="flex justify-between mb-2">
                     <span className="text-slate-600">Available:</span>
-                    <span className="font-semibold text-green-600">{available}m</span>
+                    <span className="font-semibold text-green-600">{available.toFixed(2)}m</span>
                   </div>
                   <div className="flex justify-between pt-2 border-t">
                     <span className="text-slate-600">Minimum:</span>
-                    <span className="font-semibold">{cloth.minimum}m</span>
+                    <span className="font-semibold">{cloth.minimum.toFixed(2)}m</span>
                   </div>
                 </div>
               </CardContent>

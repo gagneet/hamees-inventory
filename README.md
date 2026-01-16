@@ -1,6 +1,28 @@
 # 🧵 Tailor Inventory Management System
 
+**Version 0.8.2** | Production Ready | [Live Demo](https://hamees.gagneet.com)
+
 A comprehensive inventory and order management system built specifically for tailor shops. Manage fabric inventory, track orders, monitor stock levels, and streamline your tailoring business operations.
+
+## 🎉 What's New in v0.8.2
+
+### Interactive Dashboard & Analytics
+- **Clickable Financial Cards**: All KPI cards (Revenue, Expenses, Profit, Outstanding) now show detailed breakdowns
+- **Enhanced Charts**: Orders by Status chart with larger size, white background, and percentage-only labels
+- **Customer Retention Analysis**: Click to view returning customers (3+ orders across different months)
+- **Decimal Precision**: All values standardized to exactly 2 decimal places
+
+### Production Seed Data
+- **192 Historical Orders**: July-December 2025 with realistic seasonal patterns
+- **7.5 Day Avg Fulfillment**: Realistic fulfillment times under 14 days
+- **20 Customers**: Including repeat customers with cross-month ordering patterns
+- **Run with**: `pnpm tsx prisma/seed-production.ts`
+
+### Bug Fixes & Improvements
+- Fixed Expenses tracking to include Purchase Order payments
+- Fixed Expenses Filter error (SelectItem validation)
+- Fixed all TypeScript strict type checking errors
+- Improved chart consistency across dashboard
 
 ## ✨ Features
 
@@ -37,11 +59,22 @@ A comprehensive inventory and order management system built specifically for tai
 - **Low Stock Alerts**: Automatic alerts when stock < minimum
 - **Critical Alerts**: High-priority warnings for very low stock
 - **Order Delays**: Track overdue orders
+- **Alert Dismissal**: Temporary dismissal with auto-reset on expiry
 
-### Reporting & Analytics
-- **Dashboard**: Real-time statistics and metrics
-- **Stock Reports**: Inventory value, movement history
-- **Order Analytics**: Sales trends, popular items
+### Dashboard & Analytics
+- **Interactive Financial Cards**: Clickable KPI cards with detailed breakdowns
+  - Revenue: View all delivered orders contributing to revenue
+  - Expenses: Breakdown of operational + purchase order payments
+  - Net Profit: Revenue minus expenses calculation view
+  - Outstanding: Customers with pending payments
+- **Enhanced Charts**:
+  - Revenue Trend (6-month line chart) - Click to navigate to expenses by month
+  - Orders by Status (interactive pie chart) - Click to filter orders by status
+  - Top Fabrics Usage (bar chart) - Click to view fabric details
+  - Customer Retention (pie chart) - Click to view returning customers
+- **Real-time KPIs**: Total orders, revenue growth, inventory value, stock alerts
+- **Fulfillment Tracking**: Average order completion time
+- **Stock Reports**: Inventory value, movement history, low stock items
 - **Supplier Performance**: Delivery times, pricing trends
 
 ## 🚀 Quick Start (5-Minute Setup)
@@ -265,11 +298,12 @@ pnpm start            # Start production server (port 3009)
 pnpm lint             # Run ESLint
 
 # Database
-pnpm db:push          # Push schema changes to database
-pnpm db:migrate       # Create and run migrations
-pnpm db:seed          # Seed database with sample data
-pnpm db:studio        # Open Prisma Studio (http://localhost:5555)
-pnpm db:reset         # Reset database and reseed
+pnpm db:push                      # Push schema changes to database
+pnpm db:migrate                   # Create and run migrations
+pnpm db:seed                      # Seed database with sample data
+pnpm tsx prisma/seed-production.ts  # Seed with production-level data (192 orders, Jul-Dec 2025)
+pnpm db:studio                    # Open Prisma Studio (http://localhost:5555)
+pnpm db:reset                     # Reset database and reseed
 
 # Production (PM2)
 pm2 start ecosystem.config.js    # Start application
@@ -481,7 +515,8 @@ For setup issues, see [SETUP.md](SETUP.md) or check the troubleshooting section.
 
 **Built with ❤️ for the tailoring community**
 
-**Version:** 0.2.0
-**Status:** Phase 2 & 3 Complete | Phase 4 & 5 In Progress
-**Features:** Authentication ✅ | Barcode Scanning ✅ | Inventory APIs ✅
-**Last Updated:** January 11, 2026
+**Version:** 0.8.2
+**Status:** Production Ready | All Core Features Complete
+**Features:** Authentication ✅ | RBAC ✅ | Orders ✅ | Inventory ✅ | Analytics ✅ | Interactive Dashboard ✅
+**Production:** [https://hamees.gagneet.com](https://hamees.gagneet.com)
+**Last Updated:** January 16, 2026
