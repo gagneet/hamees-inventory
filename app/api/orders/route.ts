@@ -114,7 +114,8 @@ export async function GET(request: Request) {
         where.balanceAmount = {}
         switch (operator) {
           case 'gt':
-            where.balanceAmount.gt = numValue
+            // Use 0.01 threshold to exclude floating-point errors near zero
+            where.balanceAmount.gt = numValue === 0 ? 0.01 : numValue
             break
           case 'gte':
             where.balanceAmount.gte = numValue
@@ -126,11 +127,19 @@ export async function GET(request: Request) {
             where.balanceAmount.lte = numValue
             break
           case 'eq':
-            where.balanceAmount.equals = numValue
+            // For equality, use a range to account for floating-point precision
+            if (numValue === 0) {
+              where.balanceAmount = {
+                gte: -0.01,
+                lte: 0.01
+              }
+            } else {
+              where.balanceAmount.equals = numValue
+            }
             break
           default:
-            // If no operator, treat as gt (greater than)
-            where.balanceAmount.gt = parseFloat(balanceAmount)
+            // If no operator, treat as gt (greater than) with 0.01 threshold
+            where.balanceAmount.gt = parseFloat(balanceAmount) === 0 ? 0.01 : parseFloat(balanceAmount)
         }
       }
     }
@@ -266,6 +275,7 @@ export async function POST(request: Request) {
     const taxableAmount = subTotal
     const totalAmount = parseFloat((subTotal + gstAmount).toFixed(2))
 
+    // Round to 2 decimal places to avoid floating-point precision errors
     const balanceAmount = parseFloat((totalAmount - validatedData.advancePaid).toFixed(2))
 
     // Generate order number

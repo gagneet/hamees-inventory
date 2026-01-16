@@ -382,7 +382,8 @@ function OrdersContent() {
               const statusStyle = statusColors[order.status as OrderStatus]
               const deliveryDate = new Date(order.deliveryDate)
               const isOverdue = deliveryDate < new Date() && order.status !== 'DELIVERED' && order.status !== 'CANCELLED'
-              const isArrears = order.status === 'DELIVERED' && order.balanceAmount > 0
+              // Use 0.01 threshold (1 paisa) to avoid floating-point precision errors
+              const isArrears = order.status === 'DELIVERED' && order.balanceAmount > 0.01
 
               return (
                 <Link key={order.id} href={`/orders/${order.id}`}>
@@ -417,8 +418,8 @@ function OrdersContent() {
                         </div>
                         <div>
                           <p className="text-slate-500 mb-1">Balance</p>
-                          <p className={`font-semibold ${isArrears ? 'text-red-600' : 'text-slate-900'}`}>
-                            ₹{order.balanceAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                          <p className={`font-semibold ${isArrears ? 'text-red-600' : order.balanceAmount > 0.01 ? 'text-orange-600' : 'text-green-600'}`}>
+                            ₹{Math.max(0, order.balanceAmount).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                           </p>
                         </div>
                         <div>

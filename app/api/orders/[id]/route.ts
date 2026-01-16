@@ -101,7 +101,8 @@ export async function PATCH(
     // Calculate new balance if advance or discount changed
     const advancePaid = data.advancePaid ?? order.advancePaid
     const discount = data.discount ?? order.discount
-    const balanceAmount = order.totalAmount - advancePaid - discount
+    // Round to 2 decimal places to avoid floating-point precision errors
+    const balanceAmount = parseFloat((order.totalAmount - advancePaid - discount).toFixed(2))
 
     // Update order and create history in a transaction
     // @ts-ignore

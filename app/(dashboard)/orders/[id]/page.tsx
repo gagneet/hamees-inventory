@@ -153,6 +153,8 @@ export default async function OrderDetailPage({
   const statusStyle = statusColors[order.status as keyof typeof statusColors]
   const deliveryDate = new Date(order.deliveryDate)
   const isOverdue = deliveryDate < new Date() && order.status !== 'DELIVERED' && order.status !== 'CANCELLED'
+  // Use 0.01 threshold (1 paisa) to avoid floating-point precision errors
+  const isArrears = order.status === 'DELIVERED' && order.balanceAmount > 0.01
 
   return (
     <DashboardLayout>
@@ -422,15 +424,15 @@ export default async function OrderDetailPage({
               <div className="flex justify-between pt-3 border-t">
                 <span className="text-slate-600">Balance Due:</span>
                 <span className={`font-semibold text-lg ${
-                  order.balanceAmount > 0 ? (order.status === 'DELIVERED' ? 'text-red-600' : 'text-orange-600') : 'text-green-600'
+                  isArrears ? 'text-red-600' : (order.balanceAmount > 0.01 ? 'text-orange-600' : 'text-green-600')
                 }`}>
-                  {formatCurrency(order.balanceAmount)}
-                  {order.status === 'DELIVERED' && order.balanceAmount > 0 && (
+                  {formatCurrency(Math.max(0, order.balanceAmount))}
+                  {isArrears && (
                     <span className="text-xs ml-2 px-2 py-0.5 bg-red-100 text-red-700 rounded">ARREARS</span>
                   )}
                 </span>
               </div>
-              {order.balanceAmount > 0 && (
+              {order.balanceAmount > 0.01 && (
                 <div className="mt-3">
                   <Button className="w-full" size="sm">
                     Record Payment
