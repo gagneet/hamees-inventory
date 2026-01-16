@@ -10,9 +10,10 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
-### ✅ Dashboard Enhancements & Production Data (v0.8.2)
+### ✅ GST Integration & Dashboard Enhancements (v0.8.2)
 
 **What's New:**
+- **GST Calculation & Display** - Complete GST integration in order creation workflow with 12% GST breakdown
 - **Interactive Financial Cards** - All dashboard financial KPI cards now clickable with detailed breakdowns
 - **Enhanced Charts** - Orders by Status chart improved with larger size, percentage-only labels, and white background
 - **Clickable Customer Retention** - Shows returning customers with 3+ orders across different months
@@ -22,7 +23,40 @@ This is a comprehensive inventory and order management system built specifically
 
 **New Features:**
 
-1. **Interactive Financial Dashboard (components/dashboard/owner-dashboard.tsx:248-439)**
+1. **GST Calculation & Display System**
+   - **Frontend (`app/(dashboard)/orders/new/page.tsx:244-287`)**
+     - `calculateEstimate()` function returns complete GST breakdown object:
+       ```typescript
+       { subTotal, gstAmount, total, cgst, sgst, gstRate }
+       ```
+     - Order Summary displays:
+       - Subtotal (before GST)
+       - CGST (6.00%) - Central Goods and Services Tax
+       - SGST (6.00%) - State Goods and Services Tax
+       - Total GST (12.00%)
+       - Total Amount (inclusive of GST)
+       - Balance Amount (total - advance)
+     - Real-time GST calculation as items are added
+     - All values formatted to 2 decimal places
+
+   - **Backend (`app/api/orders/route.ts:159-238`)**
+     - Calculates 12% GST on complete order value:
+       - Fabric cost (meters × price/meter)
+       - Accessories cost (quantity × price/unit)
+       - Stitching charges (₹1500 per garment)
+     - Stores complete GST breakdown in Order model:
+       - `subTotal`: Amount before GST
+       - `gstRate`: 12% (standard rate for garments in India)
+       - `gstAmount`: Total GST charged
+       - `cgst`: 6% (Central GST for intra-state)
+       - `sgst`: 6% (State GST for intra-state)
+       - `igst`: 0% (Integrated GST for inter-state - reserved)
+       - `taxableAmount`: Base for GST calculation
+       - `totalAmount`: subTotal + gstAmount
+     - All values stored with 2 decimal precision using `.toFixed(2)`
+     - Compliant with Indian GST regulations for garment industry
+
+2. **Interactive Financial Dashboard (components/dashboard/owner-dashboard.tsx:248-439)**
    - Revenue card: Shows delivered orders breakdown with navigation to filtered orders
    - Expenses card: Breakdown of operational expenses + PO payments with links
    - Profit card: Shows calculation formula and components
@@ -55,6 +89,7 @@ This is a comprehensive inventory and order management system built specifically
 - `GET /api/customers/returning` - Returns customers with 3+ orders across different months
 
 **Bug Fixes:**
+- **Fixed GST not displaying on new orders** - Integrated complete GST calculation and display in order workflow
 - Fixed Expenses Filter error (removed empty string SelectItem values)
 - Fixed Expenses card calculation (now includes Purchase Order payments)
 - Fixed all decimal precision issues (2 decimal places everywhere)
@@ -66,6 +101,8 @@ This is a comprehensive inventory and order management system built specifically
 - All meter values: 2 decimal places (3.53m)
 
 **Files Modified:**
+- `app/(dashboard)/orders/new/page.tsx` - Added GST calculation and display in Order Summary
+- `app/api/orders/route.ts` - Integrated GST calculation in order creation logic
 - `components/dashboard/owner-dashboard.tsx` - Interactive financial cards with Dialog popups
 - `components/dashboard/customer-retention-chart.tsx` - Clickable with returning customer details
 - `components/dashboard/orders-status-chart.tsx` - Enhanced styling and sizing

@@ -157,7 +157,7 @@ export async function POST(request: Request) {
     const validatedData = orderSchema.parse(body)
 
     // Calculate order details
-    let totalAmount = 0
+    let subTotal = 0
     const orderItems: any[] = []
 
     for (const item of validatedData.items) {
@@ -209,7 +209,7 @@ export async function POST(request: Request) {
         }
       }
 
-      totalAmount += itemTotal
+      subTotal += itemTotal
 
       orderItems.push({
         garmentPatternId: item.garmentPatternId,
@@ -224,9 +224,18 @@ export async function POST(request: Request) {
 
     // Add stitching charges (can be customized)
     const stitchingCharges = orderItems.length * 1500
-    totalAmount += stitchingCharges
+    subTotal += stitchingCharges
 
-    const balanceAmount = totalAmount - validatedData.advancePaid
+    // Calculate GST (12% for garments - split into CGST 6% + SGST 6% for intra-state)
+    const gstRate = 12
+    const gstAmount = parseFloat(((subTotal * gstRate) / 100).toFixed(2))
+    const cgst = parseFloat((gstAmount / 2).toFixed(2))
+    const sgst = parseFloat((gstAmount / 2).toFixed(2))
+    const igst = 0 // Assuming intra-state transaction
+    const taxableAmount = subTotal
+    const totalAmount = parseFloat((subTotal + gstAmount).toFixed(2))
+
+    const balanceAmount = parseFloat((totalAmount - validatedData.advancePaid).toFixed(2))
 
     // Generate order number
     const orderNumber = `ORD-${Date.now()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`
@@ -243,6 +252,13 @@ export async function POST(request: Request) {
           status: OrderStatus.NEW,
           priority: validatedData.priority,
           deliveryDate: new Date(validatedData.deliveryDate),
+          subTotal,
+          gstRate,
+          cgst,
+          sgst,
+          igst,
+          gstAmount,
+          taxableAmount,
           totalAmount,
           advancePaid: validatedData.advancePaid,
           balanceAmount,

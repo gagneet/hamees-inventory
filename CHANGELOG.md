@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.8.2] - 2026-01-16
 
+### Added - GST Integration & Interactive Dashboard
+
+#### GST Calculation & Display (Order Workflow)
+- **Frontend GST Display** (`app/(dashboard)/orders/new/page.tsx:244-287`)
+  - Order Summary now shows complete GST breakdown
+  - Displays:
+    - Subtotal (before GST)
+    - CGST (6.00%) - Central Goods and Services Tax
+    - SGST (6.00%) - State Goods and Services Tax
+    - Total GST (12.00%)
+    - Total Amount (inclusive of GST)
+    - Balance calculation based on total with GST
+  - Real-time calculation as order items are added
+- **Backend GST Calculation** (`app/api/orders/route.ts:159-238`)
+  - Calculates 12% GST on all order components:
+    - Fabric cost (meters × price per meter)
+    - Accessories cost (quantity × price per unit)
+    - Stitching charges (₹1500 per garment)
+  - Stores complete GST breakdown in database:
+    - `subTotal`: Amount before GST
+    - `gstRate`: 12% (standard rate for garments)
+    - `gstAmount`: Total GST charged
+    - `cgst`: 6% (for intra-state transactions)
+    - `sgst`: 6% (for intra-state transactions)
+    - `igst`: 0% (reserved for inter-state)
+    - `taxableAmount`: Base for GST calculation
+    - `totalAmount`: subTotal + gstAmount
+  - All values stored with 2 decimal precision
+- **Compliance**: Follows Indian GST regulations for garment industry
+
 ### Added - Interactive Dashboard & Production Data
 
 #### Interactive Financial Cards
@@ -96,6 +126,20 @@ Files modified for precision:
   - Accurate expense totals for profit calculation
 
 ### Fixed
+
+#### GST Not Displaying on New Orders
+- **Issue**: GST breakdown was not shown on order creation form
+- **Root Cause**: Frontend `calculateEstimate()` returned single total, backend didn't populate GST fields
+- **Fix** (`app/(dashboard)/orders/new/page.tsx`):
+  - Changed `calculateEstimate()` to return object with GST breakdown
+  - Updated Order Summary to display all GST components
+  - Modified balance calculation to use total amount with GST
+- **Fix** (`app/api/orders/route.ts`):
+  - Added GST calculation logic (12% rate)
+  - Split GST into CGST/SGST (6% each) for intra-state
+  - Store all GST fields in Order model during creation
+- **Impact**: New orders now show complete GST breakdown and store accurate tax information
+- **User Report**: https://hamees.gagneet.com/orders/new
 
 #### Expenses Filter Error
 - **Issue**: Radix UI SelectItem error with empty string values

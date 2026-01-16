@@ -6,6 +6,12 @@ A comprehensive inventory and order management system built specifically for tai
 
 ## 🎉 What's New in v0.8.2
 
+### GST Integration (Tax Compliance)
+- **Complete GST Calculation**: 12% GST automatically calculated on all orders
+- **GST Breakdown Display**: Order summary shows CGST (6%) + SGST (6%) breakdown
+- **Compliant Storage**: All GST components stored in database for reporting
+- **Real-time Updates**: GST recalculates as order items change
+
 ### Interactive Dashboard & Analytics
 - **Clickable Financial Cards**: All KPI cards (Revenue, Expenses, Profit, Outstanding) now show detailed breakdowns
 - **Enhanced Charts**: Orders by Status chart with larger size, white background, and percentage-only labels
@@ -19,6 +25,7 @@ A comprehensive inventory and order management system built specifically for tai
 - **Run with**: `pnpm tsx prisma/seed-production.ts`
 
 ### Bug Fixes & Improvements
+- **Fixed GST not displaying on new orders** - Complete GST calculation and display now integrated
 - Fixed Expenses tracking to include Purchase Order payments
 - Fixed Expenses Filter error (SelectItem validation)
 - Fixed all TypeScript strict type checking errors
@@ -44,11 +51,12 @@ A comprehensive inventory and order management system built specifically for tai
 
 ### Order Management
 - **Order Creation**: Create orders with customer measurements
+- **GST Compliance**: Automatic 12% GST calculation with CGST/SGST breakdown
 - **Garment Patterns**: Pre-configured patterns (Shirt, Trouser, Suit, Sherwani)
 - **Material Calculation**: Automatic fabric calculation based on pattern and body type
 - **Stock Reservation**: Auto-reserve fabric when order is created
 - **Status Tracking**: NEW → CUTTING → STITCHING → FINISHING → READY → DELIVERED
-- **Payment Tracking**: Advance payment and balance management
+- **Payment Tracking**: Advance payment and balance management (GST-inclusive totals)
 
 ### Customer Management
 - **Customer Profiles**: Contact info, address, order history

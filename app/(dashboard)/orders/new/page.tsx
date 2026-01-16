@@ -243,10 +243,10 @@ function NewOrderForm() {
 
   const calculateEstimate = () => {
     if (!garmentPatterns || !clothInventory || !items || !accessories) {
-      return 0
+      return { subTotal: 0, gstAmount: 0, total: 0, cgst: 0, sgst: 0, gstRate: 0 }
     }
 
-    let total = 0
+    let subTotal = 0
     for (const item of items) {
       const pattern = garmentPatterns.find(p => p.id === item.garmentPatternId)
       const cloth = clothInventory.find(c => c.id === item.clothInventoryId)
@@ -258,7 +258,7 @@ function NewOrderForm() {
         if (item.bodyType === 'XL') adjustment = pattern.xlAdjustment
 
         const meters = (pattern.baseMeters + adjustment) * item.quantity
-        total += meters * cloth.pricePerMeter
+        subTotal += meters * cloth.pricePerMeter
 
         // Add accessory costs from item's accessories
         if (item.accessories && item.accessories.length > 0) {
@@ -266,7 +266,7 @@ function NewOrderForm() {
             const accessory = accessories.find(a => a.id === itemAcc.accessoryId)
             if (accessory) {
               const accessoryTotal = itemAcc.quantity * item.quantity * accessory.pricePerUnit
-              total += accessoryTotal
+              subTotal += accessoryTotal
             }
           }
         }
@@ -274,7 +274,16 @@ function NewOrderForm() {
     }
     // Add stitching charges
     const stitchingCharges = items.length * 1500
-    return total + stitchingCharges
+    subTotal += stitchingCharges
+
+    // Calculate GST (12% for garments - split into CGST 6% + SGST 6%)
+    const gstRate = 12
+    const gstAmount = (subTotal * gstRate) / 100
+    const cgst = gstAmount / 2
+    const sgst = gstAmount / 2
+    const total = subTotal + gstAmount
+
+    return { subTotal, gstAmount, total, cgst, sgst, gstRate }
   }
 
   const handleSubmit = async () => {
@@ -336,8 +345,8 @@ function NewOrderForm() {
   }
 
   const selectedCustomer = customers?.find(c => c.id === customerId)
-  const estimatedTotal = calculateEstimate()
-  const balanceAmount = estimatedTotal - advancePaid
+  const { subTotal, gstAmount, total, cgst, sgst, gstRate } = calculateEstimate()
+  const balanceAmount = total - advancePaid
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8">
@@ -741,9 +750,25 @@ function NewOrderForm() {
                     <span className="text-slate-600">Items:</span>
                     <span className="font-semibold text-slate-900">{items.length}</span>
                   </div>
+                  <div className="flex justify-between pt-3 border-t">
+                    <span className="text-slate-600">Subtotal (before GST):</span>
+                    <span className="font-semibold text-slate-900">₹{subTotal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-600">CGST ({(gstRate / 2).toFixed(2)}%):</span>
+                    <span className="text-slate-700">₹{cgst.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-600">SGST ({(gstRate / 2).toFixed(2)}%):</span>
+                    <span className="text-slate-700">₹{sgst.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                  </div>
+                  <div className="flex justify-between pb-3 border-b">
+                    <span className="text-slate-600">Total GST ({gstRate.toFixed(2)}%):</span>
+                    <span className="font-semibold text-slate-900">₹{gstAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                  </div>
                   <div className="flex justify-between">
-                    <span className="text-slate-600">Estimated Total:</span>
-                    <span className="font-semibold text-slate-900">₹{estimatedTotal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                    <span className="text-slate-700 font-medium">Total Amount:</span>
+                    <span className="font-bold text-lg text-blue-600">₹{total.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-600">Advance Paid:</span>
