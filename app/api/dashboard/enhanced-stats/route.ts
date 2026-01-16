@@ -607,9 +607,10 @@ export async function GET(request: Request) {
       revenueByFabric.map(async (item: RevenueByFabricItem) => {
         const cloth = await prisma.clothInventory.findUnique({
           where: { id: item.clothInventoryId },
-          select: { name: true, type: true },
+          select: { id: true, name: true, type: true },
         })
         return {
+          id: cloth?.id || item.clothInventoryId,
           name: cloth?.name || 'Unknown',
           type: cloth?.type || 'Unknown',
           revenue: item._sum.totalPrice || 0,

@@ -73,6 +73,12 @@ export function CustomerRetentionChart({ newCustomers, returningCustomers }: Cus
             outerRadius={90}
             paddingAngle={2}
             dataKey="value"
+            onClick={(entry: any) => {
+              if (entry && entry.name === 'Returning Customers') {
+                fetchReturningCustomers()
+              }
+            }}
+            style={{ cursor: 'pointer' }}
           >
             {data.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={entry.color} />
@@ -96,6 +102,9 @@ export function CustomerRetentionChart({ newCustomers, returningCustomers }: Cus
           />
         </PieChart>
       </ResponsiveContainer>
+      <p className="text-xs text-center text-slate-500 mt-2">
+        Click on "Returning Customers" to view details
+      </p>
 
       <div className="mt-4 text-center">
         <div className="text-2xl font-bold text-slate-900">{retentionRate}%</div>

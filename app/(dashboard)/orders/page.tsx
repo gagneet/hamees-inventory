@@ -67,19 +67,40 @@ function OrdersContent() {
   const [balanceOutstanding, setBalanceOutstanding] = useState(false)
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
 
-  // Initialize filter states from URL params on mount
+  // Initialize filter states from URL params and respond to URL changes
   useEffect(() => {
-    setStatus(searchParams.get('status') || '')
-    setSearchTerm(searchParams.get('search') || '')
-    setDebouncedSearch(searchParams.get('search') || '')
-    setFabricId(searchParams.get('fabricId') || '')
-    setMinAmount(searchParams.get('minAmount') || '')
-    setMaxAmount(searchParams.get('maxAmount') || '')
-    setDeliveryDateFrom(searchParams.get('deliveryDateFrom') || '')
-    setDeliveryDateTo(searchParams.get('deliveryDateTo') || '')
-    setIsOverdue(searchParams.get('isOverdue') === 'true')
-    setBalanceOutstanding(searchParams.get('balanceAmount') === 'gt:0')
-  }, [searchParams])
+    const urlStatus = searchParams.get('status') || ''
+    const urlSearch = searchParams.get('search') || ''
+    const urlFabricId = searchParams.get('fabricId') || ''
+    const urlMinAmount = searchParams.get('minAmount') || ''
+    const urlMaxAmount = searchParams.get('maxAmount') || ''
+    const urlDeliveryDateFrom = searchParams.get('deliveryDateFrom') || ''
+    const urlDeliveryDateTo = searchParams.get('deliveryDateTo') || ''
+    const urlIsOverdue = searchParams.get('isOverdue') === 'true'
+    const urlBalanceOutstanding = searchParams.get('balanceAmount') === 'gt:0'
+
+    setStatus(urlStatus)
+    setSearchTerm(urlSearch)
+    setDebouncedSearch(urlSearch)
+    setFabricId(urlFabricId)
+    setMinAmount(urlMinAmount)
+    setMaxAmount(urlMaxAmount)
+    setDeliveryDateFrom(urlDeliveryDateFrom)
+    setDeliveryDateTo(urlDeliveryDateTo)
+    setIsOverdue(urlIsOverdue)
+    setBalanceOutstanding(urlBalanceOutstanding)
+    setCurrentPage(1) // Reset to first page when URL params change
+  }, [
+    searchParams.get('status'),
+    searchParams.get('search'),
+    searchParams.get('fabricId'),
+    searchParams.get('minAmount'),
+    searchParams.get('maxAmount'),
+    searchParams.get('deliveryDateFrom'),
+    searchParams.get('deliveryDateTo'),
+    searchParams.get('isOverdue'),
+    searchParams.get('balanceAmount'),
+  ])
 
   // Debounce search term
   useEffect(() => {

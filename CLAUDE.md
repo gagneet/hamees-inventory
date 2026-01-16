@@ -10,6 +10,59 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Dashboard Interactivity Fixes (v0.13.2)
+
+**What's New:**
+- **Real Data Verification** - Confirmed all Business Metrics use live database data
+- **Fabric Chart Navigation** - Clicking fabric slices now filters orders by that specific fabric
+- **Customer Retention Clickable** - Pie chart now interactive with detailed customer information
+- **Fixed Status Filter** - Orders page properly responds to status filter navigation from dashboard
+
+**Issues Fixed:**
+
+1. **Business Metrics Validation**
+   - **Inventory Value**: Real-time calculation from `currentStock × price` for all items
+   - **Stock Turnover**: Calculated from actual stock movements in last 30 days
+   - **Total Orders**: Direct count from database
+   - **Fulfillment Rate**: Dynamic calculation `(delivered / total) × 100`
+
+2. **Revenue by Fabric Type Navigation** (`components/dashboard/owner-dashboard.tsx`, `app/api/dashboard/enhanced-stats/route.ts`)
+   - **Before**: Clicking any fabric navigated to `/inventory` (generic inventory page)
+   - **After**: Clicking individual slices navigates to `/orders?fabricId={id}` (filtered orders for that fabric)
+   - Added fabric `id` to API response
+   - Added onClick handler to pie chart slices
+   - Shows only orders using the selected fabric
+
+3. **Customer Retention Chart Interactivity** (`components/dashboard/customer-retention-chart.tsx`)
+   - **Before**: Only button below chart was clickable
+   - **After**: Pie chart itself is now clickable
+   - Clicking "Returning Customers" slice opens dialog
+   - Shows customers with 3+ orders, months active, order history
+   - Added visual indicator: "Click on 'Returning Customers' to view details"
+
+4. **Orders by Status Filter** (`app/(dashboard)/orders/page.tsx`)
+   - **Root Cause**: useEffect watched entire `searchParams` object instead of individual parameters
+   - **Fix**: Updated dependency array to watch individual URL parameters
+   - **Result**: Clicking "Delivered" on dashboard now properly shows only delivered orders
+   - Works for all navigation: status charts, fabric filters, arrears buttons
+
+**Files Modified:**
+- `app/api/dashboard/enhanced-stats/route.ts` - Added fabric ID to revenue data (line 610)
+- `components/dashboard/owner-dashboard.tsx` - Made fabric slices clickable (lines 307-369)
+- `components/dashboard/customer-retention-chart.tsx` - Made chart interactive (lines 64-107)
+- `app/(dashboard)/orders/page.tsx` - Fixed URL parameter reactivity (lines 70-103)
+
+**Files Added:**
+- `docs/DASHBOARD_INTERACTIVITY_FIXES.md` - Complete technical documentation with testing checklist
+
+**User Impact:**
+- Dashboard now fully interactive with accurate data-driven navigation
+- All charts clickable with proper filtering
+- Clear visual indicators for interactive elements
+- Improved user experience with instant feedback
+
+---
+
 ### ✅ Interactive Tailor Dashboard with Clickable Cards (v0.13.1)
 
 **What's New:**

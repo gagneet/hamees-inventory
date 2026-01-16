@@ -304,7 +304,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
       {/* Row 5: Revenue by Fabric & Stock Metrics */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Revenue by Fabric */}
-        <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => router.push('/inventory')}>
+        <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -313,43 +313,53 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
                   Top 10 fabrics by revenue generated (delivered orders)
                 </CardDescription>
               </div>
-              <p className="text-xs text-blue-600 font-medium">Click to view inventory →</p>
             </div>
           </CardHeader>
           <CardContent>
             {stats.revenueByFabric.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={stats.revenueByFabric}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={(entry: any) => `${(entry.name || '').substring(0, 15)}`}
-                    outerRadius={100}
-                    fill="#8884d8"
-                    dataKey="revenue"
-                  >
-                    {stats.revenueByFabric.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={FABRIC_COLORS[index % FABRIC_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value: number | undefined) => formatCurrency(value || 0)}
-                    contentStyle={{
-                      backgroundColor: '#fff',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '6px',
-                    }}
-                  />
-                  <Legend
-                    layout="horizontal"
-                    verticalAlign="bottom"
-                    align="center"
-                    wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              <>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={stats.revenueByFabric}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={(entry: any) => `${(entry.name || '').substring(0, 15)}`}
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="revenue"
+                      onClick={(data: any) => {
+                        if (data && data.id) {
+                          router.push(`/orders?fabricId=${data.id}`)
+                        }
+                      }}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      {stats.revenueByFabric.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={FABRIC_COLORS[index % FABRIC_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value: number | undefined) => formatCurrency(value || 0)}
+                      contentStyle={{
+                        backgroundColor: '#fff',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '6px',
+                      }}
+                    />
+                    <Legend
+                      layout="horizontal"
+                      verticalAlign="bottom"
+                      align="center"
+                      wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+                <p className="text-xs text-center text-slate-500 mt-2">
+                  Click on any fabric to view orders using that fabric
+                </p>
+              </>
             ) : (
               <div className="h-[300px] flex items-center justify-center text-slate-500">
                 <p>No revenue data available</p>
