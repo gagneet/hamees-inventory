@@ -10,7 +10,7 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
-### ✅ Quick Wins: Interactive UI & Payment Features (v0.15.0)
+### ✅ Quick Wins: Interactive UI & Payment Features (v0.15.4)
 
 **What's New:**
 - **Clickable Expense Cards** - All 4 summary cards with detailed breakdown dialogs
@@ -129,7 +129,7 @@ This is a comprehensive inventory and order management system built specifically
 **Files Added:**
 - `components/orders/record-payment-dialog.tsx` (220 lines)
 - `components/orders/print-invoice-button.tsx` (370 lines)
-- `docs/QUICK_WINS_v0.15.0.md` (1200+ lines comprehensive docs)
+- `docs/QUICK_WINS_v0.15.4.md` (1200+ lines comprehensive docs)
 
 **Files Modified:**
 - `app/(dashboard)/expenses/page.tsx` (+270 lines) - Clickable cards with dialogs
@@ -191,7 +191,7 @@ This is a comprehensive inventory and order management system built specifically
 - None (all additive features)
 
 **Documentation:**
-- Complete guide: `docs/QUICK_WINS_v0.15.0.md`
+- Complete guide: `docs/QUICK_WINS_v0.15.4.md`
 - Includes testing scenarios, troubleshooting, future enhancements
 - Rollback plan provided
 

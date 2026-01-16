@@ -5,6 +5,205 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.4] - 2026-01-16
+
+### Added - Quick Wins Implementation (Option A)
+
+#### Clickable Expense Cards with Detailed Breakdowns
+- **All 4 Summary Cards Now Clickable** (`app/(dashboard)/expenses/page.tsx`)
+  - **Total Revenue Card** - Shows breakdown of all delivered orders with order numbers, customer names, amounts, and delivery dates
+  - **Total Expenses Card** - Shows breakdown of operational expenses and purchase order payments with categories and amounts
+  - **Net Profit Card** - Shows calculation formula (Revenue - Expenses) with component breakdown
+  - **Net GST Card** - Shows CGST, SGST breakdown with total GST collected
+- **Dialog Implementation**: Each card wrapped in Dialog component with detailed tables
+- **User Experience**: Hover effects, click indicators, scroll support for large datasets
+- **Mobile Optimized**: `max-h-[80vh] overflow-y-auto` for mobile and desktop
+
+#### Split Order Functionality Restored
+- **Fixed Type Mismatch** (`app/(dashboard)/orders/[id]/page.tsx`)
+  - Explicit item mapping to match `SplitOrderDialog` interface
+  - Split order button now appears for orders with 2+ items (not delivered/cancelled)
+  ```typescript
+  items={order.items.map(item => ({
+    id: item.id,
+    garmentPattern: { name: item.garmentPattern.name },
+    clothInventory: { name: item.clothInventory.name, color: item.clothInventory.color },
+    quantity: item.quantity,
+    estimatedMeters: item.estimatedMeters,
+    totalPrice: item.totalPrice
+  }))}
+  ```
+
+#### Record Payment for Customer Orders
+- **NEW Component:** `RecordPaymentDialog` (`components/orders/record-payment-dialog.tsx`)
+  - **5 Payment Modes**: Cash, UPI, Card, Bank Transfer, Cheque
+  - **Payment Amount Validation**: Cannot exceed balance due
+  - **Transaction Reference**: Optional field for non-cash payments
+  - **Payment Notes**: Optional notes field
+  - **Real-time Balance Display**: Shows current balance in blue info box
+  - **Auto-populated Amount**: Pre-filled with full balance amount
+- **Integration**: Uses existing `/api/orders/[id]/installments` endpoint
+  - Creates installment with `status: 'PAID'` immediately
+  - Sets `paidAmount`, `paidDate` to current values
+  - Appends notes with payment mode
+- **Location**: Order detail page, shown when `balanceAmount > 0.01`
+- **Permissions**: Requires `manage_orders` permission
+
+#### Print Invoice Functionality
+- **NEW Component:** `PrintInvoiceButton` (`components/orders/print-invoice-button.tsx`)
+  - **Professional GST-Compliant Invoice Template**
+  - **Company Branding**: HAMEES ATTIRE header with tagline
+  - **Complete Invoice Details**:
+    - Bill To: Customer name, phone, email, address, city
+    - Invoice Number, Order Date, Delivery Date, Status
+    - Itemized table: S.No, Description, Fabric Details, Qty, Meters, Rate, Amount
+    - GST Breakdown: CGST (6%), SGST (6%), Total GST
+    - Discount display (if applicable)
+    - Advance Paid and Balance Due
+  - **Print Optimization**:
+    - A4 page size with proper margins
+    - Print-friendly CSS (border removal, margin: 1cm)
+    - Auto-close window after print
+    - 250ms delay for content loading
+  - **Implementation**: Uses `window.open()` + `window.print()` (no PDF library needed)
+  - **Location**: Order detail page, available for all orders
+
+### Fixed
+
+#### Expense Cards Not Clickable
+- **Issue**: User reported expense page cards were not clickable
+- **Root Cause**: Cards were plain Card components without Dialog wrappers
+- **Fix**: Wrapped each Card in Dialog with DialogTrigger and DialogContent
+- **Impact**: All 4 cards now show detailed breakdowns on click
+
+#### Split Order Button Missing
+- **Issue**: Button not appearing on order with 2+ items
+- **Root Cause**: TypeScript type mismatch between database query result and component interface
+- **Fix**: Explicit mapping of order items to match expected interface
+- **Impact**: Split order functionality fully restored
+
+### Technical
+
+#### Component Architecture
+- **Reusable Payment Dialog**: Self-contained component with validation
+- **Invoice Generation**: Client-side HTML template with inline CSS
+- **Dialog Pattern**: Consistent use of shadcn/ui Dialog across all new features
+- **Type Safety**: Explicit type mapping to prevent future regressions
+
+#### No New Dependencies
+- All features implemented using existing libraries
+- No PDF library needed (browser print API)
+- No payment gateway integration (placeholder for future)
+- Uses existing shadcn/ui components
+
+#### Performance
+- Dialog lazy rendering (only when opened)
+- Efficient data fetching (existing API endpoints)
+- No additional database queries
+- Client-side template generation
+
+### Documentation
+- **NEW:** `docs/QUICK_WINS_v0.15.4.md` - Complete technical documentation with implementation details, testing procedures, troubleshooting
+
+---
+
+## [0.14.0] - 2026-01-16
+
+### Added - Purchase Order Payment System
+
+#### Separate Payment Recording for Suppliers
+- **NEW API Endpoint:** `POST /api/purchase-orders/[id]/payment` (`app/api/purchase-orders/[id]/payment/route.ts`)
+  - Record supplier payments independent of item receipt
+  - Supports 6 payment modes: CASH, UPI, CARD, BANK_TRANSFER, CHEQUE, NET_BANKING
+  - Optional transaction reference and notes
+  - Auto-updates PO status based on payment completion
+  - Permission required: `manage_purchase_orders`
+- **Payment Dialog UI** (`app/(dashboard)/purchase-orders/[id]/page.tsx`)
+  - "Make Payment" button appears when balance > 0
+  - Payment amount input (pre-filled with balance)
+  - Payment mode dropdown with 6 options
+  - Transaction reference field
+  - Notes textarea
+  - Balance summary card in blue
+  - Real-time new balance calculation
+
+#### Enhanced PO Status Logic
+- **Status Now Considers BOTH Items AND Payment:**
+  - `PENDING`: No items received AND no payment made
+  - `PARTIAL`: Some items received OR partial payment made
+  - `RECEIVED`: All items received AND full payment made
+- **Applies to Both Endpoints:**
+  - `POST /api/purchase-orders/[id]/receive` - Receive items + optional payment
+  - `POST /api/purchase-orders/[id]/payment` - Payment only
+
+### Fixed
+
+#### Payment Addition Bug in Receive Endpoint
+- **Issue**: Payment amount was being REPLACED instead of ADDED when receiving items
+- **Root Cause**: Direct assignment `paidAmount = newPayment` instead of addition
+- **Fix** (`app/api/purchase-orders/[id]/receive/route.ts`):
+  ```typescript
+  // OLD (Bug):
+  paidAmount: paidAmount !== undefined ? paidAmount : purchaseOrder.paidAmount
+
+  // NEW (Fixed):
+  const additionalPayment = paidAmount !== undefined ? paidAmount : 0
+  const newPaidAmount = purchaseOrder.paidAmount + additionalPayment
+  const newBalanceAmount = purchaseOrder.totalAmount - newPaidAmount
+  ```
+- **Impact**: Payments now accumulate correctly across multiple transactions
+
+#### PO Status Prematurely Closing
+- **Issue**: PO marked as "RECEIVED" when all items received, even with outstanding payment
+- **Root Cause**: Status logic only checked item receipt, ignored payment status
+- **Fix**: Updated status determination to require BOTH conditions:
+  ```typescript
+  const allItemsReceived = items.every((item) => item.receivedQuantity >= item.quantity)
+  const paymentComplete = balanceAmount <= 0.01
+
+  if (allItemsReceived && paymentComplete) {
+    newStatus = 'RECEIVED' // Both complete
+  } else if (anyPartiallyReceived || paidAmount > 0) {
+    newStatus = 'PARTIAL' // Partial progress
+  }
+  ```
+- **Impact**: POs remain in PARTIAL status until both items received AND payment made
+
+### Changed
+
+#### PO Detail Page UI Enhancements
+- Added "Make Payment" button next to "Receive Items"
+- Payment dialog with 6 payment mode options
+- Balance summary card for quick reference
+- Payment history visible in notes (appended with timestamp)
+
+### Technical
+
+#### Validation Schemas
+```typescript
+const paymentSchema = z.object({
+  amount: z.number().positive(),
+  paymentMode: z.enum(['CASH', 'UPI', 'CARD', 'BANK_TRANSFER', 'CHEQUE', 'NET_BANKING']).optional(),
+  transactionRef: z.string().nullish(),
+  notes: z.string().nullish(),
+})
+```
+
+#### Audit Trail
+- All payment transactions append to PO notes with timestamp
+- Format: "Payment of ₹X made via [MODE] on [DATE]"
+- Transaction references preserved in notes
+
+#### Permission Guards
+- Both endpoints require `manage_purchase_orders` permission
+- Status returned in API response for UI updates
+- Validation prevents negative payments or overpayment
+
+### Documentation
+- **NEW:** `docs/PURCHASE_ORDER_PAYMENT_SYSTEM.md` - Complete documentation with API reference, workflows, testing scenarios
+
+---
+
 ## [0.8.2] - 2026-01-16
 
 ### Added - GST Integration & Interactive Dashboard
@@ -436,6 +635,8 @@ const allMeasurements = await fetch('/api/customers/123/measurements?includeInac
 
 ---
 
+[0.15.4]: https://github.com/gagneet/hamees-inventory/compare/v0.14.0...v0.15.4
+[0.14.0]: https://github.com/gagneet/hamees-inventory/compare/v0.8.2...v0.14.0
 [0.8.2]: https://github.com/gagneet/hamees-inventory/compare/v0.5.2...v0.8.2
 [0.5.2]: https://github.com/gagneet/hamees-inventory/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/gagneet/hamees-inventory/compare/v0.5.0...v0.5.1
