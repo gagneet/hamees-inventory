@@ -37,12 +37,36 @@ export async function GET(request: Request) {
     // ===================
 
     const [inProgressOrders, ordersToday, overdueOrders] = await Promise.all([
-      // Orders in progress (stitching phase)
-      prisma.order.count({
+      // Orders in progress (stitching phase) - full details
+      prisma.order.findMany({
         where: {
           status: {
             in: ['CUTTING', 'STITCHING', 'FINISHING'],
           },
+        },
+        select: {
+          id: true,
+          orderNumber: true,
+          deliveryDate: true,
+          status: true,
+          totalAmount: true,
+          customer: {
+            select: {
+              name: true,
+            },
+          },
+          items: {
+            select: {
+              garmentPattern: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          deliveryDate: 'asc',
         },
       }),
 
@@ -62,6 +86,7 @@ export async function GET(request: Request) {
           orderNumber: true,
           deliveryDate: true,
           status: true,
+          totalAmount: true,
           customer: {
             select: {
               name: true,
@@ -76,6 +101,9 @@ export async function GET(request: Request) {
               },
             },
           },
+        },
+        orderBy: {
+          deliveryDate: 'asc',
         },
       }),
 
@@ -94,20 +122,33 @@ export async function GET(request: Request) {
           orderNumber: true,
           deliveryDate: true,
           status: true,
+          totalAmount: true,
           customer: {
             select: {
               name: true,
             },
           },
+          items: {
+            select: {
+              garmentPattern: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          deliveryDate: 'asc',
         },
       }),
     ])
 
     type OrderWithDetails = typeof ordersToday[number]
 
-    const dueToday = ordersToday.filter(
+    const dueTodayFiltered = ordersToday.filter(
       (order: OrderWithDetails) => differenceInDays(order.deliveryDate, now) === 0
-    ).length
+    )
 
     // Workload by garment type (for stitching phase)
     const workloadByGarment = await prisma.orderItem.groupBy({
@@ -649,10 +690,12 @@ export async function GET(request: Request) {
 
       // Tailor metrics
       tailor: {
-        inProgress: inProgressOrders,
-        dueToday,
+        inProgress: inProgressOrders.length,
+        inProgressList: inProgressOrders,
+        dueToday: dueTodayFiltered.length,
+        dueTodayList: dueTodayFiltered,
         overdue: overdueOrders.length,
-        overdueList: overdueOrders.slice(0, 10),
+        overdueList: overdueOrders,
         workloadByGarment: workloadDetails,
         upcomingDeadlines: upcomingDeadlines.slice(0, 10),
         dailyTarget: 5, // This could be configurable

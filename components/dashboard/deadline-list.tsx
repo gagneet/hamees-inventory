@@ -7,7 +7,7 @@ import Link from 'next/link'
 interface Order {
   id: string
   orderNumber: string
-  deliveryDate: string
+  deliveryDate: string | Date
   status: string
   customer: {
     name: string
