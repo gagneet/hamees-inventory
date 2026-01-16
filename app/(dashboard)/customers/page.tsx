@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Users, Plus, Search, Phone, Mail, MapPin, Home } from 'lucide-react'
+import { Users, Plus, Search, Phone, Mail, MapPin, Home, Package, CheckCircle } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -17,6 +17,7 @@ import {
 import { PermissionGuard } from '@/components/auth/permission-guard'
 import DashboardLayout from '@/components/DashboardLayout'
 import { Pagination } from '@/components/ui/pagination'
+import { CustomerOrdersDialog } from '@/components/customers/customer-orders-dialog'
 
 export default function CustomersPage() {
   const router = useRouter()
@@ -214,13 +215,45 @@ export default function CustomersPage() {
                     )}
 
                     {customer.orders && customer.orders.length > 0 && (
-                      <div className="mt-4 pt-4 border-t border-slate-200">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-slate-500">Latest order:</span>
-                          <span className="font-medium text-slate-700">
-                            {customer.orders[0].orderNumber}
-                          </span>
-                        </div>
+                      <div className="mt-4 pt-4 border-t border-slate-200 space-y-2">
+                        <CustomerOrdersDialog
+                          customerName={customer.name}
+                          orders={customer.orders}
+                          type="delivered"
+                          trigger={
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              className="flex items-center justify-between text-xs hover:bg-slate-50 p-2 rounded cursor-pointer transition-colors"
+                            >
+                              <div className="flex items-center gap-2 text-slate-600">
+                                <CheckCircle className="h-4 w-4 text-green-600" />
+                                <span>Orders Delivered</span>
+                              </div>
+                              <span className="font-semibold text-green-700">
+                                {customer.orders.filter((o: any) => o.status === 'DELIVERED').length}
+                              </span>
+                            </div>
+                          }
+                        />
+                        <CustomerOrdersDialog
+                          customerName={customer.name}
+                          orders={customer.orders}
+                          type="inprogress"
+                          trigger={
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              className="flex items-center justify-between text-xs hover:bg-slate-50 p-2 rounded cursor-pointer transition-colors"
+                            >
+                              <div className="flex items-center gap-2 text-slate-600">
+                                <Package className="h-4 w-4 text-blue-600" />
+                                <span>Orders In Progress</span>
+                              </div>
+                              <span className="font-semibold text-blue-700">
+                                {customer.orders.filter((o: any) => o.status !== 'DELIVERED' && o.status !== 'CANCELLED').length}
+                              </span>
+                            </div>
+                          }
+                        />
                       </div>
                     )}
                   </CardContent>

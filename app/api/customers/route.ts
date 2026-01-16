@@ -53,9 +53,15 @@ export async function GET(request: Request) {
             orderNumber: true,
             status: true,
             totalAmount: true,
+            deliveryDate: true,
+            createdAt: true,
+            _count: {
+              select: {
+                items: true, // Count of items per order
+              },
+            },
           },
           orderBy: { createdAt: 'desc' },
-          take: 1, // Only need latest order for display
         },
         _count: {
           select: {
