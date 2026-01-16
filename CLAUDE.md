@@ -144,7 +144,7 @@ pnpm tsx prisma/seed-enhanced.ts
 ```
 
 **Seed Data Includes:**
-- 2 Users (Owner, Inventory Manager)
+- **6 Users** (All roles: Owner, Admin, Inventory Manager, Sales Manager, Tailor, Viewer)
 - 2 Suppliers (ABC Fabrics, XYZ Textiles)
 - 6 Cloth Items (Cotton, Silk, Linen, Wool varieties)
 - 3 Accessories (Buttons, Thread, Zipper)
@@ -154,11 +154,19 @@ pnpm tsx prisma/seed-enhanced.ts
 - Stock movements tracking all inventory changes
 - Auto-generated alerts for low/critical stock
 
+**Demo User Accounts (all use password: `admin123`):**
+- `owner@hameesattire.com` - OWNER (Full system access)
+- `admin@hameesattire.com` - ADMIN (Administrative access, no user management)
+- `inventory@hameesattire.com` - INVENTORY_MANAGER (Manage inventory & suppliers)
+- `sales@hameesattire.com` - SALES_MANAGER (Manage orders & customers)
+- `tailor@hameesattire.com` - TAILOR (Update order status, view data)
+- `viewer@hameesattire.com` - VIEWER (Read-only access)
+
 **How to Use:**
 1. Reset database: `pnpm db:reset` OR run enhanced seed: `pnpm tsx prisma/seed-enhanced.ts`
-2. Login: `owner@hameesattire.com` / `admin123`
+2. Login with any demo account (password: `admin123`)
 3. View dashboard at: https://hamees.gagneet.com/dashboard
-4. Explore charts, KPIs, and order history
+4. Explore features based on role permissions (see docs/USER_ROLES_AND_PERMISSIONS.md)
 
 ## Essential Commands
 
@@ -202,8 +210,15 @@ pm2 save                         # Save process list
 - Connection: Direct PostgreSQL connection (not Docker)
 
 **Default Credentials (after seeding):**
-- Email: `owner@hameesattire.com` / Password: `admin123`
-- Email: `inventory@hameesattire.com` / Password: `admin123`
+All accounts use password: `admin123`
+- `owner@hameesattire.com` (OWNER - Full access)
+- `admin@hameesattire.com` (ADMIN - Administrative access)
+- `inventory@hameesattire.com` (INVENTORY_MANAGER - Inventory & suppliers)
+- `sales@hameesattire.com` (SALES_MANAGER - Orders & customers)
+- `tailor@hameesattire.com` (TAILOR - Order status updates)
+- `viewer@hameesattire.com` (VIEWER - Read-only)
+
+See **docs/USER_ROLES_AND_PERMISSIONS.md** for detailed permission matrix.
 
 ## Architecture & Key Concepts
 

@@ -1,23 +1,7 @@
-import Link from "next/link"
 import {
-  AlertCircle,
-  BoxIcon,
-  DollarSign,
-  Package,
-  ShoppingBag,
-  Users,
   Home,
-  TrendingUp,
 } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -26,18 +10,11 @@ import {
 } from "@/components/ui/breadcrumb"
 import DashboardLayout from "@/components/DashboardLayout"
 
-// Dashboard specific components
-import { RevenueChart } from "@/components/dashboard/revenue-chart"
-import { OrdersStatusChart } from "@/components/dashboard/orders-status-chart"
-import { TopFabricsChart } from "@/components/dashboard/top-fabrics-chart"
-import { InventorySummary } from "@/components/dashboard/inventory-summary"
+// Role-based dashboard router
+import { RoleDashboardRouter } from "@/components/dashboard/role-dashboard-router"
 
 // Data fetching and session
-import { getDashboardStats } from "@/lib/data"
 import { auth } from "@/lib/auth"
-import { hasPermission } from "@/lib/permissions"
-import { formatCurrency } from "@/lib/utils"
-import type { UserRole } from "@/lib/types"
 
 export default async function Dashboard() {
   const session = await auth()
@@ -45,7 +22,7 @@ export default async function Dashboard() {
     return <div>Not authenticated</div>
   }
 
-  const stats = await getDashboardStats()
+  const userRole = session.user.role
 
   return (
     <DashboardLayout>
@@ -59,149 +36,21 @@ export default async function Dashboard() {
         </BreadcrumbList>
       </Breadcrumb>
 
-      <div className="flex items-center mb-6">
-        <h1 className="text-lg font-semibold md:text-2xl">Dashboard</h1>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-lg font-semibold md:text-2xl">Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {userRole === 'TAILOR' && 'Your workbench - Track production and deadlines'}
+            {userRole === 'INVENTORY_MANAGER' && 'Supply chain overview - Manage stock and suppliers'}
+            {userRole === 'SALES_MANAGER' && 'Sales pipeline - Manage orders and customers'}
+            {(userRole === 'OWNER' || userRole === 'ADMIN') && 'Business overview - Financial health and performance'}
+            {userRole === 'VIEWER' && 'System overview - Read-only access to all data'}
+          </p>
+        </div>
       </div>
 
-      {/* Quick Actions */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-          <CardDescription>Common tasks and shortcuts</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
-            {hasPermission(session.user.role as UserRole, 'view_inventory') && (
-              <Link href="/inventory" className="w-full">
-                <Button className="w-full" variant="default">
-                  <Package className="mr-2 h-4 w-4" />
-                  <span className="hidden sm:inline">Manage </span>Inventory
-                </Button>
-              </Link>
-            )}
-            {hasPermission(session.user.role as UserRole, 'view_orders') && (
-              <Link href="/orders" className="w-full">
-                <Button className="w-full" variant="outline">
-                  <ShoppingBag className="mr-2 h-4 w-4" />
-                  <span className="hidden sm:inline">View </span>Orders
-                </Button>
-              </Link>
-            )}
-            {hasPermission(session.user.role as UserRole, 'view_customers') && (
-              <Link href="/customers" className="w-full">
-                <Button className="w-full" variant="outline">
-                  <Users className="mr-2 h-4 w-4" />
-                  <span className="hidden sm:inline">View </span>Customers
-                </Button>
-              </Link>
-            )}
-            <Link href="/expenses" className="w-full">
-              <Button className="w-full" variant="outline">
-                <TrendingUp className="mr-2 h-4 w-4" />
-                <span className="hidden sm:inline">View </span>Expenses
-              </Button>
-            </Link>
-            {hasPermission(session.user.role as UserRole, 'view_alerts') && (
-              <Link href="/alerts" className="w-full">
-                <Button className="w-full" variant="outline">
-                  <AlertCircle className="mr-2 h-4 w-4" />
-                  <span className="hidden sm:inline">View </span>Alerts
-                </Button>
-              </Link>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Recent Alerts */}
-      {stats && stats.alerts.recent.length > 0 && (
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Recent Alerts</CardTitle>
-            <CardDescription>Latest system notifications</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {stats.alerts.recent.map((alert: any) => (
-                <Link
-                  key={alert.id}
-                  href={`/alerts/${alert.id}`}
-                  className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors cursor-pointer"
-                >
-                  <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-slate-900">{alert.type}</p>
-                    <p className="text-xs text-slate-600 mt-1">{alert.message}</p>
-                    <p className="text-xs text-slate-400 mt-1">
-                      {new Date(alert.createdAt).toLocaleString()}
-                    </p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* 1. Inventory Summary and 2. Orders by Status */}
-      {stats && (
-        <div className="grid gap-6 md:grid-cols-2 mb-6">
-          {/* 1. Inventory Summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Inventory Summary</CardTitle>
-              <CardDescription>Overview of your inventory status (cloth + accessories)</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <InventorySummary stats={stats.inventory} />
-            </CardContent>
-          </Card>
-
-          {/* 2. Orders by Status */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Orders by Status</CardTitle>
-              <CardDescription>Current distribution of order statuses</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {stats.charts.ordersByStatus.length > 0 ? (
-                <OrdersStatusChart data={stats.charts.ordersByStatus} />
-              ) : (
-                <div className="h-[300px] flex items-center justify-center text-slate-500">
-                  <p>No orders yet</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* 3. Top Fabrics and 4. Revenue Trend */}
-      {stats && stats.charts.topFabrics.length > 0 && (
-        <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2 mb-8">
-          {/* 3. Top 10 Most Used Fabrics */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Top 10 Most Used Fabrics</CardTitle>
-              <CardDescription>Fabrics by total meters used in orders</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <TopFabricsChart data={stats.charts.topFabrics} />
-            </CardContent>
-          </Card>
-
-          {/* 4. Revenue Chart */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Revenue Trend (Last 6 Months)</CardTitle>
-              <CardDescription>Monthly revenue from delivered orders</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <RevenueChart data={stats.revenue.byMonth} />
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      {/* Role-based dashboard */}
+      <RoleDashboardRouter userRole={userRole} dateRange="month" />
     </DashboardLayout>
   )
 }
