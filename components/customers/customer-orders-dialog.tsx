@@ -73,7 +73,9 @@ export function CustomerOrdersDialog({
     }
   })
 
-  const handleOrderClick = (orderId: string) => {
+  const handleOrderClick = (orderId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
     setOpen(false)
     router.push(`/orders/${orderId}`)
   }
@@ -111,7 +113,7 @@ export function CustomerOrdersDialog({
             {filteredOrders.map((order) => (
               <div
                 key={order.id}
-                onClick={() => handleOrderClick(order.id)}
+                onClick={(e) => handleOrderClick(order.id, e)}
                 className="border rounded-lg p-4 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer"
               >
                 <div className="flex items-start justify-between mb-3">
