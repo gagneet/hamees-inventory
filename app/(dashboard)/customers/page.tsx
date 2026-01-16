@@ -177,7 +177,7 @@ export default function CustomersPage() {
                       <div className="flex-1">
                         <CardTitle className="text-lg">{customer.name}</CardTitle>
                         <CardDescription className="mt-1">
-                          {customer.orders?.length || 0} orders
+                          {customer._count?.orders || 0} orders
                         </CardDescription>
                       </div>
                       <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">

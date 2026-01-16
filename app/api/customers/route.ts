@@ -55,7 +55,12 @@ export async function GET(request: Request) {
             totalAmount: true,
           },
           orderBy: { createdAt: 'desc' },
-          take: 5,
+          take: 1, // Only need latest order for display
+        },
+        _count: {
+          select: {
+            orders: true, // Get total order count
+          },
         },
       },
       orderBy: { createdAt: 'desc' },
