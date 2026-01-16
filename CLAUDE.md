@@ -10,6 +10,119 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Order Management Enhancements & UI Fixes (v0.12.0)
+
+**What's New:**
+- **Order Splitting** - Split multi-item orders into separate orders for independent management
+- **Enhanced Customer Cards** - Detailed order metrics with clickable dialogs showing order lists
+- **Dialog Visibility Fixes** - Fixed text visibility issues across all popup/modal components
+- **Accurate Order Counts** - Fixed customer order count display to show actual totals
+
+**New Features:**
+
+1. **Order Splitting System** (`app/api/orders/[id]/split/route.ts`, `components/orders/split-order-dialog.tsx`)
+   - **Split Orders Button**: Appears on multi-item orders (2+ items, non-delivered/cancelled)
+   - **Interactive Dialog**: Checkbox selection of items to split with real-time preview
+   - **Smart Financials**: Proportional splitting of advance payment, GST, and discounts
+   - **Auto-Recalculation**: Both orders get updated totals (subtotal, GST 12%, balance)
+   - **Delivery Date Customization**: Set different delivery dates for split items
+   - **Complete Audit Trail**: OrderHistory entries created for both orders
+   - **Use Cases**:
+     - Early delivery for specific items
+     - Selective cancellation without affecting other items
+     - Independent status tracking per garment
+     - Split due to fabric availability timing
+   - **API**: `POST /api/orders/[id]/split` with itemIds, deliveryDate, notes
+   - **Validation**: Cannot split single-item orders or all items; prevents splitting delivered/cancelled orders
+
+2. **Customer Order Metrics** (`components/customers/customer-orders-dialog.tsx`, `app/api/customers/route.ts`)
+   - **Orders Delivered Metric**: Green badge showing count of DELIVERED orders (clickable)
+   - **Orders In Progress Metric**: Blue badge showing count of active orders (clickable)
+   - **Interactive Dialogs**: Click metrics to see filtered order lists with details
+   - **Order List Display**:
+     - Order number (clickable → navigates to order detail)
+     - Status badge (color-coded)
+     - Item count ("1 item" or "2 items")
+     - Total amount
+     - Delivery date and order date
+   - **Empty States**: Helpful messages when no orders in category
+   - **Event Handling**: Proper stopPropagation to prevent card navigation conflicts
+   - **API Enhancement**: Fetches all orders with item counts via `_count.items`
+
+3. **Dialog Text Visibility Fixes** (`components/ui/dialog.tsx`, `components/ui/alert-dialog.tsx`, `components/ui/sheet.tsx`)
+   - **Problem**: Text was invisible due to CSS variable inheritance (light text on light background)
+   - **Root Cause**: Components used `--foreground`, `--background` CSS variables from dark mode
+   - **Solution**: Replaced CSS variables with explicit Tailwind classes
+   - **Changes**:
+     - Dialog/AlertDialog/Sheet Content: `bg-white text-slate-900`
+     - Titles: `text-slate-900` (dark, high contrast)
+     - Descriptions: `text-slate-600` (medium gray, readable)
+   - **Impact**: All dialogs/modals now have clearly visible text
+   - **Accessibility**: WCAG AAA contrast ratios (>7:1 for primary text)
+
+4. **Customer Order Count Fix** (`app/api/customers/route.ts`, `app/(dashboard)/customers/page.tsx`)
+   - **Bug**: All customers showed "5 orders" regardless of actual count
+   - **Cause**: API fetched `take: 5` orders, frontend counted array length
+   - **Fix**: Used Prisma `_count.orders` for accurate total
+   - **Optimization**: Reduced query from fetching 5 orders to fetching only latest order (more efficient)
+   - **Display**: Now shows actual counts (e.g., "15 orders" for customers with 15 orders)
+
+**Files Added:**
+- `app/api/orders/[id]/split/route.ts` - Order splitting API endpoint
+- `components/orders/split-order-dialog.tsx` - Split order UI dialog
+- `components/customers/customer-orders-dialog.tsx` - Customer order list dialog
+- `components/ui/checkbox.tsx` - Checkbox component (shadcn)
+
+**Files Modified:**
+- `app/(dashboard)/orders/[id]/page.tsx` - Added SplitOrderDialog, enhanced item data fetching
+- `app/api/customers/route.ts` - Enhanced to include all orders with item counts, added `_count.orders`
+- `app/(dashboard)/customers/page.tsx` - Added order metrics with CustomerOrdersDialog
+- `components/ui/dialog.tsx` - Fixed text colors for visibility
+- `components/ui/alert-dialog.tsx` - Fixed text colors for visibility
+- `components/ui/sheet.tsx` - Fixed text colors for visibility
+
+**Order Splitting Workflow:**
+1. Open multi-item order (e.g., 4 items: 2 shirts, 1 trouser, 1 suit)
+2. Click "Split Order" button in Actions section
+3. Select items to split (e.g., check 1 shirt and 1 trouser)
+4. Set new delivery date for split items (e.g., 2 weeks earlier)
+5. Add optional notes (e.g., "Customer needs shirt urgently")
+6. Review preview:
+   - New Order: 2 items, ₹15,000 (shirt + trouser)
+   - Remaining Order: 2 items, ₹25,000 (shirt + suit)
+7. Click "Split Order" to confirm
+8. System creates new order with unique number (e.g., ORD-202601-0235)
+9. Both orders show in history with split notes
+10. Navigate to new order or continue with original
+
+**Customer Card Order Metrics Workflow:**
+1. View Customers page (https://hamees.gagneet.com/customers)
+2. Each card shows:
+   - "Orders Delivered: 12" (green, clickable)
+   - "Orders In Progress: 3" (blue, clickable)
+3. Click "Orders Delivered":
+   - Dialog opens with all 12 delivered orders
+   - Each order shows: number, status, item count, amount, dates
+   - Click any order → navigates to order detail page
+4. Click "Orders In Progress":
+   - Dialog opens with 3 active orders
+   - Shows NEW, CUTTING, STITCHING, READY orders
+   - Click any order → navigates to order detail page
+
+**Database Owner Note:**
+The owner user (owner@hameesattire.com) name has been updated to "Jagmeet Dhariwal" in the database via direct SQL update.
+
+**Permissions:**
+- **Order Splitting**: Requires `update_order` permission (Sales Manager, Admin, Owner)
+- **View Customer Orders**: Requires `view_customers` permission (all roles)
+
+**Version History:**
+- v0.12.0 (January 16, 2026) - Order splitting, customer order metrics, dialog visibility fixes
+- v0.11.1 (January 16, 2026) - Production seed with 7-month historical data
+- v0.11.0 (January 15, 2026) - Pagination and measurement auto-linking
+
+---
+
 ### ✅ Complete Production Seed with 7-Month Historical Data (v0.11.1)
 
 **What's New:**
