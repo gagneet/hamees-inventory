@@ -46,6 +46,11 @@ export async function GET(request: Request) {
     const isOverdue = searchParams.get('isOverdue')
     const balanceAmount = searchParams.get('balanceAmount')
 
+    // Pagination parameters
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '10')
+    const skip = (page - 1) * limit
+
     const where: any = {}
 
     if (status) {
@@ -144,6 +149,9 @@ export async function GET(request: Request) {
       }
     }
 
+    // Get total count for pagination
+    const totalItems = await prisma.order.count({ where })
+
     const orders = await prisma.order.findMany({
       where,
       include: {
@@ -176,9 +184,21 @@ export async function GET(request: Request) {
         },
       },
       orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
     })
 
-    return NextResponse.json({ orders })
+    const totalPages = Math.ceil(totalItems / limit)
+
+    return NextResponse.json({
+      orders,
+      pagination: {
+        page,
+        limit,
+        totalItems,
+        totalPages,
+      },
+    })
   } catch (error) {
     console.error('Error fetching orders:', error)
     return NextResponse.json(
@@ -199,6 +219,17 @@ export async function POST(request: Request) {
     // Calculate order details
     let subTotal = 0
     const orderItems: any[] = []
+
+    // Get customer's measurements to link with order items
+    const customerMeasurements = await prisma.measurement.findMany({
+      where: {
+        customerId: validatedData.customerId,
+        isActive: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    })
 
     for (const item of validatedData.items) {
       // Get pattern and cloth details
@@ -251,6 +282,13 @@ export async function POST(request: Request) {
 
       subTotal += itemTotal
 
+      // Find matching measurement for this garment type
+      // Match pattern name with measurement garmentType (e.g., "Men's Shirt" -> "Shirt")
+      const garmentTypeName = pattern.name.replace(/^(Men's|Women's|Kids)\s+/i, '').trim()
+      const matchingMeasurement = customerMeasurements.find(
+        m => m.garmentType.toLowerCase() === garmentTypeName.toLowerCase()
+      )
+
       orderItems.push({
         garmentPatternId: item.garmentPatternId,
         clothInventoryId: item.clothInventoryId,
@@ -259,6 +297,7 @@ export async function POST(request: Request) {
         estimatedMeters,
         pricePerUnit: itemTotal / item.quantity,
         totalPrice: itemTotal,
+        measurementId: matchingMeasurement?.id, // Link measurement to order item
       })
     }
 

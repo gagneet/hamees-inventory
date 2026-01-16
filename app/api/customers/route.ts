@@ -22,6 +22,11 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search')
 
+    // Pagination parameters
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '10')
+    const skip = (page - 1) * limit
+
     const where = search
       ? {
           OR: [
@@ -31,6 +36,9 @@ export async function GET(request: Request) {
           ],
         }
       : {}
+
+    // Get total count for pagination
+    const totalItems = await prisma.customer.count({ where })
 
     const customers = await prisma.customer.findMany({
       where,
@@ -51,9 +59,21 @@ export async function GET(request: Request) {
         },
       },
       orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
     })
 
-    return NextResponse.json({ customers })
+    const totalPages = Math.ceil(totalItems / limit)
+
+    return NextResponse.json({
+      customers,
+      pagination: {
+        page,
+        limit,
+        totalItems,
+        totalPages,
+      },
+    })
   } catch (error) {
     console.error('Error fetching customers:', error)
     return NextResponse.json(

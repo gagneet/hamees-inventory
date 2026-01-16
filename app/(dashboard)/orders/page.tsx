@@ -17,6 +17,7 @@ import {
 import { PermissionGuard } from '@/components/auth/permission-guard'
 import { OrderStatus } from '@/lib/types'
 import DashboardLayout from '@/components/DashboardLayout'
+import { Pagination } from '@/components/ui/pagination'
 
 const statusColors: Record<OrderStatus, { bg: string; text: string; border: string }> = {
   NEW: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
@@ -46,6 +47,12 @@ function OrdersContent() {
   const [orders, setOrders] = useState<any[]>([])
   const [fabrics, setFabrics] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+  const [totalItems, setTotalItems] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
 
   // Filter states
   const [status, setStatus] = useState('')
@@ -115,11 +122,19 @@ function OrdersContent() {
         if (isOverdue) params.append('isOverdue', 'true')
         if (balanceOutstanding) params.append('balanceAmount', 'gt:0')
 
+        // Add pagination params
+        params.append('page', currentPage.toString())
+        params.append('limit', pageSize.toString())
+
         const response = await fetch(`/api/orders?${params.toString()}`)
         const data = await response.json()
 
         if (data.orders) {
           setOrders(data.orders)
+        }
+        if (data.pagination) {
+          setTotalItems(data.pagination.totalItems)
+          setTotalPages(data.pagination.totalPages)
         }
       } catch (error) {
         console.error('Error fetching orders:', error)
@@ -129,7 +144,7 @@ function OrdersContent() {
     }
 
     fetchOrders()
-  }, [status, debouncedSearch, fabricId, minAmount, maxAmount, deliveryDateFrom, deliveryDateTo, isOverdue, balanceOutstanding])
+  }, [status, debouncedSearch, fabricId, minAmount, maxAmount, deliveryDateFrom, deliveryDateTo, isOverdue, balanceOutstanding, currentPage, pageSize])
 
   const clearFilters = () => {
     setStatus('')
@@ -141,6 +156,17 @@ function OrdersContent() {
     setDeliveryDateTo('')
     setIsOverdue(false)
     setBalanceOutstanding(false)
+    setCurrentPage(1) // Reset to first page when clearing filters
+  }
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size)
+    setCurrentPage(1) // Reset to first page when changing page size
   }
 
   const hasActiveFilters = status || searchTerm || fabricId || minAmount || maxAmount || deliveryDateFrom || deliveryDateTo || isOverdue || balanceOutstanding
@@ -459,6 +485,18 @@ function OrdersContent() {
                 </Link>
               )
             })}
+
+            {/* Pagination */}
+            {!loading && orders.length > 0 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                pageSize={pageSize}
+                totalItems={totalItems}
+                onPageChange={handlePageChange}
+                onPageSizeChange={handlePageSizeChange}
+              />
+            )}
           </div>
         )}
     </DashboardLayout>

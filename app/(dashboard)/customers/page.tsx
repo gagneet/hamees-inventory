@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/breadcrumb'
 import { PermissionGuard } from '@/components/auth/permission-guard'
 import DashboardLayout from '@/components/DashboardLayout'
+import { Pagination } from '@/components/ui/pagination'
 
 export default function CustomersPage() {
   const router = useRouter()
@@ -23,6 +24,12 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(15)
+  const [totalItems, setTotalItems] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
 
   // Debounce search term
   useEffect(() => {
@@ -43,11 +50,19 @@ export default function CustomersPage() {
           params.append('search', debouncedSearch)
         }
 
+        // Add pagination params
+        params.append('page', currentPage.toString())
+        params.append('limit', pageSize.toString())
+
         const response = await fetch(`/api/customers?${params.toString()}`)
         const data = await response.json()
 
         if (data.customers) {
           setCustomers(data.customers)
+        }
+        if (data.pagination) {
+          setTotalItems(data.pagination.totalItems)
+          setTotalPages(data.pagination.totalPages)
         }
       } catch (error) {
         console.error('Error fetching customers:', error)
@@ -57,7 +72,17 @@ export default function CustomersPage() {
     }
 
     fetchCustomers()
-  }, [debouncedSearch])
+  }, [debouncedSearch, currentPage, pageSize])
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size)
+    setCurrentPage(1) // Reset to first page when changing page size
+  }
 
   return (
     <DashboardLayout>
@@ -78,7 +103,7 @@ export default function CustomersPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">Customers</h1>
-          <p className="text-xs md:text-sm text-slate-600 dark:text-slate-300">{customers.length} total customers</p>
+          <p className="text-xs md:text-sm text-slate-600 dark:text-slate-300">{totalItems} total customers</p>
         </div>
         <PermissionGuard permission="manage_customers">
           <Link href="/customers/new">
@@ -201,6 +226,20 @@ export default function CustomersPage() {
                   </CardContent>
                 </Card>
             ))}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {!loading && customers.length > 0 && (
+          <div className="mt-6">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              totalItems={totalItems}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+            />
           </div>
         )}
     </DashboardLayout>

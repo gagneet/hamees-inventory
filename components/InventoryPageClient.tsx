@@ -37,6 +37,7 @@ import { BarcodeScanner } from "@/components/barcode-scanner"
 import { InventoryType } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
 import { formatCurrency } from "@/lib/utils"
+import { Pagination } from "@/components/ui/pagination"
 
 interface InventoryLookupResult {
   found: boolean
@@ -89,6 +90,17 @@ export default function InventoryPageClient() {
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
 
+  // Pagination states
+  const [clothPage, setClothPage] = useState(1)
+  const [clothPageSize, setClothPageSize] = useState(25)
+  const [clothTotal, setClothTotal] = useState(0)
+  const [clothTotalPages, setClothTotalPages] = useState(0)
+
+  const [accessoryPage, setAccessoryPage] = useState(1)
+  const [accessoryPageSize, setAccessoryPageSize] = useState(25)
+  const [accessoryTotal, setAccessoryTotal] = useState(0)
+  const [accessoryTotalPages, setAccessoryTotalPages] = useState(0)
+
   // Debounce search term
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -98,10 +110,10 @@ export default function InventoryPageClient() {
     return () => clearTimeout(timer)
   }, [searchTerm])
 
-  // Fetch inventory on mount, tab change, and search change
+  // Fetch inventory on mount, tab change, search change, and pagination change
   useEffect(() => {
     fetchInventory()
-  }, [activeTab, debouncedSearch])
+  }, [activeTab, debouncedSearch, clothPage, clothPageSize, accessoryPage, accessoryPageSize])
 
   const fetchInventory = async () => {
     setIsFetchingInventory(true)
@@ -112,16 +124,28 @@ export default function InventoryPageClient() {
       }
 
       if (activeTab === "cloth") {
+        params.append('page', clothPage.toString())
+        params.append('limit', clothPageSize.toString())
         const response = await fetch(`/api/inventory/cloth?${params.toString()}`)
         if (response.ok) {
           const data = await response.json()
           setClothInventory(data.items || [])
+          if (data.pagination) {
+            setClothTotal(data.pagination.totalItems)
+            setClothTotalPages(data.pagination.totalPages)
+          }
         }
       } else {
+        params.append('page', accessoryPage.toString())
+        params.append('limit', accessoryPageSize.toString())
         const response = await fetch(`/api/inventory/accessories?${params.toString()}`)
         if (response.ok) {
           const data = await response.json()
           setAccessoryInventory(data.items || [])
+          if (data.pagination) {
+            setAccessoryTotal(data.pagination.totalItems)
+            setAccessoryTotalPages(data.pagination.totalPages)
+          }
         }
       }
     } catch (error) {
@@ -142,6 +166,27 @@ export default function InventoryPageClient() {
     if (available < minimum * 0.5) return { label: "Critical", variant: "destructive" as const }
     if (available < minimum) return { label: "Low Stock", variant: "default" as const }
     return { label: "In Stock", variant: "default" as const }
+  }
+
+  // Pagination handlers
+  const handleClothPageChange = (page: number) => {
+    setClothPage(page)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleClothPageSizeChange = (size: number) => {
+    setClothPageSize(size)
+    setClothPage(1)
+  }
+
+  const handleAccessoryPageChange = (page: number) => {
+    setAccessoryPage(page)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleAccessoryPageSizeChange = (size: number) => {
+    setAccessoryPageSize(size)
+    setAccessoryPage(1)
   }
 
   const handleScanSuccess = async (barcode: string) => {
@@ -626,6 +671,18 @@ export default function InventoryPageClient() {
                   </Table>
                 </div>
               </CardContent>
+              {clothInventory.length > 0 && (
+                <div className="px-6 pb-6">
+                  <Pagination
+                    currentPage={clothPage}
+                    totalPages={clothTotalPages}
+                    pageSize={clothPageSize}
+                    totalItems={clothTotal}
+                    onPageChange={handleClothPageChange}
+                    onPageSizeChange={handleClothPageSizeChange}
+                  />
+                </div>
+              )}
             </Card>
           )}
         </TabsContent>
@@ -720,6 +777,18 @@ export default function InventoryPageClient() {
                   </Table>
                 </div>
               </CardContent>
+              {accessoryInventory.length > 0 && (
+                <div className="px-6 pb-6">
+                  <Pagination
+                    currentPage={accessoryPage}
+                    totalPages={accessoryTotalPages}
+                    pageSize={accessoryPageSize}
+                    totalItems={accessoryTotal}
+                    onPageChange={handleAccessoryPageChange}
+                    onPageSizeChange={handleAccessoryPageSizeChange}
+                  />
+                </div>
+              )}
             </Card>
           )}
         </TabsContent>

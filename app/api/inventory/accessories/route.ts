@@ -26,6 +26,11 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type')
     const search = searchParams.get('search')
 
+    // Pagination parameters
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '25')
+    const skip = (page - 1) * limit
+
     const where: any = {}
 
     // Low stock filter
@@ -47,15 +52,33 @@ export async function GET(request: NextRequest) {
       ]
     }
 
+    // Get total count for pagination
+    const totalItems = await prisma.accessoryInventory.count({
+      where: Object.keys(where).length > 0 ? where : undefined,
+    })
+
     const items = await prisma.accessoryInventory.findMany({
       where: Object.keys(where).length > 0 ? where : undefined,
       include: {
         supplierRel: true,
       },
       orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
     })
 
-    return NextResponse.json({ items, accessories: items })
+    const totalPages = Math.ceil(totalItems / limit)
+
+    return NextResponse.json({
+      items,
+      accessories: items,
+      pagination: {
+        page,
+        limit,
+        totalItems,
+        totalPages,
+      },
+    })
   } catch (error) {
     console.error('Error fetching accessory inventory:', error)
     return NextResponse.json(
