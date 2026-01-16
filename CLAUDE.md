@@ -10,6 +10,114 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Purchase Order Payment System (v0.14.0)
+
+**What's New:**
+- **Separate Payment Workflow** - Make payments independently from receiving items
+- **"Make Payment" Button** - Dedicated UI for recording supplier payments
+- **Fixed Payment Addition Bug** - Payments now ADD to existing balance (was replacing)
+- **Smart PO Closure** - Status "RECEIVED" only when BOTH items received AND fully paid
+- **Complete Audit Trail** - All payments logged in PO notes with timestamp and mode
+
+**Key Features:**
+
+1. **New Payment API** (`app/api/purchase-orders/[id]/payment/route.ts`)
+   - `POST /api/purchase-orders/[id]/payment`
+   - Records payments separately from item receipt
+   - Supports 6 payment modes: Cash, UPI, Card, Bank Transfer, Cheque, Net Banking
+   - Transaction reference tracking
+   - Validates amount doesn't exceed balance
+   - Auto-updates PO status based on both items and payment
+
+2. **Updated Status Logic** (Affects both `/receive` and `/payment` endpoints)
+   - **PENDING**: No items received, no payment made
+   - **PARTIAL**: Some items received OR some payment made OR one complete but not other
+   - **RECEIVED**: All items fully received AND full payment made
+   - **Before**: PO marked "RECEIVED" when items arrived, regardless of payment
+   - **After**: PO closes only when both conditions met
+
+3. **Fixed Payment Addition Bug** (`app/api/purchase-orders/[id]/receive/route.ts:137-143`)
+   - **Bug**: `paidAmount = newPayment` (replaced existing payment)
+   - **Fix**: `paidAmount = existingPaidAmount + newPayment` (adds to existing)
+   - Changed label from "Payment Amount" to "Additional Payment (Optional)"
+   - Default value changed from pre-filled to 0
+
+4. **Enhanced PO Detail UI** (`app/(dashboard)/purchase-orders/[id]/page.tsx`)
+   - **"Make Payment" Button**:
+     - Appears when `balanceAmount > 0` and status not "CANCELLED"
+     - Opens dedicated payment dialog
+     - Pre-fills with full balance amount (editable for partial payments)
+   - **Payment Dialog**:
+     - Payment summary card (Total, Already Paid, Balance Due in red)
+     - Payment amount input (large, bold text)
+     - Payment mode dropdown (6 options)
+     - Transaction reference field (optional)
+     - Notes textarea (optional)
+     - Real-time validation
+
+**Use Cases:**
+
+1. **Pay After Receiving Items:**
+   - Receive all items → Status: PARTIAL (items done, payment pending)
+   - Click "Make Payment" → Pay full balance → Status: RECEIVED ✅
+
+2. **Partial Payments Over Time:**
+   - PO for ₹100,000
+   - Pay ₹40,000 → Status: PARTIAL, Balance: ₹60,000
+   - Pay ₹30,000 → Status: PARTIAL, Balance: ₹30,000
+   - Pay ₹30,000 → Status: RECEIVED, Balance: ₹0 ✅
+
+3. **Pay Before Receiving:**
+   - Make advance payment ₹50,000 → Status: PARTIAL (payment done, items pending)
+   - Receive all items → Status: PARTIAL, Balance: ₹50,000
+   - Pay remaining ₹50,000 → Status: RECEIVED ✅
+
+**Payment History Format:**
+```
+[16/01/2026] Payment: 50000.00 via BANK_TRANSFER - First installment
+[18/01/2026] Payment: 30000.00 via UPI - Second payment
+[20/01/2026] Payment: 30000.00 via CASH - Final settlement
+```
+
+**Files Added:**
+- `app/api/purchase-orders/[id]/payment/route.ts` - New payment API endpoint (95 lines)
+- `docs/PURCHASE_ORDER_PAYMENT_SYSTEM.md` - Complete technical documentation
+
+**Files Modified:**
+- `app/api/purchase-orders/[id]/receive/route.ts` - Fixed payment addition logic (lines 137-161)
+- `app/(dashboard)/purchase-orders/[id]/page.tsx` - Added payment dialog UI (+130 lines)
+
+**Database Schema:**
+- No changes required (uses existing `paidAmount`, `balanceAmount`, `status` fields)
+
+**Permissions:**
+- Requires `manage_inventory` permission (Owner, Admin, Inventory Manager)
+
+**Testing:**
+```bash
+# Login as Inventory Manager
+Email: inventory@hameesattire.com
+Password: admin123
+
+# Test Workflow:
+1. Open any PO with items received but balance > 0
+2. Notice status is "PARTIAL" (not "RECEIVED")
+3. Click "Make Payment" button
+4. Verify balance is pre-filled
+5. Select payment mode (e.g., "Bank Transfer")
+6. Enter transaction reference (e.g., "TXN123456")
+7. Click "Record Payment"
+→ Status changes to "RECEIVED", balance = ₹0
+```
+
+**Breaking Changes:**
+- None (backward compatible - existing POs automatically use new status logic)
+
+**Documentation:**
+- See `docs/PURCHASE_ORDER_PAYMENT_SYSTEM.md` for complete API reference, workflows, and testing scenarios
+
+---
+
 ### ✅ Dashboard Interactivity Fixes (v0.13.2)
 
 **What's New:**

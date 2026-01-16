@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Home, Package, CheckCircle, Trash2 } from 'lucide-react'
+import { Home, Package, CheckCircle, Trash2, DollarSign } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -97,6 +97,14 @@ export default function PurchaseOrderDetailPage({
   const [loading, setLoading] = useState(true)
   const [receiving, setReceiving] = useState(false)
   const [showReceiveDialog, setShowReceiveDialog] = useState(false)
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false)
+  const [processingPayment, setProcessingPayment] = useState(false)
+  const [paymentData, setPaymentData] = useState({
+    amount: 0,
+    paymentMode: 'CASH' as const,
+    transactionRef: '',
+    notes: '',
+  })
 
   const [receiveData, setReceiveData] = useState<{
     items: Array<{
@@ -142,7 +150,7 @@ export default function PurchaseOrderDetailPage({
           clothInventoryId: null,
           accessoryInventoryId: null,
         })),
-        paidAmount: data.purchaseOrder.paidAmount,
+        paidAmount: 0, // Start at 0 for additional payment
         notes: '',
       })
     } catch (error) {
@@ -195,6 +203,45 @@ export default function PurchaseOrderDetailPage({
       alert('Failed to receive purchase order')
     } finally {
       setReceiving(false)
+    }
+  }
+
+  const openPaymentDialog = () => {
+    if (!purchaseOrder) return
+    setPaymentData({
+      amount: purchaseOrder.balanceAmount,
+      paymentMode: 'CASH',
+      transactionRef: '',
+      notes: '',
+    })
+    setShowPaymentDialog(true)
+  }
+
+  const handlePayment = async () => {
+    if (!resolvedParams || !purchaseOrder) return
+
+    setProcessingPayment(true)
+    try {
+      const response = await fetch(`/api/purchase-orders/${resolvedParams.id}/payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(paymentData),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to process payment')
+      }
+
+      setShowPaymentDialog(false)
+      await fetchPurchaseOrder()
+      alert(data.message || 'Payment recorded successfully!')
+    } catch (error: any) {
+      console.error('Error processing payment:', error)
+      alert(error.message || 'Failed to process payment')
+    } finally {
+      setProcessingPayment(false)
     }
   }
 
@@ -286,6 +333,12 @@ export default function PurchaseOrderDetailPage({
             <Button variant="destructive" size="sm" onClick={handleDelete}>
               <Trash2 className="mr-2 h-4 w-4" />
               Cancel PO
+            </Button>
+          )}
+          {purchaseOrder.balanceAmount > 0 && purchaseOrder.status !== 'CANCELLED' && (
+            <Button variant="outline" onClick={openPaymentDialog}>
+              <DollarSign className="mr-2 h-4 w-4" />
+              Make Payment
             </Button>
           )}
           {(purchaseOrder.status === 'PENDING' || purchaseOrder.status === 'PARTIAL') && (
@@ -392,7 +445,7 @@ export default function PurchaseOrderDetailPage({
 
                   <div className="grid gap-4">
                     <div>
-                      <Label className="text-slate-700">Payment Amount</Label>
+                      <Label className="text-slate-700">Additional Payment (Optional)</Label>
                       <Input
                         type="number"
                         step="0.01"
@@ -406,6 +459,9 @@ export default function PurchaseOrderDetailPage({
                           })
                         }
                       />
+                      <p className="text-xs text-slate-500 mt-1">
+                        Balance due: {formatCurrency(purchaseOrder.balanceAmount)}
+                      </p>
                     </div>
                     <div>
                       <Label className="text-slate-700">Notes</Label>
@@ -577,6 +633,132 @@ export default function PurchaseOrderDetailPage({
           </CardContent>
         </Card>
       )}
+
+      {/* Payment Dialog */}
+      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-slate-900">Make Payment</DialogTitle>
+            <DialogDescription>
+              Record payment for {purchaseOrder.poNumber}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Balance Summary */}
+            <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <p className="text-slate-600">Total Amount</p>
+                  <p className="font-semibold text-slate-900">
+                    {formatCurrency(purchaseOrder.totalAmount)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-slate-600">Already Paid</p>
+                  <p className="font-semibold text-green-600">
+                    {formatCurrency(purchaseOrder.paidAmount)}
+                  </p>
+                </div>
+                <div className="col-span-2 pt-2 border-t border-blue-300">
+                  <p className="text-slate-600">Balance Due</p>
+                  <p className="font-bold text-lg text-red-600">
+                    {formatCurrency(purchaseOrder.balanceAmount)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Amount */}
+            <div>
+              <Label className="text-slate-700">Payment Amount *</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                max={purchaseOrder.balanceAmount}
+                value={paymentData.amount}
+                onChange={(e) =>
+                  setPaymentData({
+                    ...paymentData,
+                    amount: parseFloat(e.target.value) || 0,
+                  })
+                }
+                className="font-semibold text-lg"
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                Maximum: {formatCurrency(purchaseOrder.balanceAmount)}
+              </p>
+            </div>
+
+            {/* Payment Mode */}
+            <div>
+              <Label className="text-slate-700">Payment Mode *</Label>
+              <Select
+                value={paymentData.paymentMode}
+                onValueChange={(value: any) =>
+                  setPaymentData({ ...paymentData, paymentMode: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CASH">Cash</SelectItem>
+                  <SelectItem value="UPI">UPI</SelectItem>
+                  <SelectItem value="CARD">Card</SelectItem>
+                  <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                  <SelectItem value="CHEQUE">Cheque</SelectItem>
+                  <SelectItem value="NET_BANKING">Net Banking</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Transaction Reference */}
+            <div>
+              <Label className="text-slate-700">Transaction Reference</Label>
+              <Input
+                type="text"
+                value={paymentData.transactionRef}
+                onChange={(e) =>
+                  setPaymentData({ ...paymentData, transactionRef: e.target.value })
+                }
+                placeholder="Transaction ID, Cheque No., etc."
+              />
+            </div>
+
+            {/* Notes */}
+            <div>
+              <Label className="text-slate-700">Notes</Label>
+              <Textarea
+                value={paymentData.notes}
+                onChange={(e) =>
+                  setPaymentData({ ...paymentData, notes: e.target.value })
+                }
+                placeholder="Add any notes about this payment..."
+                rows={3}
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowPaymentDialog(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handlePayment}
+                disabled={processingPayment || paymentData.amount <= 0}
+              >
+                {processingPayment ? 'Processing...' : 'Record Payment'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   )
 }

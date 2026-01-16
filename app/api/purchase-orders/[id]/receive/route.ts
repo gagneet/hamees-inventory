@@ -134,11 +134,21 @@ export async function POST(
         return totalReceived > 0 && totalReceived < poItem.quantity
       })
 
-      const newStatus = allFullyReceived
-        ? 'RECEIVED'
-        : anyPartiallyReceived
-        ? 'PARTIAL'
-        : 'PENDING'
+      // Calculate new payment amounts (ADD instead of REPLACE)
+      const additionalPayment = paidAmount !== undefined ? paidAmount : 0
+      const newPaidAmount = purchaseOrder.paidAmount + additionalPayment
+      const newBalanceAmount = purchaseOrder.totalAmount - newPaidAmount
+
+      // Check if payment is complete (allow for floating point errors)
+      const paymentComplete = newBalanceAmount <= 0.01
+
+      // Determine status based on BOTH items received AND payment complete
+      let newStatus = 'PENDING'
+      if (allFullyReceived && paymentComplete) {
+        newStatus = 'RECEIVED' // Both items and payment complete
+      } else if (anyPartiallyReceived || newPaidAmount > 0) {
+        newStatus = 'PARTIAL' // Partial receipt or partial payment
+      }
 
       // Update purchase order
       await tx.purchaseOrder.update({
@@ -146,11 +156,8 @@ export async function POST(
         data: {
           status: newStatus,
           receivedDate: newStatus === 'RECEIVED' ? new Date() : purchaseOrder.receivedDate,
-          paidAmount: paidAmount !== undefined ? paidAmount : purchaseOrder.paidAmount,
-          balanceAmount:
-            paidAmount !== undefined
-              ? purchaseOrder.totalAmount - paidAmount
-              : purchaseOrder.balanceAmount,
+          paidAmount: newPaidAmount,
+          balanceAmount: newBalanceAmount,
           notes: notes ? `${purchaseOrder.notes || ''}\n${notes}` : purchaseOrder.notes,
         },
       })
