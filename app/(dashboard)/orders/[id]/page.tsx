@@ -21,6 +21,8 @@ import { OrderHistory } from '@/components/orders/order-history'
 import { PaymentInstallments } from '@/components/payment-installments'
 import { OrderItemEdit } from '@/components/orders/order-item-edit'
 import { SplitOrderDialog } from '@/components/orders/split-order-dialog'
+import { RecordPaymentDialog } from '@/components/orders/record-payment-dialog'
+import { PrintInvoiceButton } from '@/components/orders/print-invoice-button'
 
 async function getOrderDetails(id: string) {
   try {
@@ -530,13 +532,49 @@ export default async function OrderDetailPage({
                 <SplitOrderDialog
                   orderId={order.id}
                   orderNumber={order.orderNumber}
-                  items={order.items}
+                  items={order.items.map(item => ({
+                    id: item.id,
+                    garmentPattern: {
+                      name: item.garmentPattern.name
+                    },
+                    clothInventory: {
+                      name: item.clothInventory.name,
+                      color: item.clothInventory.color
+                    },
+                    quantity: item.quantity,
+                    estimatedMeters: item.estimatedMeters,
+                    totalPrice: item.totalPrice
+                  }))}
                   currentDeliveryDate={order.deliveryDate}
                 />
               )}
-              <Button className="w-full" variant="outline" size="sm">
-                Print Invoice
-              </Button>
+              {order.balanceAmount > 0.01 && order.status !== 'CANCELLED' && (
+                <RecordPaymentDialog
+                  orderId={order.id}
+                  orderNumber={order.orderNumber}
+                  balanceAmount={order.balanceAmount}
+                />
+              )}
+              <PrintInvoiceButton
+                order={{
+                  orderNumber: order.orderNumber,
+                  orderDate: order.createdAt,
+                  deliveryDate: order.deliveryDate,
+                  status: order.status,
+                  customer: order.customer,
+                  items: order.items,
+                  subTotal: order.subTotal,
+                  gstRate: order.gstRate,
+                  cgst: order.cgst,
+                  sgst: order.sgst,
+                  gstAmount: order.gstAmount,
+                  totalAmount: order.totalAmount,
+                  advancePaid: order.advancePaid,
+                  discount: order.discount || 0,
+                  balanceAmount: order.balanceAmount,
+                  notes: order.notes,
+                }}
+              />
               <Button className="w-full" variant="outline" size="sm">
                 Send WhatsApp Update
               </Button>

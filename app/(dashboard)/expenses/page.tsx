@@ -23,13 +23,13 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbLink,
-  BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb'
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import {
   Table,
   TableBody,
@@ -38,6 +38,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbLink,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb'
 import DashboardLayout from '@/components/DashboardLayout'
 import { formatCurrency } from '@/lib/utils'
 import { format } from 'date-fns'
@@ -210,67 +218,275 @@ function ExpensesContent() {
         </div>
       </div>
 
-      {/* Summary Cards */}
+      {/* Summary Cards - All Clickable */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {formatCurrency(data.summary.totalRevenue)}
+        {/* Total Revenue Card */}
+        <Dialog>
+          <DialogTrigger asChild>
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                <TrendingUp className="h-4 w-4 text-green-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">
+                  {formatCurrency(data.summary.totalRevenue)}
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  {data.summary.orderCount} orders delivered • Click for details
+                </p>
+              </CardContent>
+            </Card>
+          </DialogTrigger>
+          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-slate-900">Revenue Breakdown</DialogTitle>
+              <DialogDescription>
+                Detailed view of {data.summary.orderCount} delivered orders
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
+                <p className="text-sm text-slate-600">Total Revenue</p>
+                <p className="text-3xl font-bold text-green-600">
+                  {formatCurrency(data.summary.totalRevenue)}
+                </p>
+              </div>
+              {data.orders.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Order #</TableHead>
+                      <TableHead>Customer</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {data.orders.map((order) => (
+                      <TableRow key={order.id}>
+                        <TableCell className="font-medium">{order.orderNumber}</TableCell>
+                        <TableCell>{order.customerName}</TableCell>
+                        <TableCell className="text-sm text-slate-600">
+                          {format(new Date(order.completedDate), 'MMM dd, yyyy')}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold text-green-600">
+                          {formatCurrency(order.totalAmount)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <p className="text-center py-8 text-slate-500">No revenue this period</p>
+              )}
             </div>
-            <p className="text-xs text-slate-500 mt-1">
-              {data.summary.orderCount} orders delivered
-            </p>
-          </CardContent>
-        </Card>
+          </DialogContent>
+        </Dialog>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
-            <TrendingDown className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              {formatCurrency(data.summary.totalExpenses)}
+        {/* Total Expenses Card */}
+        <Dialog>
+          <DialogTrigger asChild>
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
+                <TrendingDown className="h-4 w-4 text-red-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-600">
+                  {formatCurrency(data.summary.totalExpenses)}
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  {data.summary.purchaseCount} purchases • Click for details
+                </p>
+              </CardContent>
+            </Card>
+          </DialogTrigger>
+          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-slate-900">Expenses Breakdown</DialogTitle>
+              <DialogDescription>
+                Inventory purchases and operational expenses
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-red-50 border border-red-200 p-4 rounded-lg">
+                  <p className="text-sm text-slate-600">Total Expenses</p>
+                  <p className="text-2xl font-bold text-red-600">
+                    {formatCurrency(data.summary.totalExpenses)}
+                  </p>
+                </div>
+                <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+                  <p className="text-sm text-slate-600">Breakdown</p>
+                  <p className="text-sm font-medium text-slate-900">
+                    Purchases: {data.summary.purchaseCount}
+                  </p>
+                  <p className="text-sm font-medium text-slate-900">
+                    Expenses: {data.summary.expenseCount}
+                  </p>
+                </div>
+              </div>
+              {data.purchases.length > 0 && (
+                <div>
+                  <h4 className="font-semibold text-slate-900 mb-2">Inventory Purchases</h4>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Fabric</TableHead>
+                        <TableHead>Quantity</TableHead>
+                        <TableHead className="text-right">Cost</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {data.purchases.slice(0, 10).map((purchase) => (
+                        <TableRow key={purchase.id}>
+                          <TableCell className="font-medium">{purchase.fabricName}</TableCell>
+                          <TableCell>{purchase.quantity.toFixed(2)}m</TableCell>
+                          <TableCell className="text-right text-red-600">
+                            {formatCurrency(purchase.totalCost)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </div>
-            <p className="text-xs text-slate-500 mt-1">
-              {data.summary.purchaseCount} inventory purchases
-            </p>
-          </CardContent>
-        </Card>
+          </DialogContent>
+        </Dialog>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
-            <DollarSign className={`h-4 w-4 ${data.summary.netProfit >= 0 ? 'text-blue-600' : 'text-orange-600'}`} />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${data.summary.netProfit >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
-              {formatCurrency(data.summary.netProfit)}
+        {/* Net Profit Card */}
+        <Dialog>
+          <DialogTrigger asChild>
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
+                <DollarSign className={`h-4 w-4 ${data.summary.netProfit >= 0 ? 'text-blue-600' : 'text-orange-600'}`} />
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${data.summary.netProfit >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                  {formatCurrency(data.summary.netProfit)}
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  {data.summary.netProfit >= 0 ? 'Profit' : 'Loss'} • Click for details
+                </p>
+              </CardContent>
+            </Card>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-slate-900">Profit & Loss Statement</DialogTitle>
+              <DialogDescription>
+                Financial summary for {data.dateRange.label}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-3">
+                <div className="flex justify-between items-center py-3 border-b">
+                  <span className="text-slate-600">Total Revenue</span>
+                  <span className="text-lg font-semibold text-green-600">
+                    + {formatCurrency(data.summary.totalRevenue)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-3 border-b">
+                  <span className="text-slate-600">Total Expenses</span>
+                  <span className="text-lg font-semibold text-red-600">
+                    - {formatCurrency(data.summary.totalExpenses)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-4 bg-slate-50 px-4 rounded-lg">
+                  <span className="font-bold text-slate-900">Net Profit/Loss</span>
+                  <span className={`text-2xl font-bold ${data.summary.netProfit >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
+                    {data.summary.netProfit >= 0 ? '+' : ''} {formatCurrency(data.summary.netProfit)}
+                  </span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 mt-6">
+                <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
+                  <p className="text-xs text-slate-600 mb-1">Profit Margin</p>
+                  <p className="text-xl font-bold text-blue-600">
+                    {data.summary.totalRevenue > 0
+                      ? ((data.summary.netProfit / data.summary.totalRevenue) * 100).toFixed(1)
+                      : 0}%
+                  </p>
+                </div>
+                <div className="bg-green-50 border border-green-200 p-4 rounded-lg">
+                  <p className="text-xs text-slate-600 mb-1">Orders Delivered</p>
+                  <p className="text-xl font-bold text-green-600">
+                    {data.summary.orderCount}
+                  </p>
+                </div>
+              </div>
             </div>
-            <p className="text-xs text-slate-500 mt-1">
-              {data.summary.netProfit >= 0 ? 'Profit' : 'Loss'}
-            </p>
-          </CardContent>
-        </Card>
+          </DialogContent>
+        </Dialog>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Net GST</CardTitle>
-            <Receipt className={`h-4 w-4 ${data.summary.netGST >= 0 ? 'text-purple-600' : 'text-green-600'}`} />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${data.summary.netGST >= 0 ? 'text-purple-600' : 'text-green-600'}`}>
-              {formatCurrency(data.summary.netGST)}
+        {/* Net GST Card */}
+        <Dialog>
+          <DialogTrigger asChild>
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">Net GST</CardTitle>
+                <Receipt className={`h-4 w-4 ${data.summary.netGST >= 0 ? 'text-purple-600' : 'text-green-600'}`} />
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${data.summary.netGST >= 0 ? 'text-purple-600' : 'text-green-600'}`}>
+                  {formatCurrency(data.summary.netGST)}
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  {data.summary.netGST >= 0 ? 'Payable' : 'Refund'} • Click for details
+                </p>
+              </CardContent>
+            </Card>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-slate-900">GST Liability Breakdown</DialogTitle>
+              <DialogDescription>
+                Input Tax Credit and Output GST for {data.dateRange.label}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-3">
+                <div className="flex justify-between items-center py-3 border-b">
+                  <div>
+                    <p className="font-medium text-slate-900">Output GST (Collected)</p>
+                    <p className="text-xs text-slate-500">From {data.summary.orderCount} orders</p>
+                  </div>
+                  <span className="text-lg font-semibold text-green-600">
+                    + {formatCurrency(data.summary.gstCollected)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-3 border-b">
+                  <div>
+                    <p className="font-medium text-slate-900">Input Tax Credit (Paid)</p>
+                    <p className="text-xs text-slate-500">On purchases & expenses</p>
+                  </div>
+                  <span className="text-lg font-semibold text-orange-600">
+                    - {formatCurrency(data.summary.gstPaid)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-4 bg-slate-50 px-4 rounded-lg">
+                  <div>
+                    <p className="font-bold text-slate-900">Net GST Liability</p>
+                    <p className="text-xs text-slate-500">
+                      {data.summary.netGST >= 0 ? 'To be paid to government' : 'Refundable from government'}
+                    </p>
+                  </div>
+                  <span className={`text-2xl font-bold ${data.summary.netGST >= 0 ? 'text-purple-600' : 'text-blue-600'}`}>
+                    {formatCurrency(Math.abs(data.summary.netGST))}
+                  </span>
+                </div>
+              </div>
+              <div className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mt-4">
+                <p className="text-sm text-yellow-800">
+                  <strong>Note:</strong> This is a calculated estimate. Please verify with your accountant before filing GST returns.
+                </p>
+              </div>
             </div>
-            <p className="text-xs text-slate-500 mt-1">
-              {data.summary.netGST >= 0 ? 'Payable' : 'Refund'}
-            </p>
-          </CardContent>
-        </Card>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* GST Summary */}
