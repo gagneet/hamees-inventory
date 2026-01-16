@@ -10,6 +10,121 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Arrears Management & Discount System (v0.9.0)
+
+**What's New:**
+- **View Arrears Button** - One-click toggle to filter orders with outstanding balance
+- **ARREARS Badge** - Red visual indicator on delivered orders with balance > 0
+- **Owner Discount System** - Apply discounts to clear or reduce outstanding balances
+- **Auto-Populated Discounts** - Discount field pre-filled with balance amount in bold red text
+- **Balance Outstanding Filter** - Advanced filter with multi-operator support (gt, gte, lt, lte, eq)
+- **Complete Audit Trail** - All discount applications logged with reason, user, and timestamp
+- **Color-Coded Balances** - Red (arrears), Orange (pending), Green (paid)
+
+**New Features:**
+
+1. **Balance Outstanding Filter System**
+   - **Quick Toggle Button** - "View Arrears" next to "New Order" button
+   - Red outline when inactive, solid red when active
+   - Mobile-responsive: "Arrears" ↔ "All" on small screens
+   - URL parameter support: `?balanceAmount=gt:0` for bookmarking
+   - Advanced filter checkbox in filters section
+   - Works with all existing filters (status, date, fabric, etc.)
+
+2. **ARREARS Visual Indicators**
+   - **Badge Display** - Red "ARREARS" badge on order cards and detail pages
+   - **Condition** - Shows when `status === 'DELIVERED' && balanceAmount > 0`
+   - **Color Coding**:
+     - Red text: Arrears (delivered with outstanding balance)
+     - Orange text: Pending payment (not yet delivered)
+     - Green text: Fully paid (balance = 0)
+
+3. **Owner-Exclusive Discount Application**
+   - **Access Control** - Only OWNER role can apply discounts
+   - **Apply Discount Dialog**:
+     - Yellow button on order detail page
+     - Current balance summary (blue info box)
+     - Auto-populated discount field with balance amount
+     - Bold red text (text-lg, font-bold, text-red-600)
+     - Mandatory discount reason field
+     - Real-time new balance preview
+   - **Use Cases**:
+     - Cash payments settled outside system
+     - Customer loyalty discounts
+     - Small balance write-offs
+     - Payment reconciliation
+
+4. **Enhanced Payment Summary**
+   - Shows Total, Advance, Discount (if > 0), Balance
+   - Discount reason displayed in yellow highlight box
+   - ARREARS badge inline with balance on detail page
+   - All amounts formatted to 2 decimal places
+
+**API Endpoints Added:**
+- `GET /api/orders?balanceAmount=gt:0` - Filter by balance amount
+  - Operators: gt, gte, lt, lte, eq
+  - Example: `?balanceAmount=gte:5000` (balance ≥ ₹5000)
+  - Combine: `?status=DELIVERED&balanceAmount=gt:0` (arrears only)
+
+**API Endpoints Enhanced:**
+- `PATCH /api/orders/[id]` - Added discount and discountReason fields
+  - Auto-recalculates: `balanceAmount = totalAmount - advancePaid - discount`
+  - Creates OrderHistory entry for audit trail
+  - Validates: 0 ≤ discount ≤ totalAmount
+
+**Database Schema Changes:**
+```prisma
+model Order {
+  discount        Float    @default(0)   // Discount given by owner
+  discountReason  String?                // Reason for discount (audit)
+}
+```
+
+**Usage Examples:**
+
+```bash
+# Find all arrears
+Click "View Arrears" button or visit:
+https://hamees.gagneet.com/orders?balanceAmount=gt:0
+
+# Find delivered orders with arrears
+https://hamees.gagneet.com/orders?status=DELIVERED&balanceAmount=gt:0
+
+# Find high-value arrears (over ₹5000)
+https://hamees.gagneet.com/orders?balanceAmount=gte:5000
+```
+
+**Clear Arrears Workflow:**
+1. Open order with ARREARS badge
+2. Click "Apply Discount" (yellow button, OWNER only)
+3. Discount field shows balance amount in red (e.g., ₹2,500.00)
+4. Enter reason: "Cash payment settled on delivery"
+5. Click "Apply Discount"
+6. Balance cleared, ARREARS badge removed
+7. Audit trail created in Order History
+
+**Files Modified:**
+- `prisma/schema.prisma` - Added discount fields to Order model
+- `app/api/orders/route.ts` - Added balanceAmount filter logic
+- `app/api/orders/[id]/route.ts` - Added discount update with audit trail
+- `app/(dashboard)/orders/page.tsx` - View Arrears button + ARREARS badges
+- `app/(dashboard)/orders/[id]/page.tsx` - Enhanced payment summary
+- `components/orders/order-actions.tsx` - Apply Discount dialog
+
+**Files Added:**
+- `docs/ARREARS_MANAGEMENT_SYSTEM.md` - Complete documentation with API reference, usage guide, testing scenarios
+
+**Documentation:**
+See `docs/ARREARS_MANAGEMENT_SYSTEM.md` for:
+- Complete API reference
+- Security & access control details
+- Usage guide for owners and staff
+- Testing scenarios
+- Troubleshooting guide
+- Future enhancement ideas
+
+---
+
 ### ✅ GST Integration & Dashboard Enhancements (v0.8.2)
 
 **What's New:**
