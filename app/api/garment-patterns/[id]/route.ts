@@ -59,7 +59,7 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAnyPermission(['manage_inventory'])
+  const { error } = await requireAnyPermission(['manage_garment_types'])
   if (error) return error
 
   try {
@@ -128,7 +128,7 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAnyPermission(['manage_inventory'])
+  const { error } = await requireAnyPermission(['delete_garment_type'])
   if (error) return error
 
   try {

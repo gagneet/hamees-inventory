@@ -44,7 +44,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { error } = await requireAnyPermission(['manage_inventory'])
+  const { error } = await requireAnyPermission(['manage_garment_types'])
   if (error) return error
 
   try {

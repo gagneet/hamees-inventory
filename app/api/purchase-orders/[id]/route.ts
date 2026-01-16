@@ -41,7 +41,7 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { session, error } = await requireAnyPermission(['manage_inventory'])
+  const { session, error } = await requireAnyPermission(['delete_purchase_order'])
   if (error) return error
 
   try {

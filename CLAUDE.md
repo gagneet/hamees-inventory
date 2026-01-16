@@ -10,6 +10,182 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Granular Role-Based Access Control (v0.13.0)
+
+**What's New:**
+- **Granular Delete Permissions** - Separate delete permissions prevent OWNER from deleting data
+- **Dynamic Navigation** - Menu items filtered based on user role permissions
+- **Admin Settings Page** - Complete user management interface for ADMIN role
+- **Enhanced Permission Matrix** - 39 granular permissions across 6 roles with strict access control
+- **API Permission Guards** - All delete endpoints now check specific delete permissions
+
+**New Features:**
+
+1. **Granular Delete Permissions** (`lib/permissions.ts`)
+   - **New Permissions**:
+     - `delete_customer` - Only ADMIN can delete customers
+     - `delete_measurement` - Only ADMIN can delete measurements
+     - `delete_garment_type` - Only ADMIN can delete garment types
+     - `delete_purchase_order` - Only ADMIN can delete purchase orders
+   - **OWNER Restrictions**: OWNER has full manage access but CANNOT delete any data
+   - **ADMIN Exclusivity**: Only ADMIN role has all delete permissions
+   - **Permission Count**: Expanded from 27 to 39 total permissions
+
+2. **Role-Specific Access Control**
+   - **OWNER**:
+     - ✓ Full CRUD for inventory, orders, customers, POs, garments
+     - ✓ View dashboard, reports, alerts, expenses
+     - ✗ Cannot delete any data (customers, measurements, orders, inventory, garments, POs)
+     - ✗ Cannot manage users or modify application settings
+     - ✗ Cannot perform bulk uploads
+   - **ADMIN**:
+     - ✓ Complete system access including all delete operations
+     - ✓ User management (create, update, activate/deactivate users)
+     - ✓ Application settings and configuration
+     - ✓ Bulk data upload/import
+   - **INVENTORY_MANAGER**:
+     - ✓ View: Inventory, Purchase Orders, Garments, Suppliers, Alerts
+     - ✓ Manage: All inventory operations, POs, garment types, supplier data
+     - ✗ No access to: Dashboard, Orders, Customers, Expenses
+   - **SALES_MANAGER**:
+     - ✓ View: Dashboard, Orders, Customers, Garments, Reports, Alerts
+     - ✓ Manage: Orders, customers, measurements, garment types
+     - ✗ No access to: Inventory, Purchase Orders, Expenses
+   - **TAILOR**:
+     - ✓ View: Dashboard, Inventory, Orders, Customers, POs, Garments, Alerts
+     - ✓ Manage: Order status updates, measurements, create orders/POs
+     - ✗ No access to: Expenses, cannot update customer details
+   - **VIEWER**:
+     - ✓ Read-only: Dashboard, Inventory, Orders, Customers, Alerts
+     - ✗ Cannot create, update, or delete anything
+
+3. **Dynamic Navigation Filtering** (`components/DashboardLayout.tsx`)
+   - **Permission-Based Menu**: Sidebar items automatically filtered based on user role
+   - **New Menu Items**:
+     - "Bulk Upload" - Only visible to ADMIN (requires `bulk_upload` permission)
+     - "Admin Settings" - Only visible to ADMIN (requires `manage_settings` permission)
+   - **Implementation**: Uses `hasPermission(userRole, permission)` check for each nav item
+   - **Applies To**: Both desktop sidebar and mobile navigation sheet
+   - **Type-Safe**: NavItem type includes required Permission for each route
+
+4. **Admin Settings Page** (`app/(dashboard)/admin/settings/page.tsx`)
+   - **Access Control**: Only accessible to ADMIN role (403 error for others)
+   - **User Management Table**: View all system users with name, email, role, status
+   - **Add User Dialog**:
+     - Create new users with role assignment
+     - Password validation (minimum 6 characters)
+     - Email uniqueness check
+     - Auto-hashing with bcryptjs
+   - **Edit User Dialog**:
+     - Update name, email, role
+     - Optional password reset (leave blank to keep current)
+     - Email change validation (prevent duplicates)
+   - **Activate/Deactivate Users**: Toggle user access without deleting accounts
+   - **Role Permissions Reference**: Shows detailed permission descriptions for all 6 roles
+   - **Responsive Design**: Mobile-optimized with scroll support
+
+5. **API Permission Updates** (7 endpoints modified)
+   - **Delete Endpoints**:
+     - `DELETE /api/customers/[id]` → Requires `delete_customer`
+     - `DELETE /api/measurements/[id]` → Requires `delete_measurement`
+     - `DELETE /api/customers/[id]/measurements/[measurementId]` → Requires `delete_measurement`
+     - `DELETE /api/garment-patterns/[id]` → Requires `delete_garment_type`
+     - `DELETE /api/purchase-orders/[id]` → Requires `delete_purchase_order`
+     - `DELETE /api/installments/[id]` → Requires `delete_order`
+   - **Manage Endpoints**:
+     - `POST/PATCH /api/garment-patterns/*` → Requires `manage_garment_types` (was `manage_inventory`)
+     - `PATCH /api/measurements/[id]` → Requires `manage_measurements` (was `manage_customers`)
+     - `PATCH /api/customers/[id]/measurements/[measurementId]` → Requires `manage_measurements`
+
+**New API Endpoints:**
+- `GET /api/admin/users` - List all users (ADMIN only)
+  - **Returns**: Array of users with id, name, email, role, active status, timestamps
+  - **Permission**: `manage_users`
+
+- `POST /api/admin/users` - Create new user (ADMIN only)
+  - **Body**: `{ name, email, password, role }`
+  - **Validation**: Email uniqueness, password length (min 6), valid role enum
+  - **Returns**: Created user object (excludes password)
+  - **Permission**: `manage_users`
+
+- `GET /api/admin/users/[id]` - Get single user (ADMIN only)
+  - **Returns**: User object with full details
+  - **Permission**: `manage_users`
+
+- `PATCH /api/admin/users/[id]` - Update user (ADMIN only)
+  - **Body**: `{ name?, email?, password?, role?, active? }`
+  - **Features**: Optional password reset, email change validation, role updates
+  - **Returns**: Updated user object
+  - **Permission**: `manage_users`
+
+**Files Added:**
+- `app/api/admin/users/route.ts` - User management API (list, create)
+- `app/api/admin/users/[id]/route.ts` - Individual user API (get, update)
+- `app/(dashboard)/admin/settings/page.tsx` - Admin settings UI with user management
+
+**Files Modified:**
+- `lib/permissions.ts` - Added 4 delete permissions, updated all role matrices
+- `components/DashboardLayout.tsx` - Dynamic navigation filtering based on permissions
+- `app/api/customers/[id]/route.ts` - DELETE uses `delete_customer`
+- `app/api/measurements/[id]/route.ts` - DELETE uses `delete_measurement`, PATCH uses `manage_measurements`
+- `app/api/customers/[id]/measurements/[measurementId]/route.ts` - DELETE uses `delete_measurement`, PATCH uses `manage_measurements`
+- `app/api/garment-patterns/[id]/route.ts` - DELETE uses `delete_garment_type`, PATCH uses `manage_garment_types`
+- `app/api/garment-patterns/route.ts` - POST uses `manage_garment_types`
+- `app/api/purchase-orders/[id]/route.ts` - DELETE uses `delete_purchase_order`
+- `app/api/installments/[id]/route.ts` - DELETE uses `delete_order`, added requireAnyPermission import
+
+**Testing Checklist:**
+```bash
+# ADMIN - Should see all menu items + delete buttons
+admin@hameesattire.com / admin123
+
+# OWNER - Should NOT see Admin Settings, Bulk Upload, or delete buttons
+owner@hameesattire.com / admin123
+
+# INVENTORY_MANAGER - Should only see Inventory, POs, Garments, Suppliers, Alerts
+inventory@hameesattire.com / admin123
+
+# SALES_MANAGER - Should only see Dashboard, Orders, Customers, Garments, Reports, Alerts
+sales@hameesattire.com / admin123
+
+# TAILOR - Should NOT see Expenses
+tailor@hameesattire.com / admin123
+
+# VIEWER - Should see Dashboard, Inventory, Orders, Customers, Alerts (read-only)
+viewer@hameesattire.com / admin123
+```
+
+**Permission Matrix Summary:**
+| Permission | OWNER | ADMIN | INV_MGR | SALES_MGR | TAILOR | VIEWER |
+|------------|-------|-------|---------|-----------|--------|--------|
+| view_dashboard | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ |
+| manage_inventory | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ |
+| delete_inventory | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ |
+| manage_orders | ✓ | ✓ | ✗ | ✓ | ✗ | ✗ |
+| delete_order | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ |
+| manage_customers | ✓ | ✓ | ✗ | ✓ | ✗ | ✗ |
+| delete_customer | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ |
+| manage_measurements | ✓ | ✓ | ✗ | ✓ | ✓ | ✗ |
+| delete_measurement | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ |
+| manage_purchase_orders | ✓ | ✓ | ✓ | ✗ | ✓ | ✗ |
+| delete_purchase_order | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ |
+| view_expenses | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ |
+| manage_garment_types | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ |
+| delete_garment_type | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ |
+| manage_users | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ |
+| manage_settings | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ |
+| bulk_upload | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ |
+
+**Security Improvements:**
+- OWNER can no longer accidentally delete critical data
+- ADMIN has full control for data cleanup and maintenance
+- Permission checks enforced at both UI and API levels
+- TypeScript type safety for all permission checks
+- Clear separation of concerns between roles
+- Audit trail maintained through existing OrderHistory system
+
+---
+
 ### ✅ Order Management Enhancements & UI Fixes (v0.12.0)
 
 **What's New:**

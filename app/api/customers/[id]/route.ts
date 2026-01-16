@@ -100,7 +100,7 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAnyPermission(['manage_customers'])
+  const { error } = await requireAnyPermission(['delete_customer'])
   if (error) return error
 
   try {

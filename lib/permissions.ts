@@ -18,19 +18,62 @@ export type Permission =
   | 'update_order_status'
   | 'view_customers'
   | 'manage_customers'
+  | 'delete_customer'
+  | 'manage_measurements'
+  | 'delete_measurement'
   | 'view_suppliers'
   | 'manage_suppliers'
+  | 'view_purchase_orders'
+  | 'manage_purchase_orders'
+  | 'delete_purchase_order'
+  | 'view_expenses'
+  | 'manage_expenses'
+  | 'view_garment_types'
+  | 'manage_garment_types'
+  | 'delete_garment_type'
   | 'view_reports'
   | 'manage_users'
   | 'manage_settings'
   | 'view_alerts'
   | 'manage_alerts'
+  | 'bulk_upload'
 
 /**
  * Permission matrix for each role
  */
 const rolePermissions: Record<UserRole, Permission[]> = {
   OWNER: [
+    // Full access except manage_settings and delete permissions
+    'view_dashboard',
+    'view_inventory',
+    'manage_inventory',
+    'add_inventory',
+    // NO delete_inventory
+    'view_orders',
+    'create_order',
+    'update_order',
+    // NO delete_order
+    'update_order_status',
+    'view_customers',
+    'manage_customers',
+    'manage_measurements',
+    'view_suppliers',
+    'manage_suppliers',
+    'view_purchase_orders',
+    'manage_purchase_orders',
+    'view_expenses',
+    'manage_expenses',
+    'view_garment_types',
+    'manage_garment_types',
+    'view_reports',
+    // NO manage_users - only ADMIN can manage users
+    // NO manage_settings - cannot modify application parameters
+    'view_alerts',
+    'manage_alerts',
+    // NO bulk_upload
+  ],
+  ADMIN: [
+    // Full access including settings, users, delete, and bulk upload
     'view_dashboard',
     'view_inventory',
     'manage_inventory',
@@ -43,65 +86,70 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     'update_order_status',
     'view_customers',
     'manage_customers',
+    'delete_customer',
+    'manage_measurements',
+    'delete_measurement',
     'view_suppliers',
     'manage_suppliers',
+    'view_purchase_orders',
+    'manage_purchase_orders',
+    'delete_purchase_order',
+    'view_expenses',
+    'manage_expenses',
+    'view_garment_types',
+    'manage_garment_types',
+    'delete_garment_type',
     'view_reports',
     'manage_users',
     'manage_settings',
     'view_alerts',
     'manage_alerts',
-  ],
-  ADMIN: [
-    'view_dashboard',
-    'view_inventory',
-    'manage_inventory',
-    'add_inventory',
-    'delete_inventory',
-    'view_orders',
-    'create_order',
-    'update_order',
-    'delete_order',
-    'update_order_status',
-    'view_customers',
-    'manage_customers',
-    'view_suppliers',
-    'manage_suppliers',
-    'view_reports',
-    'view_alerts',
-    'manage_alerts',
+    'bulk_upload',
   ],
   INVENTORY_MANAGER: [
-    'view_dashboard',
+    // Only inventory, POs, garments, suppliers - NO orders, customers, expenses, dashboard
     'view_inventory',
     'manage_inventory',
     'add_inventory',
-    'view_orders',
-    'view_customers',
+    'view_purchase_orders',
+    'manage_purchase_orders',
+    'view_garment_types',
+    'manage_garment_types',
     'view_suppliers',
     'manage_suppliers',
     'view_alerts',
   ],
   SALES_MANAGER: [
+    // Only orders, customers, garments - NO inventory, POs, expenses
     'view_dashboard',
-    'view_inventory',
     'view_orders',
     'create_order',
     'update_order',
     'update_order_status',
     'view_customers',
     'manage_customers',
+    'manage_measurements',
+    'view_garment_types',
+    'manage_garment_types',
     'view_reports',
     'view_alerts',
   ],
   TAILOR: [
+    // Can see most things except expenses, can create orders/POs, manage measurements
     'view_dashboard',
     'view_inventory',
     'view_orders',
+    'create_order',
     'update_order_status',
     'view_customers',
+    'manage_measurements',
+    'view_purchase_orders',
+    'manage_purchase_orders',
+    'view_garment_types',
     'view_alerts',
   ],
   VIEWER: [
+    // Read-only: dashboard, inventory, customers, orders
     'view_dashboard',
     'view_inventory',
     'view_orders',
@@ -148,12 +196,12 @@ export function getRolePermissions(role: UserRole): Permission[] {
  * Role descriptions for UI display
  */
 export const roleDescriptions: Record<UserRole, string> = {
-  OWNER: 'Full system access with all permissions',
-  ADMIN: 'Administrative access excluding user management',
-  INVENTORY_MANAGER: 'Manage inventory and suppliers',
-  SALES_MANAGER: 'Manage orders and customers',
-  TAILOR: 'Update order status and view information',
-  VIEWER: 'Read-only access to all data',
+  OWNER: 'Full access to all features except settings and delete operations',
+  ADMIN: 'Full administrative access including user management, settings, and delete operations',
+  INVENTORY_MANAGER: 'Manage inventory, purchase orders, garments, and suppliers only',
+  SALES_MANAGER: 'Manage orders, customers, and garment types only',
+  TAILOR: 'Create orders/POs, manage measurements, view information (no expenses)',
+  VIEWER: 'Read-only access to dashboard, inventory, customers, and orders',
 }
 
 /**

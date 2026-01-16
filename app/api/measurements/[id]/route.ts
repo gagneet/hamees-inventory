@@ -63,7 +63,7 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAnyPermission(['manage_customers'])
+  const { error } = await requireAnyPermission(['manage_measurements'])
   if (error) return error
 
   try {
@@ -97,7 +97,7 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAnyPermission(['manage_customers'])
+  const { error } = await requireAnyPermission(['delete_measurement'])
   if (error) return error
 
   try {

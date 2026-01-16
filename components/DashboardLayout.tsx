@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,22 +17,42 @@ import {
   TrendingUp,
   ShoppingCart,
   Shirt,
+  Upload,
+  Settings,
 } from 'lucide-react';
 import Image from 'next/image';
 import { SignOutButton } from './dashboard/sign-out-button';
+import { hasPermission, Permission } from '@/lib/permissions';
+import { UserRole } from '@prisma/client';
 
-const navItems = [
-  { href: '/dashboard', icon: Home, label: 'Dashboard' },
-  { href: '/inventory', icon: Package, label: 'Inventory' },
-  { href: '/orders', icon: ShoppingBag, label: 'Orders' },
-  { href: '/customers', icon: Users, label: 'Customers' },
-  { href: '/garment-types', icon: Shirt, label: 'Garment Types' },
-  { href: '/purchase-orders', icon: ShoppingCart, label: 'Purchase Orders' },
-  { href: '/expenses', icon: TrendingUp, label: 'Expenses' },
-  { href: '/alerts', icon: AlertCircle, label: 'Alerts' },
+type NavItem = {
+  href: string;
+  icon: any;
+  label: string;
+  permission: Permission;
+}
+
+const allNavItems: NavItem[] = [
+  { href: '/dashboard', icon: Home, label: 'Dashboard', permission: 'view_dashboard' },
+  { href: '/inventory', icon: Package, label: 'Inventory', permission: 'view_inventory' },
+  { href: '/orders', icon: ShoppingBag, label: 'Orders', permission: 'view_orders' },
+  { href: '/customers', icon: Users, label: 'Customers', permission: 'view_customers' },
+  { href: '/garment-types', icon: Shirt, label: 'Garment Types', permission: 'view_garment_types' },
+  { href: '/purchase-orders', icon: ShoppingCart, label: 'Purchase Orders', permission: 'view_purchase_orders' },
+  { href: '/expenses', icon: TrendingUp, label: 'Expenses', permission: 'view_expenses' },
+  { href: '/alerts', icon: AlertCircle, label: 'Alerts', permission: 'view_alerts' },
+  { href: '/bulk-upload', icon: Upload, label: 'Bulk Upload', permission: 'bulk_upload' },
+  { href: '/admin/settings', icon: Settings, label: 'Admin Settings', permission: 'manage_settings' },
 ];
 
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
+  const { data: session } = useSession();
+  const userRole = session?.user?.role as UserRole;
+
+  // Filter navigation items based on user permissions
+  const navItems = allNavItems.filter(item =>
+    userRole && hasPermission(userRole, item.permission)
+  );
   return (
     <div className="min-h-screen w-full">
       {/* Fixed Sidebar for Desktop */}

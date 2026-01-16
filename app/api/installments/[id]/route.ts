@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { requireAnyPermission } from '@/lib/api-permissions'
 import { z } from 'zod'
 
 const updateInstallmentSchema = z.object({
@@ -137,12 +138,10 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const session = await auth()
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+  const { error } = await requireAnyPermission(['delete_order'])
+  if (error) return error
 
+  try {
     const { id } = await params
 
     // Check if installment exists
