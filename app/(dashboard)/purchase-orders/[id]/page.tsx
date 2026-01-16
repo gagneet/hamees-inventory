@@ -156,7 +156,7 @@ export default function PurchaseOrderDetailPage({
     try {
       const response = await fetch('/api/inventory/cloth')
       const data = await response.json()
-      setClothInventory(data.clothItems || [])
+      setClothInventory(data.items || data.clothInventory || [])
     } catch (error) {
       console.error('Error fetching cloth inventory:', error)
     }
@@ -166,7 +166,7 @@ export default function PurchaseOrderDetailPage({
     try {
       const response = await fetch('/api/inventory/accessories')
       const data = await response.json()
-      setAccessoryInventory(data.accessories || [])
+      setAccessoryInventory(data.items || data.accessories || [])
     } catch (error) {
       console.error('Error fetching accessory inventory:', error)
     }
