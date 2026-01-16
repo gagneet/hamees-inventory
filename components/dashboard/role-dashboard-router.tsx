@@ -1,12 +1,37 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { TailorDashboard } from './tailor-dashboard'
-import { InventoryManagerDashboard } from './inventory-manager-dashboard'
-import { SalesManagerDashboard } from './sales-manager-dashboard'
-import { OwnerDashboard } from './owner-dashboard'
+import dynamic from 'next/dynamic'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loader2 } from 'lucide-react'
+
+// Dynamic imports for dashboard components (bundle size optimization)
+const TailorDashboard = dynamic(() => import('./tailor-dashboard').then(mod => ({ default: mod.TailorDashboard })), {
+  loading: () => <DashboardLoader />
+})
+
+const InventoryManagerDashboard = dynamic(() => import('./inventory-manager-dashboard').then(mod => ({ default: mod.InventoryManagerDashboard })), {
+  loading: () => <DashboardLoader />
+})
+
+const SalesManagerDashboard = dynamic(() => import('./sales-manager-dashboard').then(mod => ({ default: mod.SalesManagerDashboard })), {
+  loading: () => <DashboardLoader />
+})
+
+const OwnerDashboard = dynamic(() => import('./owner-dashboard').then(mod => ({ default: mod.OwnerDashboard })), {
+  loading: () => <DashboardLoader />
+})
+
+function DashboardLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-[400px]">
+      <div className="text-center">
+        <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
+        <p className="text-slate-600">Loading dashboard components...</p>
+      </div>
+    </div>
+  )
+}
 
 interface RoleDashboardRouterProps {
   userRole: string
