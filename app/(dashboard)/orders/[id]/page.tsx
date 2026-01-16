@@ -20,6 +20,7 @@ import { OrderActions } from '@/components/orders/order-actions'
 import { OrderHistory } from '@/components/orders/order-history'
 import { PaymentInstallments } from '@/components/payment-installments'
 import { OrderItemEdit } from '@/components/orders/order-item-edit'
+import { SplitOrderDialog } from '@/components/orders/split-order-dialog'
 
 async function getOrderDetails(id: string) {
   try {
@@ -525,6 +526,14 @@ export default async function OrderDetailPage({
                 totalAmount={order.totalAmount}
                 userRole={session.user.role}
               />
+              {order.items.length > 1 && order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
+                <SplitOrderDialog
+                  orderId={order.id}
+                  orderNumber={order.orderNumber}
+                  items={order.items}
+                  currentDeliveryDate={order.deliveryDate}
+                />
+              )}
               <Button className="w-full" variant="outline" size="sm">
                 Print Invoice
               </Button>
