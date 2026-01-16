@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { ShoppingBag, Plus, Filter, Calendar, User, Home, X } from 'lucide-react'
+import { ShoppingBag, Plus, Filter, Calendar, User, Home, X, DollarSign } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -57,6 +57,7 @@ function OrdersContent() {
   const [deliveryDateFrom, setDeliveryDateFrom] = useState('')
   const [deliveryDateTo, setDeliveryDateTo] = useState('')
   const [isOverdue, setIsOverdue] = useState(false)
+  const [balanceOutstanding, setBalanceOutstanding] = useState(false)
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
 
   // Initialize filter states from URL params on mount
@@ -70,6 +71,7 @@ function OrdersContent() {
     setDeliveryDateFrom(searchParams.get('deliveryDateFrom') || '')
     setDeliveryDateTo(searchParams.get('deliveryDateTo') || '')
     setIsOverdue(searchParams.get('isOverdue') === 'true')
+    setBalanceOutstanding(searchParams.get('balanceAmount') === 'gt:0')
   }, [searchParams])
 
   // Debounce search term
@@ -111,6 +113,7 @@ function OrdersContent() {
         if (deliveryDateFrom) params.append('deliveryDateFrom', deliveryDateFrom)
         if (deliveryDateTo) params.append('deliveryDateTo', deliveryDateTo)
         if (isOverdue) params.append('isOverdue', 'true')
+        if (balanceOutstanding) params.append('balanceAmount', 'gt:0')
 
         const response = await fetch(`/api/orders?${params.toString()}`)
         const data = await response.json()
@@ -126,7 +129,7 @@ function OrdersContent() {
     }
 
     fetchOrders()
-  }, [status, debouncedSearch, fabricId, minAmount, maxAmount, deliveryDateFrom, deliveryDateTo, isOverdue])
+  }, [status, debouncedSearch, fabricId, minAmount, maxAmount, deliveryDateFrom, deliveryDateTo, isOverdue, balanceOutstanding])
 
   const clearFilters = () => {
     setStatus('')
@@ -137,9 +140,10 @@ function OrdersContent() {
     setDeliveryDateFrom('')
     setDeliveryDateTo('')
     setIsOverdue(false)
+    setBalanceOutstanding(false)
   }
 
-  const hasActiveFilters = status || searchTerm || fabricId || minAmount || maxAmount || deliveryDateFrom || deliveryDateTo || isOverdue
+  const hasActiveFilters = status || searchTerm || fabricId || minAmount || maxAmount || deliveryDateFrom || deliveryDateTo || isOverdue || balanceOutstanding
 
   return (
     <DashboardLayout>
@@ -162,14 +166,27 @@ function OrdersContent() {
           <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">Orders</h1>
           <p className="text-xs md:text-sm text-slate-600 dark:text-slate-300">{orders.length} total orders</p>
         </div>
-        <PermissionGuard permission="create_order">
-          <Link href="/orders/new">
-            <Button size="sm" className="gap-2">
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">New Order</span>
-            </Button>
-          </Link>
-        </PermissionGuard>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant={balanceOutstanding ? "default" : "outline"}
+            className={`gap-2 ${balanceOutstanding ? 'bg-red-600 hover:bg-red-700' : 'border-red-300 text-red-600 hover:bg-red-50'}`}
+            onClick={() => setBalanceOutstanding(!balanceOutstanding)}
+          >
+            <DollarSign className="h-4 w-4" />
+            <span className="hidden sm:inline">{balanceOutstanding ? 'Show All' : 'View Arrears'}</span>
+            <span className="sm:hidden">{balanceOutstanding ? 'All' : 'Arrears'}</span>
+          </Button>
+          <PermissionGuard permission="create_order">
+            <Link href="/orders/new">
+              <Button size="sm" className="gap-2">
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">New Order</span>
+                <span className="sm:hidden">New</span>
+              </Button>
+            </Link>
+          </PermissionGuard>
+        </div>
       </div>
 
       {/* Main Content */}
@@ -307,6 +324,19 @@ function OrdersContent() {
                         <span className="text-sm font-medium text-slate-700">Show Overdue Only</span>
                       </label>
                     </div>
+
+                    {/* Balance Outstanding Checkbox */}
+                    <div className="flex items-end">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
+                          checked={balanceOutstanding}
+                          onChange={(e) => setBalanceOutstanding(e.target.checked)}
+                        />
+                        <span className="text-sm font-medium text-slate-700">Balance Outstanding</span>
+                      </label>
+                    </div>
                   </div>
                 </div>
               )}
@@ -352,6 +382,7 @@ function OrdersContent() {
               const statusStyle = statusColors[order.status as OrderStatus]
               const deliveryDate = new Date(order.deliveryDate)
               const isOverdue = deliveryDate < new Date() && order.status !== 'DELIVERED' && order.status !== 'CANCELLED'
+              const isArrears = order.status === 'DELIVERED' && order.balanceAmount > 0
 
               return (
                 <Link key={order.id} href={`/orders/${order.id}`}>
@@ -362,11 +393,18 @@ function OrdersContent() {
                           <CardTitle className="text-base md:text-lg">{order.orderNumber}</CardTitle>
                           <p className="text-sm text-slate-600 mt-1">{order.customer.name}</p>
                         </div>
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-medium border ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border}`}
-                        >
-                          {statusLabels[order.status as OrderStatus]}
-                        </span>
+                        <div className="flex flex-col items-end gap-2">
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-medium border ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border}`}
+                          >
+                            {statusLabels[order.status as OrderStatus]}
+                          </span>
+                          {isArrears && (
+                            <span className="px-3 py-1 rounded-full text-xs font-bold border bg-red-100 text-red-700 border-red-300">
+                              ARREARS
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </CardHeader>
                     <CardContent>
@@ -379,7 +417,7 @@ function OrdersContent() {
                         </div>
                         <div>
                           <p className="text-slate-500 mb-1">Balance</p>
-                          <p className="font-semibold text-slate-900">
+                          <p className={`font-semibold ${isArrears ? 'text-red-600' : 'text-slate-900'}`}>
                             ₹{order.balanceAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                           </p>
                         </div>

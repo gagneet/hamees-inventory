@@ -296,6 +296,8 @@ model Order {
 
   totalAmount     Float
   advancePaid     Float        @default(0)
+  discount        Float        @default(0)   // Discount given by owner
+  discountReason  String?                    // Reason for discount
   balanceAmount   Float
 
   // GST fields

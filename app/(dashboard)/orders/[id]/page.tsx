@@ -20,14 +20,31 @@ import { OrderActions } from '@/components/orders/order-actions'
 import { OrderHistory } from '@/components/orders/order-history'
 import { PaymentInstallments } from '@/components/payment-installments'
 
-type OrderDetails = NonNullable<Awaited<ReturnType<typeof getOrderDetails>>>
-type OrderItem = OrderDetails['items'][number]
-
 async function getOrderDetails(id: string) {
   try {
     const order = await prisma.order.findUnique({
       where: { id },
-      include: {
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        priority: true,
+        deliveryDate: true,
+        createdAt: true,
+        completedDate: true,
+        totalAmount: true,
+        advancePaid: true,
+        discount: true,
+        discountReason: true,
+        balanceAmount: true,
+        notes: true,
+        subTotal: true,
+        gstRate: true,
+        cgst: true,
+        sgst: true,
+        igst: true,
+        gstAmount: true,
+        customerId: true,
         customer: {
           select: {
             id: true,
@@ -80,7 +97,7 @@ async function getOrderDetails(id: string) {
             },
           },
           orderBy: {
-            createdAt: 'desc',
+            createdAt: 'desc' as const,
           },
         },
       },
@@ -92,6 +109,9 @@ async function getOrderDetails(id: string) {
     return null
   }
 }
+
+type OrderDetails = NonNullable<Awaited<ReturnType<typeof getOrderDetails>>>
+type OrderItem = OrderDetails['items'][number]
 
 export default async function OrderDetailPage({
   params,
@@ -384,12 +404,30 @@ export default async function OrderDetailPage({
                   {formatCurrency(order.advancePaid)}
                 </span>
               </div>
+              {order.discount > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-slate-600">Discount:</span>
+                  <span className="font-semibold text-yellow-600">
+                    {formatCurrency(order.discount)}
+                  </span>
+                </div>
+              )}
+              {order.discountReason && (
+                <div className="bg-yellow-50 p-2 rounded text-xs">
+                  <p className="text-yellow-800">
+                    <strong>Discount Reason:</strong> {order.discountReason}
+                  </p>
+                </div>
+              )}
               <div className="flex justify-between pt-3 border-t">
                 <span className="text-slate-600">Balance Due:</span>
                 <span className={`font-semibold text-lg ${
-                  order.balanceAmount > 0 ? 'text-orange-600' : 'text-green-600'
+                  order.balanceAmount > 0 ? (order.status === 'DELIVERED' ? 'text-red-600' : 'text-orange-600') : 'text-green-600'
                 }`}>
                   {formatCurrency(order.balanceAmount)}
+                  {order.status === 'DELIVERED' && order.balanceAmount > 0 && (
+                    <span className="text-xs ml-2 px-2 py-0.5 bg-red-100 text-red-700 rounded">ARREARS</span>
+                  )}
                 </span>
               </div>
               {order.balanceAmount > 0 && (
@@ -459,17 +497,18 @@ export default async function OrderDetailPage({
               <CardTitle>Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
-                <OrderActions
-                  orderId={order.id}
-                  currentStatus={order.status}
-                  deliveryDate={order.deliveryDate.toISOString()}
-                  advancePaid={order.advancePaid}
-                  notes={order.notes}
-                  priority={order.priority}
-                  totalAmount={order.totalAmount}
-                />
-              )}
+              <OrderActions
+                orderId={order.id}
+                currentStatus={order.status}
+                deliveryDate={order.deliveryDate.toISOString()}
+                advancePaid={order.advancePaid}
+                discount={order.discount || 0}
+                discountReason={order.discountReason}
+                notes={order.notes}
+                priority={order.priority}
+                totalAmount={order.totalAmount}
+                userRole={session.user.role}
+              />
               <Button className="w-full" variant="outline" size="sm">
                 Print Invoice
               </Button>

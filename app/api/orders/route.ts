@@ -44,6 +44,7 @@ export async function GET(request: Request) {
     const deliveryDateFrom = searchParams.get('deliveryDateFrom')
     const deliveryDateTo = searchParams.get('deliveryDateTo')
     const isOverdue = searchParams.get('isOverdue')
+    const balanceAmount = searchParams.get('balanceAmount')
 
     const where: any = {}
 
@@ -101,6 +102,36 @@ export async function GET(request: Request) {
       }
       where.status = {
         notIn: [OrderStatus.DELIVERED, OrderStatus.CANCELLED]
+      }
+    }
+
+    // Filter by balance amount (supports gt:0, gte:100, lt:500, lte:1000, eq:0)
+    if (balanceAmount) {
+      const [operator, value] = balanceAmount.split(':')
+      const numValue = parseFloat(value)
+
+      if (!isNaN(numValue)) {
+        where.balanceAmount = {}
+        switch (operator) {
+          case 'gt':
+            where.balanceAmount.gt = numValue
+            break
+          case 'gte':
+            where.balanceAmount.gte = numValue
+            break
+          case 'lt':
+            where.balanceAmount.lt = numValue
+            break
+          case 'lte':
+            where.balanceAmount.lte = numValue
+            break
+          case 'eq':
+            where.balanceAmount.equals = numValue
+            break
+          default:
+            // If no operator, treat as gt (greater than)
+            where.balanceAmount.gt = parseFloat(balanceAmount)
+        }
       }
     }
 

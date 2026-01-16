@@ -21,16 +21,19 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Edit, RefreshCw } from 'lucide-react'
+import { Edit, RefreshCw, Percent } from 'lucide-react'
 
 interface OrderActionsProps {
   orderId: string
   currentStatus: string
   deliveryDate: string
   advancePaid: number
+  discount: number
+  discountReason: string | null
   notes: string | null
   priority: string
   totalAmount: number
+  userRole: string
 }
 
 const statusOptions = [
@@ -49,13 +52,17 @@ export function OrderActions({
   currentStatus,
   deliveryDate,
   advancePaid,
+  discount,
+  discountReason,
   notes,
   priority,
   totalAmount,
+  userRole,
 }: OrderActionsProps) {
   const router = useRouter()
   const [statusDialogOpen, setStatusDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [discountDialogOpen, setDiscountDialogOpen] = useState(false)
   const [loading, setLoading] = useState(false)
 
   // Status update form
@@ -67,6 +74,13 @@ export function OrderActions({
     advancePaid: advancePaid.toString(),
     notes: notes || '',
     priority,
+  })
+
+  // Discount form - auto-populate with current balance amount
+  const currentBalance = totalAmount - advancePaid - discount
+  const [discountData, setDiscountData] = useState({
+    discount: currentBalance.toFixed(2),
+    discountReason: discountReason || '',
   })
 
   const handleStatusUpdate = async () => {
@@ -124,6 +138,40 @@ export function OrderActions({
     } catch (error) {
       console.error('Error updating order:', error)
       alert(error instanceof Error ? error.message : 'Failed to update order')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDiscountApply = async () => {
+    const discountValue = parseFloat(discountData.discount || '0')
+    if (discountValue < 0 || discountValue > totalAmount) {
+      alert('Discount must be between 0 and total amount')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          discount: discountValue,
+          discountReason: discountData.discountReason || null,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to apply discount')
+      }
+
+      alert('Discount applied successfully!')
+      setDiscountDialogOpen(false)
+      router.refresh()
+    } catch (error) {
+      console.error('Error applying discount:', error)
+      alert(error instanceof Error ? error.message : 'Failed to apply discount')
     } finally {
       setLoading(false)
     }
@@ -236,8 +284,8 @@ export function OrderActions({
                 }
               />
               <p className="text-xs text-slate-500 mt-1">
-                Total: ₹{totalAmount} | Balance: ₹
-                {totalAmount - parseFloat(editData.advancePaid || '0')}
+                Total: ₹{totalAmount.toFixed(2)} | Balance: ₹
+                {(totalAmount - parseFloat(editData.advancePaid || '0')).toFixed(2)}
               </p>
             </div>
             <div>
@@ -266,6 +314,78 @@ export function OrderActions({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Apply Discount Dialog (OWNER only) */}
+      {userRole === 'OWNER' && (
+        <Dialog open={discountDialogOpen} onOpenChange={setDiscountDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" className="bg-yellow-50 hover:bg-yellow-100">
+              <Percent className="mr-2 h-4 w-4" />
+              Apply Discount
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Apply Discount</DialogTitle>
+              <DialogDescription>
+                Reduce or clear the outstanding balance for this order
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="bg-blue-50 p-3 rounded-lg text-sm">
+                <p className="text-blue-900">
+                  <strong>Current Balance:</strong> ₹{(totalAmount - advancePaid - discount).toFixed(2)}
+                </p>
+                <p className="text-blue-700 text-xs mt-1">
+                  Total: ₹{totalAmount.toFixed(2)} | Advance: ₹{advancePaid.toFixed(2)} | Current Discount: ₹{discount.toFixed(2)}
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="discount">Discount Amount (₹)</Label>
+                <Input
+                  id="discount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max={totalAmount}
+                  value={discountData.discount}
+                  onChange={(e) =>
+                    setDiscountData({ ...discountData, discount: e.target.value })
+                  }
+                  className="text-red-600 font-bold text-lg"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  New Balance: ₹{(totalAmount - advancePaid - parseFloat(discountData.discount || '0')).toFixed(2)}
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="discountReason">Reason for Discount</Label>
+                <Textarea
+                  id="discountReason"
+                  value={discountData.discountReason}
+                  onChange={(e) =>
+                    setDiscountData({ ...discountData, discountReason: e.target.value })
+                  }
+                  placeholder="e.g., Cash payment settled, Customer loyalty discount, etc."
+                  rows={3}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setDiscountDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button onClick={handleDiscountApply} disabled={loading}>
+                  {loading ? 'Applying...' : 'Apply Discount'}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

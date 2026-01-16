@@ -6,6 +6,8 @@ import { z } from 'zod'
 const orderEditSchema = z.object({
   deliveryDate: z.string().datetime().optional(),
   advancePaid: z.number().nonnegative().optional(),
+  discount: z.number().nonnegative().optional(),
+  discountReason: z.string().nullish(),
   notes: z.string().nullish(),
   priority: z.enum(['NORMAL', 'URGENT']).optional(),
 })
@@ -56,6 +58,24 @@ export async function PATCH(
       })
     }
 
+    if (data.discount !== undefined && data.discount !== order.discount) {
+      changes.push({
+        field: 'discount',
+        oldValue: order.discount.toString(),
+        newValue: data.discount.toString(),
+        description: `Discount changed from ₹${order.discount} to ₹${data.discount}${data.discountReason ? ` (Reason: ${data.discountReason})` : ''}`,
+      })
+    }
+
+    if (data.discountReason !== undefined && data.discountReason !== order.discountReason) {
+      changes.push({
+        field: 'discountReason',
+        oldValue: order.discountReason || '(empty)',
+        newValue: data.discountReason || '(empty)',
+        description: 'Discount reason updated',
+      })
+    }
+
     if (data.notes !== undefined && data.notes !== order.notes) {
       changes.push({
         field: 'notes',
@@ -78,10 +98,10 @@ export async function PATCH(
       return NextResponse.json({ message: 'No changes detected' })
     }
 
-    // Calculate new balance if advance changed
-    const balanceAmount = data.advancePaid !== undefined
-      ? order.totalAmount - data.advancePaid
-      : order.balanceAmount
+    // Calculate new balance if advance or discount changed
+    const advancePaid = data.advancePaid ?? order.advancePaid
+    const discount = data.discount ?? order.discount
+    const balanceAmount = order.totalAmount - advancePaid - discount
 
     // Update order and create history in a transaction
     // @ts-ignore
@@ -92,6 +112,8 @@ export async function PATCH(
         data: {
           deliveryDate: data.deliveryDate ? new Date(data.deliveryDate) : order.deliveryDate,
           advancePaid: data.advancePaid ?? order.advancePaid,
+          discount: data.discount ?? order.discount,
+          discountReason: data.discountReason !== undefined ? data.discountReason : order.discountReason,
           balanceAmount,
           notes: data.notes !== undefined ? data.notes : order.notes,
           priority: data.priority ?? order.priority,
