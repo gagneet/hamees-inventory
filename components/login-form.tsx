@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { signIn } from 'next-auth/react'
+import { useState, useEffect } from 'react'
+import { signIn, useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,10 +10,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 
 export function LoginForm() {
   const router = useRouter()
+  const { data: session, status } = useSession()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+
+  // If user is already logged in, redirect to dashboard
+  useEffect(() => {
+    if (status === 'authenticated' && session) {
+      router.push('/dashboard')
+      router.refresh()
+    }
+  }, [status, session, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -29,13 +38,16 @@ export function LoginForm() {
 
       if (result?.error) {
         setError('Invalid email or password')
-      } else {
-        router.push('/dashboard')
-        router.refresh()
+        setIsLoading(false)
+      } else if (result?.ok) {
+        // Clear form
+        setEmail('')
+        setPassword('')
+        // Force a hard navigation to dashboard
+        window.location.href = '/dashboard'
       }
     } catch (error) {
       setError('An error occurred. Please try again.')
-    } finally {
       setIsLoading(false)
     }
   }
