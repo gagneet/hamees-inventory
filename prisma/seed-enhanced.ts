@@ -57,17 +57,57 @@ async function main() {
     },
   })
 
+  const admin = await prisma.user.create({
+    data: {
+      email: 'admin@hameesattire.com',
+      password: hashedPassword,
+      name: 'Admin User',
+      role: UserRole.ADMIN,
+      phone: '+91-8400008097',
+    },
+  })
+
   const inventoryManager = await prisma.user.create({
     data: {
       email: 'inventory@hameesattire.com',
       password: hashedPassword,
       name: 'Inventory Manager',
       role: UserRole.INVENTORY_MANAGER,
-      phone: '+91-8400008097',
+      phone: '+91-8400008098',
     },
   })
 
-  console.log('✅ Users created')
+  const salesManager = await prisma.user.create({
+    data: {
+      email: 'sales@hameesattire.com',
+      password: hashedPassword,
+      name: 'Sales Manager',
+      role: UserRole.SALES_MANAGER,
+      phone: '+91-8400008099',
+    },
+  })
+
+  const tailor = await prisma.user.create({
+    data: {
+      email: 'tailor@hameesattire.com',
+      password: hashedPassword,
+      name: 'Master Tailor',
+      role: UserRole.TAILOR,
+      phone: '+91-8400008100',
+    },
+  })
+
+  const viewer = await prisma.user.create({
+    data: {
+      email: 'viewer@hameesattire.com',
+      password: hashedPassword,
+      name: 'Viewer User',
+      role: UserRole.VIEWER,
+      phone: '+91-8400008101',
+    },
+  })
+
+  console.log('✅ Users created (6 roles)')
 
   // 2. Create Suppliers
   console.log('🏢 Creating suppliers...')
@@ -463,7 +503,9 @@ async function main() {
           userId: owner.id,
           status,
           priority: Math.random() > 0.8 ? OrderPriority.URGENT : OrderPriority.NORMAL,
+          orderDate,
           deliveryDate,
+          completedDate: status === OrderStatus.DELIVERED ? deliveryDate : null,
           totalAmount: itemTotal,
           advancePaid: itemTotal * 0.5,
           balanceAmount: itemTotal * 0.5,
@@ -571,7 +613,7 @@ async function main() {
 
   console.log('\n🎉 Enhanced seed completed successfully!')
   console.log('\n📊 Summary:')
-  console.log(`  Users: 2`)
+  console.log(`  Users: 6 (all roles)`)
   console.log(`  Suppliers: 2`)
   console.log(`  Cloth Items: ${clothItems.length}`)
   console.log(`  Accessories: 3`)
@@ -579,9 +621,13 @@ async function main() {
   console.log(`  Customers: ${totalCustomers}`)
   console.log(`  Orders: ${totalOrders}`)
   console.log(`  Settings: 7`)
-  console.log('\n🔑 Login Credentials:')
-  console.log(`  Email: owner@hameesattire.com`)
-  console.log(`  Password: admin123`)
+  console.log('\n🔑 Login Credentials (all use password: admin123):')
+  console.log(`  owner@hameesattire.com - OWNER (Full access)`)
+  console.log(`  admin@hameesattire.com - ADMIN (Administrative access)`)
+  console.log(`  inventory@hameesattire.com - INVENTORY_MANAGER`)
+  console.log(`  sales@hameesattire.com - SALES_MANAGER`)
+  console.log(`  tailor@hameesattire.com - TAILOR`)
+  console.log(`  viewer@hameesattire.com - VIEWER (Read-only)`)
   console.log(`\n🌐 Dashboard URL: https://hamees.gagneet.com/dashboard`)
 }
 
