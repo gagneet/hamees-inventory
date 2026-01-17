@@ -712,7 +712,10 @@ return (
   />
 )
                     </div>
-                    <span className="font-semibold text-lg">{getWastageInfo()!.efficiency}%</span>
+const wastageInfo = getWastageInfo()
+if (!wastageInfo) return null
+
+return <span className="font-semibold text-lg">{wastageInfo.efficiency}%</span>
                   </div>
                 </div>
               </div>
