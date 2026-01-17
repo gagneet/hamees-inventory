@@ -696,16 +696,21 @@ return (
                   <p className="text-sm text-slate-600">Efficiency</p>
                   <div className="flex items-center gap-2">
                     <div className="w-32 bg-slate-200 rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full ${
-                          parseFloat(getWastageInfo()!.efficiency) >= 95
-                            ? 'bg-green-600'
-                            : parseFloat(getWastageInfo()!.efficiency) >= 85
-                            ? 'bg-yellow-600'
-                            : 'bg-red-600'
-                        }`}
-                        style={{ width: `${Math.min(100, parseFloat(getWastageInfo()!.efficiency))}%` }}
-                      />
+const wastageInfo = getWastageInfo()
+if (!wastageInfo) return null
+
+return (
+  <div
+    className={`h-2 rounded-full ${
+      parseFloat(wastageInfo.efficiency) >= 95
+        ? 'bg-green-600'
+        : parseFloat(wastageInfo.efficiency) >= 85
+        ? 'bg-yellow-600'
+        : 'bg-red-600'
+    }`}
+    style={{ width: `${Math.min(100, parseFloat(wastageInfo.efficiency))}%` }}
+  />
+)
                     </div>
                     <span className="font-semibold text-lg">{getWastageInfo()!.efficiency}%</span>
                   </div>
