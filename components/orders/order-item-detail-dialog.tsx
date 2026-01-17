@@ -299,11 +299,16 @@ window.location.href = window.location.href
     try {
       // For now, we'll use the order notes field
       // In future, could add a separate tailor_notes field to OrderItem
-      const response = await fetch(`/api/orders/${orderItem.order.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes: tailorNotes }),
-      })
+// Append tailor notes to existing notes instead of overwriting
+const existingNotes = orderItem.order.notes || ''
+const separator = existingNotes ? '\n\n--- Tailor Notes ---\n' : ''
+const updatedNotes = existingNotes + separator + tailorNotes
+
+const response = await fetch(`/api/orders/${orderItem.order.id}`, {
+  method: 'PATCH',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ notes: updatedNotes }),
+})
 
       if (response.ok) {
         alert('Notes saved successfully')
