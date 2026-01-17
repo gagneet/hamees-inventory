@@ -129,33 +129,38 @@ if (!fileExtension || fileExtension.includes('/') || fileExtension.includes('\\'
     const uniqueFileName = `${orderItemId}_${timestamp}_${randomSuffix}.${fileExtension}`
     const filePath = join(UPLOAD_DIR, uniqueFileName)
 
-    // Save file to disk
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
-    await writeFile(filePath, buffer)
-
-    // Save to database
-    const design = await prisma.designUpload.create({
-      data: {
-        orderItemId,
-        fileName: file.name,
-        fileType: file.type,
-        filePath: `designs/${uniqueFileName}`, // Relative path
-        fileSize: file.size,
-        category: category as any,
-        description: description || undefined,
-        uploadedBy: session.user.id,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
+// Use transaction to ensure atomicity
+const design = await prisma.$transaction(async (tx) => {
+  // Save to database first
+  const design = await tx.designUpload.create({
+    data: {
+      orderItemId,
+      fileName: file.name,
+      fileType: file.type,
+      filePath: `designs/${uniqueFileName}`, // Relative path
+      fileSize: file.size,
+      category: category as any,
+      description: description || undefined,
+      uploadedBy: session.user.id,
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
         },
       },
-    })
+    },
+  })
+
+  // Save file to disk after database success
+  const bytes = await file.arrayBuffer()
+  const buffer = Buffer.from(bytes)
+  await writeFile(filePath, buffer)
+
+  return design
+})
 
     return NextResponse.json(design, { status: 201 })
   } catch (error) {
