@@ -4,7 +4,7 @@ import { readFile, unlink } from 'fs/promises'
 import { join } from 'path'
 import { requireAuth, requirePermission } from '@/lib/api-permissions'
 
-const UPLOAD_DIR = join(process.cwd(), 'uploads')
+const UPLOAD_DIR = join(process.cwd(), 'uploads', 'designs')
 
 // GET /api/design-uploads/[id] - Download/view a design file
 export async function GET(

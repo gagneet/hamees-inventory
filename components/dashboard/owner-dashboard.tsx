@@ -269,7 +269,11 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
           <CardHeader>
             <CardTitle>Average Fulfillment Time</CardTitle>
             <CardDescription>
-              Average days from order to delivery (last 100 orders)
+              Days from order creation to delivery completion (last 100 delivered orders).
+              <br />
+              <span className="text-green-600 font-semibold">Green (&lt;15 days)</span>: Excellent performance |{' '}
+              <span className="text-yellow-600 font-semibold">Yellow (15-22 days)</span>: Needs improvement |{' '}
+              <span className="text-red-600 font-semibold">Red (&gt;22 days)</span>: Critical delay
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center items-center py-4">

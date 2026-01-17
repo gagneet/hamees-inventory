@@ -2,10 +2,21 @@
 
 import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { formatCurrency } from '@/lib/utils'
+import { useToast } from '@/hooks/use-toast'
 import {
   Eye,
   Package,
@@ -25,6 +36,7 @@ import {
   ChevronRight,
   Info,
   Zap,
+  Loader2,
 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { hasPermission } from '@/lib/permissions'
@@ -82,6 +94,7 @@ interface OrderItemDetailDialogProps {
       createdAt: string
       status: string
       notes?: string
+      tailorNotes?: string
       customer: {
         id: string
         name: string
@@ -146,12 +159,16 @@ const measurementLabels: Record<string, { en: string; pa: string }> = {
 
 export function OrderItemDetailDialog({ orderItem }: OrderItemDetailDialogProps) {
   const { data: session } = useSession()
+  const { toast } = useToast()
   const [isOpen, setIsOpen] = useState(false)
   const [designs, setDesigns] = useState<DesignUpload[]>([])
   const [accessories, setAccessories] = useState<GarmentAccessory[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploadCategory, setUploadCategory] = useState('SKETCH')
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [designToDelete, setDesignToDelete] = useState<string | null>(null)
+  const [statusUpdateDialogOpen, setStatusUpdateDialogOpen] = useState(false)
 
   const userRole = session?.user?.role as any
   const canUpload = userRole && hasPermission(userRole, 'update_order')
@@ -162,8 +179,9 @@ export function OrderItemDetailDialog({ orderItem }: OrderItemDetailDialogProps)
   const [customerOrders, setCustomerOrders] = useState<any[]>([])
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
   const [accessoryChecklist, setAccessoryChecklist] = useState<Record<string, boolean>>({})
-  const [tailorNotes, setTailorNotes] = useState('')
+  const [tailorNotes, setTailorNotes] = useState(orderItem.order.tailorNotes || '')
   const [isSavingNotes, setIsSavingNotes] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Calculate cloth remaining (available stock after reservation)
   const clothRemaining = orderItem.clothInventory.currentStock - orderItem.clothInventory.reserved
@@ -217,6 +235,16 @@ export function OrderItemDetailDialog({ orderItem }: OrderItemDetailDialogProps)
     return null
   }
 
+  // Helper to extract error message from API response
+  const getErrorMessage = async (response: Response, fallbackMessage: string): Promise<string> => {
+    try {
+      const data = await response.json()
+      return data.error || fallbackMessage
+    } catch {
+      return fallbackMessage
+    }
+  }
+
   // Fetch designs, accessories, and customer history when dialog opens
 useEffect(() => {
   if (isOpen) {
@@ -224,7 +252,7 @@ useEffect(() => {
     fetchAccessories()
     fetchCustomerOrders()
   }
-  }, [isOpen, orderItem.id, orderItem.garmentPattern.id])
+}, [isOpen, orderItem.id])
 
   const fetchDesigns = async () => {
     try {
@@ -268,8 +296,7 @@ useEffect(() => {
     const nextStatus = getNextStatus()
     if (!nextStatus) return
 
-    if (!confirm(`Move order to ${nextStatus}?`)) return
-
+    setStatusUpdateDialogOpen(false)
     setIsUpdatingStatus(true)
     try {
       const response = await fetch(`/api/orders/${orderItem.order.id}/status`, {
@@ -279,16 +306,27 @@ useEffect(() => {
       })
 
       if (response.ok) {
-        alert('Status updated successfully')
-// Refresh the page data without full reload to preserve user state
-window.location.href = window.location.href
+        toast({
+          title: 'Success',
+          description: 'Order status updated successfully',
+        })
+        // Refresh the page data without full reload to preserve user state
+        window.location.href = window.location.href
       } else {
         const error = await response.json()
-        alert(error.error || 'Failed to update status')
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: error.error || 'Failed to update status',
+        })
       }
     } catch (error) {
       console.error('Error updating status:', error)
-      alert('Failed to update status')
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to update status. Please check your connection and try again.',
+      })
     } finally {
       setIsUpdatingStatus(false)
     }
@@ -299,25 +337,37 @@ window.location.href = window.location.href
     try {
       // For now, we'll use the order notes field
       // In future, could add a separate tailor_notes field to OrderItem
-// Append tailor notes to existing notes instead of overwriting
-const existingNotes = orderItem.order.notes || ''
-const separator = existingNotes ? '\n\n--- Tailor Notes ---\n' : ''
-const updatedNotes = existingNotes + separator + tailorNotes
+      // Append tailor notes to existing notes instead of overwriting
+      const existingNotes = orderItem.order.notes || ''
+      const separator = existingNotes ? '\n\n--- Tailor Notes ---\n' : ''
+      const updatedNotes = existingNotes + separator + tailorNotes
 
-const response = await fetch(`/api/orders/${orderItem.order.id}`, {
-  method: 'PATCH',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ notes: updatedNotes }),
-})
+      const response = await fetch(`/api/orders/${orderItem.order.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: updatedNotes }),
+      })
 
       if (response.ok) {
-        alert('Notes saved successfully')
+        toast({
+          title: 'Success',
+          description: 'Tailor notes saved successfully',
+        })
       } else {
-        alert('Failed to save notes')
+        const errorMessage = await getErrorMessage(response, 'Failed to save notes')
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: errorMessage,
+        })
       }
     } catch (error) {
       console.error('Error saving notes:', error)
-      alert('Failed to save notes')
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to save notes. Please check your connection and try again.',
+      })
     } finally {
       setIsSavingNotes(false)
     }
@@ -341,34 +391,69 @@ const response = await fetch(`/api/orders/${orderItem.order.id}`, {
       if (response.ok) {
         setSelectedFile(null)
         await fetchDesigns()
+        toast({
+          title: 'Success',
+          description: 'Design file uploaded successfully',
+        })
       } else {
-        const error = await response.json()
-        alert(error.error || 'Failed to upload file')
+        const errorMessage = await getErrorMessage(response, 'Failed to upload file')
+        toast({
+          variant: 'destructive',
+          title: 'Upload Failed',
+          description: errorMessage,
+        })
       }
     } catch (error) {
       console.error('Error uploading file:', error)
-      alert('Failed to upload file')
+      toast({
+        variant: 'destructive',
+        title: 'Upload Error',
+        description: error instanceof Error ? error.message : 'Failed to upload file. Please check your connection and try again.',
+      })
     } finally {
       setIsUploading(false)
     }
   }
 
   const handleDeleteDesign = async (designId: string) => {
-    if (!confirm('Are you sure you want to delete this design file?')) return
+    setDesignToDelete(designId)
+    setDeleteDialogOpen(true)
+  }
 
+  const handleDeleteConfirm = async () => {
+    if (!designToDelete) return
+
+    setIsDeleting(true)
     try {
-      const response = await fetch(`/api/design-uploads/${designId}`, {
+      const response = await fetch(`/api/design-uploads/${designToDelete}`, {
         method: 'DELETE',
       })
 
       if (response.ok) {
         await fetchDesigns()
+        setDeleteDialogOpen(false)
+        setDesignToDelete(null)
+        toast({
+          title: 'Success',
+          description: 'Design file deleted successfully',
+        })
       } else {
-        alert('Failed to delete file')
+        const errorMessage = await getErrorMessage(response, 'Failed to delete file')
+        toast({
+          variant: 'destructive',
+          title: 'Delete Failed',
+          description: errorMessage,
+        })
       }
     } catch (error) {
       console.error('Error deleting file:', error)
-      alert('Failed to delete file')
+      toast({
+        variant: 'destructive',
+        title: 'Delete Error',
+        description: error instanceof Error ? error.message : 'Failed to delete file. Please check your connection and try again.',
+      })
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -377,7 +462,8 @@ const response = await fetch(`/api/orders/${orderItem.order.id}`, {
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <Eye className="h-4 w-4 mr-1" />
@@ -595,7 +681,7 @@ const response = await fetch(`/api/orders/${orderItem.order.id}`, {
             {canUpdateStatus && getNextStatus() && orderItem.order.status !== 'DELIVERED' && (
               <div className="pt-3 border-t border-purple-200">
                 <Button
-                  onClick={handleStatusUpdate}
+                  onClick={() => setStatusUpdateDialogOpen(true)}
                   disabled={isUpdatingStatus}
                   className="w-full bg-purple-600 hover:bg-purple-700"
                   size="sm"
@@ -680,42 +766,30 @@ const response = await fetch(`/api/orders/${orderItem.order.id}`, {
                 </div>
                 <div>
                   <p className="text-slate-500 text-xs">Wastage</p>
-const wastageInfo = getWastageInfo()
-if (!wastageInfo) return null
-
-return (
-  <p className={`font-semibold text-lg ${
-    parseFloat(wastageInfo.wastage) > 0 ? 'text-red-600' : 'text-green-600'
-  }`}>
-    {wastageInfo.wastage}m
-  </p>
-)
+                  <p className={`font-semibold text-lg ${
+                    getWastageInfo() && parseFloat(getWastageInfo()!.wastage) > 0 ? 'text-red-600' : 'text-green-600'
+                  }`}>
+                    {getWastageInfo()?.wastage}m
+                  </p>
+                </div>
               </div>
               <div className="mt-3 pt-3 border-t border-cyan-200">
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-slate-600">Efficiency</p>
                   <div className="flex items-center gap-2">
                     <div className="w-32 bg-slate-200 rounded-full h-2">
-const wastageInfo = getWastageInfo()
-if (!wastageInfo) return null
-
-return (
-  <div
-    className={`h-2 rounded-full ${
-      parseFloat(wastageInfo.efficiency) >= 95
-        ? 'bg-green-600'
-        : parseFloat(wastageInfo.efficiency) >= 85
-        ? 'bg-yellow-600'
-        : 'bg-red-600'
-    }`}
-    style={{ width: `${Math.min(100, parseFloat(wastageInfo.efficiency))}%` }}
-  />
-)
+                      <div
+                        className={`h-2 rounded-full ${
+                          getWastageInfo() && parseFloat(getWastageInfo()!.efficiency) >= 95
+                            ? 'bg-green-600'
+                            : getWastageInfo() && parseFloat(getWastageInfo()!.efficiency) >= 85
+                            ? 'bg-yellow-600'
+                            : 'bg-red-600'
+                        }`}
+                        style={{ width: `${Math.min(100, parseFloat(getWastageInfo()?.efficiency || '0'))}%` }}
+                      />
                     </div>
-const wastageInfo = getWastageInfo()
-if (!wastageInfo) return null
-
-return <span className="font-semibold text-lg">{wastageInfo.efficiency}%</span>
+                    <span className="font-semibold text-lg">{getWastageInfo()?.efficiency}%</span>
                   </div>
                 </div>
               </div>
@@ -824,35 +898,10 @@ return <span className="font-semibold text-lg">{wastageInfo.efficiency}%</span>
                   {Object.values(accessoryChecklist).filter(Boolean).length}/{accessories.length} Collected
                 </Badge>
               </div>
-                      checked={(() => {
-                        try {
-                          const storageKey = `orderItem:${orderItem.id}:accessoryChecklist`
-                          const stored = localStorage.getItem(storageKey)
-                          if (stored) {
-                            const parsed = JSON.parse(stored) as Record<string, boolean>
-                            if (Object.prototype.hasOwnProperty.call(parsed, acc.id)) {
-                              return parsed[acc.id]
-                            }
-                          }
-                        } catch {
-                          // ignore storage errors and fall back to in-memory state
-                        }
-                        return accessoryChecklist[acc.id] || false
-                      })()}
-                      onChange={(e) => {
-                        const checked = e.target.checked
-                        const updatedChecklist = { ...accessoryChecklist, [acc.id]: checked }
-                        setAccessoryChecklist(updatedChecklist)
-                        try {
-                          const storageKey = `orderItem:${orderItem.id}:accessoryChecklist`
-                          const stored = localStorage.getItem(storageKey)
-                          const parsed: Record<string, boolean> = stored ? JSON.parse(stored) : {}
-                          parsed[acc.id] = checked
-                          localStorage.setItem(storageKey, JSON.stringify(parsed))
-                        } catch {
-                          // ignore storage errors; in-memory state still updates
-                        }
-                      }}
+              <div className="space-y-2">
+                {accessories.map((acc) => (
+                  <div
+                    key={acc.id}
                     className={`flex items-center gap-3 p-3 rounded border-2 transition-all ${
                       accessoryChecklist[acc.id]
                         ? 'bg-green-100 border-green-300'
@@ -1012,6 +1061,69 @@ return <span className="font-semibold text-lg">{wastageInfo.efficiency}%</span>
           )}
         </div>
       </DialogContent>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Design File</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this design file? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDesignToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-red-600 hover:bg-red-700">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Status Update Confirmation Dialog */}
+      <AlertDialog open={statusUpdateDialogOpen} onOpenChange={setStatusUpdateDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Update Order Status</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to advance this order to <strong>{getNextStatus()}</strong>?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleStatusUpdate} className="bg-purple-600 hover:bg-purple-700">
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
+
+    {/* Delete Confirmation Dialog */}
+    <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete Design File?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to delete this design file? This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(e) => {
+              e.preventDefault()
+              handleDeleteConfirm()
+            }}
+            disabled={isDeleting}
+            className="bg-red-600 hover:bg-red-700"
+          >
+            {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   )
 }

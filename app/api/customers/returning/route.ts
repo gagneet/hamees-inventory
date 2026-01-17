@@ -11,13 +11,17 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get all customers with their orders
+    // Get all customers with their DELIVERED orders only
     const customers = await prisma.customer.findMany({
       include: {
         orders: {
+          where: {
+            status: 'DELIVERED', // Only count delivered orders
+          },
           select: {
             id: true,
             orderDate: true,
+            completedDate: true,
           },
           orderBy: {
             orderDate: 'asc',
@@ -40,9 +44,10 @@ export async function GET() {
       lastOrderDate: string
     }
 
-    // Filter customers with 3+ orders across different months
+    // Filter customers with 3+ DELIVERED orders across different months with 2+ orders at least 2 weeks apart
     const returningCustomers: ReturningCustomerData[] = customers
       .filter((customer: CustomerWithOrders) => {
+        // Must have at least 3 delivered orders
         if (customer.orders.length < 3) {
           return false
         }
@@ -55,7 +60,26 @@ export async function GET() {
         )
 
         // Must have orders in at least 2 different months
-        return uniqueMonths.size >= 2
+        if (uniqueMonths.size < 2) {
+          return false
+        }
+
+        // Check if at least 2 orders are at least 2 weeks (14 days) apart
+        const orderDates = customer.orders.map((o: OrderData) => new Date(o.orderDate).getTime())
+        let hasTwoWeeksApart = false
+
+        for (let i = 0; i < orderDates.length - 1; i++) {
+          for (let j = i + 1; j < orderDates.length; j++) {
+            const daysDiff = Math.abs(orderDates[j] - orderDates[i]) / (1000 * 60 * 60 * 24)
+            if (daysDiff >= 14) {
+              hasTwoWeeksApart = true
+              break
+            }
+          }
+          if (hasTwoWeeksApart) break
+        }
+
+        return hasTwoWeeksApart
       })
       .map((customer: CustomerWithOrders): ReturningCustomerData => {
         const orderDates = customer.orders.map((o: OrderData) => new Date(o.orderDate))
