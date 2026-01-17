@@ -126,6 +126,9 @@ export default async function OrderDetailPage({
   const session = await auth()
   if (!session?.user) redirect('/')
 
+  // Check if user is a Tailor (hide pricing information)
+  const isTailor = session.user.role === 'TAILOR'
+
   const { id } = await params
   const order = await getOrderDetails(id)
 
@@ -240,14 +243,16 @@ export default async function OrderDetailPage({
                         </div>
                         </div>
                         <div className="flex flex-col items-end gap-2">
-                          <div className="text-right">
-                            <p className="font-semibold text-slate-900">
-                              {formatCurrency(item.totalPrice)}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              {formatCurrency(item.pricePerUnit)}/unit
-                            </p>
-                          </div>
+                          {!isTailor && (
+                            <div className="text-right">
+                              <p className="font-semibold text-slate-900">
+                                {formatCurrency(item.totalPrice)}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                {formatCurrency(item.pricePerUnit)}/unit
+                              </p>
+                            </div>
+                          )}
                           <OrderItemEdit
                             orderId={order.id}
                             itemId={item.id}
@@ -402,62 +407,64 @@ export default async function OrderDetailPage({
 
         {/* Right Column - Summary & Dates */}
         <div className="space-y-6">
-          {/* Order Summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5" />
-                Payment Summary
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between">
-                <span className="text-slate-600">Total Amount:</span>
-                <span className="font-semibold text-slate-900">
-                  {formatCurrency(order.totalAmount)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-600">Advance Paid:</span>
-                <span className="font-semibold text-green-600">
-                  {formatCurrency(order.advancePaid)}
-                </span>
-              </div>
-              {order.discount > 0 && (
+          {/* Payment Summary - Hidden for Tailor */}
+          {!isTailor && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <DollarSign className="h-5 w-5" />
+                  Payment Summary
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-slate-600">Discount:</span>
-                  <span className="font-semibold text-yellow-600">
-                    {formatCurrency(order.discount)}
+                  <span className="text-slate-600">Total Amount:</span>
+                  <span className="font-semibold text-slate-900">
+                    {formatCurrency(order.totalAmount)}
                   </span>
                 </div>
-              )}
-              {order.discountReason && (
-                <div className="bg-yellow-50 p-2 rounded text-xs">
-                  <p className="text-yellow-800">
-                    <strong>Discount Reason:</strong> {order.discountReason}
-                  </p>
+                <div className="flex justify-between">
+                  <span className="text-slate-600">Advance Paid:</span>
+                  <span className="font-semibold text-green-600">
+                    {formatCurrency(order.advancePaid)}
+                  </span>
                 </div>
-              )}
-              <div className="flex justify-between pt-3 border-t">
-                <span className="text-slate-600">Balance Due:</span>
-                <span className={`font-semibold text-lg ${
-                  isArrears ? 'text-red-600' : (order.balanceAmount > 0.01 ? 'text-orange-600' : 'text-green-600')
-                }`}>
-                  {formatCurrency(Math.max(0, order.balanceAmount))}
-                  {isArrears && (
-                    <span className="text-xs ml-2 px-2 py-0.5 bg-red-100 text-red-700 rounded">ARREARS</span>
-                  )}
-                </span>
-              </div>
-              {order.balanceAmount > 0.01 && (
-                <div className="mt-3">
-                  <Button className="w-full" size="sm">
-                    Record Payment
-                  </Button>
+                {order.discount > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Discount:</span>
+                    <span className="font-semibold text-yellow-600">
+                      {formatCurrency(order.discount)}
+                    </span>
+                  </div>
+                )}
+                {order.discountReason && (
+                  <div className="bg-yellow-50 p-2 rounded text-xs">
+                    <p className="text-yellow-800">
+                      <strong>Discount Reason:</strong> {order.discountReason}
+                    </p>
+                  </div>
+                )}
+                <div className="flex justify-between pt-3 border-t">
+                  <span className="text-slate-600">Balance Due:</span>
+                  <span className={`font-semibold text-lg ${
+                    isArrears ? 'text-red-600' : (order.balanceAmount > 0.01 ? 'text-orange-600' : 'text-green-600')
+                  }`}>
+                    {formatCurrency(Math.max(0, order.balanceAmount))}
+                    {isArrears && (
+                      <span className="text-xs ml-2 px-2 py-0.5 bg-red-100 text-red-700 rounded">ARREARS</span>
+                    )}
+                  </span>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+                {order.balanceAmount > 0.01 && (
+                  <div className="mt-3">
+                    <Button className="w-full" size="sm">
+                      Record Payment
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Important Dates */}
           <Card>
@@ -548,33 +555,35 @@ export default async function OrderDetailPage({
                   currentDeliveryDate={order.deliveryDate}
                 />
               )}
-              {order.balanceAmount > 0.01 && order.status !== 'CANCELLED' && (
+              {!isTailor && order.balanceAmount > 0.01 && order.status !== 'CANCELLED' && (
                 <RecordPaymentDialog
                   orderId={order.id}
                   orderNumber={order.orderNumber}
                   balanceAmount={order.balanceAmount}
                 />
               )}
-              <PrintInvoiceButton
-                order={{
-                  orderNumber: order.orderNumber,
-                  orderDate: order.createdAt,
-                  deliveryDate: order.deliveryDate,
-                  status: order.status,
-                  customer: order.customer,
-                  items: order.items,
-                  subTotal: order.subTotal,
-                  gstRate: order.gstRate,
-                  cgst: order.cgst,
-                  sgst: order.sgst,
-                  gstAmount: order.gstAmount,
-                  totalAmount: order.totalAmount,
-                  advancePaid: order.advancePaid,
-                  discount: order.discount || 0,
-                  balanceAmount: order.balanceAmount,
-                  notes: order.notes,
-                }}
-              />
+              {!isTailor && (
+                <PrintInvoiceButton
+                  order={{
+                    orderNumber: order.orderNumber,
+                    orderDate: order.createdAt,
+                    deliveryDate: order.deliveryDate,
+                    status: order.status,
+                    customer: order.customer,
+                    items: order.items,
+                    subTotal: order.subTotal,
+                    gstRate: order.gstRate,
+                    cgst: order.cgst,
+                    sgst: order.sgst,
+                    gstAmount: order.gstAmount,
+                    totalAmount: order.totalAmount,
+                    advancePaid: order.advancePaid,
+                    discount: order.discount || 0,
+                    balanceAmount: order.balanceAmount,
+                    notes: order.notes,
+                  }}
+                />
+              )}
               <Button className="w-full" variant="outline" size="sm">
                 Send WhatsApp Update
               </Button>
@@ -583,8 +592,8 @@ export default async function OrderDetailPage({
         </div>
       </div>
 
-      {/* Payment Installments */}
-      {order.balanceAmount > 0 && (
+      {/* Payment Installments - Hidden for Tailor */}
+      {!isTailor && order.balanceAmount > 0 && (
         <div className="mt-6">
           <PaymentInstallments orderId={order.id} balanceAmount={order.balanceAmount} />
         </div>

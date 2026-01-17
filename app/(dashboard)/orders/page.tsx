@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { ShoppingBag, Plus, Filter, Calendar, User, Home, X, DollarSign } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -44,9 +45,13 @@ const statusLabels: Record<OrderStatus, string> = {
 function OrdersContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { data: session } = useSession()
   const [orders, setOrders] = useState<any[]>([])
   const [fabrics, setFabrics] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Check if user is a Tailor (hide pricing information)
+  const isTailor = session?.user?.role === 'TAILOR'
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
@@ -214,16 +219,18 @@ function OrdersContent() {
           <p className="text-xs md:text-sm text-slate-600 dark:text-slate-300">{orders.length} total orders</p>
         </div>
         <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant={balanceOutstanding ? "default" : "outline"}
-            className={`gap-2 ${balanceOutstanding ? 'bg-red-600 hover:bg-red-700' : 'border-red-300 text-red-600 hover:bg-red-50'}`}
-            onClick={() => setBalanceOutstanding(!balanceOutstanding)}
-          >
-            <DollarSign className="h-4 w-4" />
-            <span className="hidden sm:inline">{balanceOutstanding ? 'Show All' : 'View Arrears'}</span>
-            <span className="sm:hidden">{balanceOutstanding ? 'All' : 'Arrears'}</span>
-          </Button>
+          {!isTailor && (
+            <Button
+              size="sm"
+              variant={balanceOutstanding ? "default" : "outline"}
+              className={`gap-2 ${balanceOutstanding ? 'bg-red-600 hover:bg-red-700' : 'border-red-300 text-red-600 hover:bg-red-50'}`}
+              onClick={() => setBalanceOutstanding(!balanceOutstanding)}
+            >
+              <DollarSign className="h-4 w-4" />
+              <span className="hidden sm:inline">{balanceOutstanding ? 'Show All' : 'View Arrears'}</span>
+              <span className="sm:hidden">{balanceOutstanding ? 'All' : 'Arrears'}</span>
+            </Button>
+          )}
           <PermissionGuard permission="create_order">
             <Link href="/orders/new">
               <Button size="sm" className="gap-2">
@@ -313,29 +320,33 @@ function OrdersContent() {
                       </select>
                     </div>
 
-                    {/* Min Amount */}
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">Min Amount (₹)</label>
-                      <input
-                        type="number"
-                        placeholder="0"
-                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        value={minAmount}
-                        onChange={(e) => setMinAmount(e.target.value)}
-                      />
-                    </div>
+                    {/* Min Amount - Hidden for Tailor */}
+                    {!isTailor && (
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">Min Amount (₹)</label>
+                        <input
+                          type="number"
+                          placeholder="0"
+                          className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          value={minAmount}
+                          onChange={(e) => setMinAmount(e.target.value)}
+                        />
+                      </div>
+                    )}
 
-                    {/* Max Amount */}
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">Max Amount (₹)</label>
-                      <input
-                        type="number"
-                        placeholder="999999"
-                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        value={maxAmount}
-                        onChange={(e) => setMaxAmount(e.target.value)}
-                      />
-                    </div>
+                    {/* Max Amount - Hidden for Tailor */}
+                    {!isTailor && (
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">Max Amount (₹)</label>
+                        <input
+                          type="number"
+                          placeholder="999999"
+                          className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          value={maxAmount}
+                          onChange={(e) => setMaxAmount(e.target.value)}
+                        />
+                      </div>
+                    )}
 
                     {/* Delivery Date From */}
                     <div>
@@ -372,18 +383,20 @@ function OrdersContent() {
                       </label>
                     </div>
 
-                    {/* Balance Outstanding Checkbox */}
-                    <div className="flex items-end">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
-                          checked={balanceOutstanding}
-                          onChange={(e) => setBalanceOutstanding(e.target.checked)}
-                        />
-                        <span className="text-sm font-medium text-slate-700">Balance Outstanding</span>
-                      </label>
-                    </div>
+                    {/* Balance Outstanding Checkbox - Hidden for Tailor */}
+                    {!isTailor && (
+                      <div className="flex items-end">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
+                            checked={balanceOutstanding}
+                            onChange={(e) => setBalanceOutstanding(e.target.checked)}
+                          />
+                          <span className="text-sm font-medium text-slate-700">Balance Outstanding</span>
+                        </label>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -456,19 +469,23 @@ function OrdersContent() {
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <p className="text-slate-500 mb-1">Total Amount</p>
-                          <p className="font-semibold text-slate-900">
-                            ₹{order.totalAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-slate-500 mb-1">Balance</p>
-                          <p className={`font-semibold ${isArrears ? 'text-red-600' : order.balanceAmount > 0.01 ? 'text-orange-600' : 'text-green-600'}`}>
-                            ₹{Math.max(0, order.balanceAmount).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-                          </p>
-                        </div>
+                      <div className={`grid ${isTailor ? 'grid-cols-2 md:grid-cols-3' : 'grid-cols-2 md:grid-cols-4'} gap-4 text-sm`}>
+                        {!isTailor && (
+                          <>
+                            <div>
+                              <p className="text-slate-500 mb-1">Total Amount</p>
+                              <p className="font-semibold text-slate-900">
+                                ₹{order.totalAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-slate-500 mb-1">Balance</p>
+                              <p className={`font-semibold ${isArrears ? 'text-red-600' : order.balanceAmount > 0.01 ? 'text-orange-600' : 'text-green-600'}`}>
+                                ₹{Math.max(0, order.balanceAmount).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                              </p>
+                            </div>
+                          </>
+                        )}
                         <div>
                           <p className="text-slate-500 mb-1">Delivery Date</p>
                           <p className={`font-semibold ${isOverdue ? 'text-red-600' : 'text-slate-900'}`}>
