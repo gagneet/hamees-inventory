@@ -118,7 +118,14 @@ export async function POST(request: NextRequest) {
     // Generate unique filename
     const timestamp = Date.now()
     const randomSuffix = Math.random().toString(36).substring(2, 8)
-    const fileExtension = file.name.split('.').pop()
+// Safely extract file extension and validate it
+const fileExtension = file.name.split('.').pop()?.toLowerCase()
+if (!fileExtension || fileExtension.includes('/') || fileExtension.includes('\\')) {
+  return NextResponse.json(
+    { error: 'Invalid file extension' },
+    { status: 400 }
+  )
+}
     const uniqueFileName = `${orderItemId}_${timestamp}_${randomSuffix}.${fileExtension}`
     const filePath = join(UPLOAD_DIR, uniqueFileName)
 
