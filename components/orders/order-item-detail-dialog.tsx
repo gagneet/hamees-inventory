@@ -28,6 +28,7 @@ import {
 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { hasPermission } from '@/lib/permissions'
+import { useToast } from '@/hooks/use-toast'
 
 interface OrderItemDetailDialogProps {
   orderItem: {
@@ -146,6 +147,7 @@ const measurementLabels: Record<string, { en: string; pa: string }> = {
 
 export function OrderItemDetailDialog({ orderItem }: OrderItemDetailDialogProps) {
   const { data: session } = useSession()
+  const { toast } = useToast()
   const [isOpen, setIsOpen] = useState(false)
   const [designs, setDesigns] = useState<DesignUpload[]>([])
   const [accessories, setAccessories] = useState<GarmentAccessory[]>([])
@@ -217,6 +219,16 @@ export function OrderItemDetailDialog({ orderItem }: OrderItemDetailDialogProps)
     return null
   }
 
+  // Helper to extract error message from API response
+  const getErrorMessage = async (response: Response, fallbackMessage: string): Promise<string> => {
+    try {
+      const data = await response.json()
+      return data.error || fallbackMessage
+    } catch {
+      return fallbackMessage
+    }
+  }
+
   // Fetch designs, accessories, and customer history when dialog opens
 useEffect(() => {
   if (isOpen) {
@@ -279,16 +291,27 @@ useEffect(() => {
       })
 
       if (response.ok) {
-        alert('Status updated successfully')
-// Refresh the page data without full reload to preserve user state
-window.location.href = window.location.href
+        toast({
+          title: 'Success',
+          description: 'Order status updated successfully',
+        })
+        // Refresh the page data without full reload to preserve user state
+        window.location.href = window.location.href
       } else {
-        const error = await response.json()
-        alert(error.error || 'Failed to update status')
+        const errorMessage = await getErrorMessage(response, 'Failed to update status')
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: errorMessage,
+        })
       }
     } catch (error) {
       console.error('Error updating status:', error)
-      alert('Failed to update status')
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to update status. Please check your connection and try again.',
+      })
     } finally {
       setIsUpdatingStatus(false)
     }
@@ -299,25 +322,37 @@ window.location.href = window.location.href
     try {
       // For now, we'll use the order notes field
       // In future, could add a separate tailor_notes field to OrderItem
-// Append tailor notes to existing notes instead of overwriting
-const existingNotes = orderItem.order.notes || ''
-const separator = existingNotes ? '\n\n--- Tailor Notes ---\n' : ''
-const updatedNotes = existingNotes + separator + tailorNotes
+      // Append tailor notes to existing notes instead of overwriting
+      const existingNotes = orderItem.order.notes || ''
+      const separator = existingNotes ? '\n\n--- Tailor Notes ---\n' : ''
+      const updatedNotes = existingNotes + separator + tailorNotes
 
-const response = await fetch(`/api/orders/${orderItem.order.id}`, {
-  method: 'PATCH',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ notes: updatedNotes }),
-})
+      const response = await fetch(`/api/orders/${orderItem.order.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes: updatedNotes }),
+      })
 
       if (response.ok) {
-        alert('Notes saved successfully')
+        toast({
+          title: 'Success',
+          description: 'Tailor notes saved successfully',
+        })
       } else {
-        alert('Failed to save notes')
+        const errorMessage = await getErrorMessage(response, 'Failed to save notes')
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: errorMessage,
+        })
       }
     } catch (error) {
       console.error('Error saving notes:', error)
-      alert('Failed to save notes')
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to save notes. Please check your connection and try again.',
+      })
     } finally {
       setIsSavingNotes(false)
     }
@@ -341,13 +376,25 @@ const response = await fetch(`/api/orders/${orderItem.order.id}`, {
       if (response.ok) {
         setSelectedFile(null)
         await fetchDesigns()
+        toast({
+          title: 'Success',
+          description: 'Design file uploaded successfully',
+        })
       } else {
-        const error = await response.json()
-        alert(error.error || 'Failed to upload file')
+        const errorMessage = await getErrorMessage(response, 'Failed to upload file')
+        toast({
+          variant: 'destructive',
+          title: 'Upload Failed',
+          description: errorMessage,
+        })
       }
     } catch (error) {
       console.error('Error uploading file:', error)
-      alert('Failed to upload file')
+      toast({
+        variant: 'destructive',
+        title: 'Upload Error',
+        description: error instanceof Error ? error.message : 'Failed to upload file. Please check your connection and try again.',
+      })
     } finally {
       setIsUploading(false)
     }
@@ -363,12 +410,25 @@ const response = await fetch(`/api/orders/${orderItem.order.id}`, {
 
       if (response.ok) {
         await fetchDesigns()
+        toast({
+          title: 'Success',
+          description: 'Design file deleted successfully',
+        })
       } else {
-        alert('Failed to delete file')
+        const errorMessage = await getErrorMessage(response, 'Failed to delete file')
+        toast({
+          variant: 'destructive',
+          title: 'Delete Failed',
+          description: errorMessage,
+        })
       }
     } catch (error) {
       console.error('Error deleting file:', error)
-      alert('Failed to delete file')
+      toast({
+        variant: 'destructive',
+        title: 'Delete Error',
+        description: error instanceof Error ? error.message : 'Failed to delete file. Please check your connection and try again.',
+      })
     }
   }
 
