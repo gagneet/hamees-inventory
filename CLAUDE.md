@@ -10,6 +10,246 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Order Item Detail Dialog - Phase 3: Prominent Measurements (v0.17.2)
+
+**What's New:**
+- **Highly Prominent Measurements** - Measurements section moved to TOP with massive font sizes
+- **Punjabi Translations** - Complete bilingual English/Punjabi support for all measurements
+- **Enhanced Visual Hierarchy** - Orange gradient theme with 4px borders and shadows
+- **Tailor-Focused Design** - Measurements are THE primary information tailors need
+
+**Key Features:**
+
+1. **Visual Prominence** (`components/orders/order-item-detail-dialog.tsx:422-561`)
+   - **Positioning**: Measurements appear first, immediately after urgency alert
+   - **Font Sizes**:
+     - Values: `text-4xl font-bold` (48px) - 4x larger than before
+     - Unit labels: `text-2xl` (24px) for "cm"
+     - Title: `text-2xl font-bold` with bilingual "Measurements / ਮਾਪ"
+     - Icons: `h-8 w-8` (32px)
+   - **Color Scheme**:
+     - Background: Orange gradient (`from-yellow-50 to-orange-50`)
+     - Border: 4px thick orange (`border-4 border-orange-300 shadow-lg`)
+     - Individual boxes: White with orange borders and shadows
+   - **Layout**: 2-column responsive grid for spacious display
+
+2. **Punjabi Internationalization** (Lines 130-145)
+   - Translation dictionary with 14 measurement types
+   - Bilingual labels: "Chest / ਛਾਤੀ", "Waist / ਕਮਰ", "Sleeve / ਆਸਤੀਨ"
+   - Punjabi Gurmukhi script (ਪੰਜਾਬੀ) in orange for emphasis
+   - Supports all garment types: Shirt, Trouser, Suit, Sherwani
+   - **Complete Translations**:
+     - neck: ਗਰਦਨ, chest: ਛਾਤੀ, waist: ਕਮਰ, hip: ਕੁੱਲ੍ਹੇ
+     - shoulder: ਮੋਢਾ, sleeve: ਆਸਤੀਨ, shirt length: ਕਮੀਜ਼ ਲੰਬਾਈ
+     - inseam: ਅੰਦਰਲੀ ਸੀਵਨ, outseam: ਬਾਹਰੀ ਸੀਵਨ
+     - thigh: ਪੱਟ, knee: ਗੋਡਾ, bottom: ਹੇਠਾਂ
+     - jacket length: ਜੈਕਟ ਲੰਬਾਈ, lapel width: ਲੈਪਲ ਚੌੜਾਈ
+
+3. **Removed Duplicates**
+   - Deleted old measurements section (was buried in middle of dialog)
+   - Single, prominent location eliminates confusion
+   - Tailors always know exactly where to look
+
+**User Impact:**
+- ✅ **Instant visibility** - No scrolling required to see measurements
+- ✅ **4x larger fonts** - Readable from distance, reduces errors
+- ✅ **Bilingual accessibility** - Supports Punjabi-speaking staff
+- ✅ **Clear visual hierarchy** - Orange theme makes it impossible to miss
+- ✅ **Mobile-optimized** - Responsive 2-column grid collapses on small screens
+- ✅ **Professional appearance** - Polished, easy-to-use interface
+
+**Files Modified:**
+- `components/orders/order-item-detail-dialog.tsx` (+159 lines, -106 lines)
+
+**Browser Compatibility:**
+- ✅ Chrome 120+ (Punjabi fonts render correctly)
+- ✅ Firefox 120+ (Punjabi fonts render correctly)
+- ✅ Safari 17+ (Punjabi fonts render correctly)
+- ✅ Edge 120+ (Punjabi fonts render correctly)
+- ✅ Mobile browsers (iOS Safari, Chrome Mobile)
+
+**Documentation:**
+- Complete guide: `docs/PHASE_3_PROMINENT_MEASUREMENTS.md`
+
+---
+
+### ✅ Order Item Detail Dialog - Phase 2: Workflow Enhancements (v0.17.1)
+
+**What's New:**
+- **Timeline & Phase Tracking** - Visual workflow timeline with phase duration
+- **Quick Status Update** - One-click button to advance order to next phase
+- **Work Instructions** - Customer notes and tailor observations sections
+- **Efficiency Metrics** - Wastage tracking and efficiency percentage
+- **Accessories Checklist** - Interactive checklist for material collection
+- **Customer History** - Previous orders reference for sizing consistency
+- **Enhanced Photo Docs** - Categorized design uploads (Sketch, WIP, Final)
+- **Color-Coded Sections** - Visual hierarchy for different information types
+
+**Key Features:**
+
+1. **Timeline & Phase Tracking** (`components/orders/order-item-detail-dialog.tsx:563-620`)
+   - Purple gradient card showing current phase and time spent
+   - Order number, creation date, and phase history
+   - Recent order history with change types and timestamps
+   - Smart time calculation: "3 days in CUTTING" or "12 days since order created"
+
+2. **Quick Status Update Button** (Lines 589-601)
+   - One-click advancement to next phase in workflow
+   - Only visible when status can be advanced (not DELIVERED)
+   - Shows next status: "Advance to CUTTING" or "Advance to STITCHING"
+   - Confirmation dialog before status change
+   - Auto-refreshes page after update
+
+3. **Work Instructions** (Lines 622-657)
+   - **Customer Instructions**: Amber card with customer notes/special requests
+   - **Tailor's Observations**: Green card with editable textarea for tailor notes
+   - Save button to persist tailor notes to order
+   - Permission-gated (only users with `update_order` permission)
+
+4. **Efficiency Metrics** (Lines 659-705)
+   - Cyan gradient card with efficiency tracking
+   - Shows: Estimated meters, Actual used, Wastage (positive/negative)
+   - Visual progress bar: Green (≥95%), Yellow (≥85%), Red (<85%)
+   - Only appears when `actualMetersUsed` is recorded
+
+5. **Interactive Accessories Checklist** (Lines 905-955)
+   - Orange card with checkbox list of required accessories
+   - Progress badge: "3/5 Collected"
+   - Visual feedback: Green background when checked, strikethrough text
+   - Shows quantity needed and current stock status
+   - Client-side state (can persist to database later)
+
+6. **Customer History Reference** (Lines 707-735)
+   - Indigo card showing customer's previous 3 orders
+   - Order number, date, status, total amount, item count
+   - Quick reference for sizing consistency
+   - "Review previous orders for sizing consistency" hint
+
+7. **Enhanced Photo Documentation**
+   - Design upload categories: SKETCH, REFERENCE, WORK_IN_PROGRESS, FINAL
+   - Category badges on uploaded files
+   - Better organization of design files throughout workflow
+
+8. **Color-Coded Visual Hierarchy**
+   - **Purple**: Timeline & workflow tracking
+   - **Amber**: Customer instructions & notes
+   - **Green**: Tailor's editable observations
+   - **Cyan/Teal**: Efficiency & metrics
+   - **Orange**: Accessories checklist
+   - **Indigo**: Customer history reference
+
+**Implementation:**
+- No database schema changes (uses existing Order fields)
+- Client-side state for checklist (can persist later if needed)
+- Leverages OrderHistory for timeline data
+- Uses existing `actualMetersUsed` for efficiency calculation
+
+**Files Modified:**
+- `components/orders/order-item-detail-dialog.tsx` (+350 lines)
+- `app/(dashboard)/orders/[id]/page.tsx` (extended props to include history and customer data)
+
+**Documentation:**
+- Complete guide: `docs/PHASE_2_ENHANCEMENTS.md`
+
+---
+
+### ✅ Order Item Detail Dialog - Phase 1: Design Uploads (v0.17.0)
+
+**What's New:**
+- **Order Item Detail Dialog** - Comprehensive popup for viewing garment details
+- **Design Upload System** - Upload/download rough paper designs and reference images
+- **Complete Garment Information** - Measurements, fabric, location, accessories in one view
+- **Role-Based Access** - Owner/Admin upload, others view only
+
+**Key Features:**
+
+1. **Design Upload System** (`app/api/design-uploads/`, `components/orders/order-item-detail-dialog.tsx`)
+   - Upload images (JPG, PNG, GIF, WebP) and PDFs (max 10MB)
+   - Multiple files per order item
+   - Categories: SKETCH, REFERENCE, WORK_IN_PROGRESS, FINAL
+   - Local storage in `/uploads/designs/` directory
+   - Download and delete functionality
+   - Complete audit trail (uploaded by, timestamp)
+
+2. **Comprehensive Order Item View**
+   - **7 Main Sections**:
+     1. Timeline Alert (overdue/due today/days remaining)
+     2. Measurements (all garment measurements with body type)
+     3. Fabric Details (color swatch, brand, type, storage location)
+     4. Cloth Remaining (current stock minus reserved)
+     5. Accessories Required (buttons, thread, zippers with quantities)
+     6. Order Item Info (quantity, body type)
+     7. Design Uploads (sketches, photos, reference images)
+
+3. **Storage Location Tracking**
+   - Large, prominent display of fabric storage location
+   - Helps tailors quickly find the correct cloth
+   - Shows "Rack A1", "Shelf B3", etc.
+
+4. **Stock Visibility**
+   - Current stock, reserved amount, and available cloth
+   - Color-coded: Red if insufficient, Green if adequate
+   - Shows exact meters needed vs available
+
+5. **Accessories Breakdown**
+   - Lists all required accessories from garment pattern
+   - Shows quantity per garment × order quantity
+   - Example: "20 buttons" (5 per shirt × 4 shirts)
+
+**API Endpoints Added:**
+- `POST /api/design-uploads` - Upload design file
+- `GET /api/design-uploads?orderItemId={id}` - List files for order item
+- `GET /api/design-uploads/[id]` - Download design file
+- `DELETE /api/design-uploads/[id]` - Delete design file
+- `GET /api/garment-patterns/[id]/accessories` - Get accessories for garment
+
+**Database Schema:**
+```prisma
+model DesignUpload {
+  id              String              @id @default(cuid())
+  orderItemId     String
+  fileName        String
+  fileType        String
+  filePath        String
+  fileSize        Int
+  category        DesignFileCategory  @default(SKETCH)
+  description     String?
+  uploadedBy      String
+  uploadedAt      DateTime            @default(now())
+
+  orderItem       OrderItem           @relation(...)
+  user            User                @relation(...)
+}
+
+enum DesignFileCategory {
+  SKETCH
+  REFERENCE
+  WORK_IN_PROGRESS
+  FINAL
+}
+```
+
+**Files Added:**
+- `app/api/design-uploads/route.ts` - Upload and list API
+- `app/api/design-uploads/[id]/route.ts` - Download and delete API
+- `app/api/garment-patterns/[id]/accessories/route.ts` - Accessories API
+- `components/orders/order-item-detail-dialog.tsx` - Main dialog component (620 lines)
+- `docs/ORDER_ITEM_DETAIL_DIALOG.md` - Complete documentation
+
+**Files Modified:**
+- `prisma/schema.prisma` - Added DesignUpload model and enum
+- `app/(dashboard)/orders/[id]/page.tsx` - Integrated OrderItemDetailDialog
+
+**Permissions:**
+- `update_order` - Required to upload/delete design files
+- `view_orders` - Required to view order item details
+
+**Documentation:**
+- Complete guide: `docs/ORDER_ITEM_DETAIL_DIALOG.md`
+- Testing scenarios, troubleshooting, migration guide included
+
+---
+
 ### ✅ Phase 13: Reports & Analytics System (v0.16.0)
 
 **What's New:**
