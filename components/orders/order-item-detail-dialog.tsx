@@ -218,13 +218,13 @@ export function OrderItemDetailDialog({ orderItem }: OrderItemDetailDialogProps)
   }
 
   // Fetch designs, accessories, and customer history when dialog opens
-  useEffect(() => {
-    if (isOpen) {
-      fetchDesigns()
-      fetchAccessories()
-      fetchCustomerOrders()
-    }
-  }, [isOpen])
+useEffect(() => {
+  if (isOpen) {
+    fetchDesigns()
+    fetchAccessories()
+    fetchCustomerOrders()
+  }
+}, [isOpen, orderItem.id])
 
   const fetchDesigns = async () => {
     try {
