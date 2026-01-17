@@ -108,46 +108,62 @@ export async function POST(request: NextRequest) {
     // Generate SKU if not provided
     const sku = data.sku || `CLT-${(data.type || 'UNK').substring(0, 3).toUpperCase()}-${(data.brand || 'UNK').substring(0, 3).toUpperCase()}-${Date.now().toString().slice(-6)}`
 
-    const clothItem = await prisma.clothInventory.create({
-      data: {
-        sku,
-        name: data.name || 'Unnamed Fabric',
-        type: data.type || 'Cotton',
-        brand: data.brand || 'Unknown',
-        color: data.color || 'Mixed',
-        colorHex: data.colorHex || '#000000',
-        pattern: data.pattern || 'Plain',
-        quality: data.quality || 'Standard',
-        pricePerMeter: data.pricePerMeter || 0,
-        currentStock: data.currentStock || 0,
-        reserved: 0,
-        totalPurchased: data.currentStock || 0,
-        minimum: data.minimum || 0,
-        supplier: data.supplier || 'Unknown',
-        ...(data.supplierId && { supplierId: data.supplierId }),
-        ...(data.location && { location: data.location }),
-        ...(data.notes && { notes: data.notes }),
-      },
-      include: {
-        supplierRel: true,
-      },
+    // Verify user exists in database
+    const user = await prisma.user.findUnique({
+      where: { email: session.user.email || undefined },
+      select: { id: true }
     })
 
-    // Create stock movement for initial stock
-    if (data.currentStock && data.currentStock > 0) {
-      await prisma.stockMovement.create({
-        data: {
-          clothInventoryId: clothItem.id,
-          type: 'PURCHASE',
-          quantity: data.currentStock,
-          balanceAfter: data.currentStock,
-          userId: session.user.id,
-          notes: 'Initial stock',
-        },
-      })
+    if (!user) {
+      console.error('User not found in database:', session.user.email)
+      return NextResponse.json({ error: 'User not found' }, { status: 401 })
     }
 
-    return NextResponse.json(clothItem, { status: 201 })
+    // Use transaction to ensure atomicity
+    const result = await prisma.$transaction(async (tx) => {
+      const clothItem = await tx.clothInventory.create({
+        data: {
+          sku,
+          name: data.name || 'Unnamed Fabric',
+          type: data.type || 'Cotton',
+          brand: data.brand || 'Unknown',
+          color: data.color || 'Mixed',
+          colorHex: data.colorHex || '#000000',
+          pattern: data.pattern || 'Plain',
+          quality: data.quality || 'Standard',
+          pricePerMeter: data.pricePerMeter || 0,
+          currentStock: data.currentStock || 0,
+          reserved: 0,
+          totalPurchased: data.currentStock || 0,
+          minimum: data.minimum || 0,
+          supplier: data.supplier || 'Unknown',
+          ...(data.supplierId && { supplierId: data.supplierId }),
+          ...(data.location && { location: data.location }),
+          ...(data.notes && { notes: data.notes }),
+        },
+        include: {
+          supplierRel: true,
+        },
+      })
+
+      // Create stock movement for initial stock
+      if (data.currentStock && data.currentStock > 0) {
+        await tx.stockMovement.create({
+          data: {
+            clothInventoryId: clothItem.id,
+            type: 'PURCHASE',
+            quantity: data.currentStock,
+            balanceAfter: data.currentStock,
+            userId: user.id, // Use verified user ID
+            notes: 'Initial stock',
+          },
+        })
+      }
+
+      return clothItem
+    })
+
+    return NextResponse.json(result, { status: 201 })
   } catch (error) {
     console.error('Error creating cloth inventory:', error)
     if (error instanceof z.ZodError) {

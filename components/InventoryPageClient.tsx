@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useSession } from "next-auth/react"
 import Link from "next/link"
 import { Package, Scan, Plus, AlertTriangle, ArrowUpDown, ShoppingCart, Eye, Home } from "lucide-react"
 
@@ -78,6 +79,7 @@ interface AccessoryInventoryItem {
 export default function InventoryPageClient() {
   const router = useRouter()
   const { toast } = useToast()
+  const { data: session } = useSession()
   const [activeTab, setActiveTab] = useState<InventoryType>("cloth")
   const [isLoading, setIsLoading] = useState(false)
   const [scannedBarcode, setScannedBarcode] = useState<string | null>(null)
@@ -89,6 +91,9 @@ export default function InventoryPageClient() {
   const [isFetchingInventory, setIsFetchingInventory] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
+
+  // Check if user is a Tailor (hide pricing information)
+  const isTailor = session?.user?.role === 'TAILOR'
 
   // Pagination states
   const [clothPage, setClothPage] = useState(1)
@@ -465,16 +470,19 @@ export default function InventoryPageClient() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="pricePerMeter">Price/Meter (₹) *</Label>
-                          <Input id="pricePerMeter" name="pricePerMeter" type="number" step="0.01" required />
+                      {/* Hide pricing fields for Tailor */}
+                      {!isTailor && (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="pricePerMeter">Price/Meter (₹) *</Label>
+                            <Input id="pricePerMeter" name="pricePerMeter" type="number" step="0.01" required />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="supplier">Supplier *</Label>
+                            <Input id="supplier" name="supplier" required />
+                          </div>
                         </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="supplier">Supplier *</Label>
-                          <Input id="supplier" name="supplier" required />
-                        </div>
-                      </div>
+                      )}
 
                       <div className="space-y-2">
                         <Label htmlFor="location">Location</Label>
@@ -524,10 +532,13 @@ export default function InventoryPageClient() {
                         </div>
                       </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="acc-pricePerUnit">Price/Unit (₹) *</Label>
-                        <Input id="acc-pricePerUnit" name="pricePerUnit" type="number" step="0.01" required />
-                      </div>
+                      {/* Hide pricing for Tailor */}
+                      {!isTailor && (
+                        <div className="space-y-2">
+                          <Label htmlFor="acc-pricePerUnit">Price/Unit (₹) *</Label>
+                          <Input id="acc-pricePerUnit" name="pricePerUnit" type="number" step="0.01" required />
+                        </div>
+                      )}
 
                       <Button type="submit" className="w-full" disabled={isLoading}>
                         {isLoading ? 'Creating...' : 'Create Accessory'}
@@ -604,7 +615,7 @@ export default function InventoryPageClient() {
                         <TableHead>Color</TableHead>
                         <TableHead>Stock</TableHead>
                         <TableHead>Available</TableHead>
-                        <TableHead>Price</TableHead>
+                        {!isTailor && <TableHead>Price</TableHead>}
                         <TableHead>Status</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
@@ -638,7 +649,7 @@ export default function InventoryPageClient() {
                                 <span className="text-xs text-slate-500"> ({item.reserved.toFixed(2)}m reserved)</span>
                               )}
                             </TableCell>
-                            <TableCell>{formatCurrency(item.pricePerMeter)}/m</TableCell>
+                            {!isTailor && <TableCell>{formatCurrency(item.pricePerMeter)}/m</TableCell>}
                             <TableCell>
                               <Badge variant={status.variant}>{status.label}</Badge>
                             </TableCell>
@@ -723,7 +734,7 @@ export default function InventoryPageClient() {
                         <TableHead>Color</TableHead>
                         <TableHead>Stock</TableHead>
                         <TableHead>Minimum</TableHead>
-                        <TableHead>Price/Unit</TableHead>
+                        {!isTailor && <TableHead>Price/Unit</TableHead>}
                         <TableHead>Status</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
@@ -744,7 +755,7 @@ export default function InventoryPageClient() {
                             <TableCell>{item.color || '-'}</TableCell>
                             <TableCell>{item.currentStock}</TableCell>
                             <TableCell>{item.minimum}</TableCell>
-                            <TableCell>{formatCurrency(item.pricePerUnit)}</TableCell>
+                            {!isTailor && <TableCell>{formatCurrency(item.pricePerUnit)}</TableCell>}
                             <TableCell>
                               <Badge variant={status.variant}>{status.label}</Badge>
                             </TableCell>
