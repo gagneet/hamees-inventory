@@ -36,6 +36,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 export default function ExpenseReportPage() {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [timeRange, setTimeRange] = useState(6)
 
   useEffect(() => {
@@ -44,14 +45,47 @@ export default function ExpenseReportPage() {
 
   const fetchReport = async () => {
     setLoading(true)
-    const response = await fetch(`/api/reports/expenses?months=${timeRange}`)
-    const data = await response.json()
-    setData(data)
-    setLoading(false)
+    setError(null)
+    try {
+      const response = await fetch(`/api/reports/expenses?months=${timeRange}`)
+      const data = await response.json()
+
+      if (!response.ok || data.error) {
+        setError(data.error || 'Failed to load report')
+        setData(null)
+      } else {
+        setData(data)
+      }
+    } catch (err) {
+      setError('Failed to load report')
+      setData(null)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  if (loading || !data) {
+  if (loading) {
     return <div className="p-8">Loading...</div>
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <div className="container mx-auto px-4 py-8">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+            <h2 className="text-xl font-bold text-red-900 mb-2">Access Denied</h2>
+            <p className="text-red-700">{error}</p>
+            <p className="text-sm text-red-600 mt-2">
+              You need OWNER or ADMIN role to view expense reports.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!data) {
+    return <div className="p-8">No data available</div>
   }
 
   return (
