@@ -298,9 +298,27 @@ export default async function OrderDetailPage({
                                   } : undefined,
                                 } : undefined,
                                 order: {
+                                  id: order.id,
+                                  orderNumber: order.orderNumber,
                                   deliveryDate: order.deliveryDate.toISOString(),
+                                  createdAt: order.createdAt.toISOString(),
                                   status: order.status,
                                   notes: order.notes || undefined,
+                                  customer: {
+                                    id: order.customer.id,
+                                    name: order.customer.name,
+                                  },
+                                  history: order.history.map(h => ({
+                                    id: h.id,
+                                    changeType: h.changeType,
+                                    oldValue: h.oldValue || undefined,
+                                    newValue: h.newValue || undefined,
+                                    description: h.description,
+                                    createdAt: h.createdAt.toISOString(),
+                                    user: {
+                                      name: h.user.name,
+                                    },
+                                  })),
                                 },
                               }}
                             />
