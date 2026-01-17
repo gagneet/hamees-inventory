@@ -28,15 +28,22 @@ export type Permission =
   | 'delete_purchase_order'
   | 'view_expenses'
   | 'manage_expenses'
+  | 'delete_expenses'
   | 'view_garment_types'
   | 'manage_garment_types'
   | 'delete_garment_type'
   | 'view_reports'
+  | 'view_inventory_reports'
+  | 'view_sales_reports'
+  | 'view_customer_reports'
+  | 'view_expense_reports'
+  | 'view_financial_reports'
   | 'manage_users'
   | 'manage_settings'
   | 'view_alerts'
   | 'manage_alerts'
   | 'bulk_upload'
+  | 'bulk_delete'
 
 /**
  * Permission matrix for each role
@@ -57,20 +64,29 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     'view_customers',
     'manage_customers',
     'manage_measurements',
+    // NO delete_customer
     'view_suppliers',
     'manage_suppliers',
     'view_purchase_orders',
     'manage_purchase_orders',
+    // NO delete_purchase_order
     'view_expenses',
     'manage_expenses',
+    // NO delete_expenses
     'view_garment_types',
     'manage_garment_types',
+    // NO delete_garment_type
     'view_reports',
+    'view_inventory_reports',
+    'view_sales_reports',
+    'view_customer_reports',
+    'view_expense_reports',
+    'view_financial_reports',
     // NO manage_users - only ADMIN can manage users
     // NO manage_settings - cannot modify application parameters
     'view_alerts',
     'manage_alerts',
-    // NO bulk_upload
+    // NO bulk_upload, NO bulk_delete
   ],
   ADMIN: [
     // Full access including settings, users, delete, and bulk upload
@@ -96,18 +112,26 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     'delete_purchase_order',
     'view_expenses',
     'manage_expenses',
+    'delete_expenses',
     'view_garment_types',
     'manage_garment_types',
     'delete_garment_type',
     'view_reports',
+    'view_inventory_reports',
+    'view_sales_reports',
+    'view_customer_reports',
+    'view_expense_reports',
+    'view_financial_reports',
     'manage_users',
     'manage_settings',
     'view_alerts',
     'manage_alerts',
     'bulk_upload',
+    'bulk_delete',
   ],
   INVENTORY_MANAGER: [
     // Only inventory, POs, garments, suppliers - NO orders, customers, expenses, dashboard
+    'view_dashboard',
     'view_inventory',
     'manage_inventory',
     'add_inventory',
@@ -117,6 +141,8 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     'manage_garment_types',
     'view_suppliers',
     'manage_suppliers',
+    'view_reports',
+    'view_inventory_reports',
     'view_alerts',
   ],
   SALES_MANAGER: [
@@ -132,6 +158,8 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     'view_garment_types',
     'manage_garment_types',
     'view_reports',
+    'view_sales_reports',
+    'view_customer_reports',
     'view_alerts',
   ],
   TAILOR: [
