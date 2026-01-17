@@ -680,12 +680,16 @@ const response = await fetch(`/api/orders/${orderItem.order.id}`, {
                 </div>
                 <div>
                   <p className="text-slate-500 text-xs">Wastage</p>
-                  <p className={`font-semibold text-lg ${
-                    parseFloat(getWastageInfo()!.wastage) > 0 ? 'text-red-600' : 'text-green-600'
-                  }`}>
-                    {getWastageInfo()!.wastage}m
-                  </p>
-                </div>
+const wastageInfo = getWastageInfo()
+if (!wastageInfo) return null
+
+return (
+  <p className={`font-semibold text-lg ${
+    parseFloat(wastageInfo.wastage) > 0 ? 'text-red-600' : 'text-green-600'
+  }`}>
+    {wastageInfo.wastage}m
+  </p>
+)
               </div>
               <div className="mt-3 pt-3 border-t border-cyan-200">
                 <div className="flex items-center justify-between">
