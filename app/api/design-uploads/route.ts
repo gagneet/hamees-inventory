@@ -6,7 +6,7 @@ import { requireAuth, requirePermission } from '@/lib/api-permissions'
 
 const UPLOAD_DIR = join(process.cwd(), 'uploads', 'designs')
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
-const MAX_FILE_SIZE_MB = 10 // For display in error messages
+const MAX_FILE_SIZE_MB = MAX_FILE_SIZE / (1024 * 1024) // Derived for display in error messages
 const ALLOWED_TYPES = [
   'image/jpeg',
   'image/jpg',
