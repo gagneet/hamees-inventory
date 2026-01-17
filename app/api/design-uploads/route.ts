@@ -6,6 +6,7 @@ import { requireAuth, requirePermission } from '@/lib/api-permissions'
 
 const UPLOAD_DIR = join(process.cwd(), 'uploads', 'designs')
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+const MAX_FILE_SIZE_MB = MAX_FILE_SIZE / (1024 * 1024) // Derived for display in error messages
 const ALLOWED_TYPES = [
   'image/jpeg',
   'image/jpg',
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
     // Validate file size
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        { error: `File size exceeds maximum of ${MAX_FILE_SIZE / 1024 / 1024}MB` },
+        { error: `File size exceeds maximum of ${MAX_FILE_SIZE_MB}MB` },
         { status: 400 }
       )
     }
@@ -118,14 +119,30 @@ export async function POST(request: NextRequest) {
     // Generate unique filename
     const timestamp = Date.now()
     const randomSuffix = Math.random().toString(36).substring(2, 8)
-// Safely extract file extension and validate it
-const fileExtension = file.name.split('.').pop()?.toLowerCase()
-if (!fileExtension || fileExtension.includes('/') || fileExtension.includes('\\')) {
-  return NextResponse.json(
-    { error: 'Invalid file extension' },
-    { status: 400 }
-  )
-}
+    
+    // Safely extract file extension with robust handling
+    // Handle edge cases: no extension, multiple dots, invalid characters
+    const fileExtension = (() => {
+      const parts = file.name.split('.')
+      // File must have at least one dot and content after it
+      if (parts.length < 2) {
+        return null
+      }
+      const ext = parts[parts.length - 1].toLowerCase().trim()
+      // Extension must be non-empty and contain only alphanumeric characters
+      if (!ext || !/^[a-z0-9]+$/.test(ext)) {
+        return null
+      }
+      return ext
+    })()
+    
+    if (!fileExtension) {
+      return NextResponse.json(
+        { error: 'Invalid or missing file extension' },
+        { status: 400 }
+      )
+    }
+    
     const uniqueFileName = `${orderItemId}_${timestamp}_${randomSuffix}.${fileExtension}`
     const filePath = join(UPLOAD_DIR, uniqueFileName)
 
@@ -137,7 +154,7 @@ const design = await prisma.$transaction(async (tx) => {
       orderItemId,
       fileName: file.name,
       fileType: file.type,
-      filePath: `designs/${uniqueFileName}`, // Relative path
+      filePath: uniqueFileName, // Store only filename, not relative path
       fileSize: file.size,
       category: category as any,
       description: description || undefined,

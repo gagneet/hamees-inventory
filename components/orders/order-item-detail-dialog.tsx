@@ -30,6 +30,7 @@ import {
 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { hasPermission } from '@/lib/permissions'
+import { useToast } from '@/hooks/use-toast'
 
 interface OrderItemDetailDialogProps {
   orderItem: {
@@ -84,6 +85,7 @@ interface OrderItemDetailDialogProps {
       createdAt: string
       status: string
       notes?: string
+      tailorNotes?: string
       customer: {
         id: string
         name: string
@@ -168,7 +170,7 @@ export function OrderItemDetailDialog({ orderItem }: OrderItemDetailDialogProps)
   const [customerOrders, setCustomerOrders] = useState<any[]>([])
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
   const [accessoryChecklist, setAccessoryChecklist] = useState<Record<string, boolean>>({})
-  const [tailorNotes, setTailorNotes] = useState('')
+  const [tailorNotes, setTailorNotes] = useState(orderItem.order.tailorNotes || '')
   const [isSavingNotes, setIsSavingNotes] = useState(false)
 
   // Calculate cloth remaining (available stock after reservation)
@@ -221,6 +223,16 @@ export function OrderItemDetailDialog({ orderItem }: OrderItemDetailDialogProps)
       return statusFlow[currentIndex + 1]
     }
     return null
+  }
+
+  // Helper to extract error message from API response
+  const getErrorMessage = async (response: Response, fallbackMessage: string): Promise<string> => {
+    try {
+      const data = await response.json()
+      return data.error || fallbackMessage
+    } catch {
+      return fallbackMessage
+    }
   }
 
   // Fetch designs, accessories, and customer history when dialog opens
@@ -286,7 +298,7 @@ useEffect(() => {
       if (response.ok) {
         toast({
           title: 'Success',
-          description: 'Status updated successfully',
+          description: 'Order status updated successfully',
         })
         // Refresh the page data without full reload to preserve user state
         window.location.href = window.location.href
@@ -303,7 +315,7 @@ useEffect(() => {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to update status',
+        description: error instanceof Error ? error.message : 'Failed to update status. Please check your connection and try again.',
       })
     } finally {
       setIsUpdatingStatus(false)
@@ -329,13 +341,14 @@ useEffect(() => {
       if (response.ok) {
         toast({
           title: 'Success',
-          description: 'Notes saved successfully',
+          description: 'Tailor notes saved successfully',
         })
       } else {
+        const errorMessage = await getErrorMessage(response, 'Failed to save notes')
         toast({
           variant: 'destructive',
           title: 'Error',
-          description: 'Failed to save notes',
+          description: errorMessage,
         })
       }
     } catch (error) {
@@ -343,7 +356,7 @@ useEffect(() => {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to save notes',
+        description: error instanceof Error ? error.message : 'Failed to save notes. Please check your connection and try again.',
       })
     } finally {
       setIsSavingNotes(false)
@@ -370,22 +383,22 @@ useEffect(() => {
         await fetchDesigns()
         toast({
           title: 'Success',
-          description: 'File uploaded successfully',
+          description: 'Design file uploaded successfully',
         })
       } else {
-        const error = await response.json()
+        const errorMessage = await getErrorMessage(response, 'Failed to upload file')
         toast({
           variant: 'destructive',
-          title: 'Error',
-          description: error.error || 'Failed to upload file',
+          title: 'Upload Failed',
+          description: errorMessage,
         })
       }
     } catch (error) {
       console.error('Error uploading file:', error)
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to upload file',
+        title: 'Upload Error',
+        description: error instanceof Error ? error.message : 'Failed to upload file. Please check your connection and try again.',
       })
     } finally {
       setIsUploading(false)
@@ -409,25 +422,23 @@ useEffect(() => {
         await fetchDesigns()
         toast({
           title: 'Success',
-          description: 'File deleted successfully',
+          description: 'Design file deleted successfully',
         })
       } else {
+        const errorMessage = await getErrorMessage(response, 'Failed to delete file')
         toast({
           variant: 'destructive',
-          title: 'Error',
-          description: 'Failed to delete file',
+          title: 'Delete Failed',
+          description: errorMessage,
         })
       }
     } catch (error) {
       console.error('Error deleting file:', error)
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to delete file',
+        title: 'Delete Error',
+        description: error instanceof Error ? error.message : 'Failed to delete file. Please check your connection and try again.',
       })
-    } finally {
-      setDeleteDialogOpen(false)
-      setDesignToDelete(null)
     }
   }
 

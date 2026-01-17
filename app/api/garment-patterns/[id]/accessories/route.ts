@@ -12,6 +12,21 @@ export async function GET(
     if (error) return error
 
     const { id } = await params
+
+    // First, check if the garment pattern exists
+    const garmentPattern = await prisma.garmentPattern.findUnique({
+      where: { id },
+      select: { id: true },
+    })
+
+    if (!garmentPattern) {
+      return NextResponse.json(
+        { error: 'Garment pattern not found' },
+        { status: 404 }
+      )
+    }
+
+    // Now fetch the accessories for this garment pattern
     const accessories = await prisma.garmentAccessory.findMany({
       where: {
         garmentPatternId: id,
@@ -33,7 +48,7 @@ export async function GET(
   } catch (error) {
     console.error('Error fetching accessories:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Failed to fetch accessories for garment pattern' },
       { status: 500 }
     )
   }

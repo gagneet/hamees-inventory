@@ -322,7 +322,8 @@ model Order {
   invoiceDate     DateTime?                  // GST invoice date
   placeOfSupply   String?                    // State for GST
 
-  notes           String?
+  notes           String?   // Customer instructions and special requests
+  tailorNotes     String?   // Tailor's observations and modifications (separate from customer notes)
   active          Boolean      @default(true)
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
