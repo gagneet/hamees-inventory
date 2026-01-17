@@ -416,6 +416,7 @@ async function exportToExcel() {
           invoiceDate: o.invoiceDate ? o.invoiceDate.toISOString().split('T')[0] : '',
           placeOfSupply: o.placeOfSupply || '',
           notes: o.notes || '',
+          tailorNotes: o.tailorNotes || '',
           active: o.active,
           createdAt: o.createdAt.toISOString(),
           updatedAt: o.updatedAt.toISOString()
@@ -447,7 +448,8 @@ async function exportToExcel() {
         { key: 'invoiceNumber', header: 'Invoice Number', width: 20 },
         { key: 'invoiceDate', header: 'Invoice Date', width: 15 },
         { key: 'placeOfSupply', header: 'Place of Supply', width: 20 },
-        { key: 'notes', header: 'Notes', width: 40 },
+        { key: 'notes', header: 'Notes (Customer)', width: 40 },
+        { key: 'tailorNotes', header: 'Tailor Notes', width: 40 },
         { key: 'active', header: 'Active', width: 10 },
         { key: 'createdAt', header: 'Created At', width: 20 },
         { key: 'updatedAt', header: 'Updated At', width: 20 }
@@ -577,6 +579,284 @@ async function exportToExcel() {
         { key: 'createdAt', header: 'Created At', width: 20 }
       ],
       notes: 'Item Type: CLOTH, ACCESSORY | Unit: meters, pieces'
+    },
+
+    // 13. Payment Installments (depends on Order)
+    {
+      name: 'PaymentInstallment',
+      sheetName: '13. Payment Installments',
+      fetchData: async () => {
+        const installments = await prisma.paymentInstallment.findMany({
+          orderBy: { createdAt: 'asc' }
+        })
+        return installments.map(i => ({
+          id: i.id,
+          orderId: i.orderId,
+          installmentNumber: i.installmentNumber,
+          amount: i.amount,
+          dueDate: i.dueDate.toISOString().split('T')[0],
+          paidDate: i.paidDate ? i.paidDate.toISOString().split('T')[0] : '',
+          paidAmount: i.paidAmount,
+          paymentMode: i.paymentMode || '',
+          transactionRef: i.transactionRef || '',
+          status: i.status,
+          notes: i.notes || '',
+          createdAt: i.createdAt.toISOString(),
+          updatedAt: i.updatedAt.toISOString()
+        }))
+      },
+      columns: [
+        { key: 'id', header: 'ID', width: 30 },
+        { key: 'orderId', header: 'Order ID (FK)', width: 30 },
+        { key: 'installmentNumber', header: 'Installment #', width: 12 },
+        { key: 'amount', header: 'Amount', width: 12 },
+        { key: 'dueDate', header: 'Due Date', width: 15 },
+        { key: 'paidDate', header: 'Paid Date', width: 15 },
+        { key: 'paidAmount', header: 'Paid Amount', width: 12 },
+        { key: 'paymentMode', header: 'Payment Mode', width: 15 },
+        { key: 'transactionRef', header: 'Transaction Ref', width: 20 },
+        { key: 'status', header: 'Status', width: 15 },
+        { key: 'notes', header: 'Notes', width: 40 },
+        { key: 'createdAt', header: 'Created At', width: 20 },
+        { key: 'updatedAt', header: 'Updated At', width: 20 }
+      ],
+      notes: 'Status: PENDING, PARTIAL, PAID, OVERDUE, CANCELLED | Payment Mode: CASH, UPI, CARD, BANK_TRANSFER, CHEQUE, NET_BANKING'
+    },
+
+    // 14. Order History (depends on Order and User)
+    {
+      name: 'OrderHistory',
+      sheetName: '14. Order History',
+      fetchData: async () => {
+        const history = await prisma.orderHistory.findMany({
+          orderBy: { createdAt: 'desc' }
+        })
+        return history.map(h => ({
+          id: h.id,
+          orderId: h.orderId,
+          userId: h.userId,
+          changeType: h.changeType,
+          fieldName: h.fieldName || '',
+          oldValue: h.oldValue || '',
+          newValue: h.newValue || '',
+          description: h.description,
+          createdAt: h.createdAt.toISOString()
+        }))
+      },
+      columns: [
+        { key: 'id', header: 'ID', width: 30 },
+        { key: 'orderId', header: 'Order ID (FK)', width: 30 },
+        { key: 'userId', header: 'User ID (FK)', width: 30 },
+        { key: 'changeType', header: 'Change Type', width: 20 },
+        { key: 'fieldName', header: 'Field Name', width: 20 },
+        { key: 'oldValue', header: 'Old Value', width: 30 },
+        { key: 'newValue', header: 'New Value', width: 30 },
+        { key: 'description', header: 'Description', width: 50 },
+        { key: 'createdAt', header: 'Created At', width: 20 }
+      ],
+      notes: 'Change Types: STATUS_UPDATE, ORDER_EDIT, ITEM_ADDED, ITEM_REMOVED, PAYMENT_RECEIVED, ORDER_SPLIT, etc.'
+    },
+
+    // 15. Design Uploads (depends on OrderItem and User)
+    {
+      name: 'DesignUpload',
+      sheetName: '15. Design Uploads',
+      fetchData: async () => {
+        const uploads = await prisma.designUpload.findMany({
+          orderBy: { uploadedAt: 'desc' }
+        })
+        return uploads.map(d => ({
+          id: d.id,
+          orderItemId: d.orderItemId,
+          fileName: d.fileName,
+          fileType: d.fileType,
+          filePath: d.filePath,
+          fileSize: d.fileSize,
+          category: d.category,
+          description: d.description || '',
+          uploadedBy: d.uploadedBy,
+          uploadedAt: d.uploadedAt.toISOString()
+        }))
+      },
+      columns: [
+        { key: 'id', header: 'ID', width: 30 },
+        { key: 'orderItemId', header: 'Order Item ID (FK)', width: 30 },
+        { key: 'fileName', header: 'File Name', width: 30 },
+        { key: 'fileType', header: 'File Type (MIME)', width: 25 },
+        { key: 'filePath', header: 'File Path', width: 50 },
+        { key: 'fileSize', header: 'File Size (bytes)', width: 15 },
+        { key: 'category', header: 'Category', width: 20 },
+        { key: 'description', header: 'Description', width: 40 },
+        { key: 'uploadedBy', header: 'Uploaded By (FK)', width: 30 },
+        { key: 'uploadedAt', header: 'Uploaded At', width: 20 }
+      ],
+      notes: 'Categories: SKETCH, REFERENCE, WORK_IN_PROGRESS, FINAL'
+    },
+
+    // 16. Stock Movements (depends on ClothInventory, Order, User)
+    {
+      name: 'StockMovement',
+      sheetName: '16. Stock Movements',
+      fetchData: async () => {
+        const movements = await prisma.stockMovement.findMany({
+          orderBy: { createdAt: 'desc' }
+        })
+        return movements.map(m => ({
+          id: m.id,
+          clothInventoryId: m.clothInventoryId,
+          orderId: m.orderId || '',
+          userId: m.userId,
+          type: m.type,
+          quantity: m.quantity,
+          balanceAfter: m.balanceAfter,
+          notes: m.notes || '',
+          createdAt: m.createdAt.toISOString()
+        }))
+      },
+      columns: [
+        { key: 'id', header: 'ID', width: 30 },
+        { key: 'clothInventoryId', header: 'Cloth Inventory ID (FK)', width: 30 },
+        { key: 'orderId', header: 'Order ID (FK)', width: 30 },
+        { key: 'userId', header: 'User ID (FK)', width: 30 },
+        { key: 'type', header: 'Movement Type', width: 20 },
+        { key: 'quantity', header: 'Quantity (±)', width: 12 },
+        { key: 'balanceAfter', header: 'Balance After', width: 15 },
+        { key: 'notes', header: 'Notes', width: 40 },
+        { key: 'createdAt', header: 'Created At', width: 20 }
+      ],
+      notes: 'Types: PURCHASE, ORDER_RESERVED, ORDER_USED, ORDER_CANCELLED, ADJUSTMENT, RETURN, WASTAGE'
+    },
+
+    // 17. Supplier Prices (depends on Supplier and ClothInventory)
+    {
+      name: 'SupplierPrice',
+      sheetName: '17. Supplier Prices',
+      fetchData: async () => {
+        const prices = await prisma.supplierPrice.findMany({
+          orderBy: { effectiveFrom: 'desc' }
+        })
+        return prices.map(p => ({
+          id: p.id,
+          supplierId: p.supplierId,
+          clothInventoryId: p.clothInventoryId,
+          pricePerMeter: p.pricePerMeter,
+          effectiveFrom: p.effectiveFrom.toISOString().split('T')[0],
+          effectiveTo: p.effectiveTo ? p.effectiveTo.toISOString().split('T')[0] : '',
+          active: p.active,
+          createdAt: p.createdAt.toISOString()
+        }))
+      },
+      columns: [
+        { key: 'id', header: 'ID', width: 30 },
+        { key: 'supplierId', header: 'Supplier ID (FK)', width: 30 },
+        { key: 'clothInventoryId', header: 'Cloth Inventory ID (FK)', width: 30 },
+        { key: 'pricePerMeter', header: 'Price/Meter', width: 12 },
+        { key: 'effectiveFrom', header: 'Effective From', width: 15 },
+        { key: 'effectiveTo', header: 'Effective To', width: 15 },
+        { key: 'active', header: 'Active', width: 10 },
+        { key: 'createdAt', header: 'Created At', width: 20 }
+      ],
+      notes: 'Price history tracking for supplier fabric pricing'
+    },
+
+    // 18. Alerts (depends on ClothInventory, Order, etc.)
+    {
+      name: 'Alert',
+      sheetName: '18. Alerts',
+      fetchData: async () => {
+        const alerts = await prisma.alert.findMany({
+          orderBy: { createdAt: 'desc' }
+        })
+        return alerts.map(a => ({
+          id: a.id,
+          type: a.type,
+          severity: a.severity,
+          title: a.title,
+          message: a.message,
+          relatedType: a.relatedType || '',
+          relatedId: a.relatedId || '',
+          isRead: a.isRead,
+          isDismissed: a.isDismissed,
+          dismissedUntil: a.dismissedUntil ? a.dismissedUntil.toISOString().split('T')[0] : '',
+          createdAt: a.createdAt.toISOString(),
+          updatedAt: a.updatedAt.toISOString()
+        }))
+      },
+      columns: [
+        { key: 'id', header: 'ID', width: 30 },
+        { key: 'type', header: 'Type', width: 20 },
+        { key: 'severity', header: 'Severity', width: 12 },
+        { key: 'title', header: 'Title', width: 40 },
+        { key: 'message', header: 'Message', width: 60 },
+        { key: 'relatedType', header: 'Related Type', width: 20 },
+        { key: 'relatedId', header: 'Related ID', width: 30 },
+        { key: 'isRead', header: 'Is Read', width: 10 },
+        { key: 'isDismissed', header: 'Is Dismissed', width: 12 },
+        { key: 'dismissedUntil', header: 'Dismissed Until', width: 15 },
+        { key: 'createdAt', header: 'Created At', width: 20 },
+        { key: 'updatedAt', header: 'Updated At', width: 20 }
+      ],
+      notes: 'Types: LOW_STOCK, CRITICAL_STOCK, ORDER_DELAYED, REORDER_REMINDER | Severity: LOW, MEDIUM, HIGH, CRITICAL'
+    },
+
+    // 19. Expenses (depends on User)
+    {
+      name: 'Expense',
+      sheetName: '19. Expenses',
+      fetchData: async () => {
+        const expenses = await prisma.expense.findMany({
+          orderBy: { expenseDate: 'desc' }
+        })
+        return expenses.map(e => ({
+          id: e.id,
+          category: e.category,
+          description: e.description,
+          amount: e.amount,
+          gstAmount: e.gstAmount,
+          gstRate: e.gstRate,
+          totalAmount: e.totalAmount,
+          expenseDate: e.expenseDate.toISOString().split('T')[0],
+          vendorName: e.vendorName || '',
+          vendorGstin: e.vendorGstin || '',
+          invoiceNumber: e.invoiceNumber || '',
+          paymentMode: e.paymentMode,
+          paidBy: e.paidBy,
+          tdsAmount: e.tdsAmount,
+          tdsRate: e.tdsRate,
+          isRecurring: e.isRecurring,
+          recurringPeriod: e.recurringPeriod || '',
+          notes: e.notes || '',
+          attachments: e.attachments ? JSON.stringify(e.attachments) : '',
+          active: e.active,
+          createdAt: e.createdAt.toISOString(),
+          updatedAt: e.updatedAt.toISOString()
+        }))
+      },
+      columns: [
+        { key: 'id', header: 'ID', width: 30 },
+        { key: 'category', header: 'Category', width: 20 },
+        { key: 'description', header: 'Description', width: 40 },
+        { key: 'amount', header: 'Amount (Before GST)', width: 15 },
+        { key: 'gstAmount', header: 'GST Amount', width: 12 },
+        { key: 'gstRate', header: 'GST Rate (%)', width: 12 },
+        { key: 'totalAmount', header: 'Total Amount', width: 15 },
+        { key: 'expenseDate', header: 'Expense Date', width: 15 },
+        { key: 'vendorName', header: 'Vendor Name', width: 25 },
+        { key: 'vendorGstin', header: 'Vendor GSTIN', width: 20 },
+        { key: 'invoiceNumber', header: 'Invoice Number', width: 20 },
+        { key: 'paymentMode', header: 'Payment Mode', width: 15 },
+        { key: 'paidBy', header: 'Paid By (User ID FK)', width: 30 },
+        { key: 'tdsAmount', header: 'TDS Amount', width: 12 },
+        { key: 'tdsRate', header: 'TDS Rate (%)', width: 12 },
+        { key: 'isRecurring', header: 'Is Recurring', width: 12 },
+        { key: 'recurringPeriod', header: 'Recurring Period', width: 15 },
+        { key: 'notes', header: 'Notes', width: 40 },
+        { key: 'attachments', header: 'Attachments (JSON)', width: 50 },
+        { key: 'active', header: 'Active', width: 10 },
+        { key: 'createdAt', header: 'Created At', width: 20 },
+        { key: 'updatedAt', header: 'Updated At', width: 20 }
+      ],
+      notes: 'Categories: RENT, UTILITIES, SALARIES, TRANSPORT, MARKETING, MAINTENANCE, OFFICE_SUPPLIES, PROFESSIONAL_FEES, INSURANCE, BANK_CHARGES, DEPRECIATION, MISCELLANEOUS | Payment Modes: CASH, UPI, CARD, BANK_TRANSFER, CHEQUE, NET_BANKING | Recurring Periods: MONTHLY, QUARTERLY, YEARLY'
     }
   ]
 
@@ -651,10 +931,18 @@ async function exportToExcel() {
     ['6. Garment Patterns - No dependencies'],
     ['7. Garment Accessories - Requires Garment Patterns + Accessories'],
     ['8. Measurements - Requires Customers + Users (optional)'],
+    ['9. Supplier Prices - Requires Suppliers + Cloth Inventory (optional)'],
     [''],
-    ['NOTE: Orders, Order Items, Purchase Orders, and PO Items are exported for reference only.'],
-    ['These sheets are currently NOT supported for bulk upload due to their complexity.'],
-    ['Please create orders through the regular UI to maintain proper stock reservations and audit trails.'],
+    ['EXPORT-ONLY SHEETS (Not supported for bulk upload):'],
+    ['These sheets contain transactional/audit data and are exported for reference only:'],
+    ['- Orders & Order Items (create through UI to maintain stock reservations)'],
+    ['- Purchase Orders & PO Items (create through UI for proper tracking)'],
+    ['- Payment Installments (managed automatically with orders)'],
+    ['- Order History (auto-generated audit trail)'],
+    ['- Design Uploads (file uploads, not data records)'],
+    ['- Stock Movements (auto-generated with inventory transactions)'],
+    ['- Alerts (system-generated notifications)'],
+    ['- Expenses (create through UI for proper GST tracking)'],
     [''],
     ['UPLOAD PROCESS:'],
     ['- The system will validate all data before uploading'],

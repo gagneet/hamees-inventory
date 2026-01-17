@@ -40,7 +40,6 @@ import {
 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { hasPermission } from '@/lib/permissions'
-import { useToast } from '@/hooks/use-toast'
 
 interface OrderItemDetailDialogProps {
   orderItem: {
@@ -182,10 +181,6 @@ export function OrderItemDetailDialog({ orderItem }: OrderItemDetailDialogProps)
   const [accessoryChecklist, setAccessoryChecklist] = useState<Record<string, boolean>>({})
   const [tailorNotes, setTailorNotes] = useState(orderItem.order.tailorNotes || '')
   const [isSavingNotes, setIsSavingNotes] = useState(false)
-
-  // State for delete confirmation dialog
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [designToDelete, setDesignToDelete] = useState<string | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
 
   // Calculate cloth remaining (available stock after reservation)
@@ -452,14 +447,13 @@ useEffect(() => {
       }
     } catch (error) {
       console.error('Error deleting file:', error)
-      alert('Failed to delete file')
-    } finally {
-      setIsDeleting(false)
       toast({
         variant: 'destructive',
         title: 'Delete Error',
         description: error instanceof Error ? error.message : 'Failed to delete file. Please check your connection and try again.',
       })
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -1079,7 +1073,7 @@ useEffect(() => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setDesignToDelete(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteDesign} className="bg-red-600 hover:bg-red-700">
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-red-600 hover:bg-red-700">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

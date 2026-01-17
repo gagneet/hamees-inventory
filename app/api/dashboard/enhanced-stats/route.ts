@@ -575,13 +575,21 @@ export async function GET(request: Request) {
         take: 100,
       }),
 
-      // Customer retention (new vs returning)
+      // Customer retention (new vs returning) - need full order data
       prisma.customer.findMany({
         select: {
           id: true,
           orders: {
+            where: {
+              status: 'DELIVERED', // Only count delivered orders
+            },
             select: {
               id: true,
+              orderDate: true,
+              status: true,
+            },
+            orderBy: {
+              orderDate: 'asc',
             },
           },
         },
@@ -632,8 +640,39 @@ export async function GET(request: Request) {
     type AllCustomer = typeof allCustomers[number]
     type StockMovement = typeof stockMovements[number]
 
-    const returningCustomers = allCustomers.filter((c: AllCustomer) => c.orders.length > 1).length
-    const newCustomers = allCustomers.filter((c: AllCustomer) => c.orders.length === 1).length
+    // Returning customers: 3+ DELIVERED orders, 2+ months, 2+ orders at least 2 weeks apart
+    const returningCustomers = allCustomers.filter((c: AllCustomer) => {
+      // Must have at least 3 delivered orders
+      if (c.orders.length < 3) return false
+
+      // Get unique months from orders
+      const uniqueMonths = new Set(
+        c.orders.map(order => format(new Date(order.orderDate), 'MMM yyyy'))
+      )
+
+      // Must have orders in at least 2 different months
+      if (uniqueMonths.size < 2) return false
+
+      // Check if at least 2 orders are at least 2 weeks (14 days) apart
+      const orderDates = c.orders.map(o => new Date(o.orderDate).getTime())
+      let hasTwoWeeksApart = false
+
+      for (let i = 0; i < orderDates.length - 1; i++) {
+        for (let j = i + 1; j < orderDates.length; j++) {
+          const daysDiff = Math.abs(orderDates[j] - orderDates[i]) / (1000 * 60 * 60 * 24)
+          if (daysDiff >= 14) {
+            hasTwoWeeksApart = true
+            break
+          }
+        }
+        if (hasTwoWeeksApart) break
+      }
+
+      return hasTwoWeeksApart
+    }).length
+
+    // New/Existing customers: All others (< 3 delivered orders OR don't meet returning criteria)
+    const newCustomers = allCustomers.length - returningCustomers
 
     // Stock turnover ratio calculation (stockMovements already fetched above)
     const fabricUsed = stockMovements.reduce((sum: number, m: StockMovement) => sum + Math.abs(m.quantity), 0)

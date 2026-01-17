@@ -43,7 +43,7 @@ export function CustomerRetentionChart({ newCustomers, returningCustomers }: Cus
   const retentionRate = total > 0 ? Math.round((returningCustomers / total) * 100) : 0
 
   const data = [
-    { name: 'New Customers', value: newCustomers, color: COLORS.new },
+    { name: 'New or Existing Customers', value: newCustomers, color: COLORS.new },
     { name: 'Returning Customers', value: returningCustomers, color: COLORS.returning },
   ]
 
@@ -127,7 +127,7 @@ export function CustomerRetentionChart({ newCustomers, returningCustomers }: Cus
           <DialogHeader>
             <DialogTitle>Returning Customers</DialogTitle>
             <DialogDescription>
-              Customers with 3+ orders across different months
+              Customers with 3+ delivered orders across at least 2 different months, with at least 2 orders at least 2 weeks apart
             </DialogDescription>
           </DialogHeader>
 
