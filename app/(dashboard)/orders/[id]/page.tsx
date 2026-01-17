@@ -24,6 +24,7 @@ import { SplitOrderDialog } from '@/components/orders/split-order-dialog'
 import { RecordPaymentDialog } from '@/components/orders/record-payment-dialog'
 import { PrintInvoiceButton } from '@/components/orders/print-invoice-button'
 import { EditMeasurementDialog } from '@/components/orders/edit-measurement-dialog'
+import { OrderItemDetailDialog } from '@/components/orders/order-item-detail-dialog'
 
 async function getOrderDetails(id: string) {
   try {
@@ -72,6 +73,9 @@ async function getOrderDetails(id: string) {
                 type: true,
                 brand: true,
                 pricePerMeter: true,
+                location: true,
+                currentStock: true,
+                reserved: true,
               },
             },
             garmentPattern: {
@@ -254,14 +258,79 @@ export default async function OrderDetailPage({
                               </p>
                             </div>
                           )}
-                          <OrderItemEdit
-                            orderId={order.id}
-                            itemId={item.id}
-                            currentGarmentPatternId={item.garmentPattern.id}
-                            currentClothInventoryId={item.clothInventory.id}
-                            currentGarmentName={item.garmentPattern.name}
-                            currentClothName={`${item.clothInventory.name} (${item.clothInventory.color})`}
-                          />
+                          <div className="flex items-center gap-2">
+                            <OrderItemDetailDialog
+                              orderItem={{
+                                id: item.id,
+                                quantity: item.quantity,
+                                estimatedMeters: item.estimatedMeters,
+                                actualMetersUsed: item.actualMetersUsed || undefined,
+                                bodyType: item.bodyType,
+                                garmentPattern: {
+                                  id: item.garmentPattern.id,
+                                  name: item.garmentPattern.name,
+                                  description: item.garmentPattern.description || undefined,
+                                },
+                                clothInventory: {
+                                  ...item.clothInventory,
+                                  location: item.clothInventory.location || undefined,
+                                },
+                                measurement: item.measurement ? {
+                                  id: item.measurement.id,
+                                  garmentType: item.measurement.garmentType,
+                                  bodyType: item.measurement.bodyType || undefined,
+                                  neck: item.measurement.neck || undefined,
+                                  chest: item.measurement.chest || undefined,
+                                  waist: item.measurement.waist || undefined,
+                                  hip: item.measurement.hip || undefined,
+                                  shoulder: item.measurement.shoulder || undefined,
+                                  sleeveLength: item.measurement.sleeveLength || undefined,
+                                  shirtLength: item.measurement.shirtLength || undefined,
+                                  inseam: item.measurement.inseam || undefined,
+                                  outseam: item.measurement.outseam || undefined,
+                                  thigh: item.measurement.thigh || undefined,
+                                  knee: item.measurement.knee || undefined,
+                                  bottomOpening: item.measurement.bottomOpening || undefined,
+                                  jacketLength: item.measurement.jacketLength || undefined,
+                                  lapelWidth: item.measurement.lapelWidth || undefined,
+                                  createdBy: item.measurement.createdBy ? {
+                                    name: item.measurement.createdBy.name,
+                                  } : undefined,
+                                } : undefined,
+                                order: {
+                                  id: order.id,
+                                  orderNumber: order.orderNumber,
+                                  deliveryDate: order.deliveryDate.toISOString(),
+                                  createdAt: order.createdAt.toISOString(),
+                                  status: order.status,
+                                  notes: order.notes || undefined,
+                                  customer: {
+                                    id: order.customer.id,
+                                    name: order.customer.name,
+                                  },
+                                  history: order.history.map(h => ({
+                                    id: h.id,
+                                    changeType: h.changeType,
+                                    oldValue: h.oldValue || undefined,
+                                    newValue: h.newValue || undefined,
+                                    description: h.description,
+                                    createdAt: h.createdAt.toISOString(),
+                                    user: {
+                                      name: h.user.name,
+                                    },
+                                  })),
+                                },
+                              }}
+                            />
+                            <OrderItemEdit
+                              orderId={order.id}
+                              itemId={item.id}
+                              currentGarmentPatternId={item.garmentPattern.id}
+                              currentClothInventoryId={item.clothInventory.id}
+                              currentGarmentName={item.garmentPattern.name}
+                              currentClothName={`${item.clothInventory.name} (${item.clothInventory.color})`}
+                            />
+                          </div>
                         </div>
                       </div>
                       <div className="grid grid-cols-3 gap-4 text-sm">
