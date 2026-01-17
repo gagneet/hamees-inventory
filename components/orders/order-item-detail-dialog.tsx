@@ -824,10 +824,35 @@ return <span className="font-semibold text-lg">{wastageInfo.efficiency}%</span>
                   {Object.values(accessoryChecklist).filter(Boolean).length}/{accessories.length} Collected
                 </Badge>
               </div>
-              <div className="space-y-2">
-                {accessories.map((acc) => (
-                  <div
-                    key={acc.id}
+                      checked={(() => {
+                        try {
+                          const storageKey = `orderItem:${orderItem.id}:accessoryChecklist`
+                          const stored = localStorage.getItem(storageKey)
+                          if (stored) {
+                            const parsed = JSON.parse(stored) as Record<string, boolean>
+                            if (Object.prototype.hasOwnProperty.call(parsed, acc.id)) {
+                              return parsed[acc.id]
+                            }
+                          }
+                        } catch {
+                          // ignore storage errors and fall back to in-memory state
+                        }
+                        return accessoryChecklist[acc.id] || false
+                      })()}
+                      onChange={(e) => {
+                        const checked = e.target.checked
+                        const updatedChecklist = { ...accessoryChecklist, [acc.id]: checked }
+                        setAccessoryChecklist(updatedChecklist)
+                        try {
+                          const storageKey = `orderItem:${orderItem.id}:accessoryChecklist`
+                          const stored = localStorage.getItem(storageKey)
+                          const parsed: Record<string, boolean> = stored ? JSON.parse(stored) : {}
+                          parsed[acc.id] = checked
+                          localStorage.setItem(storageKey, JSON.stringify(parsed))
+                        } catch {
+                          // ignore storage errors; in-memory state still updates
+                        }
+                      }}
                     className={`flex items-center gap-3 p-3 rounded border-2 transition-all ${
                       accessoryChecklist[acc.id]
                         ? 'bg-green-100 border-green-300'
