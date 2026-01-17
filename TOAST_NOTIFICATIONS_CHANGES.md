@@ -1,7 +1,7 @@
 # Toast Notifications Implementation
 
 ## Overview
-Replaced all native browser `alert()` and `confirm()` dialogs with modern toast notifications and AlertDialog components for better UX.
+Replaced all native browser `alert()` and `confirm()` dialogs with modern toast notifications and AlertDialog components for better UX and consistency.
 
 ## Changes Made
 
@@ -12,11 +12,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 ```
 
 ### 2. State Management
-Added state for delete confirmation dialog:
+Added state for confirmation dialogs:
 ```typescript
 const { toast } = useToast()
 const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 const [designToDelete, setDesignToDelete] = useState<string | null>(null)
+const [statusUpdateDialogOpen, setStatusUpdateDialogOpen] = useState(false)
 ```
 
 ### 3. Replaced Alert Calls
@@ -24,12 +25,17 @@ const [designToDelete, setDesignToDelete] = useState<string | null>(null)
 #### Status Update (handleStatusUpdate)
 **Before:**
 ```typescript
+if (!confirm(`Move order to ${nextStatus}?`)) return
 alert('Status updated successfully')
 alert(error.error || 'Failed to update status')
 ```
 
 **After:**
 ```typescript
+// Button opens confirmation dialog
+onClick={() => setStatusUpdateDialogOpen(true)}
+
+// After confirmation:
 toast({
   title: 'Success',
   description: 'Status updated successfully',
@@ -106,7 +112,9 @@ toast({
 })
 ```
 
-### 4. AlertDialog Component Added
+### 4. AlertDialog Components Added
+
+#### Delete Confirmation
 ```typescript
 <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
   <AlertDialogContent>
@@ -126,6 +134,26 @@ toast({
 </AlertDialog>
 ```
 
+#### Status Update Confirmation
+```typescript
+<AlertDialog open={statusUpdateDialogOpen} onOpenChange={setStatusUpdateDialogOpen}>
+  <AlertDialogContent>
+    <AlertDialogHeader>
+      <AlertDialogTitle>Update Order Status</AlertDialogTitle>
+      <AlertDialogDescription>
+        Are you sure you want to advance this order to <strong>{getNextStatus()}</strong>?
+      </AlertDialogDescription>
+    </AlertDialogHeader>
+    <AlertDialogFooter>
+      <AlertDialogCancel>Cancel</AlertDialogCancel>
+      <AlertDialogAction onClick={handleStatusUpdate} className="bg-purple-600 hover:bg-purple-700">
+        Confirm
+      </AlertDialogAction>
+    </AlertDialogFooter>
+  </AlertDialogContent>
+</AlertDialog>
+```
+
 ## Benefits
 
 1. **Better UX**: Toast notifications are non-blocking and auto-dismiss after 5 seconds
@@ -135,6 +163,7 @@ toast({
    - Error toasts (destructive variant, red background)
 4. **Accessible**: Built with Radix UI primitives for better accessibility
 5. **Modern**: Follows current web application best practices
+6. **Safer**: Added confirmation dialogs for destructive actions (delete files, status updates)
 
 ## Toast Notification System
 
@@ -152,6 +181,8 @@ The project uses:
 1. **Status Update**:
    - Open an order item detail dialog
    - Click "Advance to [NEXT_STATUS]" button
+   - Should show AlertDialog asking "Are you sure you want to advance this order to [STATUS]?"
+   - Click "Confirm"
    - Should show green success toast, then page refreshes
 
 2. **Tailor Notes**:
@@ -177,11 +208,12 @@ The project uses:
 
 ## Files Changed
 
-- `components/orders/order-item-detail-dialog.tsx` (121 insertions, 83 deletions)
+- `components/orders/order-item-detail-dialog.tsx` (143 insertions, 85 deletions)
   - Replaced 10 alert() calls
-  - Replaced 1 confirm() call
+  - Replaced 2 confirm() calls (delete file + status update)
+  - Added 2 AlertDialog components (delete + status update confirmation)
   - Fixed JSX structure issues in Accessories and Efficiency Metrics sections
 
 ## No Breaking Changes
 
-All functionality remains the same, only the notification mechanism has changed from browser dialogs to toast notifications.
+All functionality remains the same, only the notification mechanism has changed from browser dialogs to toast notifications and AlertDialog components. Added safety confirmations for status updates.
