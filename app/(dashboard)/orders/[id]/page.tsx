@@ -44,6 +44,7 @@ async function getOrderDetails(id: string) {
         discountReason: true,
         balanceAmount: true,
         notes: true,
+        tailorNotes: true,
         subTotal: true,
         gstRate: true,
         cgst: true,

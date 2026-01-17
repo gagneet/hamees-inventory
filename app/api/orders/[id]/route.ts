@@ -9,6 +9,7 @@ const orderEditSchema = z.object({
   discount: z.number().nonnegative().optional(),
   discountReason: z.string().nullish(),
   notes: z.string().nullish(),
+  tailorNotes: z.string().nullish(),
   priority: z.enum(['NORMAL', 'URGENT']).optional(),
 })
 
@@ -81,7 +82,16 @@ export async function PATCH(
         field: 'notes',
         oldValue: order.notes || '(empty)',
         newValue: data.notes || '(empty)',
-        description: 'Order notes updated',
+        description: 'Customer notes updated',
+      })
+    }
+
+    if (data.tailorNotes !== undefined && data.tailorNotes !== order.tailorNotes) {
+      changes.push({
+        field: 'tailorNotes',
+        oldValue: order.tailorNotes || '(empty)',
+        newValue: data.tailorNotes || '(empty)',
+        description: 'Tailor notes updated',
       })
     }
 
@@ -117,6 +127,7 @@ export async function PATCH(
           discountReason: data.discountReason !== undefined ? data.discountReason : order.discountReason,
           balanceAmount,
           notes: data.notes !== undefined ? data.notes : order.notes,
+          tailorNotes: data.tailorNotes !== undefined ? data.tailorNotes : order.tailorNotes,
           priority: data.priority ?? order.priority,
         },
       })
