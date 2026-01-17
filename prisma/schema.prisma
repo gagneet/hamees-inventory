@@ -91,6 +91,13 @@ enum PaymentMode {
   NET_BANKING
 }
 
+enum DesignFileCategory {
+  SKETCH            // Rough paper design
+  REFERENCE         // Reference image
+  WORK_IN_PROGRESS  // WIP photos
+  FINAL             // Final product photo
+}
+
 // Models
 model User {
   id            String    @id @default(cuid())
@@ -110,6 +117,7 @@ model User {
   measurements  Measurement[]
   uploadHistory UploadHistory[]
   expenses      Expense[]
+  designUploads DesignUpload[]
 }
 
 model ClothInventory {
@@ -415,6 +423,7 @@ model OrderItem {
   garmentPattern    GarmentPattern @relation(fields: [garmentPatternId], references: [id])
   clothInventory    ClothInventory @relation(fields: [clothInventoryId], references: [id])
   measurement       Measurement? @relation(fields: [measurementId], references: [id])
+  designUploads     DesignUpload[]
 
   @@index([orderId])
   @@index([measurementId])
@@ -680,4 +689,28 @@ model BusinessSettings {
   updatedAt       DateTime @updatedAt
 
   @@index([gstin])
+}
+
+model DesignUpload {
+  id              String              @id @default(cuid())
+  orderItemId     String
+
+  fileName        String              // Original filename
+  fileType        String              // MIME type (image/jpeg, application/pdf, etc.)
+  filePath        String              // Storage path relative to uploads directory
+  fileSize        Int                 // Size in bytes
+
+  category        DesignFileCategory  @default(SKETCH)
+  description     String?
+
+  uploadedBy      String              // User ID
+  uploadedAt      DateTime            @default(now())
+
+  // Relations
+  orderItem       OrderItem           @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  user            User                @relation(fields: [uploadedBy], references: [id])
+
+  @@index([orderItemId])
+  @@index([uploadedBy])
+  @@index([uploadedAt])
 }
