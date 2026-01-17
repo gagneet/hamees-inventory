@@ -118,14 +118,30 @@ export async function POST(request: NextRequest) {
     // Generate unique filename
     const timestamp = Date.now()
     const randomSuffix = Math.random().toString(36).substring(2, 8)
-// Safely extract file extension and validate it
-const fileExtension = file.name.split('.').pop()?.toLowerCase()
-if (!fileExtension || fileExtension.includes('/') || fileExtension.includes('\\')) {
-  return NextResponse.json(
-    { error: 'Invalid file extension' },
-    { status: 400 }
-  )
-}
+    
+    // Safely extract file extension with robust handling
+    // Handle edge cases: no extension, multiple dots, invalid characters
+    const fileExtension = (() => {
+      const parts = file.name.split('.')
+      // File must have at least one dot and content after it
+      if (parts.length < 2) {
+        return null
+      }
+      const ext = parts[parts.length - 1].toLowerCase().trim()
+      // Extension must be non-empty and contain only alphanumeric characters
+      if (!ext || !/^[a-z0-9]+$/.test(ext)) {
+        return null
+      }
+      return ext
+    })()
+    
+    if (!fileExtension) {
+      return NextResponse.json(
+        { error: 'Invalid or missing file extension' },
+        { status: 400 }
+      )
+    }
+    
     const uniqueFileName = `${orderItemId}_${timestamp}_${randomSuffix}.${fileExtension}`
     const filePath = join(UPLOAD_DIR, uniqueFileName)
 
