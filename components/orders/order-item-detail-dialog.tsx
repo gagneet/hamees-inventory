@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { formatCurrency } from '@/lib/utils'
+import { useToast } from '@/hooks/use-toast'
 import {
   Eye,
   Package,
@@ -155,6 +157,9 @@ export function OrderItemDetailDialog({ orderItem }: OrderItemDetailDialogProps)
   const [isUploading, setIsUploading] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploadCategory, setUploadCategory] = useState('SKETCH')
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [designToDelete, setDesignToDelete] = useState<string | null>(null)
+  const [statusUpdateDialogOpen, setStatusUpdateDialogOpen] = useState(false)
 
   const userRole = session?.user?.role as any
   const canUpload = userRole && hasPermission(userRole, 'update_order')
@@ -281,8 +286,7 @@ useEffect(() => {
     const nextStatus = getNextStatus()
     if (!nextStatus) return
 
-    if (!confirm(`Move order to ${nextStatus}?`)) return
-
+    setStatusUpdateDialogOpen(false)
     setIsUpdatingStatus(true)
     try {
       const response = await fetch(`/api/orders/${orderItem.order.id}/status`, {
@@ -299,11 +303,11 @@ useEffect(() => {
         // Refresh the page data without full reload to preserve user state
         window.location.href = window.location.href
       } else {
-        const errorMessage = await getErrorMessage(response, 'Failed to update status')
+        const error = await response.json()
         toast({
           variant: 'destructive',
           title: 'Error',
-          description: errorMessage,
+          description: error.error || 'Failed to update status',
         })
       }
     } catch (error) {
@@ -402,10 +406,15 @@ useEffect(() => {
   }
 
   const handleDeleteDesign = async (designId: string) => {
-    if (!confirm('Are you sure you want to delete this design file?')) return
+    setDesignToDelete(designId)
+    setDeleteDialogOpen(true)
+  }
+
+  const confirmDeleteDesign = async () => {
+    if (!designToDelete) return
 
     try {
-      const response = await fetch(`/api/design-uploads/${designId}`, {
+      const response = await fetch(`/api/design-uploads/${designToDelete}`, {
         method: 'DELETE',
       })
 
@@ -656,7 +665,7 @@ useEffect(() => {
             {canUpdateStatus && getNextStatus() && orderItem.order.status !== 'DELIVERED' && (
               <div className="pt-3 border-t border-purple-200">
                 <Button
-                  onClick={handleStatusUpdate}
+                  onClick={() => setStatusUpdateDialogOpen(true)}
                   disabled={isUpdatingStatus}
                   className="w-full bg-purple-600 hover:bg-purple-700"
                   size="sm"
@@ -873,35 +882,10 @@ useEffect(() => {
                   {Object.values(accessoryChecklist).filter(Boolean).length}/{accessories.length} Collected
                 </Badge>
               </div>
-                      checked={(() => {
-                        try {
-                          const storageKey = `orderItem:${orderItem.id}:accessoryChecklist`
-                          const stored = localStorage.getItem(storageKey)
-                          if (stored) {
-                            const parsed = JSON.parse(stored) as Record<string, boolean>
-                            if (Object.prototype.hasOwnProperty.call(parsed, acc.id)) {
-                              return parsed[acc.id]
-                            }
-                          }
-                        } catch {
-                          // ignore storage errors and fall back to in-memory state
-                        }
-                        return accessoryChecklist[acc.id] || false
-                      })()}
-                      onChange={(e) => {
-                        const checked = e.target.checked
-                        const updatedChecklist = { ...accessoryChecklist, [acc.id]: checked }
-                        setAccessoryChecklist(updatedChecklist)
-                        try {
-                          const storageKey = `orderItem:${orderItem.id}:accessoryChecklist`
-                          const stored = localStorage.getItem(storageKey)
-                          const parsed: Record<string, boolean> = stored ? JSON.parse(stored) : {}
-                          parsed[acc.id] = checked
-                          localStorage.setItem(storageKey, JSON.stringify(parsed))
-                        } catch {
-                          // ignore storage errors; in-memory state still updates
-                        }
-                      }}
+              <div className="space-y-2">
+                {accessories.map((acc) => (
+                  <div
+                    key={acc.id}
                     className={`flex items-center gap-3 p-3 rounded border-2 transition-all ${
                       accessoryChecklist[acc.id]
                         ? 'bg-green-100 border-green-300'
@@ -1061,6 +1045,42 @@ useEffect(() => {
           )}
         </div>
       </DialogContent>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Design File</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this design file? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDesignToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteDesign} className="bg-red-600 hover:bg-red-700">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Status Update Confirmation Dialog */}
+      <AlertDialog open={statusUpdateDialogOpen} onOpenChange={setStatusUpdateDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Update Order Status</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to advance this order to <strong>{getNextStatus()}</strong>?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleStatusUpdate} className="bg-purple-600 hover:bg-purple-700">
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   )
 }
