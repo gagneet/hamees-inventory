@@ -126,6 +126,24 @@ interface GarmentAccessory {
   }
 }
 
+// Punjabi translations for measurements
+const measurementLabels: Record<string, { en: string; pa: string }> = {
+  neck: { en: 'Neck', pa: 'ਗਰਦਨ' },
+  chest: { en: 'Chest', pa: 'ਛਾਤੀ' },
+  waist: { en: 'Waist', pa: 'ਕਮਰ' },
+  hip: { en: 'Hip', pa: 'ਕੁੱਲ੍ਹੇ' },
+  shoulder: { en: 'Shoulder', pa: 'ਮੋਢਾ' },
+  sleeveLength: { en: 'Sleeve', pa: 'ਆਸਤੀਨ' },
+  shirtLength: { en: 'Shirt Length', pa: 'ਕਮੀਜ਼ ਲੰਬਾਈ' },
+  inseam: { en: 'Inseam', pa: 'ਅੰਦਰਲੀ ਸੀਵਨ' },
+  outseam: { en: 'Outseam', pa: 'ਬਾਹਰੀ ਸੀਵਨ' },
+  thigh: { en: 'Thigh', pa: 'ਪੱਟ' },
+  knee: { en: 'Knee', pa: 'ਗੋਡਾ' },
+  bottomOpening: { en: 'Bottom', pa: 'ਹੇਠਾਂ' },
+  jacketLength: { en: 'Jacket Length', pa: 'ਜੈਕਟ ਲੰਬਾਈ' },
+  lapelWidth: { en: 'Lapel Width', pa: 'ਲੈਪਲ ਚੌੜਾਈ' },
+}
+
 export function OrderItemDetailDialog({ orderItem }: OrderItemDetailDialogProps) {
   const { data: session } = useSession()
   const [isOpen, setIsOpen] = useState(false)
@@ -401,6 +419,147 @@ export function OrderItemDetailDialog({ orderItem }: OrderItemDetailDialogProps)
             </div>
           </Card>
 
+          {/* MEASUREMENTS SECTION - PROMINENT FOR TAILORS */}
+          {orderItem.measurement && (
+            <Card className="p-6 bg-gradient-to-r from-yellow-50 to-orange-50 border-4 border-orange-300 shadow-lg">
+              <div className="flex items-center gap-3 mb-6">
+                <Ruler className="h-8 w-8 text-orange-600" />
+                <div className="flex-1">
+                  <h3 className="font-bold text-2xl text-orange-900">Measurements / ਮਾਪ</h3>
+                  <p className="text-sm text-orange-700">Garment: {orderItem.measurement.garmentType}</p>
+                </div>
+                {orderItem.measurement.bodyType && (
+                  <Badge className="bg-orange-600 text-white text-lg px-4 py-2">
+                    {orderItem.measurement.bodyType}
+                  </Badge>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {orderItem.measurement.neck && (
+                  <div className="bg-white p-4 rounded-lg border-2 border-orange-200 shadow">
+                    <p className="text-sm text-slate-600 mb-1">
+                      {measurementLabels.neck.en} / <span className="font-semibold text-orange-600">{measurementLabels.neck.pa}</span>
+                    </p>
+                    <p className="text-4xl font-bold text-orange-900">{orderItem.measurement.neck} <span className="text-2xl text-slate-600">cm</span></p>
+                  </div>
+                )}
+                {orderItem.measurement.chest && (
+                  <div className="bg-white p-4 rounded-lg border-2 border-orange-200 shadow">
+                    <p className="text-sm text-slate-600 mb-1">
+                      {measurementLabels.chest.en} / <span className="font-semibold text-orange-600">{measurementLabels.chest.pa}</span>
+                    </p>
+                    <p className="text-4xl font-bold text-orange-900">{orderItem.measurement.chest} <span className="text-2xl text-slate-600">cm</span></p>
+                  </div>
+                )}
+                {orderItem.measurement.waist && (
+                  <div className="bg-white p-4 rounded-lg border-2 border-orange-200 shadow">
+                    <p className="text-sm text-slate-600 mb-1">
+                      {measurementLabels.waist.en} / <span className="font-semibold text-orange-600">{measurementLabels.waist.pa}</span>
+                    </p>
+                    <p className="text-4xl font-bold text-orange-900">{orderItem.measurement.waist} <span className="text-2xl text-slate-600">cm</span></p>
+                  </div>
+                )}
+                {orderItem.measurement.hip && (
+                  <div className="bg-white p-4 rounded-lg border-2 border-orange-200 shadow">
+                    <p className="text-sm text-slate-600 mb-1">
+                      {measurementLabels.hip.en} / <span className="font-semibold text-orange-600">{measurementLabels.hip.pa}</span>
+                    </p>
+                    <p className="text-4xl font-bold text-orange-900">{orderItem.measurement.hip} <span className="text-2xl text-slate-600">cm</span></p>
+                  </div>
+                )}
+                {orderItem.measurement.shoulder && (
+                  <div className="bg-white p-4 rounded-lg border-2 border-orange-200 shadow">
+                    <p className="text-sm text-slate-600 mb-1">
+                      {measurementLabels.shoulder.en} / <span className="font-semibold text-orange-600">{measurementLabels.shoulder.pa}</span>
+                    </p>
+                    <p className="text-4xl font-bold text-orange-900">{orderItem.measurement.shoulder} <span className="text-2xl text-slate-600">cm</span></p>
+                  </div>
+                )}
+                {orderItem.measurement.sleeveLength && (
+                  <div className="bg-white p-4 rounded-lg border-2 border-orange-200 shadow">
+                    <p className="text-sm text-slate-600 mb-1">
+                      {measurementLabels.sleeveLength.en} / <span className="font-semibold text-orange-600">{measurementLabels.sleeveLength.pa}</span>
+                    </p>
+                    <p className="text-4xl font-bold text-orange-900">{orderItem.measurement.sleeveLength} <span className="text-2xl text-slate-600">cm</span></p>
+                  </div>
+                )}
+                {orderItem.measurement.shirtLength && (
+                  <div className="bg-white p-4 rounded-lg border-2 border-orange-200 shadow">
+                    <p className="text-sm text-slate-600 mb-1">
+                      {measurementLabels.shirtLength.en} / <span className="font-semibold text-orange-600">{measurementLabels.shirtLength.pa}</span>
+                    </p>
+                    <p className="text-4xl font-bold text-orange-900">{orderItem.measurement.shirtLength} <span className="text-2xl text-slate-600">cm</span></p>
+                  </div>
+                )}
+                {orderItem.measurement.inseam && (
+                  <div className="bg-white p-4 rounded-lg border-2 border-orange-200 shadow">
+                    <p className="text-sm text-slate-600 mb-1">
+                      {measurementLabels.inseam.en} / <span className="font-semibold text-orange-600">{measurementLabels.inseam.pa}</span>
+                    </p>
+                    <p className="text-4xl font-bold text-orange-900">{orderItem.measurement.inseam} <span className="text-2xl text-slate-600">cm</span></p>
+                  </div>
+                )}
+                {orderItem.measurement.outseam && (
+                  <div className="bg-white p-4 rounded-lg border-2 border-orange-200 shadow">
+                    <p className="text-sm text-slate-600 mb-1">
+                      {measurementLabels.outseam.en} / <span className="font-semibold text-orange-600">{measurementLabels.outseam.pa}</span>
+                    </p>
+                    <p className="text-4xl font-bold text-orange-900">{orderItem.measurement.outseam} <span className="text-2xl text-slate-600">cm</span></p>
+                  </div>
+                )}
+                {orderItem.measurement.thigh && (
+                  <div className="bg-white p-4 rounded-lg border-2 border-orange-200 shadow">
+                    <p className="text-sm text-slate-600 mb-1">
+                      {measurementLabels.thigh.en} / <span className="font-semibold text-orange-600">{measurementLabels.thigh.pa}</span>
+                    </p>
+                    <p className="text-4xl font-bold text-orange-900">{orderItem.measurement.thigh} <span className="text-2xl text-slate-600">cm</span></p>
+                  </div>
+                )}
+                {orderItem.measurement.knee && (
+                  <div className="bg-white p-4 rounded-lg border-2 border-orange-200 shadow">
+                    <p className="text-sm text-slate-600 mb-1">
+                      {measurementLabels.knee.en} / <span className="font-semibold text-orange-600">{measurementLabels.knee.pa}</span>
+                    </p>
+                    <p className="text-4xl font-bold text-orange-900">{orderItem.measurement.knee} <span className="text-2xl text-slate-600">cm</span></p>
+                  </div>
+                )}
+                {orderItem.measurement.bottomOpening && (
+                  <div className="bg-white p-4 rounded-lg border-2 border-orange-200 shadow">
+                    <p className="text-sm text-slate-600 mb-1">
+                      {measurementLabels.bottomOpening.en} / <span className="font-semibold text-orange-600">{measurementLabels.bottomOpening.pa}</span>
+                    </p>
+                    <p className="text-4xl font-bold text-orange-900">{orderItem.measurement.bottomOpening} <span className="text-2xl text-slate-600">cm</span></p>
+                  </div>
+                )}
+                {orderItem.measurement.jacketLength && (
+                  <div className="bg-white p-4 rounded-lg border-2 border-orange-200 shadow">
+                    <p className="text-sm text-slate-600 mb-1">
+                      {measurementLabels.jacketLength.en} / <span className="font-semibold text-orange-600">{measurementLabels.jacketLength.pa}</span>
+                    </p>
+                    <p className="text-4xl font-bold text-orange-900">{orderItem.measurement.jacketLength} <span className="text-2xl text-slate-600">cm</span></p>
+                  </div>
+                )}
+                {orderItem.measurement.lapelWidth && (
+                  <div className="bg-white p-4 rounded-lg border-2 border-orange-200 shadow">
+                    <p className="text-sm text-slate-600 mb-1">
+                      {measurementLabels.lapelWidth.en} / <span className="font-semibold text-orange-600">{measurementLabels.lapelWidth.pa}</span>
+                    </p>
+                    <p className="text-4xl font-bold text-orange-900">{orderItem.measurement.lapelWidth} <span className="text-2xl text-slate-600">cm</span></p>
+                  </div>
+                )}
+              </div>
+
+              {orderItem.measurement.createdBy && (
+                <div className="mt-6 pt-4 border-t-2 border-orange-200">
+                  <p className="text-sm text-orange-700">
+                    <span className="font-semibold">Measured by / ਮਾਪਿਆ ਗਿਆ:</span> {orderItem.measurement.createdBy.name}
+                  </p>
+                </div>
+              )}
+            </Card>
+          )}
+
           {/* Timeline & Phase Tracking */}
           <Card className="p-4 bg-gradient-to-r from-purple-50 to-blue-50">
             <div className="flex items-center gap-2 mb-3">
@@ -572,112 +731,6 @@ export function OrderItemDetailDialog({ orderItem }: OrderItemDetailDialogProps)
                 <Zap className="h-3 w-3 inline mr-1" />
                 Review previous orders for sizing consistency
               </p>
-            </Card>
-          )}
-
-          {/* Measurements Section */}
-          {orderItem.measurement && (
-            <Card className="p-4 bg-slate-50">
-              <div className="flex items-center gap-2 mb-3">
-                <Ruler className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold text-lg">Measurements</h3>
-                {orderItem.measurement.bodyType && (
-                  <Badge variant="outline" className="ml-auto">
-                    {orderItem.measurement.bodyType}
-                  </Badge>
-                )}
-              </div>
-              <div className="grid grid-cols-3 md:grid-cols-4 gap-4 text-sm">
-                {orderItem.measurement.neck && (
-                  <div>
-                    <p className="text-slate-500 text-xs">Neck</p>
-                    <p className="font-semibold">{orderItem.measurement.neck} cm</p>
-                  </div>
-                )}
-                {orderItem.measurement.chest && (
-                  <div>
-                    <p className="text-slate-500 text-xs">Chest</p>
-                    <p className="font-semibold">{orderItem.measurement.chest} cm</p>
-                  </div>
-                )}
-                {orderItem.measurement.waist && (
-                  <div>
-                    <p className="text-slate-500 text-xs">Waist</p>
-                    <p className="font-semibold">{orderItem.measurement.waist} cm</p>
-                  </div>
-                )}
-                {orderItem.measurement.hip && (
-                  <div>
-                    <p className="text-slate-500 text-xs">Hip</p>
-                    <p className="font-semibold">{orderItem.measurement.hip} cm</p>
-                  </div>
-                )}
-                {orderItem.measurement.shoulder && (
-                  <div>
-                    <p className="text-slate-500 text-xs">Shoulder</p>
-                    <p className="font-semibold">{orderItem.measurement.shoulder} cm</p>
-                  </div>
-                )}
-                {orderItem.measurement.sleeveLength && (
-                  <div>
-                    <p className="text-slate-500 text-xs">Sleeve</p>
-                    <p className="font-semibold">{orderItem.measurement.sleeveLength} cm</p>
-                  </div>
-                )}
-                {orderItem.measurement.shirtLength && (
-                  <div>
-                    <p className="text-slate-500 text-xs">Shirt Length</p>
-                    <p className="font-semibold">{orderItem.measurement.shirtLength} cm</p>
-                  </div>
-                )}
-                {orderItem.measurement.inseam && (
-                  <div>
-                    <p className="text-slate-500 text-xs">Inseam</p>
-                    <p className="font-semibold">{orderItem.measurement.inseam} cm</p>
-                  </div>
-                )}
-                {orderItem.measurement.outseam && (
-                  <div>
-                    <p className="text-slate-500 text-xs">Outseam</p>
-                    <p className="font-semibold">{orderItem.measurement.outseam} cm</p>
-                  </div>
-                )}
-                {orderItem.measurement.thigh && (
-                  <div>
-                    <p className="text-slate-500 text-xs">Thigh</p>
-                    <p className="font-semibold">{orderItem.measurement.thigh} cm</p>
-                  </div>
-                )}
-                {orderItem.measurement.knee && (
-                  <div>
-                    <p className="text-slate-500 text-xs">Knee</p>
-                    <p className="font-semibold">{orderItem.measurement.knee} cm</p>
-                  </div>
-                )}
-                {orderItem.measurement.bottomOpening && (
-                  <div>
-                    <p className="text-slate-500 text-xs">Bottom</p>
-                    <p className="font-semibold">{orderItem.measurement.bottomOpening} cm</p>
-                  </div>
-                )}
-                {orderItem.measurement.jacketLength && (
-                  <div>
-                    <p className="text-slate-500 text-xs">Jacket Length</p>
-                    <p className="font-semibold">{orderItem.measurement.jacketLength} cm</p>
-                  </div>
-                )}
-                {orderItem.measurement.lapelWidth && (
-                  <div>
-                    <p className="text-slate-500 text-xs">Lapel Width</p>
-                    <p className="font-semibold">{orderItem.measurement.lapelWidth} cm</p>
-                  </div>
-                )}
-              </div>
-              {orderItem.measurement.createdBy && (
-                <p className="text-xs text-slate-500 mt-3 border-t pt-2">
-                  Measured by: {orderItem.measurement.createdBy.name}
-                </p>
-              )}
             </Card>
           )}
 
