@@ -280,7 +280,8 @@ export function OrderItemDetailDialog({ orderItem }: OrderItemDetailDialogProps)
 
       if (response.ok) {
         alert('Status updated successfully')
-        window.location.reload()
+// Refresh the page data without full reload to preserve user state
+window.location.href = window.location.href
       } else {
         const error = await response.json()
         alert(error.error || 'Failed to update status')
