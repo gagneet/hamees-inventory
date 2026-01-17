@@ -455,13 +455,6 @@ export default async function OrderDetailPage({
                     )}
                   </span>
                 </div>
-                {order.balanceAmount > 0.01 && (
-                  <div className="mt-3">
-                    <Button className="w-full" size="sm">
-                      Record Payment
-                    </Button>
-                  </div>
-                )}
               </CardContent>
             </Card>
           )}
