@@ -106,3 +106,4 @@ prisma/migrations/**
 *.swo
 *~
 *.log
+package-lock.json

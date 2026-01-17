@@ -82,6 +82,7 @@ interface OrderItemDetailDialogProps {
       createdAt: string
       status: string
       notes?: string
+      tailorNotes?: string
       customer: {
         id: string
         name: string
@@ -162,7 +163,7 @@ export function OrderItemDetailDialog({ orderItem }: OrderItemDetailDialogProps)
   const [customerOrders, setCustomerOrders] = useState<any[]>([])
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
   const [accessoryChecklist, setAccessoryChecklist] = useState<Record<string, boolean>>({})
-  const [tailorNotes, setTailorNotes] = useState('')
+  const [tailorNotes, setTailorNotes] = useState(orderItem.order.tailorNotes || '')
   const [isSavingNotes, setIsSavingNotes] = useState(false)
 
   // Calculate cloth remaining (available stock after reservation)
@@ -297,18 +298,12 @@ window.location.href = window.location.href
   const handleSaveTailorNotes = async () => {
     setIsSavingNotes(true)
     try {
-      // For now, we'll use the order notes field
-      // In future, could add a separate tailor_notes field to OrderItem
-// Append tailor notes to existing notes instead of overwriting
-const existingNotes = orderItem.order.notes || ''
-const separator = existingNotes ? '\n\n--- Tailor Notes ---\n' : ''
-const updatedNotes = existingNotes + separator + tailorNotes
-
-const response = await fetch(`/api/orders/${orderItem.order.id}`, {
-  method: 'PATCH',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ notes: updatedNotes }),
-})
+      // Save to separate tailorNotes field to prevent overwriting customer instructions
+      const response = await fetch(`/api/orders/${orderItem.order.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tailorNotes }),
+      })
 
       if (response.ok) {
         alert('Notes saved successfully')
@@ -680,42 +675,30 @@ const response = await fetch(`/api/orders/${orderItem.order.id}`, {
                 </div>
                 <div>
                   <p className="text-slate-500 text-xs">Wastage</p>
-const wastageInfo = getWastageInfo()
-if (!wastageInfo) return null
-
-return (
-  <p className={`font-semibold text-lg ${
-    parseFloat(wastageInfo.wastage) > 0 ? 'text-red-600' : 'text-green-600'
-  }`}>
-    {wastageInfo.wastage}m
-  </p>
-)
+                  <p className={`font-semibold text-lg ${
+                    parseFloat(getWastageInfo()!.wastage) > 0 ? 'text-red-600' : 'text-green-600'
+                  }`}>
+                    {getWastageInfo()!.wastage}m
+                  </p>
+                </div>
               </div>
               <div className="mt-3 pt-3 border-t border-cyan-200">
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-slate-600">Efficiency</p>
                   <div className="flex items-center gap-2">
                     <div className="w-32 bg-slate-200 rounded-full h-2">
-const wastageInfo = getWastageInfo()
-if (!wastageInfo) return null
-
-return (
-  <div
-    className={`h-2 rounded-full ${
-      parseFloat(wastageInfo.efficiency) >= 95
-        ? 'bg-green-600'
-        : parseFloat(wastageInfo.efficiency) >= 85
-        ? 'bg-yellow-600'
-        : 'bg-red-600'
-    }`}
-    style={{ width: `${Math.min(100, parseFloat(wastageInfo.efficiency))}%` }}
-  />
-)
+                      <div
+                        className={`h-2 rounded-full ${
+                          parseFloat(getWastageInfo()!.efficiency) >= 95
+                            ? 'bg-green-600'
+                            : parseFloat(getWastageInfo()!.efficiency) >= 85
+                            ? 'bg-yellow-600'
+                            : 'bg-red-600'
+                        }`}
+                        style={{ width: `${Math.min(100, parseFloat(getWastageInfo()!.efficiency))}%` }}
+                      />
                     </div>
-const wastageInfo = getWastageInfo()
-if (!wastageInfo) return null
-
-return <span className="font-semibold text-lg">{wastageInfo.efficiency}%</span>
+                    <span className="font-semibold text-lg">{getWastageInfo()!.efficiency}%</span>
                   </div>
                 </div>
               </div>
