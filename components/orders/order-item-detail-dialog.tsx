@@ -157,6 +157,7 @@ export function OrderItemDetailDialog({ orderItem }: OrderItemDetailDialogProps)
   const [uploadCategory, setUploadCategory] = useState('SKETCH')
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [designToDelete, setDesignToDelete] = useState<string | null>(null)
+  const [statusUpdateDialogOpen, setStatusUpdateDialogOpen] = useState(false)
 
   const userRole = session?.user?.role as any
   const canUpload = userRole && hasPermission(userRole, 'update_order')
@@ -273,6 +274,7 @@ useEffect(() => {
     const nextStatus = getNextStatus()
     if (!nextStatus) return
 
+    setStatusUpdateDialogOpen(false)
     setIsUpdatingStatus(true)
     try {
       const response = await fetch(`/api/orders/${orderItem.order.id}/status`, {
@@ -652,7 +654,7 @@ useEffect(() => {
             {canUpdateStatus && getNextStatus() && orderItem.order.status !== 'DELIVERED' && (
               <div className="pt-3 border-t border-purple-200">
                 <Button
-                  onClick={handleStatusUpdate}
+                  onClick={() => setStatusUpdateDialogOpen(true)}
                   disabled={isUpdatingStatus}
                   className="w-full bg-purple-600 hover:bg-purple-700"
                   size="sm"
@@ -1046,6 +1048,24 @@ useEffect(() => {
             <AlertDialogCancel onClick={() => setDesignToDelete(null)}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeleteDesign} className="bg-red-600 hover:bg-red-700">
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Status Update Confirmation Dialog */}
+      <AlertDialog open={statusUpdateDialogOpen} onOpenChange={setStatusUpdateDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Update Order Status</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to advance this order to <strong>{getNextStatus()}</strong>?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleStatusUpdate} className="bg-purple-600 hover:bg-purple-700">
+              Confirm
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
