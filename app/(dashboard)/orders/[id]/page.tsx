@@ -23,6 +23,7 @@ import { OrderItemEdit } from '@/components/orders/order-item-edit'
 import { SplitOrderDialog } from '@/components/orders/split-order-dialog'
 import { RecordPaymentDialog } from '@/components/orders/record-payment-dialog'
 import { PrintInvoiceButton } from '@/components/orders/print-invoice-button'
+import { EditMeasurementDialog } from '@/components/orders/edit-measurement-dialog'
 
 async function getOrderDetails(id: string) {
   try {
@@ -340,11 +341,16 @@ export default async function OrderDetailPage({
                                 </p>
                               )}
                             </div>
-                            <Link href={`/customers/${order.customer.id}?highlight=measurements`}>
-                              <Button variant="ghost" size="sm" className="ml-2">
-                                Edit Measurements
-                              </Button>
-                            </Link>
+                            <EditMeasurementDialog
+                              customerId={order.customer.id}
+                              measurement={item.measurement}
+                              triggerButton={
+                                <Button variant="ghost" size="sm" className="ml-2">
+                                  <Ruler className="h-4 w-4 mr-1" />
+                                  Edit
+                                </Button>
+                              }
+                            />
                           </div>
                         </div>
                       )}
@@ -391,12 +397,6 @@ export default async function OrderDetailPage({
                   <Link href={`/customers/${order.customer.id}`}>
                     <Button variant="outline" size="sm" className="w-full">
                       View Customer Profile
-                    </Button>
-                  </Link>
-                  <Link href={`/customers/${order.customer.id}?highlight=measurements`}>
-                    <Button variant="outline" size="sm" className="w-full">
-                      <Ruler className="h-4 w-4 mr-2" />
-                      Edit Measurements
                     </Button>
                   </Link>
                 </div>
