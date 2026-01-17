@@ -2,7 +2,16 @@
 
 import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
@@ -27,6 +36,7 @@ import {
   ChevronRight,
   Info,
   Zap,
+  Loader2,
 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { hasPermission } from '@/lib/permissions'
@@ -173,6 +183,11 @@ export function OrderItemDetailDialog({ orderItem }: OrderItemDetailDialogProps)
   const [tailorNotes, setTailorNotes] = useState(orderItem.order.tailorNotes || '')
   const [isSavingNotes, setIsSavingNotes] = useState(false)
 
+  // State for delete confirmation dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [designToDelete, setDesignToDelete] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+
   // Calculate cloth remaining (available stock after reservation)
   const clothRemaining = orderItem.clothInventory.currentStock - orderItem.clothInventory.reserved
 
@@ -242,7 +257,7 @@ useEffect(() => {
     fetchAccessories()
     fetchCustomerOrders()
   }
-  }, [isOpen, orderItem.id, orderItem.garmentPattern.id])
+}, [isOpen, orderItem.id])
 
   const fetchDesigns = async () => {
     try {
@@ -410,9 +425,10 @@ useEffect(() => {
     setDeleteDialogOpen(true)
   }
 
-  const confirmDeleteDesign = async () => {
+  const handleDeleteConfirm = async () => {
     if (!designToDelete) return
 
+    setIsDeleting(true)
     try {
       const response = await fetch(`/api/design-uploads/${designToDelete}`, {
         method: 'DELETE',
@@ -420,6 +436,8 @@ useEffect(() => {
 
       if (response.ok) {
         await fetchDesigns()
+        setDeleteDialogOpen(false)
+        setDesignToDelete(null)
         toast({
           title: 'Success',
           description: 'Design file deleted successfully',
@@ -434,6 +452,9 @@ useEffect(() => {
       }
     } catch (error) {
       console.error('Error deleting file:', error)
+      alert('Failed to delete file')
+    } finally {
+      setIsDeleting(false)
       toast({
         variant: 'destructive',
         title: 'Delete Error',
@@ -447,7 +468,8 @@ useEffect(() => {
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <Eye className="h-4 w-4 mr-1" />
@@ -751,9 +773,9 @@ useEffect(() => {
                 <div>
                   <p className="text-slate-500 text-xs">Wastage</p>
                   <p className={`font-semibold text-lg ${
-                    parseFloat(getWastageInfo()!.wastage) > 0 ? 'text-red-600' : 'text-green-600'
+                    getWastageInfo() && parseFloat(getWastageInfo()!.wastage) > 0 ? 'text-red-600' : 'text-green-600'
                   }`}>
-                    {getWastageInfo()!.wastage}m
+                    {getWastageInfo()?.wastage}m
                   </p>
                 </div>
               </div>
@@ -764,16 +786,16 @@ useEffect(() => {
                     <div className="w-32 bg-slate-200 rounded-full h-2">
                       <div
                         className={`h-2 rounded-full ${
-                          parseFloat(getWastageInfo()!.efficiency) >= 95
+                          getWastageInfo() && parseFloat(getWastageInfo()!.efficiency) >= 95
                             ? 'bg-green-600'
-                            : parseFloat(getWastageInfo()!.efficiency) >= 85
+                            : getWastageInfo() && parseFloat(getWastageInfo()!.efficiency) >= 85
                             ? 'bg-yellow-600'
                             : 'bg-red-600'
                         }`}
-                        style={{ width: `${Math.min(100, parseFloat(getWastageInfo()!.efficiency))}%` }}
+                        style={{ width: `${Math.min(100, parseFloat(getWastageInfo()?.efficiency || '0'))}%` }}
                       />
                     </div>
-                    <span className="font-semibold text-lg">{getWastageInfo()!.efficiency}%</span>
+                    <span className="font-semibold text-lg">{getWastageInfo()?.efficiency}%</span>
                   </div>
                 </div>
               </div>
@@ -1082,5 +1104,32 @@ useEffect(() => {
         </AlertDialogContent>
       </AlertDialog>
     </Dialog>
+
+    {/* Delete Confirmation Dialog */}
+    <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete Design File?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to delete this design file? This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(e) => {
+              e.preventDefault()
+              handleDeleteConfirm()
+            }}
+            disabled={isDeleting}
+            className="bg-red-600 hover:bg-red-700"
+          >
+            {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   )
 }
