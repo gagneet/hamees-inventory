@@ -2,6 +2,16 @@
 
 import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
@@ -25,6 +35,7 @@ import {
   ChevronRight,
   Info,
   Zap,
+  Loader2,
 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
 import { hasPermission } from '@/lib/permissions'
@@ -165,6 +176,11 @@ export function OrderItemDetailDialog({ orderItem }: OrderItemDetailDialogProps)
   const [tailorNotes, setTailorNotes] = useState('')
   const [isSavingNotes, setIsSavingNotes] = useState(false)
 
+  // State for delete confirmation dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [designToDelete, setDesignToDelete] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+
   // Calculate cloth remaining (available stock after reservation)
   const clothRemaining = orderItem.clothInventory.currentStock - orderItem.clothInventory.reserved
 
@@ -224,7 +240,7 @@ useEffect(() => {
     fetchAccessories()
     fetchCustomerOrders()
   }
-  }, [isOpen, orderItem.id, orderItem.garmentPattern.id])
+}, [isOpen, orderItem.id])
 
   const fetchDesigns = async () => {
     try {
@@ -353,22 +369,32 @@ const response = await fetch(`/api/orders/${orderItem.order.id}`, {
     }
   }
 
-  const handleDeleteDesign = async (designId: string) => {
-    if (!confirm('Are you sure you want to delete this design file?')) return
+  const handleDeleteDesign = (designId: string) => {
+    setDesignToDelete(designId)
+    setDeleteDialogOpen(true)
+  }
 
+  const handleDeleteConfirm = async () => {
+    if (!designToDelete) return
+
+    setIsDeleting(true)
     try {
-      const response = await fetch(`/api/design-uploads/${designId}`, {
+      const response = await fetch(`/api/design-uploads/${designToDelete}`, {
         method: 'DELETE',
       })
 
       if (response.ok) {
         await fetchDesigns()
+        setDeleteDialogOpen(false)
+        setDesignToDelete(null)
       } else {
         alert('Failed to delete file')
       }
     } catch (error) {
       console.error('Error deleting file:', error)
       alert('Failed to delete file')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -377,7 +403,8 @@ const response = await fetch(`/api/orders/${orderItem.order.id}`, {
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <>
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <Eye className="h-4 w-4 mr-1" />
@@ -680,42 +707,30 @@ const response = await fetch(`/api/orders/${orderItem.order.id}`, {
                 </div>
                 <div>
                   <p className="text-slate-500 text-xs">Wastage</p>
-const wastageInfo = getWastageInfo()
-if (!wastageInfo) return null
-
-return (
-  <p className={`font-semibold text-lg ${
-    parseFloat(wastageInfo.wastage) > 0 ? 'text-red-600' : 'text-green-600'
-  }`}>
-    {wastageInfo.wastage}m
-  </p>
-)
+                  <p className={`font-semibold text-lg ${
+                    getWastageInfo() && parseFloat(getWastageInfo()!.wastage) > 0 ? 'text-red-600' : 'text-green-600'
+                  }`}>
+                    {getWastageInfo()?.wastage}m
+                  </p>
+                </div>
               </div>
               <div className="mt-3 pt-3 border-t border-cyan-200">
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-slate-600">Efficiency</p>
                   <div className="flex items-center gap-2">
                     <div className="w-32 bg-slate-200 rounded-full h-2">
-const wastageInfo = getWastageInfo()
-if (!wastageInfo) return null
-
-return (
-  <div
-    className={`h-2 rounded-full ${
-      parseFloat(wastageInfo.efficiency) >= 95
-        ? 'bg-green-600'
-        : parseFloat(wastageInfo.efficiency) >= 85
-        ? 'bg-yellow-600'
-        : 'bg-red-600'
-    }`}
-    style={{ width: `${Math.min(100, parseFloat(wastageInfo.efficiency))}%` }}
-  />
-)
+                      <div
+                        className={`h-2 rounded-full ${
+                          getWastageInfo() && parseFloat(getWastageInfo()!.efficiency) >= 95
+                            ? 'bg-green-600'
+                            : getWastageInfo() && parseFloat(getWastageInfo()!.efficiency) >= 85
+                            ? 'bg-yellow-600'
+                            : 'bg-red-600'
+                        }`}
+                        style={{ width: `${Math.min(100, parseFloat(getWastageInfo()?.efficiency || '0'))}%` }}
+                      />
                     </div>
-const wastageInfo = getWastageInfo()
-if (!wastageInfo) return null
-
-return <span className="font-semibold text-lg">{wastageInfo.efficiency}%</span>
+                    <span className="font-semibold text-lg">{getWastageInfo()?.efficiency}%</span>
                   </div>
                 </div>
               </div>
@@ -824,35 +839,10 @@ return <span className="font-semibold text-lg">{wastageInfo.efficiency}%</span>
                   {Object.values(accessoryChecklist).filter(Boolean).length}/{accessories.length} Collected
                 </Badge>
               </div>
-                      checked={(() => {
-                        try {
-                          const storageKey = `orderItem:${orderItem.id}:accessoryChecklist`
-                          const stored = localStorage.getItem(storageKey)
-                          if (stored) {
-                            const parsed = JSON.parse(stored) as Record<string, boolean>
-                            if (Object.prototype.hasOwnProperty.call(parsed, acc.id)) {
-                              return parsed[acc.id]
-                            }
-                          }
-                        } catch {
-                          // ignore storage errors and fall back to in-memory state
-                        }
-                        return accessoryChecklist[acc.id] || false
-                      })()}
-                      onChange={(e) => {
-                        const checked = e.target.checked
-                        const updatedChecklist = { ...accessoryChecklist, [acc.id]: checked }
-                        setAccessoryChecklist(updatedChecklist)
-                        try {
-                          const storageKey = `orderItem:${orderItem.id}:accessoryChecklist`
-                          const stored = localStorage.getItem(storageKey)
-                          const parsed: Record<string, boolean> = stored ? JSON.parse(stored) : {}
-                          parsed[acc.id] = checked
-                          localStorage.setItem(storageKey, JSON.stringify(parsed))
-                        } catch {
-                          // ignore storage errors; in-memory state still updates
-                        }
-                      }}
+              <div className="space-y-2">
+                {accessories.map((acc) => (
+                  <div
+                    key={acc.id}
                     className={`flex items-center gap-3 p-3 rounded border-2 transition-all ${
                       accessoryChecklist[acc.id]
                         ? 'bg-green-100 border-green-300'
@@ -1013,5 +1003,32 @@ return <span className="font-semibold text-lg">{wastageInfo.efficiency}%</span>
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Delete Confirmation Dialog */}
+    <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete Design File?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to delete this design file? This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={(e) => {
+              e.preventDefault()
+              handleDeleteConfirm()
+            }}
+            disabled={isDeleting}
+            className="bg-red-600 hover:bg-red-700"
+          >
+            {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Delete
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   )
 }
