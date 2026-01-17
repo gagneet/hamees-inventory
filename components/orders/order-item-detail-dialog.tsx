@@ -224,7 +224,7 @@ useEffect(() => {
     fetchAccessories()
     fetchCustomerOrders()
   }
-}, [isOpen, orderItem.id])
+  }, [isOpen, orderItem.id, orderItem.garmentPattern.id])
 
   const fetchDesigns = async () => {
     try {
