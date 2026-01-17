@@ -83,6 +83,7 @@ interface OrderItemDetailDialogProps {
       createdAt: string
       status: string
       notes?: string
+      tailorNotes?: string
       customer: {
         id: string
         name: string
@@ -164,7 +165,7 @@ export function OrderItemDetailDialog({ orderItem }: OrderItemDetailDialogProps)
   const [customerOrders, setCustomerOrders] = useState<any[]>([])
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
   const [accessoryChecklist, setAccessoryChecklist] = useState<Record<string, boolean>>({})
-  const [tailorNotes, setTailorNotes] = useState('')
+  const [tailorNotes, setTailorNotes] = useState(orderItem.order.tailorNotes || '')
   const [isSavingNotes, setIsSavingNotes] = useState(false)
 
   // Calculate cloth remaining (available stock after reservation)
@@ -236,7 +237,7 @@ useEffect(() => {
     fetchAccessories()
     fetchCustomerOrders()
   }
-}, [isOpen, orderItem.id])
+  }, [isOpen, orderItem.id, orderItem.garmentPattern.id])
 
   const fetchDesigns = async () => {
     try {
@@ -740,42 +741,30 @@ useEffect(() => {
                 </div>
                 <div>
                   <p className="text-slate-500 text-xs">Wastage</p>
-const wastageInfo = getWastageInfo()
-if (!wastageInfo) return null
-
-return (
-  <p className={`font-semibold text-lg ${
-    parseFloat(wastageInfo.wastage) > 0 ? 'text-red-600' : 'text-green-600'
-  }`}>
-    {wastageInfo.wastage}m
-  </p>
-)
+                  <p className={`font-semibold text-lg ${
+                    parseFloat(getWastageInfo()!.wastage) > 0 ? 'text-red-600' : 'text-green-600'
+                  }`}>
+                    {getWastageInfo()!.wastage}m
+                  </p>
+                </div>
               </div>
               <div className="mt-3 pt-3 border-t border-cyan-200">
                 <div className="flex items-center justify-between">
                   <p className="text-sm text-slate-600">Efficiency</p>
                   <div className="flex items-center gap-2">
                     <div className="w-32 bg-slate-200 rounded-full h-2">
-const wastageInfo = getWastageInfo()
-if (!wastageInfo) return null
-
-return (
-  <div
-    className={`h-2 rounded-full ${
-      parseFloat(wastageInfo.efficiency) >= 95
-        ? 'bg-green-600'
-        : parseFloat(wastageInfo.efficiency) >= 85
-        ? 'bg-yellow-600'
-        : 'bg-red-600'
-    }`}
-    style={{ width: `${Math.min(100, parseFloat(wastageInfo.efficiency))}%` }}
-  />
-)
+                      <div
+                        className={`h-2 rounded-full ${
+                          parseFloat(getWastageInfo()!.efficiency) >= 95
+                            ? 'bg-green-600'
+                            : parseFloat(getWastageInfo()!.efficiency) >= 85
+                            ? 'bg-yellow-600'
+                            : 'bg-red-600'
+                        }`}
+                        style={{ width: `${Math.min(100, parseFloat(getWastageInfo()!.efficiency))}%` }}
+                      />
                     </div>
-const wastageInfo = getWastageInfo()
-if (!wastageInfo) return null
-
-return <span className="font-semibold text-lg">{wastageInfo.efficiency}%</span>
+                    <span className="font-semibold text-lg">{getWastageInfo()!.efficiency}%</span>
                   </div>
                 </div>
               </div>
@@ -884,10 +873,35 @@ return <span className="font-semibold text-lg">{wastageInfo.efficiency}%</span>
                   {Object.values(accessoryChecklist).filter(Boolean).length}/{accessories.length} Collected
                 </Badge>
               </div>
-              <div className="space-y-2">
-                {accessories.map((acc) => (
-                  <div
-                    key={acc.id}
+                      checked={(() => {
+                        try {
+                          const storageKey = `orderItem:${orderItem.id}:accessoryChecklist`
+                          const stored = localStorage.getItem(storageKey)
+                          if (stored) {
+                            const parsed = JSON.parse(stored) as Record<string, boolean>
+                            if (Object.prototype.hasOwnProperty.call(parsed, acc.id)) {
+                              return parsed[acc.id]
+                            }
+                          }
+                        } catch {
+                          // ignore storage errors and fall back to in-memory state
+                        }
+                        return accessoryChecklist[acc.id] || false
+                      })()}
+                      onChange={(e) => {
+                        const checked = e.target.checked
+                        const updatedChecklist = { ...accessoryChecklist, [acc.id]: checked }
+                        setAccessoryChecklist(updatedChecklist)
+                        try {
+                          const storageKey = `orderItem:${orderItem.id}:accessoryChecklist`
+                          const stored = localStorage.getItem(storageKey)
+                          const parsed: Record<string, boolean> = stored ? JSON.parse(stored) : {}
+                          parsed[acc.id] = checked
+                          localStorage.setItem(storageKey, JSON.stringify(parsed))
+                        } catch {
+                          // ignore storage errors; in-memory state still updates
+                        }
+                      }}
                     className={`flex items-center gap-3 p-3 rounded border-2 transition-all ${
                       accessoryChecklist[acc.id]
                         ? 'bg-green-100 border-green-300'
