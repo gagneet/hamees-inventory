@@ -6,6 +6,7 @@ import { requireAuth, requirePermission } from '@/lib/api-permissions'
 
 const UPLOAD_DIR = join(process.cwd(), 'uploads', 'designs')
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+const MAX_FILE_SIZE_MB = MAX_FILE_SIZE / (1024 * 1024) // Derived for display in error messages
 const ALLOWED_TYPES = [
   'image/jpeg',
   'image/jpg',
@@ -92,7 +93,7 @@ export async function POST(request: NextRequest) {
     // Validate file size
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        { error: `File size exceeds maximum of ${MAX_FILE_SIZE / 1024 / 1024}MB` },
+        { error: `File size exceeds maximum of ${MAX_FILE_SIZE_MB}MB` },
         { status: 400 }
       )
     }
