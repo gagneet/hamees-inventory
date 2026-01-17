@@ -137,7 +137,7 @@ const design = await prisma.$transaction(async (tx) => {
       orderItemId,
       fileName: file.name,
       fileType: file.type,
-      filePath: `designs/${uniqueFileName}`, // Relative path
+      filePath: uniqueFileName, // Store only filename, not relative path
       fileSize: file.size,
       category: category as any,
       description: description || undefined,
