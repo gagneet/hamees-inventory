@@ -105,7 +105,6 @@ interface OrderItemDetailDialogProps {
         oldValue?: string
         newValue?: string
         description: string
-        changeDescription?: string
         createdAt: string
         user: {
           name: string
@@ -113,7 +112,6 @@ interface OrderItemDetailDialogProps {
       }>
     }
   }
-  onSave?: () => void
 }
 
 interface DesignUpload {
@@ -159,7 +157,7 @@ const measurementLabels: Record<string, { en: string; pa: string }> = {
   lapelWidth: { en: 'Lapel Width', pa: 'ਲੈਪਲ ਚੌੜਾਈ' },
 }
 
-export function OrderItemDetailDialog({ orderItem, onSave }: OrderItemDetailDialogProps) {
+export function OrderItemDetailDialog({ orderItem }: OrderItemDetailDialogProps) {
   const { data: session } = useSession()
   const { toast } = useToast()
   const [isOpen, setIsOpen] = useState(false)
@@ -184,7 +182,6 @@ export function OrderItemDetailDialog({ orderItem, onSave }: OrderItemDetailDial
   const [tailorNotes, setTailorNotes] = useState(orderItem.order.tailorNotes || '')
   const [isSavingNotes, setIsSavingNotes] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [orderHistory, setOrderHistory] = useState(orderItem.order.history || [])
 
   // Calculate cloth remaining (available stock after reservation)
   const clothRemaining = orderItem.clothInventory.currentStock - orderItem.clothInventory.reserved
@@ -196,14 +193,14 @@ export function OrderItemDetailDialog({ orderItem, onSave }: OrderItemDetailDial
 
   // Calculate time in current phase
   const getTimeInCurrentPhase = () => {
-    if (!orderHistory || orderHistory.length === 0) {
+    if (!orderItem.order.history || orderItem.order.history.length === 0) {
       const orderAge = Math.ceil(
         (new Date().getTime() - new Date(orderItem.order.createdAt).getTime()) / (1000 * 60 * 60 * 24)
       )
       return `${orderAge} days since order created`
     }
 
-    const statusChanges = orderHistory.filter(h => h.changeType === 'STATUS_UPDATE')
+    const statusChanges = orderItem.order.history.filter(h => h.changeType === 'STATUS_UPDATE')
     if (statusChanges.length === 0) {
       const orderAge = Math.ceil(
         (new Date().getTime() - new Date(orderItem.order.createdAt).getTime()) / (1000 * 60 * 60 * 24)
@@ -338,28 +335,26 @@ useEffect(() => {
   const handleSaveTailorNotes = async () => {
     setIsSavingNotes(true)
     try {
-      // Create OrderHistory entry for tailor note
-      const response = await fetch(`/api/orders/${orderItem.order.id}/tailor-notes`, {
-        method: 'POST',
+      // For now, we'll use the order notes field
+      // In future, could add a separate tailor_notes field to OrderItem
+      // Append tailor notes to existing notes instead of overwriting
+      const existingNotes = orderItem.order.notes || ''
+      const separator = existingNotes ? '\n\n--- Tailor Notes ---\n' : ''
+      const updatedNotes = existingNotes + separator + tailorNotes
+
+      const response = await fetch(`/api/orders/${orderItem.order.id}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ note: tailorNotes }),
+        body: JSON.stringify({ notes: updatedNotes }),
       })
 
       if (response.ok) {
-        const data = await response.json()
         toast({
           title: 'Success',
-          description: 'Work note added successfully',
+          description: 'Tailor notes saved successfully',
         })
-        setTailorNotes('') // Clear the input
-        // Add the new note to the order history state
-        if (data.note) {
-          setOrderHistory(prev => [data.note, ...prev])
-        }
-        // Call parent onSave if provided
-        onSave?.()
       } else {
-        const errorMessage = await getErrorMessage(response, 'Failed to add note')
+        const errorMessage = await getErrorMessage(response, 'Failed to save notes')
         toast({
           variant: 'destructive',
           title: 'Error',
@@ -367,11 +362,11 @@ useEffect(() => {
         })
       }
     } catch (error) {
-      console.error('Error adding tailor note:', error)
+      console.error('Error saving notes:', error)
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to add note. Please check your connection and try again.',
+        description: error instanceof Error ? error.message : 'Failed to save notes. Please check your connection and try again.',
       })
     } finally {
       setIsSavingNotes(false)
@@ -515,123 +510,6 @@ useEffect(() => {
               </Badge>
             </div>
           </Card>
-
-
-          {/* Accessories Required - Interactive Checklist */}
-          {accessories.length > 0 && (
-            <Card className="p-4 bg-orange-50 border-orange-200">
-              <div className="flex items-center gap-2 mb-3">
-                <CheckCircle2 className="h-5 w-5 text-orange-600" />
-                <h3 className="font-semibold text-lg">Accessories Checklist</h3>
-                <Badge variant="outline" className="ml-auto">
-                  {Object.values(accessoryChecklist).filter(Boolean).length}/{accessories.length} Collected
-                </Badge>
-              </div>
-              <div className="space-y-2">
-                {accessories.map((acc) => (
-                  <div
-                    key={acc.id}
-                    className={`flex items-center gap-3 p-3 rounded border-2 transition-all ${
-                      accessoryChecklist[acc.id]
-                        ? 'bg-green-100 border-green-300'
-                        : 'bg-white border-orange-200 hover:border-orange-300'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={accessoryChecklist[acc.id] || false}
-                      onChange={(e) =>
-                        setAccessoryChecklist({ ...accessoryChecklist, [acc.id]: e.target.checked })
-                      }
-                      className="w-5 h-5 rounded border-2 border-orange-400 text-orange-600 focus:ring-orange-500"
-                    />
-                    <div className="flex-1">
-                      <p className={`font-medium ${accessoryChecklist[acc.id] ? 'line-through text-green-700' : ''}`}>
-                        {acc.accessory.name} {acc.accessory.color && `(${acc.accessory.color})`}
-                      </p>
-                      <p className="text-xs text-slate-500">{acc.accessory.type}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold">
-                        {acc.quantity * orderItem.quantity} {acc.accessory.type === 'Button' ? 'pcs' : 'units'}
-                      </p>
-                      <p className={`text-xs ${
-                        acc.accessory.currentStock >= acc.quantity * orderItem.quantity
-                          ? 'text-green-600'
-                          : 'text-red-600'
-                      }`}>
-                        Stock: {acc.accessory.currentStock}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
-
-
-          {/* Fabric Details */}
-          <Card className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Package className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold text-lg">Fabric Details</h3>
-            </div>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-12 h-12 rounded border-2 border-slate-300"
-                  style={{ backgroundColor: orderItem.clothInventory.colorHex }}
-                />
-                <div className="flex-1">
-                  <p className="font-semibold">
-                    {orderItem.clothInventory.name} ({orderItem.clothInventory.color})
-                  </p>
-                  <p className="text-sm text-slate-600">
-                    {orderItem.clothInventory.type} • {orderItem.clothInventory.brand}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 pt-2 border-t">
-                <div>
-                  <p className="text-sm text-slate-500">Required</p>
-                  <p className="font-semibold">{orderItem.estimatedMeters}m</p>
-                </div>
-                {orderItem.actualMetersUsed && (
-                  <div>
-                    <p className="text-sm text-slate-500">Actually Used</p>
-                    <p className="font-semibold">{orderItem.actualMetersUsed}m</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 pt-2 border-t">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <MapPin className="h-4 w-4 text-primary" />
-                    <p className="text-sm text-slate-500">Storage Location</p>
-                  </div>
-                  <p className="font-semibold text-lg">
-                    {orderItem.clothInventory.location || 'Not specified'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-slate-500">Cloth Remaining</p>
-                  <p className={`font-semibold text-lg ${
-                    clothRemaining < orderItem.estimatedMeters
-                      ? 'text-red-600'
-                      : 'text-green-600'
-                  }`}>
-                    {clothRemaining.toFixed(2)}m
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Total: {orderItem.clothInventory.currentStock}m | Reserved: {orderItem.clothInventory.reserved}m
-                  </p>
-                </div>
-              </div>
-            </div>
-          </Card>
-
 
           {/* MEASUREMENTS SECTION - PROMINENT FOR TAILORS */}
           {orderItem.measurement && (
@@ -815,11 +693,11 @@ useEffect(() => {
             )}
 
             {/* Order History */}
-            {orderHistory && orderHistory.length > 0 && (
+            {orderItem.order.history && orderItem.order.history.length > 0 && (
               <div className="mt-3 pt-3 border-t border-purple-200">
                 <p className="text-xs font-semibold text-purple-900 mb-2">Recent History</p>
                 <div className="space-y-1 max-h-32 overflow-y-auto">
-                  {orderHistory.slice(0, 5).map((h) => (
+                  {orderItem.order.history.slice(0, 5).map((h) => (
                     <div key={h.id} className="flex items-start gap-2 text-xs">
                       <Badge variant="outline" className="text-[10px] py-0">
                         {h.changeType}
@@ -846,64 +724,27 @@ useEffect(() => {
             </Card>
           )}
 
-          {/* Tailor's Work Notes - Historical with Audit Trail */}
+          {/* Tailor's Notes (Editable) */}
           {canUpload && (
             <Card className="p-4 bg-green-50 border-green-200">
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-2 mb-2">
                 <Info className="h-5 w-5 text-green-700" />
-                <h3 className="font-semibold text-lg">Tailor's Work Notes</h3>
-                <Badge variant="outline" className="ml-auto text-xs">
-                  {orderHistory?.filter(h => h.changeType === 'TAILOR_NOTE_ADDED').length || 0} notes
-                </Badge>
+                <h3 className="font-semibold">Tailor's Observations</h3>
               </div>
-
-              {/* Historical Notes */}
-              {orderHistory && orderHistory.filter(h => h.changeType === 'TAILOR_NOTE_ADDED').length > 0 && (
-                <div className="mb-4 space-y-2 max-h-64 overflow-y-auto">
-                  <p className="text-xs font-medium text-green-800 mb-2">Previous Notes:</p>
-                  {orderHistory
-                    .filter(h => h.changeType === 'TAILOR_NOTE_ADDED')
-                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                    .map((note) => (
-                      <div key={note.id} className="bg-white p-3 rounded border border-green-200 shadow-sm">
-                        <p className="text-sm text-slate-900">{note.changeDescription || note.description}</p>
-                        <div className="flex items-center justify-between mt-2 pt-2 border-t border-green-100">
-                          <p className="text-xs text-slate-600">
-                            <span className="font-medium">{note.user?.name || 'Unknown'}</span>
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            {new Date(note.createdAt).toLocaleDateString('en-IN', {
-                              day: '2-digit',
-                              month: 'short',
-                              year: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              )}
-
-              {/* Add New Note */}
-              <div className="bg-white p-3 rounded border-2 border-green-300">
-                <p className="text-xs font-medium text-green-800 mb-2">Add New Note:</p>
-                <textarea
-                  className="w-full p-3 rounded border border-green-300 text-sm min-h-[80px] focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="Add observations, modifications, or special notes about this garment..."
-                  value={tailorNotes}
-                  onChange={(e) => setTailorNotes(e.target.value)}
-                />
-                <Button
-                  onClick={handleSaveTailorNotes}
-                  disabled={isSavingNotes || !tailorNotes.trim()}
-                  size="sm"
-                  className="mt-2 bg-green-600 hover:bg-green-700"
-                >
-                  {isSavingNotes ? 'Saving...' : 'Add Note'}
-                </Button>
-              </div>
+              <textarea
+                className="w-full p-3 rounded border border-green-300 text-sm min-h-[80px]"
+                placeholder="Add your notes, observations, or modifications made..."
+                value={tailorNotes}
+                onChange={(e) => setTailorNotes(e.target.value)}
+              />
+              <Button
+                onClick={handleSaveTailorNotes}
+                disabled={isSavingNotes || !tailorNotes.trim()}
+                size="sm"
+                className="mt-2 bg-green-600 hover:bg-green-700"
+              >
+                {isSavingNotes ? 'Saving...' : 'Save Notes'}
+              </Button>
             </Card>
           )}
 
@@ -982,6 +823,120 @@ useEffect(() => {
                 <Zap className="h-3 w-3 inline mr-1" />
                 Review previous orders for sizing consistency
               </p>
+            </Card>
+          )}
+
+          {/* Fabric Details */}
+          <Card className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Package className="h-5 w-5 text-primary" />
+              <h3 className="font-semibold text-lg">Fabric Details</h3>
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-12 h-12 rounded border-2 border-slate-300"
+                  style={{ backgroundColor: orderItem.clothInventory.colorHex }}
+                />
+                <div className="flex-1">
+                  <p className="font-semibold">
+                    {orderItem.clothInventory.name} ({orderItem.clothInventory.color})
+                  </p>
+                  <p className="text-sm text-slate-600">
+                    {orderItem.clothInventory.type} • {orderItem.clothInventory.brand}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+                <div>
+                  <p className="text-sm text-slate-500">Required</p>
+                  <p className="font-semibold">{orderItem.estimatedMeters}m</p>
+                </div>
+                {orderItem.actualMetersUsed && (
+                  <div>
+                    <p className="text-sm text-slate-500">Actually Used</p>
+                    <p className="font-semibold">{orderItem.actualMetersUsed}m</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <MapPin className="h-4 w-4 text-primary" />
+                    <p className="text-sm text-slate-500">Storage Location</p>
+                  </div>
+                  <p className="font-semibold text-lg">
+                    {orderItem.clothInventory.location || 'Not specified'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500">Cloth Remaining</p>
+                  <p className={`font-semibold text-lg ${
+                    clothRemaining < orderItem.estimatedMeters
+                      ? 'text-red-600'
+                      : 'text-green-600'
+                  }`}>
+                    {clothRemaining.toFixed(2)}m
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Total: {orderItem.clothInventory.currentStock}m | Reserved: {orderItem.clothInventory.reserved}m
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Accessories Required - Interactive Checklist */}
+          {accessories.length > 0 && (
+            <Card className="p-4 bg-orange-50 border-orange-200">
+              <div className="flex items-center gap-2 mb-3">
+                <CheckCircle2 className="h-5 w-5 text-orange-600" />
+                <h3 className="font-semibold text-lg">Accessories Checklist</h3>
+                <Badge variant="outline" className="ml-auto">
+                  {Object.values(accessoryChecklist).filter(Boolean).length}/{accessories.length} Collected
+                </Badge>
+              </div>
+              <div className="space-y-2">
+                {accessories.map((acc) => (
+                  <div
+                    key={acc.id}
+                    className={`flex items-center gap-3 p-3 rounded border-2 transition-all ${
+                      accessoryChecklist[acc.id]
+                        ? 'bg-green-100 border-green-300'
+                        : 'bg-white border-orange-200 hover:border-orange-300'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={accessoryChecklist[acc.id] || false}
+                      onChange={(e) =>
+                        setAccessoryChecklist({ ...accessoryChecklist, [acc.id]: e.target.checked })
+                      }
+                      className="w-5 h-5 rounded border-2 border-orange-400 text-orange-600 focus:ring-orange-500"
+                    />
+                    <div className="flex-1">
+                      <p className={`font-medium ${accessoryChecklist[acc.id] ? 'line-through text-green-700' : ''}`}>
+                        {acc.accessory.name} {acc.accessory.color && `(${acc.accessory.color})`}
+                      </p>
+                      <p className="text-xs text-slate-500">{acc.accessory.type}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold">
+                        {acc.quantity * orderItem.quantity} {acc.accessory.type === 'Button' ? 'pcs' : 'units'}
+                      </p>
+                      <p className={`text-xs ${
+                        acc.accessory.currentStock >= acc.quantity * orderItem.quantity
+                          ? 'text-green-600'
+                          : 'text-red-600'
+                      }`}>
+                        Stock: {acc.accessory.currentStock}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </Card>
           )}
 

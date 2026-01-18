@@ -61,19 +61,15 @@ export function RecordPaymentDialog({
     setLoading(true)
 
     try {
-      // Create installment with today's due date and mark as paid
-      const response = await fetch(`/api/orders/${orderId}/installments`, {
+      // Record payment using the payments endpoint
+      const response = await fetch(`/api/orders/${orderId}/payments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: paymentAmount,
-          dueDate: new Date().toISOString(),
           paymentMode,
           transactionRef: transactionRef || undefined,
-          notes: notes || `Payment recorded via ${paymentMode}`,
-          status: 'PAID', // Mark as paid immediately
-          paidAmount: paymentAmount,
-          paidDate: new Date().toISOString(),
+          notes: notes || undefined,
         }),
       })
 

@@ -183,7 +183,7 @@ export async function GET(request: Request) {
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { balanceAmount: 'desc' }, // Sort by balance amount (high to low) by default
         skip,
         take: limit,
       }),
