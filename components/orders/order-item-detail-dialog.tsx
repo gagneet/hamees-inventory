@@ -105,6 +105,7 @@ interface OrderItemDetailDialogProps {
         oldValue?: string
         newValue?: string
         description: string
+        changeDescription?: string
         createdAt: string
         user: {
           name: string
@@ -112,6 +113,7 @@ interface OrderItemDetailDialogProps {
       }>
     }
   }
+  onSave?: () => void
 }
 
 interface DesignUpload {
@@ -157,7 +159,7 @@ const measurementLabels: Record<string, { en: string; pa: string }> = {
   lapelWidth: { en: 'Lapel Width', pa: 'ਲੈਪਲ ਚੌੜਾਈ' },
 }
 
-export function OrderItemDetailDialog({ orderItem }: OrderItemDetailDialogProps) {
+export function OrderItemDetailDialog({ orderItem, onSave }: OrderItemDetailDialogProps) {
   const { data: session } = useSession()
   const { toast } = useToast()
   const [isOpen, setIsOpen] = useState(false)
@@ -182,6 +184,7 @@ export function OrderItemDetailDialog({ orderItem }: OrderItemDetailDialogProps)
   const [tailorNotes, setTailorNotes] = useState(orderItem.order.tailorNotes || '')
   const [isSavingNotes, setIsSavingNotes] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [orderHistory, setOrderHistory] = useState(orderItem.order.history || [])
 
   // Calculate cloth remaining (available stock after reservation)
   const clothRemaining = orderItem.clothInventory.currentStock - orderItem.clothInventory.reserved
@@ -193,14 +196,14 @@ export function OrderItemDetailDialog({ orderItem }: OrderItemDetailDialogProps)
 
   // Calculate time in current phase
   const getTimeInCurrentPhase = () => {
-    if (!orderItem.order.history || orderItem.order.history.length === 0) {
+    if (!orderHistory || orderHistory.length === 0) {
       const orderAge = Math.ceil(
         (new Date().getTime() - new Date(orderItem.order.createdAt).getTime()) / (1000 * 60 * 60 * 24)
       )
       return `${orderAge} days since order created`
     }
 
-    const statusChanges = orderItem.order.history.filter(h => h.changeType === 'STATUS_UPDATE')
+    const statusChanges = orderHistory.filter(h => h.changeType === 'STATUS_UPDATE')
     if (statusChanges.length === 0) {
       const orderAge = Math.ceil(
         (new Date().getTime() - new Date(orderItem.order.createdAt).getTime()) / (1000 * 60 * 60 * 24)
@@ -343,12 +346,18 @@ useEffect(() => {
       })
 
       if (response.ok) {
+        const data = await response.json()
         toast({
           title: 'Success',
           description: 'Work note added successfully',
         })
         setTailorNotes('') // Clear the input
-        onSave?.() // Refresh parent to show new note
+        // Add the new note to the order history state
+        if (data.note) {
+          setOrderHistory(prev => [data.note, ...prev])
+        }
+        // Call parent onSave if provided
+        onSave?.()
       } else {
         const errorMessage = await getErrorMessage(response, 'Failed to add note')
         toast({
@@ -806,11 +815,11 @@ useEffect(() => {
             )}
 
             {/* Order History */}
-            {orderItem.order.history && orderItem.order.history.length > 0 && (
+            {orderHistory && orderHistory.length > 0 && (
               <div className="mt-3 pt-3 border-t border-purple-200">
                 <p className="text-xs font-semibold text-purple-900 mb-2">Recent History</p>
                 <div className="space-y-1 max-h-32 overflow-y-auto">
-                  {orderItem.order.history.slice(0, 5).map((h) => (
+                  {orderHistory.slice(0, 5).map((h) => (
                     <div key={h.id} className="flex items-start gap-2 text-xs">
                       <Badge variant="outline" className="text-[10px] py-0">
                         {h.changeType}
@@ -844,15 +853,15 @@ useEffect(() => {
                 <Info className="h-5 w-5 text-green-700" />
                 <h3 className="font-semibold text-lg">Tailor's Work Notes</h3>
                 <Badge variant="outline" className="ml-auto text-xs">
-                  {orderItem.order.history?.filter(h => h.changeType === 'TAILOR_NOTE_ADDED').length || 0} notes
+                  {orderHistory?.filter(h => h.changeType === 'TAILOR_NOTE_ADDED').length || 0} notes
                 </Badge>
               </div>
 
               {/* Historical Notes */}
-              {orderItem.order.history && orderItem.order.history.filter(h => h.changeType === 'TAILOR_NOTE_ADDED').length > 0 && (
+              {orderHistory && orderHistory.filter(h => h.changeType === 'TAILOR_NOTE_ADDED').length > 0 && (
                 <div className="mb-4 space-y-2 max-h-64 overflow-y-auto">
                   <p className="text-xs font-medium text-green-800 mb-2">Previous Notes:</p>
-                  {orderItem.order.history
+                  {orderHistory
                     .filter(h => h.changeType === 'TAILOR_NOTE_ADDED')
                     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                     .map((note) => (
