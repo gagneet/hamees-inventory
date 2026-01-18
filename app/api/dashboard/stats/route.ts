@@ -11,8 +11,11 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Auto-generate stock alerts before fetching stats
-    await generateStockAlerts()
+    // Auto-generate stock alerts in background (non-blocking)
+    // Using fire-and-forget pattern to avoid blocking dashboard response
+    generateStockAlerts().catch(error => {
+      console.error('Background alert generation failed:', error)
+    })
 
     // Get current month dates
     const now = new Date()
