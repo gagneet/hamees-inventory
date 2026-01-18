@@ -58,7 +58,7 @@ export async function GET(request: Request) {
     let lowStockAccessories: AccessoryInventoryItem[] = []
 
     if (type === 'critical') {
-      // Critical: At or below minimum threshold
+      // Critical: At or below minimum threshold (urgent action needed)
       lowStockCloth = clothInventory.filter(
         (item: ClothInventoryItem) => {
           const available = item.currentStock - item.reserved
