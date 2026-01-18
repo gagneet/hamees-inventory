@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { startOfMonth, endOfMonth, subMonths, format, differenceInDays, addDays, startOfDay } from 'date-fns'
+import { generateStockAlerts } from '@/lib/generate-alerts'
 
 export async function GET(request: Request) {
   try {
@@ -9,6 +10,9 @@ export async function GET(request: Request) {
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    // Auto-generate stock alerts before fetching stats
+    await generateStockAlerts()
 
     const { searchParams } = new URL(request.url)
     const dateRange = searchParams.get('range') || 'month' // day, week, month

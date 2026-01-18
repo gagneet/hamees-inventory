@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns'
+import { generateStockAlerts } from '@/lib/generate-alerts'
 
 export async function GET() {
   try {
@@ -9,6 +10,9 @@ export async function GET() {
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    // Auto-generate stock alerts before fetching stats
+    await generateStockAlerts()
 
     // Get current month dates
     const now = new Date()
