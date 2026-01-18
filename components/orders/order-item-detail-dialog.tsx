@@ -857,7 +857,7 @@ useEffect(() => {
                     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                     .map((note) => (
                       <div key={note.id} className="bg-white p-3 rounded border border-green-200 shadow-sm">
-                        <p className="text-sm text-slate-900">{note.description}</p>
+                        <p className="text-sm text-slate-900">{note.changeDescription || note.description}</p>
                         <div className="flex items-center justify-between mt-2 pt-2 border-t border-green-100">
                           <p className="text-xs text-slate-600">
                             <span className="font-medium">{note.user?.name || 'Unknown'}</span>
