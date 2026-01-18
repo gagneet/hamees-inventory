@@ -8,6 +8,7 @@ const updateOrderItemSchema = z.object({
   garmentPatternId: z.string().optional(),
   clothInventoryId: z.string().optional(),
   quantity: z.number().int().positive().optional(),
+  assignedTailorId: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 })
 
@@ -121,6 +122,33 @@ export async function PATCH(
       updateData.notes = validatedData.notes
     }
 
+    // If assigned tailor is changing
+    if (validatedData.assignedTailorId !== undefined) {
+      // Validate tailor exists if provided
+      if (validatedData.assignedTailorId) {
+        const tailor = await prisma.user.findUnique({
+          where: { id: validatedData.assignedTailorId },
+        })
+
+        if (!tailor) {
+          return NextResponse.json(
+            { error: 'Invalid tailor assignment' },
+            { status: 400 }
+          )
+        }
+
+        // Optionally validate that user is actually a TAILOR role
+        if (tailor.role !== 'TAILOR') {
+          return NextResponse.json(
+            { error: 'Assigned user must have TAILOR role' },
+            { status: 400 }
+          )
+        }
+      }
+
+      updateData.assignedTailorId = validatedData.assignedTailorId
+    }
+
     // Update the order item using a transaction
     const updatedItem = await prisma.$transaction(async (tx) => {
       // If fabric is changing, update stock reservations
@@ -188,6 +216,13 @@ export async function PATCH(
         include: {
           garmentPattern: true,
           clothInventory: true,
+          assignedTailor: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
         },
       })
 

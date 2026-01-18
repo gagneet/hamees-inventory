@@ -25,6 +25,7 @@ import { RecordPaymentDialog } from '@/components/orders/record-payment-dialog'
 import { PrintInvoiceButton } from '@/components/orders/print-invoice-button'
 import { EditMeasurementDialog } from '@/components/orders/edit-measurement-dialog'
 import { OrderItemDetailDialog } from '@/components/orders/order-item-detail-dialog'
+import { AssignTailorDialog } from '@/components/orders/assign-tailor-dialog'
 
 async function getOrderDetails(id: string) {
   try {
@@ -94,6 +95,13 @@ async function getOrderDetails(id: string) {
                     name: true,
                   },
                 },
+              },
+            },
+            assignedTailor: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
               },
             },
           },
@@ -369,6 +377,32 @@ export default async function OrderDetailPage({
                             <p className="font-medium text-slate-900">{item.actualMetersUsed}m</p>
                           </div>
                         )}
+                      </div>
+
+                      {/* Assigned Tailor */}
+                      <div className="mt-3 pt-3 border-t border-slate-200">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-slate-900 mb-1">Assigned Tailor</p>
+                            {item.assignedTailor ? (
+                              <div className="flex items-center gap-2 text-sm text-slate-700">
+                                <User className="h-4 w-4 text-primary" />
+                                <span>{item.assignedTailor.name}</span>
+                              </div>
+                            ) : (
+                              <p className="text-sm text-slate-500">Not assigned yet</p>
+                            )}
+                          </div>
+                          {order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
+                            <AssignTailorDialog
+                              orderId={order.id}
+                              itemId={item.id}
+                              currentTailorId={item.assignedTailor?.id}
+                              currentTailorName={item.assignedTailor?.name}
+                              garmentName={item.garmentPattern.name}
+                            />
+                          )}
+                        </div>
                       </div>
                       {item.notes && (
                         <div className="mt-3 pt-3 border-t border-slate-200">

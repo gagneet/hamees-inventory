@@ -19,6 +19,7 @@ const orderSchema = z.object({
       clothInventoryId: z.string().min(1),
       quantity: z.number().int().positive().default(1),
       bodyType: z.nativeEnum(BodyType).default(BodyType.REGULAR),
+      assignedTailorId: z.string().nullish(), // Optional tailor assignment
       accessories: z.array(
         z.object({
           accessoryId: z.string(),
@@ -319,6 +320,7 @@ export async function POST(request: Request) {
         pricePerUnit: itemTotal / item.quantity,
         totalPrice: itemTotal,
         measurementId: matchingMeasurement?.id, // Link measurement to order item
+        assignedTailorId: item.assignedTailorId || undefined, // Optional tailor assignment
       })
     }
 

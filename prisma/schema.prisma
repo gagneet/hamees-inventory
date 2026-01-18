@@ -118,6 +118,7 @@ model User {
   uploadHistory UploadHistory[]
   expenses      Expense[]
   designUploads DesignUpload[]
+  assignedOrderItems OrderItem[] @relation("OrderItemAssignedTailor")
 }
 
 model ClothInventory {
@@ -407,6 +408,7 @@ model OrderItem {
   garmentPatternId  String
   clothInventoryId  String
   measurementId     String?   // Which measurement was used for this item
+  assignedTailorId  String?   // Which tailor is assigned to this item
 
   quantity          Int       @default(1)
   bodyType          BodyType  @default(REGULAR)
@@ -428,10 +430,12 @@ model OrderItem {
   garmentPattern    GarmentPattern @relation(fields: [garmentPatternId], references: [id])
   clothInventory    ClothInventory @relation(fields: [clothInventoryId], references: [id])
   measurement       Measurement? @relation(fields: [measurementId], references: [id])
+  assignedTailor    User?     @relation("OrderItemAssignedTailor", fields: [assignedTailorId], references: [id])
   designUploads     DesignUpload[]
 
   @@index([orderId])
   @@index([measurementId])
+  @@index([assignedTailorId])
 }
 
 model StockMovement {
