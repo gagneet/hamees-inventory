@@ -11,77 +11,77 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const months = parseInt(searchParams.get('months') || '12')
 
-    // Revenue and expenses by month
-    const financialData = []
-    for (let i = months - 1; i >= 0; i--) {
-      const monthStart = startOfMonth(subMonths(new Date(), i))
-      const monthEnd = endOfMonth(subMonths(new Date(), i))
+    // Revenue and expenses by month (parallelized to avoid async waterfall)
+    const financialData = await Promise.all(
+      Array.from({ length: months }, async (_, index) => {
+        const i = months - 1 - index
+        const monthStart = startOfMonth(subMonths(new Date(), i))
+        const monthEnd = endOfMonth(subMonths(new Date(), i))
 
-      const [revenue, expenses] = await Promise.all([
-        prisma.order.aggregate({
-          where: {
-            createdAt: { gte: monthStart, lte: monthEnd },
-            status: 'DELIVERED',
-          },
-          _sum: { totalAmount: true },
-        }),
-        prisma.expense.aggregate({
-          where: {
-            expenseDate: { gte: monthStart, lte: monthEnd },
-          },
-          _sum: { totalAmount: true },
-        }),
-      ])
+        const [revenue, expenses] = await Promise.all([
+          prisma.order.aggregate({
+            where: {
+              createdAt: { gte: monthStart, lte: monthEnd },
+              status: 'DELIVERED',
+            },
+            _sum: { totalAmount: true },
+          }),
+          prisma.expense.aggregate({
+            where: {
+              expenseDate: { gte: monthStart, lte: monthEnd },
+            },
+            _sum: { totalAmount: true },
+          }),
+        ])
 
-      const revenueAmount = revenue._sum.totalAmount || 0
-      const expenseAmount = expenses._sum.totalAmount || 0
-      const profit = revenueAmount - expenseAmount
+        const revenueAmount = revenue._sum.totalAmount || 0
+        const expenseAmount = expenses._sum.totalAmount || 0
+        const profit = revenueAmount - expenseAmount
 
-      financialData.push({
-        month: format(monthStart, 'MMM yyyy'),
-        revenue: revenueAmount,
-        expenses: expenseAmount,
-        profit,
-        margin: revenueAmount > 0 ? (profit / revenueAmount) * 100 : 0,
+        return {
+          month: format(monthStart, 'MMM yyyy'),
+          revenue: revenueAmount,
+          expenses: expenseAmount,
+          profit,
+          margin: revenueAmount > 0 ? (profit / revenueAmount) * 100 : 0,
+        }
       })
-    }
+    )
 
     // Current month P&L
     const thisMonth = financialData[financialData.length - 1]
 
-    // Outstanding payments
-    const outstandingPayments = await prisma.order.aggregate({
-      where: {
-        balanceAmount: { gt: 0 },
-        status: { notIn: ['CANCELLED'] },
-      },
-      _sum: { balanceAmount: true },
-      _count: true,
-    })
-
-    // Inventory value
-    const inventoryValue = await prisma.clothInventory.findMany({
-      select: {
-        currentStock: true,
-        pricePerMeter: true,
-      },
-    })
-
-    const totalInventoryValue = inventoryValue.reduce(
-      (sum, item) => sum + item.currentStock * item.pricePerMeter,
-      0
-    )
-
-    // Cash flow (installments received this month)
-    const paymentsReceived = await prisma.paymentInstallment.aggregate({
-      where: {
-        paidDate: {
-          gte: startOfMonth(new Date()),
+    // Parallelize independent database queries to avoid sequential waiting
+    const [outstandingPayments, inventoryValueResult, paymentsReceived] = await Promise.all([
+      // Outstanding payments
+      prisma.order.aggregate({
+        where: {
+          balanceAmount: { gt: 0 },
+          status: { notIn: ['CANCELLED'] },
         },
-        status: 'PAID',
-      },
-      _sum: { amount: true },
-    })
+        _sum: { balanceAmount: true },
+        _count: true,
+      }),
+
+      // Inventory value - compute at database level for better performance
+      prisma.$queryRaw<{ totalValue: number }[]>`
+        SELECT COALESCE(SUM("currentStock" * "pricePerMeter"), 0) as "totalValue"
+        FROM "ClothInventory"
+      `,
+
+      // Cash flow (installments received this month)
+      prisma.paymentInstallment.aggregate({
+        where: {
+          paidDate: {
+            gte: startOfMonth(new Date()),
+          },
+          status: 'PAID',
+        },
+        _sum: { amount: true },
+      }),
+    ])
+
+    const totalInventoryValue = Number(inventoryValueResult[0]?.totalValue || 0)
 
     return NextResponse.json({
       summary: {

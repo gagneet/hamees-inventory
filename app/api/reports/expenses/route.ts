@@ -11,38 +11,80 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const months = parseInt(searchParams.get('months') || '6')
 
-    // Expenses by month
-    const expensesByMonth = []
-    for (let i = months - 1; i >= 0; i--) {
-      const monthStart = startOfMonth(subMonths(new Date(), i))
-      const monthEnd = endOfMonth(subMonths(new Date(), i))
+    // Expenses by month (parallelized to avoid async waterfall)
+    const expensesByMonth = await Promise.all(
+      Array.from({ length: months }, async (_, index) => {
+        const i = months - 1 - index
+        const monthStart = startOfMonth(subMonths(new Date(), i))
+        const monthEnd = endOfMonth(subMonths(new Date(), i))
 
-      const expenses = await prisma.expense.aggregate({
+        const expenses = await prisma.expense.aggregate({
+          where: {
+            expenseDate: { gte: monthStart, lte: monthEnd },
+          },
+          _sum: { totalAmount: true },
+          _count: true,
+        })
+
+        return {
+          month: format(monthStart, 'MMM yyyy'),
+          amount: expenses._sum.totalAmount || 0,
+          count: expenses._count,
+        }
+      })
+    )
+
+    // Parallelize independent queries to avoid sequential waiting
+    const [expensesByCategory, thisMonthExpenses, lastMonthExpenses, topExpenses] = await Promise.all([
+      // Expenses by category
+      prisma.expense.groupBy({
+        by: ['category'],
         where: {
-          expenseDate: { gte: monthStart, lte: monthEnd },
+          expenseDate: {
+            gte: subMonths(new Date(), months),
+          },
         },
         _sum: { totalAmount: true },
         _count: true,
-      })
+      }),
 
-      expensesByMonth.push({
-        month: format(monthStart, 'MMM yyyy'),
-        amount: expenses._sum.totalAmount || 0,
-        count: expenses._count,
-      })
-    }
-
-    // Expenses by category
-    const expensesByCategory = await prisma.expense.groupBy({
-      by: ['category'],
-      where: {
-        expenseDate: {
-          gte: subMonths(new Date(), months),
+      // This month expenses
+      prisma.expense.aggregate({
+        where: {
+          expenseDate: {
+            gte: startOfMonth(new Date()),
+          },
         },
-      },
-      _sum: { totalAmount: true },
-      _count: true,
-    })
+        _sum: { totalAmount: true },
+      }),
+
+      // Last month expenses
+      prisma.expense.aggregate({
+        where: {
+          expenseDate: {
+            gte: startOfMonth(subMonths(new Date(), 1)),
+            lte: endOfMonth(subMonths(new Date(), 1)),
+          },
+        },
+        _sum: { totalAmount: true },
+      }),
+
+      // Top expenses
+      prisma.expense.findMany({
+        where: {
+          expenseDate: {
+            gte: subMonths(new Date(), months),
+          },
+        },
+        orderBy: { totalAmount: 'desc' },
+        take: 10,
+        include: {
+          paidByUser: {
+            select: { name: true },
+          },
+        },
+      }),
+    ])
 
     const categoryData = expensesByCategory.map((item) => ({
       category: item.category,
@@ -53,26 +95,6 @@ export async function GET(request: Request) {
     // Total expenses
     const totalExpenses = categoryData.reduce((sum, cat) => sum + cat.amount, 0)
 
-    // This month vs last month
-    const thisMonthExpenses = await prisma.expense.aggregate({
-      where: {
-        expenseDate: {
-          gte: startOfMonth(new Date()),
-        },
-      },
-      _sum: { totalAmount: true },
-    })
-
-    const lastMonthExpenses = await prisma.expense.aggregate({
-      where: {
-        expenseDate: {
-          gte: startOfMonth(subMonths(new Date(), 1)),
-          lte: endOfMonth(subMonths(new Date(), 1)),
-        },
-      },
-      _sum: { totalAmount: true },
-    })
-
     const growth =
       (lastMonthExpenses._sum.totalAmount || 0) > 0
         ? (((thisMonthExpenses._sum.totalAmount || 0) -
@@ -80,22 +102,6 @@ export async function GET(request: Request) {
             (lastMonthExpenses._sum.totalAmount || 1)) *
           100
         : 0
-
-    // Top expenses
-    const topExpenses = await prisma.expense.findMany({
-      where: {
-        expenseDate: {
-          gte: subMonths(new Date(), months),
-        },
-      },
-      orderBy: { totalAmount: 'desc' },
-      take: 10,
-      include: {
-        paidByUser: {
-          select: { name: true },
-        },
-      },
-    })
 
     return NextResponse.json({
       summary: {
