@@ -121,12 +121,12 @@ export async function POST(
       },
     })
 
-    return NextResponse.json({
-      success: true,
-      installment,
-      newBalanceAmount,
-      message: `Payment of ₹${validatedData.amount.toFixed(2)} recorded successfully`,
-    })
+return NextResponse.json({
+  success: true,
+  installment: result.installment,
+  newBalanceAmount: result.newBalanceAmount,
+  message: `Payment of ₹${validatedData.amount.toFixed(2)} recorded successfully`,
+})
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
