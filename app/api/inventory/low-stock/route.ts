@@ -52,7 +52,7 @@ export async function GET(request: Request) {
     const accessoryInventory = await getAccessoryInventory()
 
     // Filter based on type
-    // Low Stock: minimum < Available < (minimum × 1.1) [10% buffer above minimum]
+    // Low Stock: Available < (minimum × 1.1) and > minimum [10% buffer above minimum]
     // Critical Stock: Available <= minimum [at or below minimum threshold]
     let lowStockCloth: ClothInventoryItem[] = []
     let lowStockAccessories: AccessoryInventoryItem[] = []
@@ -74,13 +74,13 @@ export async function GET(request: Request) {
         (item: ClothInventoryItem) => {
           const available = item.currentStock - item.reserved
           const threshold = item.minimum * 1.1
-          return available > item.minimum && available < threshold
+          return available < threshold && available > item.minimum
         }
       )
       lowStockAccessories = accessoryInventory.filter(
         (item: AccessoryInventoryItem) => {
           const threshold = item.minimum * 1.1
-          return item.currentStock > item.minimum && item.currentStock < threshold
+          return item.currentStock < threshold && item.currentStock > item.minimum
         }
       )
     }

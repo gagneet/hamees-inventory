@@ -108,19 +108,29 @@ if (!isAlertActive) {
 - Stats: `available < minimum` (Low), `available < minimum * 0.5` (Critical)
 - Low-stock API: `available < minimum` (Low), `available < minimum * 0.5` (Critical)
 
-**New Standardized Logic:**
+**New Standardized Logic (v1 - Had Boundary Issue):**
 - **Low Stock:** `available < (minimum × 1.1)` AND `available >= minimum` [Warning zone - 10% buffer]
 - **Critical Stock:** `available < minimum` [Urgent zone - below threshold]
 - Applies to: cloth (considers reserved), accessories (current stock)
 
+**Corrected Logic (v2 - Boundary Issue Fixed):**
+- **Low Stock:** `available < (minimum × 1.1)` AND `available > minimum` [Warning zone - above minimum, below 110%]
+- **Critical Stock:** `available <= minimum` [Urgent zone - at or below threshold]
+- Applies to: cloth (considers reserved), accessories (current stock)
+
+**Boundary Issue:** Items with available stock exactly equal to minimum were previously:
+- Not counted in Critical Stock (because `available < minimum` was FALSE when `available === minimum`)
+- Counted in Low Stock (because `available >= minimum` was TRUE)
+- **Problem:** Items AT the minimum threshold should be Critical (urgent), not Low (warning)
+
 **Files:**
-- ✅ Modified: `lib/generate-alerts.ts`
-- ✅ Modified: `app/api/dashboard/stats/route.ts`
-- ✅ Modified: `app/api/inventory/low-stock/route.ts`
+- ✅ Modified: `app/api/dashboard/stats/route.ts` (both cloth and accessory filters)
+- ✅ Modified: `app/api/inventory/low-stock/route.ts` (both critical and low stock paths)
 
 **Benefits:**
 - Consistent thresholds across entire system
-- Clear distinction between warning and critical states
+- Items at exactly minimum threshold now correctly categorized as Critical
+- Clear distinction: Low = warning zone above minimum, Critical = at or below minimum
 - Dashboard cards show accurate counts
 - Alerts trigger at correct thresholds
 
