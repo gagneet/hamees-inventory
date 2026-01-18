@@ -4,16 +4,16 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-secondary-light focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
-        default: 'bg-primary text-blue-900 hover:bg-primary/90',
+        default: 'bg-primary text-secondary-light hover:bg-primary-light hover:text-white',
         destructive: 'bg-error text-white hover:bg-error/90',
-        outline: 'border border-slate-200 bg-white text-blue-900 hover:bg-slate-100 hover:text-blue-900',
-        secondary: 'bg-secondary text-white hover:bg-secondary/90',
-        ghost: 'text-blue-900 hover:bg-slate-100 hover:text-blue-900',
-        link: 'text-blue-900 underline-offset-4 hover:underline',
+        outline: 'border-2 border-primary bg-white text-primary hover:bg-primary hover:text-secondary-light',
+        secondary: 'bg-secondary text-primary-dark hover:bg-secondary-light hover:text-primary',
+        ghost: 'text-primary hover:bg-primary/10 hover:text-primary-dark',
+        link: 'text-primary underline-offset-4 hover:underline hover:text-primary-light',
       },
       size: {
         default: 'h-10 px-4 py-2',
