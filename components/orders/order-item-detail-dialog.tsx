@@ -484,37 +484,39 @@ useEffect(() => {
         </DialogHeader>
 
         <div className="space-y-6 mt-4">
-          {/* Timeline Alert */}
-          <Card className={`p-4 border-2 ${
-            daysUntilDelivery < 0
-              ? 'border-red-500 bg-red-50'
-              : daysUntilDelivery <= 3
-              ? 'border-amber-500 bg-amber-50'
-              : 'border-blue-500 bg-blue-50'
-          }`}>
-            <div className="flex items-center gap-3">
-              {daysUntilDelivery < 0 ? (
-                <AlertCircle className="h-5 w-5 text-red-600" />
-              ) : (
-                <Clock className="h-5 w-5 text-blue-600" />
-              )}
-              <div className="flex-1">
-                <p className="font-semibold text-sm">
-                  {daysUntilDelivery < 0
-                    ? `OVERDUE by ${Math.abs(daysUntilDelivery)} days`
-                    : daysUntilDelivery === 0
-                    ? 'Due TODAY'
-                    : `${daysUntilDelivery} days remaining`}
-                </p>
-                <p className="text-xs text-slate-600">
-                  Delivery: {new Date(orderItem.order.deliveryDate).toLocaleDateString()}
-                </p>
+          {/* Timeline Alert - Only show for non-delivered and non-cancelled orders */}
+          {orderItem.order.status !== 'DELIVERED' && orderItem.order.status !== 'CANCELLED' && (
+            <Card className={`p-4 border-2 ${
+              daysUntilDelivery < 0
+                ? 'border-red-500 bg-red-50'
+                : daysUntilDelivery <= 3
+                ? 'border-amber-500 bg-amber-50'
+                : 'border-blue-500 bg-blue-50'
+            }`}>
+              <div className="flex items-center gap-3">
+                {daysUntilDelivery < 0 ? (
+                  <AlertCircle className="h-5 w-5 text-red-600" />
+                ) : (
+                  <Clock className="h-5 w-5 text-blue-600" />
+                )}
+                <div className="flex-1">
+                  <p className="font-semibold text-sm">
+                    {daysUntilDelivery < 0
+                      ? `OVERDUE by ${Math.abs(daysUntilDelivery)} days`
+                      : daysUntilDelivery === 0
+                      ? 'Due TODAY'
+                      : `${daysUntilDelivery} days remaining`}
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    Delivery: {new Date(orderItem.order.deliveryDate).toLocaleDateString()}
+                  </p>
+                </div>
+                <Badge variant="outline" className="ml-auto">
+                  {orderItem.order.status}
+                </Badge>
               </div>
-              <Badge variant="outline" className="ml-auto">
-                {orderItem.order.status}
-              </Badge>
-            </div>
-          </Card>
+            </Card>
+          )}
 
 
           {/* Accessories Required - Interactive Checklist */}
