@@ -86,7 +86,11 @@ export async function POST(
     // Create payment installment
     const now = new Date()
     
-    // Use database transaction to ensure atomicity
+    // Use database transaction to ensure atomicity and prevent CWE-362 race conditions.
+    // This prevents partial failures where a payment installment could be created but the
+    // order balance fails to update, leading to financial discrepancies and data corruption.
+    // All three operations (create installment, update balance, create history) must succeed
+    // together or fail together to maintain data consistency.
     const result = await prisma.$transaction(async (tx) => {
       const installment = await tx.paymentInstallment.create({
         data: {

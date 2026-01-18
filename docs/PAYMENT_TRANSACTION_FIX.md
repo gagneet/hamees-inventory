@@ -176,9 +176,8 @@ Consider adding:
 - [Prisma Transactions Documentation](https://www.prisma.io/docs/concepts/components/prisma-client/transactions)
 - [ACID Properties in Databases](https://en.wikipedia.org/wiki/ACID)
 
-## Commit Information
+## Related Information
 
-- **Commit**: 0db0666
-- **Branch**: copilot/sub-pr-29
 - **PR**: Merges into #29
 - **Reviewer Comment**: https://github.com/gagneet/hamees-inventory/pull/29#discussion_r2702181903
+- **Related Issue**: Payment recording race condition vulnerability
