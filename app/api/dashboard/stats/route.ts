@@ -11,8 +11,11 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Auto-generate stock alerts before fetching stats
-    await generateStockAlerts()
+    // Auto-generate stock alerts in background (non-blocking)
+    // Using fire-and-forget pattern to avoid blocking dashboard response
+    generateStockAlerts().catch(error => {
+      console.error('Background alert generation failed:', error)
+    })
 
     // Get current month dates
     const now = new Date()
@@ -37,8 +40,8 @@ export async function GET() {
       },
     })
 
-    // Low Stock: Available < (minimum × 1.1) but > minimum [warning zone]
-    // Critical Stock: Available <= minimum [urgent zone]
+    // Low Stock: Available < (minimum × 1.1) but > minimum [warning zone, above minimum]
+    // Critical Stock: Available <= minimum [urgent zone, at or below minimum]
     const clothLowStock = clothInventory.filter(
       (item: typeof clothInventory[0]) => {
         const available = item.currentStock - item.reserved
