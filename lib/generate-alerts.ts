@@ -40,9 +40,25 @@ export async function generateStockAlerts() {
     let alertsCreated = 0
     let alertsResolved = 0
 
-    // Process cloth inventory
+    // Process cloth inventory - batch query all existing alerts first
+    const clothItemIds = clothItems.map(item => item.id)
+    const existingClothAlerts = await prisma.alert.findMany({
+      where: {
+        relatedId: { in: clothItemIds },
+        relatedType: 'cloth',
+        isDismissed: false,
+        type: {
+          in: [AlertType.LOW_STOCK, AlertType.CRITICAL_STOCK],
+        },
+      },
+    })
+    
+    // Create lookup map for O(1) access
+    const clothAlertsMap = new Map(existingClothAlerts.map(alert => [alert.relatedId, alert]))
+    
     for (const item of clothItems) {
       const available = item.currentStock - item.reserved
+      const existingAlert = clothAlertsMap.get(item.id)
 
       // Check if we already have an active alert for this item
       const existingAlert = await prisma.alert.findFirst({
@@ -56,7 +72,7 @@ export async function generateStockAlerts() {
         },
       })
 
-      // Critical stock: Available <= minimum
+      // Critical stock: Available <= minimum (at or below minimum)
       if (available <= item.minimum) {
         if (!existingAlert || existingAlert.type !== AlertType.CRITICAL_STOCK) {
           // Delete any existing low stock alert since this is now critical
@@ -70,7 +86,7 @@ export async function generateStockAlerts() {
               type: AlertType.CRITICAL_STOCK,
               severity: AlertSeverity.CRITICAL,
               title: 'Critical Stock Alert',
-              message: `${item.name} (${item.brand} ${item.color}) is below minimum stock. Available: ${available.toFixed(2)}m, Minimum: ${item.minimum}m`,
+              message: `${item.name} (${item.brand} ${item.color}) is at or below minimum stock. Available: ${available.toFixed(2)}m, Minimum: ${item.minimum}m`,
               relatedId: item.id,
               relatedType: 'cloth',
             },
@@ -102,9 +118,25 @@ export async function generateStockAlerts() {
       }
     }
 
-    // Process accessory inventory
+    // Process accessory inventory - batch query all existing alerts first
+    const accessoryItemIds = accessoryItems.map(item => item.id)
+    const existingAccessoryAlerts = await prisma.alert.findMany({
+      where: {
+        relatedId: { in: accessoryItemIds },
+        relatedType: 'accessory',
+        isDismissed: false,
+        type: {
+          in: [AlertType.LOW_STOCK, AlertType.CRITICAL_STOCK],
+        },
+      },
+    })
+    
+    // Create lookup map for O(1) access
+    const accessoryAlertsMap = new Map(existingAccessoryAlerts.map(alert => [alert.relatedId, alert]))
+    
     for (const item of accessoryItems) {
       const available = item.currentStock
+      const existingAlert = accessoryAlertsMap.get(item.id)
 
       // Check if we already have an active alert for this item
       const existingAlert = await prisma.alert.findFirst({
@@ -118,7 +150,7 @@ export async function generateStockAlerts() {
         },
       })
 
-      // Critical stock: Available <= minimum
+      // Critical stock: Available <= minimum (at or below minimum)
       if (available <= item.minimum) {
         if (!existingAlert || existingAlert.type !== AlertType.CRITICAL_STOCK) {
           // Delete any existing low stock alert since this is now critical
@@ -132,7 +164,7 @@ export async function generateStockAlerts() {
               type: AlertType.CRITICAL_STOCK,
               severity: AlertSeverity.CRITICAL,
               title: 'Critical Stock Alert',
-              message: `${item.name} (${item.type}) is below minimum stock. Available: ${available} units, Minimum: ${item.minimum} units`,
+              message: `${item.name} (${item.type}) is at or below minimum stock. Available: ${available} units, Minimum: ${item.minimum} units`,
               relatedId: item.id,
               relatedType: 'accessory',
             },
