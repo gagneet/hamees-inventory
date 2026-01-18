@@ -40,20 +40,20 @@ export async function GET() {
       },
     })
 
-    // Low Stock: Available < (minimum × 1.1) but >= minimum [warning zone]
-    // Critical Stock: Available < minimum [urgent zone]
+    // Low Stock: minimum < Available < (minimum × 1.1) [warning zone]
+    // Critical Stock: Available <= minimum [at or below minimum threshold]
     const clothLowStock = clothInventory.filter(
       (item: typeof clothInventory[0]) => {
         const available = item.currentStock - item.reserved
         const threshold = item.minimum * 1.1
-        return available < threshold && available >= item.minimum
+        return available > item.minimum && available < threshold
       }
     ).length
 
     const clothCriticalStock = clothInventory.filter(
       (item: typeof clothInventory[0]) => {
         const available = item.currentStock - item.reserved
-        return available < item.minimum
+        return available <= item.minimum
       }
     ).length
 
@@ -74,12 +74,12 @@ export async function GET() {
     const accessoryLowStock = accessoryInventory.filter(
       (item: typeof accessoryInventory[0]) => {
         const threshold = item.minimum * 1.1
-        return item.currentStock < threshold && item.currentStock >= item.minimum
+        return item.currentStock > item.minimum && item.currentStock < threshold
       }
     ).length
 
     const accessoryCriticalStock = accessoryInventory.filter(
-      (item: typeof accessoryInventory[0]) => item.currentStock < item.minimum
+      (item: typeof accessoryInventory[0]) => item.currentStock <= item.minimum
     ).length
 
     const totalAccessoryWorth = accessoryInventory.reduce(
