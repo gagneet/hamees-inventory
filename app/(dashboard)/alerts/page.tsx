@@ -189,7 +189,7 @@ export default async function AlertsPage() {
                         )}
                         {alert.relatedType === 'INVENTORY' && alert.relatedId && (
                           <Button variant="default" size="sm" asChild>
-                            <a href={`/inventory/${alert.relatedId}`}>View Item</a>
+                            <a href="/inventory">View in Inventory</a>
                           </Button>
                         )}
                         {alert.relatedType === 'ORDER' && alert.relatedId && (
