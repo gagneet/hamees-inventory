@@ -85,46 +85,52 @@ export async function POST(
 
     // Create payment installment
     const now = new Date()
-    const installment = await prisma.paymentInstallment.create({
-      data: {
-        orderId: order.id,
-        installmentNumber: nextInstallmentNumber,
-        amount: parseFloat(validatedData.amount.toFixed(2)),
-        paidAmount: parseFloat(validatedData.amount.toFixed(2)),
-        dueDate: now,
-        paidDate: now,
-        status: 'PAID',
-        paymentMode: validatedData.paymentMode,
-        transactionRef: validatedData.transactionRef,
-        notes: validatedData.notes || `Payment recorded via ${validatedData.paymentMode}`,
-      },
-    })
+    
+    // Use database transaction to ensure atomicity
+    const result = await prisma.$transaction(async (tx) => {
+      const installment = await tx.paymentInstallment.create({
+        data: {
+          orderId: order.id,
+          installmentNumber: nextInstallmentNumber,
+          amount: parseFloat(validatedData.amount.toFixed(2)),
+          paidAmount: parseFloat(validatedData.amount.toFixed(2)),
+          dueDate: now,
+          paidDate: now,
+          status: 'PAID',
+          paymentMode: validatedData.paymentMode,
+          transactionRef: validatedData.transactionRef,
+          notes: validatedData.notes || `Payment recorded via ${validatedData.paymentMode}`,
+        },
+      })
 
-    // Update order balance
-    const newBalanceAmount = parseFloat((order.balanceAmount - validatedData.amount).toFixed(2))
-    await prisma.order.update({
-      where: { id: order.id },
-      data: {
-        balanceAmount: newBalanceAmount,
-      },
-    })
+      // Update order balance
+      const newBalanceAmount = parseFloat((order.balanceAmount - validatedData.amount).toFixed(2))
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          balanceAmount: newBalanceAmount,
+        },
+      })
 
-    // Create order history entry
-    await prisma.orderHistory.create({
-      data: {
-        orderId: order.id,
-        changeType: 'PAYMENT_RECORDED',
-        changeDescription: `Payment of ₹${validatedData.amount.toFixed(2)} recorded via ${validatedData.paymentMode}${
-          validatedData.transactionRef ? ` (Ref: ${validatedData.transactionRef})` : ''
-        }. New balance: ₹${newBalanceAmount.toFixed(2)}`,
-        changedBy: session.user.id!,
-      },
+      // Create order history entry
+      await tx.orderHistory.create({
+        data: {
+          orderId: order.id,
+          changeType: 'PAYMENT_RECORDED',
+          changeDescription: `Payment of ₹${validatedData.amount.toFixed(2)} recorded via ${validatedData.paymentMode}${
+            validatedData.transactionRef ? ` (Ref: ${validatedData.transactionRef})` : ''
+          }. New balance: ₹${newBalanceAmount.toFixed(2)}`,
+          changedBy: session.user.id!,
+        },
+      })
+
+      return { installment, newBalanceAmount }
     })
 
     return NextResponse.json({
       success: true,
-      installment,
-      newBalanceAmount,
+      installment: result.installment,
+      newBalanceAmount: result.newBalanceAmount,
       message: `Payment of ₹${validatedData.amount.toFixed(2)} recorded successfully`,
     })
   } catch (error) {
