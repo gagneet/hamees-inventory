@@ -26,7 +26,7 @@ export async function POST(
     }
 
     // Check permissions
-    const { error } = await requireAnyPermission(['manage_orders', 'create_order'])
+    const { error } = await requireAnyPermission(['update_order', 'create_order'])
     if (error) {
       return error
     }
@@ -120,11 +120,11 @@ export async function POST(
       await tx.orderHistory.create({
         data: {
           orderId: order.id,
+          userId: session.user.id!,
           changeType: 'PAYMENT_RECORDED',
-          changeDescription: `Payment of ₹${validatedData.amount.toFixed(2)} recorded via ${validatedData.paymentMode}${
+          description: `Payment of ₹${validatedData.amount.toFixed(2)} recorded via ${validatedData.paymentMode}${
             validatedData.transactionRef ? ` (Ref: ${validatedData.transactionRef})` : ''
           }. New balance: ₹${newBalanceAmount.toFixed(2)}`,
-          changedBy: session.user.id!,
         },
       })
 

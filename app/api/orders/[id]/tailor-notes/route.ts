@@ -24,7 +24,7 @@ export async function POST(
     }
 
     // Check permissions - tailors can add notes, also sales/admin/owner
-    const { error } = await requireAnyPermission(['update_order', 'manage_orders'])
+    const { error } = await requireAnyPermission(['update_order', 'update_order_status'])
     if (error) {
       return error
     }
