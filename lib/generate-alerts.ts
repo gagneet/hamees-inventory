@@ -60,8 +60,8 @@ export async function generateStockAlerts() {
       const available = item.currentStock - item.reserved
       const existingAlert = clothAlertsMap.get(item.id)
 
-      // Critical stock: Available < minimum
-      if (available < item.minimum) {
+      // Critical stock: Available <= minimum (at or below minimum)
+      if (available <= item.minimum) {
         if (!existingAlert || existingAlert.type !== AlertType.CRITICAL_STOCK) {
           // Delete any existing low stock alert since this is now critical
           if (existingAlert) {
@@ -74,7 +74,7 @@ export async function generateStockAlerts() {
               type: AlertType.CRITICAL_STOCK,
               severity: AlertSeverity.CRITICAL,
               title: 'Critical Stock Alert',
-              message: `${item.name} (${item.brand} ${item.color}) is below minimum stock. Available: ${available.toFixed(2)}m, Minimum: ${item.minimum}m`,
+              message: `${item.name} (${item.brand} ${item.color}) is at or below minimum stock. Available: ${available.toFixed(2)}m, Minimum: ${item.minimum}m`,
               relatedId: item.id,
               relatedType: 'cloth',
             },
@@ -82,8 +82,8 @@ export async function generateStockAlerts() {
           alertsCreated++
         }
       }
-      // Low stock: Available < (minimum × 1.1) but >= minimum [warning zone]
-      else if (available < item.minimum * 1.1) {
+      // Low stock: Available < (minimum × 1.1) but > minimum [warning zone]
+      else if (available < item.minimum * 1.1 && available > item.minimum) {
         if (!existingAlert) {
           // Create low stock alert
           await prisma.alert.create({
@@ -126,8 +126,8 @@ export async function generateStockAlerts() {
       const available = item.currentStock
       const existingAlert = accessoryAlertsMap.get(item.id)
 
-      // Critical stock: Available < minimum
-      if (available < item.minimum) {
+      // Critical stock: Available <= minimum (at or below minimum)
+      if (available <= item.minimum) {
         if (!existingAlert || existingAlert.type !== AlertType.CRITICAL_STOCK) {
           // Delete any existing low stock alert since this is now critical
           if (existingAlert) {
@@ -140,7 +140,7 @@ export async function generateStockAlerts() {
               type: AlertType.CRITICAL_STOCK,
               severity: AlertSeverity.CRITICAL,
               title: 'Critical Stock Alert',
-              message: `${item.name} (${item.type}) is below minimum stock. Available: ${available} units, Minimum: ${item.minimum} units`,
+              message: `${item.name} (${item.type}) is at or below minimum stock. Available: ${available} units, Minimum: ${item.minimum} units`,
               relatedId: item.id,
               relatedType: 'accessory',
             },
