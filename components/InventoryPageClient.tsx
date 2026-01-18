@@ -34,7 +34,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { BarcodeScanner } from "@/components/barcode-scanner"
+import { BarcodeScannerImproved } from "@/components/barcode-scanner-improved"
 import { InventoryType } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
 import { formatCurrency } from "@/lib/utils"
@@ -200,7 +200,7 @@ export default function InventoryPageClient() {
     setIsLoading(true)
 
     try {
-      const response = await fetch(`/api/inventory/lookup?barcode=${barcode}`)
+      const response = await fetch(`/api/inventory/barcode?barcode=${encodeURIComponent(barcode)}`)
       
       if (!response.ok) {
         throw new Error(`API request failed with status ${response.status}`)
@@ -375,7 +375,7 @@ export default function InventoryPageClient() {
       {showScanner && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg max-w-2xl w-full">
-            <BarcodeScanner
+            <BarcodeScannerImproved
               onScanSuccess={handleScanSuccess}
               onClose={() => setShowScanner(false)}
             />

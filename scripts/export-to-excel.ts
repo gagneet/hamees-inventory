@@ -175,6 +175,7 @@ async function exportToExcel() {
         })
         return items.map(i => ({
           id: i.id,
+          sku: i.sku,
           name: i.name,
           type: i.type,
           color: i.color || '',
@@ -190,6 +191,7 @@ async function exportToExcel() {
       },
       columns: [
         { key: 'id', header: 'ID', width: 30 },
+        { key: 'sku', header: 'SKU', width: 20 },
         { key: 'name', header: 'Name', width: 25 },
         { key: 'type', header: 'Type', width: 20 },
         { key: 'color', header: 'Color', width: 15 },
@@ -202,7 +204,7 @@ async function exportToExcel() {
         { key: 'createdAt', header: 'Created At', width: 20 },
         { key: 'updatedAt', header: 'Updated At', width: 20 }
       ],
-      notes: 'Types: Button, Thread, Zipper, etc.'
+      notes: 'Types: Button, Thread, Zipper, etc. SKU format: ACC-{TYPE}-{TIMESTAMP}'
     },
 
     // 5. Customers (no dependencies)

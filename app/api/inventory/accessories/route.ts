@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db'
 import { z } from 'zod'
 
 const accessoryInventorySchema = z.object({
+  sku: z.string().nullish(),
   type: z.enum(['Button', 'Thread', 'Zipper', 'Lining', 'Elastic', 'Hook', 'Other']).nullish(),
   name: z.string().nullish(),
   color: z.string().nullish(),
@@ -99,8 +100,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const data = accessoryInventorySchema.parse(body)
 
+    // Generate SKU if not provided
+    const sku = data.sku || `ACC-${(data.type || 'OTH').substring(0, 3).toUpperCase()}-${Date.now().toString().slice(-6)}`
+
     const accessoryItem = await prisma.accessoryInventory.create({
       data: {
+        sku,
         type: data.type || 'Other',
         name: data.name || 'Unnamed Accessory',
         ...(data.color && { color: data.color }),

@@ -282,6 +282,7 @@ async function main() {
   console.log('🔘 Creating accessories...')
   const button1 = await prisma.accessoryInventory.create({
     data: {
+      sku: 'ACC-BUT-ENH-001',
       name: 'Formal Shirt Button',
       type: 'Button',
       color: 'White',
@@ -295,6 +296,7 @@ async function main() {
 
   const thread1 = await prisma.accessoryInventory.create({
     data: {
+      sku: 'ACC-THR-ENH-001',
       name: 'Polyester Thread',
       type: 'Thread',
       color: 'White',
@@ -308,6 +310,7 @@ async function main() {
 
   const zipper1 = await prisma.accessoryInventory.create({
     data: {
+      sku: 'ACC-ZIP-ENH-001',
       name: 'Metal Zipper',
       type: 'Zipper',
       color: 'Black',

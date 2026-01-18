@@ -34,19 +34,19 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // TODO: Search in accessory inventory when schema is updated
-    // const accessoryItem = await prisma.accessoryInventory.findUnique({
-    //   where: { sku: barcode },
-    //   include: { supplierRel: true },
-    // })
+    // Search in accessory inventory
+    const accessoryItem = await prisma.accessoryInventory.findUnique({
+      where: { sku: barcode },
+      include: { supplierRel: true },
+    })
 
-    // if (accessoryItem) {
-    //   return NextResponse.json({
-    //     found: true,
-    //     type: 'accessory',
-    //     item: accessoryItem,
-    //   })
-    // }
+    if (accessoryItem) {
+      return NextResponse.json({
+        found: true,
+        type: 'accessory',
+        item: accessoryItem,
+      })
+    }
 
     // Not found
     return NextResponse.json({

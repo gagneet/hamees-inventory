@@ -89,9 +89,14 @@ async function main() {
     { name: 'Velcro Strips', type: 'OTHER', price: 20, stock: 200 },
   ]
 
-  for (const accessory of accessoryItems) {
+  for (let i = 0; i < accessoryItems.length; i++) {
+    const accessory = accessoryItems[i]
+    const typePrefix = accessory.type.substring(0, 3).toUpperCase()
+    const sku = `ACC-${typePrefix}-PROD-${String(i + 1).padStart(3, '0')}`
+
     await prisma.accessoryInventory.create({
       data: {
+        sku,
         name: accessory.name,
         type: accessory.type,
         color: null,

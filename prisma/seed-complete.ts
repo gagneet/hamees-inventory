@@ -230,22 +230,22 @@ async function main() {
   console.log('🔘 Creating accessory inventory...')
   const accessories = await Promise.all([
     prisma.accessoryInventory.create({
-      data: { name: 'Pearl Buttons', type: 'Button', color: 'White', currentStock: 5000, minimum: 500, pricePerUnit: 2.5, supplier: suppliers[2].name, supplierId: suppliers[2].id },
+      data: { sku: 'ACC-BUT-001', name: 'Pearl Buttons', type: 'Button', color: 'White', currentStock: 5000, minimum: 500, pricePerUnit: 2.5, supplier: suppliers[2].name, supplierId: suppliers[2].id },
     }),
     prisma.accessoryInventory.create({
-      data: { name: 'Metal Buttons', type: 'Button', color: 'Gold', currentStock: 3000, minimum: 300, pricePerUnit: 5.0, supplier: suppliers[2].name, supplierId: suppliers[2].id },
+      data: { sku: 'ACC-BUT-002', name: 'Metal Buttons', type: 'Button', color: 'Gold', currentStock: 3000, minimum: 300, pricePerUnit: 5.0, supplier: suppliers[2].name, supplierId: suppliers[2].id },
     }),
     prisma.accessoryInventory.create({
-      data: { name: 'Black Buttons', type: 'Button', color: 'Black', currentStock: 4000, minimum: 400, pricePerUnit: 3.0, supplier: suppliers[2].name, supplierId: suppliers[2].id },
+      data: { sku: 'ACC-BUT-003', name: 'Black Buttons', type: 'Button', color: 'Black', currentStock: 4000, minimum: 400, pricePerUnit: 3.0, supplier: suppliers[2].name, supplierId: suppliers[2].id },
     }),
     prisma.accessoryInventory.create({
-      data: { name: 'Polyester Thread', type: 'Thread', color: 'White', currentStock: 2000, minimum: 200, pricePerUnit: 15.0, supplier: suppliers[2].name, supplierId: suppliers[2].id },
+      data: { sku: 'ACC-THR-001', name: 'Polyester Thread', type: 'Thread', color: 'White', currentStock: 2000, minimum: 200, pricePerUnit: 15.0, supplier: suppliers[2].name, supplierId: suppliers[2].id },
     }),
     prisma.accessoryInventory.create({
-      data: { name: 'Cotton Thread', type: 'Thread', color: 'Black', currentStock: 1800, minimum: 180, pricePerUnit: 18.0, supplier: suppliers[2].name, supplierId: suppliers[2].id },
+      data: { sku: 'ACC-THR-002', name: 'Cotton Thread', type: 'Thread', color: 'Black', currentStock: 1800, minimum: 180, pricePerUnit: 18.0, supplier: suppliers[2].name, supplierId: suppliers[2].id },
     }),
     prisma.accessoryInventory.create({
-      data: { name: 'Metal Zipper', type: 'Zipper', color: 'Silver', currentStock: 1200, minimum: 120, pricePerUnit: 25.0, supplier: suppliers[2].name, supplierId: suppliers[2].id },
+      data: { sku: 'ACC-ZIP-001', name: 'Metal Zipper', type: 'Zipper', color: 'Silver', currentStock: 1200, minimum: 120, pricePerUnit: 25.0, supplier: suppliers[2].name, supplierId: suppliers[2].id },
     }),
   ])
   console.log(`✅ Created ${accessories.length} accessory items\n`)
