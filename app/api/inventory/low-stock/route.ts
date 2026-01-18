@@ -52,35 +52,35 @@ export async function GET(request: Request) {
     const accessoryInventory = await getAccessoryInventory()
 
     // Filter based on type
-    // Low Stock: Available < (minimum × 1.1) [10% buffer above minimum]
-    // Critical Stock: Available < minimum [below minimum threshold]
+    // Low Stock: Available < (minimum × 1.1) AND > minimum [10% buffer above minimum]
+    // Critical Stock: Available <= minimum [at or below minimum threshold]
     let lowStockCloth: ClothInventoryItem[] = []
     let lowStockAccessories: AccessoryInventoryItem[] = []
 
     if (type === 'critical') {
-      // Critical: Below minimum threshold
+      // Critical: At or below minimum threshold
       lowStockCloth = clothInventory.filter(
         (item: ClothInventoryItem) => {
           const available = item.currentStock - item.reserved
-          return available < item.minimum
+          return available <= item.minimum
         }
       )
       lowStockAccessories = accessoryInventory.filter(
-        (item: AccessoryInventoryItem) => item.currentStock < item.minimum
+        (item: AccessoryInventoryItem) => item.currentStock <= item.minimum
       )
     } else {
-      // Low: Between minimum and 1.1× minimum (warning zone)
+      // Low: Between minimum and 1.1× minimum (warning zone), excluding items at minimum
       lowStockCloth = clothInventory.filter(
         (item: ClothInventoryItem) => {
           const available = item.currentStock - item.reserved
           const threshold = item.minimum * 1.1
-          return available < threshold && available >= item.minimum
+          return available < threshold && available > item.minimum
         }
       )
       lowStockAccessories = accessoryInventory.filter(
         (item: AccessoryInventoryItem) => {
           const threshold = item.minimum * 1.1
-          return item.currentStock < threshold && item.currentStock >= item.minimum
+          return item.currentStock < threshold && item.currentStock > item.minimum
         }
       )
     }
