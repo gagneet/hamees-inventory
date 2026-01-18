@@ -55,7 +55,7 @@ const historyEntry = await prisma.orderHistory.create({
     orderId: order.id,
     userId: session.user.id!,
     changeType: 'TAILOR_NOTE_ADDED',
-    changeDescription: validatedData.note,
+    description: validatedData.note,
   },
   include: {
     user: {

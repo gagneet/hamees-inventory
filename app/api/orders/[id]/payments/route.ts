@@ -114,19 +114,19 @@ export async function POST(
       data: {
         orderId: order.id,
         changeType: 'PAYMENT_RECORDED',
-        changeDescription: `Payment of ₹${validatedData.amount.toFixed(2)} recorded via ${validatedData.paymentMode}${
+        description: `Payment of ₹${validatedData.amount.toFixed(2)} recorded via ${validatedData.paymentMode}${
           validatedData.transactionRef ? ` (Ref: ${validatedData.transactionRef})` : ''
         }. New balance: ₹${newBalanceAmount.toFixed(2)}`,
-        changedBy: session.user.id!,
+        userId: session.user.id!,
       },
     })
 
-return NextResponse.json({
-  success: true,
-  installment: result.installment,
-  newBalanceAmount: result.newBalanceAmount,
-  message: `Payment of ₹${validatedData.amount.toFixed(2)} recorded successfully`,
-})
+    return NextResponse.json({
+      success: true,
+      installment,
+      newBalanceAmount,
+      message: `Payment of ₹${validatedData.amount.toFixed(2)} recorded successfully`,
+    })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
