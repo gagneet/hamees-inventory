@@ -44,21 +44,24 @@ export async function PATCH(
       // When order is delivered, convert reserved stock to used stock
       // @ts-ignore
       await prisma.$transaction(async (tx) => {
-        for (const item of order.items) {
+        // Batch update order items - prepare all updates
+        const orderItemUpdates = order.items.map(item => {
           const metersUsed = actualMetersUsed || item.estimatedMeters
           const wastedMeters = wastage || 0
-
-          // Update order item
-          await tx.orderItem.update({
+          return tx.orderItem.update({
             where: { id: item.id },
             data: {
               actualMetersUsed: metersUsed,
               wastage: wastedMeters,
             },
           })
+        })
 
-          // Update inventory: decrease current stock and reserved
-          await tx.clothInventory.update({
+        // Batch update cloth inventory - prepare all updates
+        const clothInventoryUpdates = order.items.map(item => {
+          const metersUsed = actualMetersUsed || item.estimatedMeters
+          const wastedMeters = wastage || 0
+          return tx.clothInventory.update({
             where: { id: item.clothInventoryId },
             data: {
               currentStock: {
@@ -69,9 +72,13 @@ export async function PATCH(
               },
             },
           })
+        })
 
-          // Create stock movement for used fabric
-          await tx.stockMovement.create({
+        // Batch create stock movements - prepare all creates
+        const stockMovementCreates = order.items.map(item => {
+          const metersUsed = actualMetersUsed || item.estimatedMeters
+          const wastedMeters = wastage || 0
+          return tx.stockMovement.create({
             data: {
               clothInventoryId: item.clothInventoryId,
               orderId: order.id,
@@ -82,7 +89,14 @@ export async function PATCH(
               notes: `Order ${order.orderNumber} delivered`,
             },
           })
-        }
+        })
+
+        // Execute all operations in parallel within transaction
+        await Promise.all([
+          ...orderItemUpdates,
+          ...clothInventoryUpdates,
+          ...stockMovementCreates,
+        ])
 
         // Update order status and set completedDate
         await tx.order.update({
@@ -111,9 +125,9 @@ export async function PATCH(
       // When order is cancelled, release reserved stock
         // @ts-ignore
       await prisma.$transaction(async (tx) => {
-        for (const item of order.items) {
-          // Update inventory: decrease reserved
-          await tx.clothInventory.update({
+        // Batch update cloth inventory - prepare all updates
+        const clothInventoryUpdates = order.items.map(item =>
+          tx.clothInventory.update({
             where: { id: item.clothInventoryId },
             data: {
               reserved: {
@@ -121,9 +135,11 @@ export async function PATCH(
               },
             },
           })
+        )
 
-          // Create stock movement
-          await tx.stockMovement.create({
+        // Batch create stock movements - prepare all creates
+        const stockMovementCreates = order.items.map(item =>
+          tx.stockMovement.create({
             data: {
               clothInventoryId: item.clothInventoryId,
               orderId: order.id,
@@ -134,7 +150,13 @@ export async function PATCH(
               notes: `Order ${order.orderNumber} cancelled - stock released`,
             },
           })
-        }
+        )
+
+        // Execute all operations in parallel within transaction
+        await Promise.all([
+          ...clothInventoryUpdates,
+          ...stockMovementCreates,
+        ])
 
         // Update order status
         await tx.order.update({

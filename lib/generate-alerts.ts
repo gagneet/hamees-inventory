@@ -60,18 +60,6 @@ export async function generateStockAlerts() {
       const available = item.currentStock - item.reserved
       const existingAlert = clothAlertsMap.get(item.id)
 
-      // Check if we already have an active alert for this item
-      const existingAlert = await prisma.alert.findFirst({
-        where: {
-          relatedId: item.id,
-          relatedType: 'cloth',
-          isDismissed: false,
-          type: {
-            in: [AlertType.LOW_STOCK, AlertType.CRITICAL_STOCK],
-          },
-        },
-      })
-
       // Critical stock: Available <= minimum (at or below minimum)
       if (available <= item.minimum) {
         if (!existingAlert || existingAlert.type !== AlertType.CRITICAL_STOCK) {
@@ -137,18 +125,6 @@ export async function generateStockAlerts() {
     for (const item of accessoryItems) {
       const available = item.currentStock
       const existingAlert = accessoryAlertsMap.get(item.id)
-
-      // Check if we already have an active alert for this item
-      const existingAlert = await prisma.alert.findFirst({
-        where: {
-          relatedId: item.id,
-          relatedType: 'accessory',
-          isDismissed: false,
-          type: {
-            in: [AlertType.LOW_STOCK, AlertType.CRITICAL_STOCK],
-          },
-        },
-      })
 
       // Critical stock: Available <= minimum (at or below minimum)
       if (available <= item.minimum) {
