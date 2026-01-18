@@ -411,7 +411,7 @@ export async function GET(request: Request) {
     // OWNER/ADMIN DATA (Parallelized)
     // ===================
 
-    const [expensesThisMonth, expensesLastMonth, poPaymentsThisMonth, poPaymentsLastMonth] = await Promise.all([
+    const [expensesThisMonth, expensesLastMonth, allPurchaseOrders, cashCollectedThisMonth, cashCollectedLastMonth] = await Promise.all([
       // Expenses for this month
       prisma.expense.aggregate({
         where: {
@@ -438,32 +438,45 @@ export async function GET(request: Request) {
         },
       }),
 
-      // Purchase Order payments for this month
-      prisma.purchaseOrder.aggregate({
+      // Fetch all POs with payments to parse payment dates from notes
+      prisma.purchaseOrder.findMany({
         where: {
-          createdAt: {
-            gte: startOfMonth(now),
-            lte: endOfMonth(now),
-          },
           paidAmount: {
             gt: 0,
           },
+          notes: {
+            not: null,
+          },
+        },
+        select: {
+          paidAmount: true,
+          notes: true,
+          updatedAt: true,
+        },
+      }),
+
+      // Cash collected this month from payment installments
+      prisma.paymentInstallment.aggregate({
+        where: {
+          paidDate: {
+            gte: startOfMonth(now),
+            lte: endOfMonth(now),
+          },
+          status: 'PAID',
         },
         _sum: {
           paidAmount: true,
         },
       }),
 
-      // Purchase Order payments for last month
-      prisma.purchaseOrder.aggregate({
+      // Cash collected last month from payment installments
+      prisma.paymentInstallment.aggregate({
         where: {
-          createdAt: {
+          paidDate: {
             gte: startOfMonth(subMonths(now, 1)),
             lte: endOfMonth(subMonths(now, 1)),
           },
-          paidAmount: {
-            gt: 0,
-          },
+          status: 'PAID',
         },
         _sum: {
           paidAmount: true,
@@ -471,8 +484,42 @@ export async function GET(request: Request) {
       }),
     ])
 
-    const totalExpensesThisMonth = (expensesThisMonth._sum.totalAmount || 0) + (poPaymentsThisMonth._sum.paidAmount || 0)
-    const totalExpensesLastMonth = (expensesLastMonth._sum.totalAmount || 0) + (poPaymentsLastMonth._sum.paidAmount || 0)
+    // Parse payment dates from PO notes
+    // Notes format: "[DD/MM/YYYY] Payment: AMOUNT via MODE"
+    const thisMonthStart = startOfMonth(now)
+    const thisMonthEnd = endOfMonth(now)
+    const lastMonthStart = startOfMonth(subMonths(now, 1))
+    const lastMonthEnd = endOfMonth(subMonths(now, 1))
+
+    let poPaymentsThisMonth = 0
+    let poPaymentsLastMonth = 0
+
+    allPurchaseOrders.forEach((po) => {
+      if (!po.notes) return
+
+      // Extract all payment entries from notes
+      const paymentRegex = /\[(\d{1,2})\/(\d{1,2})\/(\d{4})\]\s+Payment:\s+([\d.]+)/g
+      let match
+
+      while ((match = paymentRegex.exec(po.notes)) !== null) {
+        const [, day, month, year, amount] = match
+        const paymentDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+        const paymentAmount = parseFloat(amount)
+
+        // Check if payment was made this month
+        if (paymentDate >= thisMonthStart && paymentDate <= thisMonthEnd) {
+          poPaymentsThisMonth += paymentAmount
+        }
+
+        // Check if payment was made last month
+        if (paymentDate >= lastMonthStart && paymentDate <= lastMonthEnd) {
+          poPaymentsLastMonth += paymentAmount
+        }
+      }
+    })
+
+    const totalExpensesThisMonth = (expensesThisMonth._sum.totalAmount || 0) + poPaymentsThisMonth
+    const totalExpensesLastMonth = (expensesLastMonth._sum.totalAmount || 0) + poPaymentsLastMonth
 
     // Revenue vs Expenses for last 6 months (Parallelized)
     const financialTrend = await Promise.all(
@@ -481,7 +528,7 @@ export async function GET(request: Request) {
         const monthStart = startOfMonth(subMonths(now, i))
         const monthEnd = endOfMonth(subMonths(now, i))
 
-        const [revenue, expenses, poPayments] = await Promise.all([
+        const [revenue, expenses] = await Promise.all([
           prisma.order.aggregate({
             where: {
               completedDate: {
@@ -506,24 +553,28 @@ export async function GET(request: Request) {
               totalAmount: true,
             },
           }),
-
-          prisma.purchaseOrder.aggregate({
-            where: {
-              createdAt: {
-                gte: monthStart,
-                lte: monthEnd,
-              },
-              paidAmount: {
-                gt: 0,
-              },
-            },
-            _sum: {
-              paidAmount: true,
-            },
-          }),
         ])
 
-        const totalExpenses = (expenses._sum.totalAmount || 0) + (poPayments._sum.paidAmount || 0)
+        // Calculate PO payments for this month from parsed notes
+        let monthPoPayments = 0
+        allPurchaseOrders.forEach((po) => {
+          if (!po.notes) return
+
+          const paymentRegex = /\[(\d{1,2})\/(\d{1,2})\/(\d{4})\]\s+Payment:\s+([\d.]+)/g
+          let match
+
+          while ((match = paymentRegex.exec(po.notes)) !== null) {
+            const [, day, month, year, amount] = match
+            const paymentDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+            const paymentAmount = parseFloat(amount)
+
+            if (paymentDate >= monthStart && paymentDate <= monthEnd) {
+              monthPoPayments += paymentAmount
+            }
+          }
+        })
+
+        const totalExpenses = (expenses._sum.totalAmount || 0) + monthPoPayments
 
         return {
           month: format(monthStart, 'MMM yyyy'),
@@ -767,6 +818,8 @@ export async function GET(request: Request) {
       financial: {
         expensesThisMonth: totalExpensesThisMonth,
         expensesLastMonth: totalExpensesLastMonth,
+        cashCollectedThisMonth: cashCollectedThisMonth._sum.paidAmount || 0,
+        cashCollectedLastMonth: cashCollectedLastMonth._sum.paidAmount || 0,
         financialTrend,
         outstandingPayments: outstandingPayments._sum.balanceAmount || 0,
         revenueByFabric: fabricRevenueDetails,

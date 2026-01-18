@@ -441,7 +441,11 @@ function OrdersContent() {
             {orders.map((order: any) => {
               const statusStyle = statusColors[order.status as OrderStatus]
               const deliveryDate = new Date(order.deliveryDate)
-              const isOverdue = deliveryDate < new Date() && order.status !== 'DELIVERED' && order.status !== 'CANCELLED'
+              const today = new Date()
+              today.setHours(0, 0, 0, 0) // Normalize to start of day
+              const deliveryDateNormalized = new Date(deliveryDate)
+              deliveryDateNormalized.setHours(0, 0, 0, 0) // Normalize to start of day
+              const isOverdue = deliveryDateNormalized < today && order.status !== 'DELIVERED' && order.status !== 'CANCELLED'
               // Use 0.01 threshold (1 paisa) to avoid floating-point precision errors
               const isArrears = order.status === 'DELIVERED' && order.balanceAmount > 0.01
 
@@ -489,7 +493,11 @@ function OrdersContent() {
                         <div>
                           <p className="text-slate-500 mb-1">Delivery Date</p>
                           <p className={`font-semibold ${isOverdue ? 'text-red-600' : 'text-slate-900'}`}>
-                            {deliveryDate.toLocaleDateString()}
+                            {deliveryDate.toLocaleDateString('en-IN', {
+                              year: 'numeric',
+                              month: '2-digit',
+                              day: '2-digit'
+                            })}
                             {isOverdue && ' (Overdue)'}
                           </p>
                         </div>

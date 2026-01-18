@@ -405,6 +405,23 @@ export async function POST(request: Request) {
         })
       }
 
+      // Create payment installment for advance payment (if any)
+      if (validatedData.advancePaid > 0) {
+        await tx.paymentInstallment.create({
+          data: {
+            orderId: newOrder.id,
+            installmentNumber: 1,
+            amount: validatedData.advancePaid,
+            dueDate: new Date(), // Advance is paid immediately
+            paidDate: new Date(), // Mark as paid
+            paidAmount: validatedData.advancePaid,
+            paymentMode: 'CASH', // Default to cash, can be made configurable
+            status: 'PAID',
+            notes: 'Advance payment on order creation',
+          },
+        })
+      }
+
       return newOrder
     })
 

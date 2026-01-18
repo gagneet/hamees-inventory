@@ -111,6 +111,21 @@ async function getOrderDetails(id: string) {
             createdAt: 'desc' as const,
           },
         },
+        installments: {
+          orderBy: {
+            installmentNumber: 'asc' as const,
+          },
+          select: {
+            id: true,
+            installmentNumber: true,
+            amount: true,
+            paidDate: true,
+            paidAmount: true,
+            status: true,
+            paymentMode: true,
+            notes: true,
+          },
+        },
       },
     })
 
@@ -169,6 +184,11 @@ export default async function OrderDetailPage({
   const isOverdue = deliveryDate < new Date() && order.status !== 'DELIVERED' && order.status !== 'CANCELLED'
   // Use 0.01 threshold (1 paisa) to avoid floating-point precision errors
   const isArrears = order.status === 'DELIVERED' && order.balanceAmount > 0.01
+
+  // Calculate total balance payments (all installments except #1 which is advance)
+  const balancePayments = order.installments
+    .filter(i => i.installmentNumber > 1 && i.status === 'PAID')
+    .reduce((sum, i) => sum + i.paidAmount, 0)
 
   return (
     <DashboardLayout>
@@ -499,6 +519,14 @@ export default async function OrderDetailPage({
                     {formatCurrency(order.advancePaid)}
                   </span>
                 </div>
+                {balancePayments > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Balance Paid:</span>
+                    <span className="font-semibold text-green-600">
+                      {formatCurrency(balancePayments)}
+                    </span>
+                  </div>
+                )}
                 {order.discount > 0 && (
                   <div className="flex justify-between">
                     <span className="text-slate-600">Discount:</span>
@@ -656,7 +684,7 @@ export default async function OrderDetailPage({
       </div>
 
       {/* Payment Installments - Hidden for Tailor */}
-      {!isTailor && order.balanceAmount > 0 && (
+      {!isTailor && order.installments.length > 0 && (
         <div className="mt-6">
           <PaymentInstallments orderId={order.id} balanceAmount={order.balanceAmount} />
         </div>

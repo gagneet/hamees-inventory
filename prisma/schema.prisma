@@ -570,7 +570,7 @@ model Alert {
   title         String
   message       String
   relatedId     String?       // ID of related entity (inventory, order, etc.)
-  relatedType   String?       // Type of related entity
+  relatedType   String?       // Type of related entity ('cloth', 'accessory', 'order', etc.)
   isRead        Boolean       @default(false)
   isDismissed   Boolean       @default(false)
   dismissedUntil DateTime?    // When the alert should reappear (null = not dismissed)
@@ -582,6 +582,7 @@ model Alert {
   @@index([dismissedUntil])
   @@index([createdAt])
   @@index([severity])
+  @@unique([relatedId, relatedType, type, isDismissed]) // Prevent duplicate alerts for same item
 }
 
 model Settings {

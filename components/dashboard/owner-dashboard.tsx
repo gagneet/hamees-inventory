@@ -25,6 +25,8 @@ interface OwnerDashboardProps {
   stats: {
     expensesThisMonth: number
     expensesLastMonth: number
+    cashCollectedThisMonth: number
+    cashCollectedLastMonth: number
     financialTrend: Array<{
       month: string
       revenue: number
@@ -85,7 +87,7 @@ const FABRIC_COLORS = ['#3B82F6', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#
 export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: OwnerDashboardProps) {
   const router = useRouter()
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [dialogType, setDialogType] = useState<'revenue' | 'expenses' | 'profit' | 'outstanding' | null>(null)
+  const [dialogType, setDialogType] = useState<'revenue' | 'cash' | 'expenses' | 'profit' | 'outstanding' | null>(null)
 
   const currentMonthProfit = stats.financialTrend[stats.financialTrend.length - 1]?.profit || 0
   const netRevenue = generalStats.revenue.thisMonth - stats.expensesThisMonth
@@ -95,7 +97,12 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
       ? ((stats.expensesThisMonth - stats.expensesLastMonth) / stats.expensesLastMonth) * 100
       : 0
 
-  const openDialog = (type: 'revenue' | 'expenses' | 'profit' | 'outstanding') => {
+  const cashGrowth =
+    stats.cashCollectedLastMonth > 0
+      ? ((stats.cashCollectedThisMonth - stats.cashCollectedLastMonth) / stats.cashCollectedLastMonth) * 100
+      : stats.cashCollectedThisMonth > 0 ? 100 : 0
+
+  const openDialog = (type: 'revenue' | 'cash' | 'expenses' | 'profit' | 'outstanding') => {
     setDialogType(type)
     setDialogOpen(true)
   }
@@ -103,7 +110,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
   return (
     <div className="space-y-6">
       {/* Row 1: Financial Pulse */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card
           className="border-l-4 border-l-green-500 cursor-pointer hover:shadow-lg transition-shadow"
           onClick={() => openDialog('revenue')}
@@ -119,6 +126,26 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
             <p className="text-xs text-muted-foreground mt-1">
               {generalStats.revenue.growth >= 0 ? '+' : ''}
               {generalStats.revenue.growth.toFixed(2)}% from last month
+            </p>
+            <p className="text-xs text-blue-600 font-medium mt-2">Click for details →</p>
+          </CardContent>
+        </Card>
+
+        <Card
+          className="border-l-4 border-l-cyan-500 cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => openDialog('cash')}
+        >
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Cash Collected</CardTitle>
+            <DollarSign className="h-4 w-4 text-cyan-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-cyan-600">
+              {formatCurrency(stats.cashCollectedThisMonth)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {cashGrowth >= 0 ? '+' : ''}
+              {cashGrowth.toFixed(2)}% from last month
             </p>
             <p className="text-xs text-blue-600 font-medium mt-2">Click for details →</p>
           </CardContent>
@@ -464,12 +491,14 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
           <DialogHeader>
             <DialogTitle>
               {dialogType === 'revenue' && 'Revenue Details (This Month)'}
+              {dialogType === 'cash' && 'Cash Collected (This Month)'}
               {dialogType === 'expenses' && 'Expenses Breakdown (This Month)'}
               {dialogType === 'profit' && 'Net Profit Analysis (This Month)'}
               {dialogType === 'outstanding' && 'Outstanding Payments Details'}
             </DialogTitle>
             <DialogDescription>
-              {dialogType === 'revenue' && 'Revenue from delivered orders'}
+              {dialogType === 'revenue' && 'Revenue from delivered orders (accrual basis)'}
+              {dialogType === 'cash' && 'Actual cash received from customer payments (cash basis)'}
               {dialogType === 'expenses' && 'All expenses including purchase orders and operational costs'}
               {dialogType === 'profit' && 'Revenue minus all expenses'}
               {dialogType === 'outstanding' && 'Pending payments from customers'}
@@ -483,15 +512,55 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
                   <p className="text-2xl font-bold text-green-600">
                     {formatCurrency(generalStats.revenue.thisMonth)}
                   </p>
-                  <p className="text-sm text-slate-600 mt-1">Total Revenue from Delivered Orders</p>
+                  <p className="text-sm text-slate-600 mt-1">Total Revenue from Delivered Orders (Accrual Basis)</p>
                 </div>
                 <p className="text-sm text-slate-600 mb-3">
-                  This includes all orders that were completed and delivered this month.
+                  This includes the full order value for all orders that were completed and delivered this month,
+                  regardless of whether payment was received.
                 </p>
                 <div className="flex justify-end gap-2">
                   <Link href="/orders?status=DELIVERED">
                     <Button variant="default">
                       View Delivered Orders
+                    </Button>
+                  </Link>
+                  <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                    Close
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {dialogType === 'cash' && (
+              <div>
+                <div className="p-4 bg-cyan-50 rounded-lg mb-4">
+                  <p className="text-2xl font-bold text-cyan-600">
+                    {formatCurrency(stats.cashCollectedThisMonth)}
+                  </p>
+                  <p className="text-sm text-slate-600 mt-1">Actual Cash Received from Payments (Cash Basis)</p>
+                </div>
+                <div className="space-y-3 mb-4">
+                  <p className="text-sm text-slate-600">
+                    This shows the actual cash received this month from customer payments, including:
+                  </p>
+                  <ul className="list-disc list-inside space-y-1 text-sm text-slate-600">
+                    <li>Advance payments on new orders</li>
+                    <li>Balance payments on completed orders</li>
+                    <li>Installment payments received this month</li>
+                  </ul>
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded">
+                    <p className="text-sm font-medium text-blue-900">💡 Difference from Revenue</p>
+                    <p className="text-xs text-blue-700 mt-1">
+                      Revenue ({formatCurrency(generalStats.revenue.thisMonth)}) shows order value when delivered.
+                      Cash Collected ({formatCurrency(stats.cashCollectedThisMonth)}) shows actual money received.
+                      {stats.outstandingPayments > 0 && ` Outstanding balance: ${formatCurrency(stats.outstandingPayments)}`}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Link href="/orders?balanceAmount=gt:0">
+                    <Button variant="outline">
+                      View Orders with Balance
                     </Button>
                   </Link>
                   <Button variant="outline" onClick={() => setDialogOpen(false)}>
