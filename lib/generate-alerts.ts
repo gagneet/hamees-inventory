@@ -140,8 +140,8 @@ export async function generateStockAlerts() {
           alertsCreated++
         }
       }
-      // Low stock: Available < (minimum × 1.1) but >= minimum [warning zone]
-      else if (available < item.minimum * 1.1) {
+      // Low stock: Available < (minimum × 1.1) but > minimum [warning zone]
+      else if (available < item.minimum * 1.1 && available > item.minimum) {
         if (!existingAlert) {
           // Create low stock alert
           await prisma.alert.create({
