@@ -196,6 +196,7 @@ model Customer {
   // Relations
   orders        Order[]
   measurements  Measurement[]
+  whatsappMessages WhatsAppMessage[]
 
   @@index([phone])
   @@index([active])
@@ -336,6 +337,7 @@ model Order {
   stockMovements  StockMovement[]
   history         OrderHistory[]
   installments    PaymentInstallment[]
+  whatsappMessages WhatsAppMessage[]
 
   @@index([orderNumber])
   @@index([customerId])
@@ -714,4 +716,49 @@ model DesignUpload {
   @@index([orderItemId])
   @@index([uploadedBy])
   @@index([uploadedAt])
+}
+
+// WhatsApp Integration Models
+model WhatsAppMessage {
+  id            String    @id @default(cuid())
+  recipient     String    // Phone number (E.164 format)
+  customerId    String?
+  orderId       String?
+  messageType   String    // ORDER_CONFIRMATION, ORDER_READY, PAYMENT_REMINDER, CUSTOM, etc.
+  templateName  String?
+  content       String    @db.Text
+  status        String    @default("PENDING") // PENDING, SENT, DELIVERED, READ, FAILED
+  sentAt        DateTime?
+  deliveredAt   DateTime?
+  readAt        DateTime?
+  failureReason String?
+  metadata      Json?     // Additional data (variables used, API response, etc.)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  customer      Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  order         Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([customerId])
+  @@index([orderId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([recipient])
+}
+
+model WhatsAppTemplate {
+  id            String    @id @default(cuid())
+  name          String    @unique
+  category      String    // TRANSACTIONAL, MARKETING, UTILITY
+  language      String    @default("en")
+  content       String    @db.Text
+  variables     Json      // Array of variable placeholders (e.g., ["customer_name", "order_number"])
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([name])
+  @@index([active])
+  @@index([category])
 }

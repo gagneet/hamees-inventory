@@ -387,6 +387,16 @@ export async function POST(request: Request) {
       return newOrder
     })
 
+    // Send WhatsApp order confirmation
+    try {
+      const { whatsappService } = await import('@/lib/whatsapp/whatsapp-service')
+      await whatsappService.sendOrderConfirmation(order.id)
+      console.log(`✅ WhatsApp confirmation sent for order ${order.orderNumber}`)
+    } catch (error) {
+      console.error('Failed to send WhatsApp confirmation:', error)
+      // Don't fail the request if WhatsApp fails
+    }
+
     return NextResponse.json({ order }, { status: 201 })
   } catch (error) {
     if (error instanceof z.ZodError) {

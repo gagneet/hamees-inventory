@@ -4,11 +4,156 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a comprehensive inventory and order management system built specifically for tailor shops. It manages fabric inventory, tracks orders with customer measurements, monitors stock levels with automatic reservation, and provides alerts for low stock and order delays.
+This is a comprehensive inventory and order management system built specifically for tailor shops. It manages fabric inventory, tracks orders with customer measurements, monitors stock levels with automatic reservation, and provides alerts for low stock and order delays. Now includes **WhatsApp Business Integration** for automated customer notifications and **QR Code/Barcode System** for inventory management.
 
 **Stack:** Next.js 16 (App Router), React 19, TypeScript 5, Prisma 7 (PostgreSQL 16), NextAuth.js v5, Tailwind CSS 4, Radix UI, Recharts
 
 ## 🎉 Recent Updates (January 2026)
+
+### ✅ WhatsApp Business Integration & QR Code System (v0.18.0)
+
+**What's New:**
+- **WhatsApp Automated Notifications** - Auto-send order confirmations and pickup notifications
+- **QR Code Generation** - Generate QR codes for all inventory items
+- **Printable Labels** - 80mm x 40mm labels with QR codes
+- **Message Templates** - Pre-configured message templates for common scenarios
+- **Development Mode** - Test without WhatsApp Business API credentials
+
+**Key Features:**
+
+1. **WhatsApp Service Layer** (`lib/whatsapp/whatsapp-service.ts`)
+   - Send templated messages with variable replacement
+   - Phone number normalization (E.164 format, auto-add India +91)
+   - Development mode (logs to console when no API credentials)
+   - Pre-built methods:
+     - `sendOrderConfirmation(orderId)` - Order created
+     - `sendOrderReady(orderId)` - Order ready for pickup
+     - `sendPaymentReminder(orderId)` - Payment reminder
+     - `sendLowStockAlert(clothId)` - Low stock notification
+
+2. **Database Models** (Prisma Schema)
+   - `WhatsAppMessage` - Message history with status tracking (PENDING, SENT, DELIVERED, READ, FAILED)
+   - `WhatsAppTemplate` - Reusable message templates with variables
+   - Relations added to `Customer` and `Order` models
+
+3. **Message Templates Seeded**
+   - **order_confirmation** - Sent automatically when order created
+   - **order_ready** - Sent automatically when order status → READY
+   - **payment_reminder** - Manual trigger for overdue payments
+   - **low_stock_alert** - Alert owner when inventory low
+
+4. **Automatic Workflow Integration**
+   - **Order Creation** (`app/api/orders/route.ts:390-398`)
+     - Automatically sends WhatsApp confirmation to customer
+     - Non-blocking: Order succeeds even if WhatsApp fails
+   - **Order Status → READY** (`app/api/orders/[id]/status/route.ts:201-210`)
+     - Automatically sends pickup notification
+     - Non-blocking: Status update succeeds even if WhatsApp fails
+
+5. **QR Code Service** (`lib/barcode/qrcode-service.ts`)
+   - Generate QR codes for cloth and accessory items
+   - Parse and lookup items by QR code
+   - Generate printable labels (80mm x 40mm)
+   - Compatible with existing barcode scanner
+
+6. **API Endpoints Added**
+   - `POST /api/whatsapp/send` - Send custom/templated message
+   - `GET /api/whatsapp/templates` - List all templates
+   - `POST /api/whatsapp/templates` - Create new template
+   - `GET /api/whatsapp/history` - View message history
+   - `POST /api/barcode/generate` - Generate QR code for item
+   - `GET /api/barcode/generate?data={qr}` - Lookup by QR code
+   - `POST /api/barcode/label` - Generate printable label HTML
+
+**Configuration (Optional):**
+
+Add to `.env` for WhatsApp Business API (runs in dev mode without these):
+
+```bash
+WHATSAPP_API_KEY=your_api_key_here
+WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
+WHATSAPP_API_URL=https://graph.facebook.com/v17.0
+WHATSAPP_BUSINESS_ACCOUNT_ID=your_business_account_id
+```
+
+**Usage:**
+
+```typescript
+// Automatic - already integrated
+// Order creation → WhatsApp confirmation sent ✅
+// Order status → READY → Pickup notification sent ✅
+
+// Manual message send
+import { whatsappService } from '@/lib/whatsapp/whatsapp-service'
+
+await whatsappService.sendPaymentReminder(orderId)
+
+// Generate QR code
+import { qrcodeService } from '@/lib/barcode/qrcode-service'
+
+const qrCode = await qrcodeService.generateClothQRCode(clothId)
+// Returns: data:image/png;base64,iVBORw0KGgoAAAANS...
+```
+
+**Files Added:**
+- `lib/whatsapp/whatsapp-service.ts` - WhatsApp service layer
+- `lib/barcode/qrcode-service.ts` - QR code service layer
+- `app/api/whatsapp/send/route.ts` - Send message endpoint
+- `app/api/whatsapp/templates/route.ts` - Template management
+- `app/api/whatsapp/history/route.ts` - Message history
+- `app/api/barcode/generate/route.ts` - QR generation & lookup
+- `app/api/barcode/label/route.ts` - Label generation
+- `prisma/seed-whatsapp-templates.ts` - Template seeding script
+- `docs/WHATSAPP_AND_BARCODE_INTEGRATION.md` - Complete documentation
+
+**Files Modified:**
+- `prisma/schema.prisma` - Added WhatsApp models (WhatsAppMessage, WhatsAppTemplate)
+- `app/api/orders/route.ts` - Auto-send order confirmation
+- `app/api/orders/[id]/status/route.ts` - Auto-send ready notification
+
+**Dependencies Added:**
+```json
+{
+  "qrcode": "^1.5.4",
+  "@types/qrcode": "^1.5.6",
+  "@whiskeysockets/baileys": "7.0.0-rc.9",
+  "qrcode-terminal": "^0.12.0",
+  "pino": "^10.2.0",
+  "axios": "^1.13.2"
+}
+```
+
+**Testing:**
+```bash
+# Development mode (no WhatsApp API needed)
+1. Create new order → Check PM2 logs for:
+   [WhatsApp] DEV MODE - Message would be sent:
+     To: 919876543210
+     Type: ORDER_CONFIRMATION
+     Content: [full message]
+
+2. Update order to READY → Check logs for pickup notification
+
+3. View message history:
+   GET /api/whatsapp/history
+
+4. Generate QR code:
+   POST /api/barcode/generate
+   { "type": "cloth", "itemId": "cloth_id" }
+```
+
+**Permissions:**
+- Send WhatsApp: `manage_customers` or `create_order` (OWNER, ADMIN, SALES_MANAGER)
+- View templates: `view_inventory` (All except VIEWER)
+- Create template: `manage_settings` (OWNER, ADMIN)
+- Generate QR codes: `view_inventory` (All except VIEWER)
+
+**Documentation:**
+- Complete guide: `docs/WHATSAPP_AND_BARCODE_INTEGRATION.md`
+- Includes API reference, usage examples, troubleshooting
+- Testing scenarios and configuration details
+
+---
 
 ### ✅ Order Item Detail Dialog - Phase 3: Prominent Measurements (v0.17.2)
 
