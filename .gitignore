@@ -108,3 +108,4 @@ prisma/migrations/**
 *~
 *.log
 package-lock.json
+next-env.d.ts
