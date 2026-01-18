@@ -40,8 +40,8 @@ export async function GET() {
       },
     })
 
-    // Low Stock: Available < (minimum × 1.1) but > minimum [warning zone above threshold]
-    // Critical Stock: Available <= minimum [urgent zone at or below threshold]
+    // Low Stock: Available < (minimum × 1.1) but > minimum [warning zone, above minimum]
+    // Critical Stock: Available <= minimum [urgent zone, at or below minimum]
     const clothLowStock = clothInventory.filter(
       (item: typeof clothInventory[0]) => {
         const available = item.currentStock - item.reserved

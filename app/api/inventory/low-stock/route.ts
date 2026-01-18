@@ -52,7 +52,7 @@ export async function GET(request: Request) {
     const accessoryInventory = await getAccessoryInventory()
 
     // Filter based on type
-    // Low Stock: Available < (minimum × 1.1) and > minimum [10% buffer above minimum]
+    // Low Stock: Available < (minimum × 1.1) but > minimum [10% buffer above minimum]
     // Critical Stock: Available <= minimum [at or below minimum threshold]
     let lowStockCloth: ClothInventoryItem[] = []
     let lowStockAccessories: AccessoryInventoryItem[] = []
@@ -69,7 +69,7 @@ export async function GET(request: Request) {
         (item: AccessoryInventoryItem) => item.currentStock <= item.minimum
       )
     } else {
-      // Low: Above minimum but below 1.1× minimum (warning zone)
+      // Low: Between minimum and 1.1× minimum (warning zone, above minimum)
       lowStockCloth = clothInventory.filter(
         (item: ClothInventoryItem) => {
           const available = item.currentStock - item.reserved
