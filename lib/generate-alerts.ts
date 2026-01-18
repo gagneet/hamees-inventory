@@ -56,8 +56,8 @@ export async function generateStockAlerts() {
         },
       })
 
-      // Critical stock: Available < minimum
-      if (available < item.minimum) {
+      // Critical stock: Available <= minimum (at or below minimum)
+      if (available <= item.minimum) {
         if (!existingAlert || existingAlert.type !== AlertType.CRITICAL_STOCK) {
           // Delete any existing low stock alert since this is now critical
           if (existingAlert) {
@@ -78,8 +78,8 @@ export async function generateStockAlerts() {
           alertsCreated++
         }
       }
-      // Low stock: Available < (minimum × 1.1) but >= minimum [warning zone]
-      else if (available < item.minimum * 1.1) {
+      // Low stock: Available < (minimum × 1.1) but > minimum [warning zone]
+      else if (available < item.minimum * 1.1 && available > item.minimum) {
         if (!existingAlert) {
           // Create low stock alert
           await prisma.alert.create({
@@ -118,8 +118,8 @@ export async function generateStockAlerts() {
         },
       })
 
-      // Critical stock: Available < minimum
-      if (available < item.minimum) {
+      // Critical stock: Available <= minimum (at or below minimum)
+      if (available <= item.minimum) {
         if (!existingAlert || existingAlert.type !== AlertType.CRITICAL_STOCK) {
           // Delete any existing low stock alert since this is now critical
           if (existingAlert) {
@@ -140,8 +140,8 @@ export async function generateStockAlerts() {
           alertsCreated++
         }
       }
-      // Low stock: Available < (minimum × 1.1) but >= minimum [warning zone]
-      else if (available < item.minimum * 1.1) {
+      // Low stock: Available < (minimum × 1.1) but > minimum [warning zone]
+      else if (available < item.minimum * 1.1 && available > item.minimum) {
         if (!existingAlert) {
           // Create low stock alert
           await prisma.alert.create({
