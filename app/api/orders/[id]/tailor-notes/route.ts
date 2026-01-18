@@ -49,24 +49,24 @@ export async function POST(
       return NextResponse.json({ error: 'Order not found' }, { status: 404 })
     }
 
-    // Create OrderHistory entry for the tailor note
-    const historyEntry = await prisma.orderHistory.create({
-      data: {
-        orderId: order.id,
-        userId: session.user.id!,
-        changeType: 'TAILOR_NOTE_ADDED',
-        description: validatedData.note,
+// Create OrderHistory entry for the tailor note
+const historyEntry = await prisma.orderHistory.create({
+  data: {
+    orderId: order.id,
+    userId: session.user.id!,
+    changeType: 'TAILOR_NOTE_ADDED',
+    changeDescription: validatedData.note,
+  },
+  include: {
+    user: {
+      select: {
+        id: true,
+        name: true,
+        email: true,
       },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-    })
+    },
+  },
+})
 
     return NextResponse.json({
       success: true,
