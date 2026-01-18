@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns'
+import { generateStockAlerts } from '@/lib/generate-alerts'
 
 export async function GET() {
   try {
@@ -9,6 +10,12 @@ export async function GET() {
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    // Auto-generate stock alerts in background (non-blocking)
+    // Using fire-and-forget pattern to avoid blocking dashboard response
+    generateStockAlerts().catch(error => {
+      console.error('Background alert generation failed:', error)
+    })
 
     // Get current month dates
     const now = new Date()
@@ -33,12 +40,21 @@ export async function GET() {
       },
     })
 
+    // Low Stock: Available < (minimum × 1.1) but > minimum [warning zone, above minimum]
+    // Critical Stock: Available <= minimum [urgent zone, at or below minimum]
     const clothLowStock = clothInventory.filter(
-      (item: typeof clothInventory[0]) => item.currentStock - item.reserved < item.minimum
+      (item: typeof clothInventory[0]) => {
+        const available = item.currentStock - item.reserved
+        const threshold = item.minimum * 1.1
+        return available < threshold && available > item.minimum
+      }
     ).length
 
     const clothCriticalStock = clothInventory.filter(
-      (item: typeof clothInventory[0]) => item.currentStock - item.reserved < item.minimum * 0.5
+      (item: typeof clothInventory[0]) => {
+        const available = item.currentStock - item.reserved
+        return available <= item.minimum
+      }
     ).length
 
     const totalClothWorth = clothInventory.reduce(
@@ -56,11 +72,14 @@ export async function GET() {
     })
 
     const accessoryLowStock = accessoryInventory.filter(
-      (item: typeof accessoryInventory[0]) => item.currentStock < item.minimum
+      (item: typeof accessoryInventory[0]) => {
+        const threshold = item.minimum * 1.1
+        return item.currentStock < threshold && item.currentStock > item.minimum
+      }
     ).length
 
     const accessoryCriticalStock = accessoryInventory.filter(
-      (item: typeof accessoryInventory[0]) => item.currentStock < item.minimum * 0.5
+      (item: typeof accessoryInventory[0]) => item.currentStock <= item.minimum
     ).length
 
     const totalAccessoryWorth = accessoryInventory.reduce(

@@ -149,44 +149,45 @@ export async function GET(request: Request) {
       }
     }
 
-    // Get total count for pagination
-    const totalItems = await prisma.order.count({ where })
-
-    const orders = await prisma.order.findMany({
-      where,
-      include: {
-        customer: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            email: true,
+    // Parallelize count and fetch queries to avoid sequential waiting
+    const [totalItems, orders] = await Promise.all([
+      prisma.order.count({ where }),
+      prisma.order.findMany({
+        where,
+        include: {
+          customer: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+              email: true,
+            },
           },
-        },
-        items: {
-          include: {
-            garmentPattern: true,
-            clothInventory: {
-              select: {
-                id: true,
-                name: true,
-                color: true,
-                colorHex: true,
+          items: {
+            include: {
+              garmentPattern: true,
+              clothInventory: {
+                select: {
+                  id: true,
+                  name: true,
+                  color: true,
+                  colorHex: true,
+                },
               },
             },
           },
-        },
-        user: {
-          select: {
-            name: true,
-            email: true,
+          user: {
+            select: {
+              name: true,
+              email: true,
+            },
           },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-      skip,
-      take: limit,
-    })
+        orderBy: { balanceAmount: 'desc' }, // Sort by balance amount (high to low) by default
+        skip,
+        take: limit,
+      }),
+    ])
 
     const totalPages = Math.ceil(totalItems / limit)
 
@@ -220,26 +221,48 @@ export async function POST(request: Request) {
     let subTotal = 0
     const orderItems: any[] = []
 
-    // Get customer's measurements to link with order items
-    const customerMeasurements = await prisma.measurement.findMany({
-      where: {
-        customerId: validatedData.customerId,
-        isActive: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    })
+    // Extract unique IDs to fetch all required data in parallel (avoid N+1 queries)
+    const patternIds = [...new Set(validatedData.items.map(item => item.garmentPatternId))]
+    const clothIds = [...new Set(validatedData.items.map(item => item.clothInventoryId))]
+    const accessoryIds = [...new Set(
+      validatedData.items
+        .flatMap(item => item.accessories || [])
+        .map(acc => acc.accessoryId)
+    )]
+
+    // Fetch all data in parallel to avoid async waterfalls
+    const [customerMeasurements, patterns, cloths, accessories] = await Promise.all([
+      prisma.measurement.findMany({
+        where: {
+          customerId: validatedData.customerId,
+          isActive: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+      prisma.garmentPattern.findMany({
+        where: { id: { in: patternIds } },
+      }),
+      prisma.clothInventory.findMany({
+        where: { id: { in: clothIds } },
+      }),
+      accessoryIds.length > 0
+        ? prisma.accessoryInventory.findMany({
+            where: { id: { in: accessoryIds } },
+          })
+        : Promise.resolve([]),
+    ])
+
+    // Create lookup maps for O(1) access
+    const patternMap = new Map(patterns.map(p => [p.id, p]))
+    const clothMap = new Map(cloths.map(c => [c.id, c]))
+    const accessoryMap = new Map(accessories.map(a => [a.id, a]))
 
     for (const item of validatedData.items) {
-      // Get pattern and cloth details
-      const pattern = await prisma.garmentPattern.findUnique({
-        where: { id: item.garmentPatternId },
-      })
-
-      const cloth = await prisma.clothInventory.findUnique({
-        where: { id: item.clothInventoryId },
-      })
+      // Get pattern and cloth from lookup maps
+      const pattern = patternMap.get(item.garmentPatternId)
+      const cloth = clothMap.get(item.clothInventoryId)
 
       if (!pattern || !cloth) {
         return NextResponse.json(
@@ -267,12 +290,10 @@ export async function POST(request: Request) {
 
       let itemTotal = estimatedMeters * cloth.pricePerMeter
 
-      // Calculate accessories cost
+      // Calculate accessories cost using lookup map
       if (item.accessories && item.accessories.length > 0) {
         for (const acc of item.accessories) {
-          const accessory = await prisma.accessoryInventory.findUnique({
-            where: { id: acc.accessoryId },
-          })
+          const accessory = accessoryMap.get(acc.accessoryId)
           if (accessory) {
             const accessoryTotal = acc.quantity * item.quantity * accessory.pricePerUnit
             itemTotal += accessoryTotal

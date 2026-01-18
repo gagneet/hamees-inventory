@@ -146,8 +146,8 @@ export function InventorySummary({ stats }: InventorySummaryProps) {
             </DialogTitle>
             <DialogDescription>
               {stockType === 'low'
-                ? 'Items below minimum stock level (including cloth and accessories)'
-                : 'Items below 50% of minimum stock level (including cloth and accessories)'}
+                ? 'Items in warning zone (between minimum and 1.1× minimum). Click any row to view details.'
+                : 'Items critically low (below minimum threshold). Click any row to view details.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -167,20 +167,16 @@ export function InventorySummary({ stats }: InventorySummaryProps) {
                 <div>Value</div>
               </div>
               {items.map((item) => (
-                <div
+                <Link
                   key={`${item.category}-${item.id}`}
-                  className={`p-3 rounded-lg border ${getStockStatusBg(item)}`}
+                  href={`/inventory/${item.category === 'cloth' ? 'cloth' : 'accessories'}/${item.id}`}
+                  className={`block p-3 rounded-lg border ${getStockStatusBg(item)} hover:shadow-md transition-all cursor-pointer`}
                 >
                   <div className="grid grid-cols-3 gap-4 items-center">
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-slate-900">{item.name}</p>
-                        <Link
-                          href={`/inventory/${item.category === 'cloth' ? 'cloth' : 'accessories'}/${item.id}`}
-                          className="text-blue-600 hover:text-blue-700"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                        </Link>
+                        <ExternalLink className="h-3 w-3 text-blue-600" />
                       </div>
                       <p className="text-xs text-slate-600">
                         {item.type} • {item.brand}
@@ -221,7 +217,7 @@ export function InventorySummary({ stats }: InventorySummaryProps) {
                       </p>
                     </div>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}
