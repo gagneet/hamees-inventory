@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { after } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
 import { z } from 'zod'
@@ -427,15 +428,16 @@ export async function POST(request: Request) {
       return newOrder
     })
 
-    // Send WhatsApp order confirmation
-    try {
-      const { whatsappService } = await import('@/lib/whatsapp/whatsapp-service')
-      await whatsappService.sendOrderConfirmation(order.id)
-      console.log(`✅ WhatsApp confirmation sent for order ${order.orderNumber}`)
-    } catch (error) {
-      console.error('Failed to send WhatsApp confirmation:', error)
-      // Don't fail the request if WhatsApp fails
-    }
+    // Send WhatsApp order confirmation (non-blocking with after())
+    after(async () => {
+      try {
+        const { whatsappService } = await import('@/lib/whatsapp/whatsapp-service')
+        await whatsappService.sendOrderConfirmation(order.id)
+        console.log(`✅ WhatsApp confirmation sent for order ${order.orderNumber}`)
+      } catch (error) {
+        console.error('Failed to send WhatsApp confirmation:', error)
+      }
+    })
 
     return NextResponse.json({ order }, { status: 201 })
   } catch (error) {

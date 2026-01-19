@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
+import dynamic from "next/dynamic"
 import Link from "next/link"
 import { Package, Scan, Plus, AlertTriangle, ArrowUpDown, ShoppingCart, Eye, Home } from "lucide-react"
 
@@ -34,11 +35,16 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
-import { BarcodeScannerImproved } from "@/components/barcode-scanner-improved"
 import { InventoryType } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
 import { formatCurrency } from "@/lib/utils"
 import { Pagination } from "@/components/ui/pagination"
+
+// Dynamically import barcode scanner to reduce initial bundle size (html5-qrcode is ~100KB)
+const BarcodeScannerImproved = dynamic(
+  () => import("@/components/barcode-scanner-improved").then(mod => mod.BarcodeScannerImproved),
+  { ssr: false, loading: () => <div className="p-4 text-center">Loading scanner...</div> }
+)
 
 interface InventoryLookupResult {
   found: boolean

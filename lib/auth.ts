@@ -3,13 +3,14 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 import { prisma } from '@/lib/db'
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
+import { cache } from 'react'
 
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
 })
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
+const { handlers, signIn, signOut, auth: uncachedAuth } = NextAuth({
   trustHost: true,
   session: {
     strategy: 'jwt',
@@ -72,3 +73,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
   },
 })
+
+// Wrap auth with React.cache for per-request deduplication
+// Multiple calls to auth() in the same request will only execute once
+export const auth = cache(uncachedAuth)
+
+export { handlers, signIn, signOut }
