@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { after } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
 import { whatsappService } from '@/lib/whatsapp/whatsapp-service'
@@ -220,15 +221,16 @@ export async function PATCH(
       },
     })
 
-    // Send WhatsApp notification for READY status
+    // Send WhatsApp notification for READY status (non-blocking with after())
     if (status === OrderStatus.READY && order.status !== OrderStatus.READY) {
-      try {
-        await whatsappService.sendOrderReady(id)
-        console.log(`✅ WhatsApp notification sent for order ${order.orderNumber}`)
-      } catch (error) {
-        console.error('Failed to send WhatsApp notification:', error)
-        // Don't fail the request if WhatsApp fails
-      }
+      after(async () => {
+        try {
+          await whatsappService.sendOrderReady(id)
+          console.log(`✅ WhatsApp notification sent for order ${order.orderNumber}`)
+        } catch (error) {
+          console.error('Failed to send WhatsApp notification:', error)
+        }
+      })
     }
 
     return NextResponse.json({ order: updatedOrder })

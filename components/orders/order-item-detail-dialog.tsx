@@ -865,7 +865,7 @@ useEffect(() => {
                   <p className="text-xs font-medium text-green-800 mb-2">Previous Notes:</p>
                   {orderHistory
                     .filter(h => h.changeType === 'TAILOR_NOTE_ADDED')
-                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                    .toSorted((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                     .map((note) => (
                       <div key={note.id} className="bg-white p-3 rounded border border-green-200 shadow-sm">
                         <p className="text-sm text-slate-900">{note.changeDescription || note.description}</p>
