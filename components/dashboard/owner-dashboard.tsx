@@ -87,7 +87,7 @@ const FABRIC_COLORS = ['#3B82F6', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#
 export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: OwnerDashboardProps) {
   const router = useRouter()
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [dialogType, setDialogType] = useState<'revenue' | 'cash' | 'expenses' | 'profit' | 'outstanding' | null>(null)
+  const [dialogType, setDialogType] = useState<'revenue' | 'cash' | 'expenses' | 'profit' | 'outstanding' | 'stockTurnover' | 'fulfillmentRate' | null>(null)
 
   const currentMonthProfit = stats.financialTrend[stats.financialTrend.length - 1]?.profit || 0
   const netRevenue = generalStats.revenue.thisMonth - stats.expensesThisMonth
@@ -102,7 +102,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
       ? ((stats.cashCollectedThisMonth - stats.cashCollectedLastMonth) / stats.cashCollectedLastMonth) * 100
       : stats.cashCollectedThisMonth > 0 ? 100 : 0
 
-  const openDialog = (type: 'revenue' | 'cash' | 'expenses' | 'profit' | 'outstanding') => {
+  const openDialog = (type: 'revenue' | 'cash' | 'expenses' | 'profit' | 'outstanding' | 'stockTurnover' | 'fulfillmentRate') => {
     setDialogType(type)
     setDialogOpen(true)
   }
@@ -428,7 +428,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
 
             <div
               className="flex items-center justify-between p-4 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors"
-              onClick={() => router.push('/inventory')}
+              onClick={() => openDialog('stockTurnover')}
             >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-blue-100 rounded-lg">
@@ -464,7 +464,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
 
             <div
               className="flex items-center justify-between p-4 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors"
-              onClick={() => router.push('/orders?status=DELIVERED')}
+              onClick={() => openDialog('fulfillmentRate')}
             >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-amber-100 rounded-lg">
@@ -495,6 +495,8 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
               {dialogType === 'expenses' && 'Expenses Breakdown (This Month)'}
               {dialogType === 'profit' && 'Net Profit Analysis (This Month)'}
               {dialogType === 'outstanding' && 'Outstanding Payments Details'}
+              {dialogType === 'stockTurnover' && 'Stock Turnover Analysis'}
+              {dialogType === 'fulfillmentRate' && 'Fulfillment Rate Breakdown'}
             </DialogTitle>
             <DialogDescription>
               {dialogType === 'revenue' && 'Revenue from delivered orders (accrual basis)'}
@@ -502,6 +504,8 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
               {dialogType === 'expenses' && 'All expenses including purchase orders and operational costs'}
               {dialogType === 'profit' && 'Revenue minus all expenses'}
               {dialogType === 'outstanding' && 'Pending payments from customers'}
+              {dialogType === 'stockTurnover' && 'Fabric usage efficiency over last 30 days'}
+              {dialogType === 'fulfillmentRate' && 'Order completion and delivery performance'}
             </DialogDescription>
           </DialogHeader>
 
@@ -658,6 +662,168 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
                   <Link href="/orders?balanceAmount=gt:0">
                     <Button variant="default">
                       View Orders with Balance
+                    </Button>
+                  </Link>
+                  <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                    Close
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {dialogType === 'stockTurnover' && (
+              <div>
+                <div className="p-4 bg-blue-50 rounded-lg mb-4">
+                  <p className="text-2xl font-bold text-blue-600">
+                    {stats.stockTurnoverRatio.toFixed(2)}%
+                  </p>
+                  <p className="text-sm text-slate-600 mt-1">Stock Turnover Ratio (Last 30 Days)</p>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-900 mb-2">What is Stock Turnover?</h4>
+                    <p className="text-sm text-slate-600">
+                      Stock turnover ratio measures how efficiently you're using your fabric inventory.
+                      It shows the percentage of your total stock that was used in orders over the last 30 days.
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 rounded border">
+                    <p className="text-xs font-medium text-slate-700 mb-2">Calculation Formula:</p>
+                    <p className="text-sm text-slate-900 font-mono">
+                      (Fabric Used in Last 30 Days ÷ Total Current Stock) × 100
+                    </p>
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-900 mb-2">Performance Indicators:</h4>
+                    <div className="space-y-2">
+                      <div className="flex items-start gap-2">
+                        <div className="w-3 h-3 rounded-full bg-green-500 mt-1"></div>
+                        <div>
+                          <p className="text-sm font-medium text-slate-900">High (≥15%)</p>
+                          <p className="text-xs text-slate-600">Excellent - Inventory is moving quickly, minimal waste</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <div className="w-3 h-3 rounded-full bg-yellow-500 mt-1"></div>
+                        <div>
+                          <p className="text-sm font-medium text-slate-900">Moderate (8-15%)</p>
+                          <p className="text-xs text-slate-600">Good - Healthy turnover rate</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <div className="w-3 h-3 rounded-full bg-red-500 mt-1"></div>
+                        <div>
+                          <p className="text-sm font-medium text-slate-900">Low (&lt;8%)</p>
+                          <p className="text-xs text-slate-600">Review inventory - Consider reducing stock or increasing sales</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded">
+                    <p className="text-sm font-medium text-blue-900">💡 Your Status</p>
+                    <p className="text-xs text-blue-700 mt-1">
+                      {stats.stockTurnoverRatio >= 15
+                        ? '✅ Excellent turnover! Your inventory is moving efficiently.'
+                        : stats.stockTurnoverRatio >= 8
+                        ? '✓ Good turnover rate. Inventory management is healthy.'
+                        : '⚠️ Low turnover detected. Consider reviewing slow-moving fabrics or boosting orders.'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 mt-4">
+                  <Link href="/inventory">
+                    <Button variant="default">
+                      View Inventory Details
+                    </Button>
+                  </Link>
+                  <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                    Close
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {dialogType === 'fulfillmentRate' && (
+              <div>
+                <div className="p-4 bg-amber-50 rounded-lg mb-4">
+                  <p className="text-2xl font-bold text-amber-600">
+                    {generalStats.orders.total > 0
+                      ? ((generalStats.orders.delivered / generalStats.orders.total) * 100).toFixed(2)
+                      : 0}%
+                  </p>
+                  <p className="text-sm text-slate-600 mt-1">Order Fulfillment Rate (All Time)</p>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-900 mb-2">What is Fulfillment Rate?</h4>
+                    <p className="text-sm text-slate-600">
+                      Fulfillment rate shows the percentage of all orders that have been successfully completed
+                      and delivered to customers. Higher rates indicate better operational efficiency.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 bg-slate-50 rounded border">
+                      <p className="text-xs text-slate-600 mb-1">Total Orders</p>
+                      <p className="text-2xl font-bold text-slate-900">{generalStats.orders.total}</p>
+                    </div>
+                    <div className="p-3 bg-green-50 rounded border border-green-200">
+                      <p className="text-xs text-green-700 mb-1">Delivered</p>
+                      <p className="text-2xl font-bold text-green-700">{generalStats.orders.delivered}</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-900 mb-2">Order Status Breakdown:</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center p-2 bg-slate-50 rounded">
+                        <span className="text-sm text-slate-700">Delivered Orders</span>
+                        <span className="text-sm font-bold text-green-600">{generalStats.orders.delivered}</span>
+                      </div>
+                      <div className="flex justify-between items-center p-2 bg-slate-50 rounded">
+                        <span className="text-sm text-slate-700">In Progress</span>
+                        <span className="text-sm font-bold text-blue-600">
+                          {generalStats.orders.total - generalStats.orders.delivered}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-900 mb-2">Average Fulfillment Time:</h4>
+                    <div className="p-3 bg-purple-50 rounded border border-purple-200">
+                      <p className="text-2xl font-bold text-purple-700">
+                        {stats.avgFulfillmentTime.toFixed(1)} days
+                      </p>
+                      <p className="text-xs text-purple-600 mt-1">
+                        Average time from order creation to delivery (last 100 orders)
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded">
+                    <p className="text-sm font-medium text-amber-900">💡 Performance Insight</p>
+                    <p className="text-xs text-amber-700 mt-1">
+                      {generalStats.orders.total > 0 && ((generalStats.orders.delivered / generalStats.orders.total) * 100) >= 80
+                        ? '✅ Excellent fulfillment rate! You\'re completing most of your orders successfully.'
+                        : generalStats.orders.total > 0 && ((generalStats.orders.delivered / generalStats.orders.total) * 100) >= 60
+                        ? '✓ Good fulfillment rate. Focus on completing pending orders to improve further.'
+                        : '⚠️ Many orders are still pending. Review workflow to improve completion rates.'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 mt-4">
+                  <Link href="/orders?status=DELIVERED">
+                    <Button variant="default">
+                      View Delivered Orders
+                    </Button>
+                  </Link>
+                  <Link href="/orders">
+                    <Button variant="outline">
+                      View All Orders
                     </Button>
                   </Link>
                   <Button variant="outline" onClick={() => setDialogOpen(false)}>
