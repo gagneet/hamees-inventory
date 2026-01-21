@@ -90,7 +90,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
   // Calculate total revenue for percentage calculation
   const totalFabricRevenue = stats.revenueByFabric.reduce((sum, item) => sum + (item.revenue || 0), 0)
 
-  // Custom label renderer with dark background for visibility on light colors
+  // Custom label renderer with white translucent background and black text
   const renderCustomLabel = (props: any) => {
     const { cx, cy, midAngle, outerRadius, fill, payload } = props
     const RADIAN = Math.PI / 180
@@ -108,14 +108,16 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
           y={y - 18}
           width={100}
           height={36}
-          fill="rgba(0, 0, 0, 0.75)"
+          fill="rgba(255, 255, 255, 0.95)"
+          stroke="rgba(0, 0, 0, 0.1)"
+          strokeWidth={1}
           rx={4}
           ry={4}
         />
         <text
           x={x}
           y={y - 4}
-          fill="#fff"
+          fill="#000"
           textAnchor="middle"
           dominantBaseline="middle"
           fontSize={11}
@@ -126,7 +128,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
         <text
           x={x}
           y={y + 10}
-          fill="#fff"
+          fill="#000"
           textAnchor="middle"
           dominantBaseline="middle"
           fontSize={11}
@@ -441,7 +443,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
                       layout="horizontal"
                       verticalAlign="bottom"
                       align="center"
-                      wrapperStyle={{ paddingTop: '20px', fontSize: '13px' }}
+                      wrapperStyle={{ paddingTop: '20px', fontSize: '13px', color: '#000' }}
                       formatter={(value: string, entry: any) => {
                         const payload = entry.payload as any
                         return `${payload.name} (${payload.color})`

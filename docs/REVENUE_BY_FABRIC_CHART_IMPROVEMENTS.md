@@ -30,8 +30,9 @@ The "Revenue by Fabric Type" chart on the Owner Dashboard has been significantly
 - ✅ **Improved tooltip** showing both amount and percentage
 - ✅ **Label lines** for better readability (labelLine={true})
 - ✅ **Larger outer radius** (110px vs 100px)
-- ✅ **Dark label backgrounds** (semi-transparent black boxes) for visibility on all colors
+- ✅ **White translucent label backgrounds** with black text for clean, professional appearance
 - ✅ **Clickable slices** - Navigate to filtered orders page for specific fabric
+- ✅ **Black legend text** - Consistent dark text throughout for better readability
 
 ---
 
@@ -91,9 +92,9 @@ const totalFabricRevenue = stats.revenueByFabric.reduce(
 
 **Purpose:** Calculate total revenue for percentage computation
 
-#### C. Custom Label Renderer with Dark Backgrounds
+#### C. Custom Label Renderer with White Translucent Backgrounds
 
-**New custom label function (lines 94-139):**
+**New custom label function (lines 94-141):**
 ```typescript
 const renderCustomLabel = (props: any) => {
   const { cx, cy, midAngle, outerRadius, fill, payload } = props
@@ -112,14 +113,16 @@ const renderCustomLabel = (props: any) => {
         y={y - 18}
         width={100}
         height={36}
-        fill="rgba(0, 0, 0, 0.75)"
+        fill="rgba(255, 255, 255, 0.95)"
+        stroke="rgba(0, 0, 0, 0.1)"
+        strokeWidth={1}
         rx={4}
         ry={4}
       />
       <text
         x={x}
         y={y - 4}
-        fill="#fff"
+        fill="#000"
         textAnchor="middle"
         dominantBaseline="middle"
         fontSize={11}
@@ -130,7 +133,7 @@ const renderCustomLabel = (props: any) => {
       <text
         x={x}
         y={y + 10}
-        fill="#fff"
+        fill="#000"
         textAnchor="middle"
         dominantBaseline="middle"
         fontSize={11}
@@ -144,12 +147,13 @@ const renderCustomLabel = (props: any) => {
 ```
 
 **What this does:**
-- Creates a **semi-transparent black rectangle** (75% opacity) behind each label
+- Creates a **semi-transparent white rectangle** (95% opacity) behind each label
+- Subtle **border stroke** with 10% opacity for definition
 - Positions labels outside the pie (radius + 25px)
-- Uses **white text** for maximum contrast on dark background
+- Uses **black text** for excellent readability on white background
 - Shows **two lines**: Amount on top, percentage below
 - Rounded corners (4px) for professional appearance
-- **Solves white-on-white problem** - labels visible on all fabric colors
+- **Clean, modern look** - white labels stand out clearly against all fabric colors
 
 #### D. Enhanced Pie Chart Configuration
 
@@ -228,12 +232,12 @@ const renderCustomLabel = (props: any) => {
 
 ## Visual Example
 
-### Pie Slice Display with Dark Label Background
+### Pie Slice Display with White Label Background
 
 ```
                   ┌──────────────┐
-                  │ ₹45,200.00   │ ← Dark semi-transparent box
-                  │  (23.5%)     │   with white text
+                  │ ₹45,200.00   │ ← White translucent box (95% opacity)
+                  │  (23.5%)     │   with black text & subtle border
                   └──────┬───────┘
                          │ Label line
                          ▼
@@ -295,15 +299,18 @@ The chart now uses actual fabric colors from the database:
 - Clean white borders between slices
 - Larger chart size (350px) for better visibility
 - Proper spacing and typography
-- Dark label backgrounds with rounded corners
-- Semi-transparent design (75% opacity) maintains visual connection to pie
+- White translucent label backgrounds with subtle borders
+- Semi-transparent design (95% opacity) maintains visual connection to pie
+- Consistent dark text throughout (labels and legend)
 
 ### 4. **Label Visibility on All Colors**
-- **Problem Solved:** White text on white/light-colored fabrics was invisible
-- **Solution:** Semi-transparent black background boxes (rgba(0, 0, 0, 0.75))
-- **Result:** Labels readable on all fabric colors including white, beige, yellow
-- White text provides maximum contrast against dark background
-- 4px rounded corners for polished appearance
+- **Problem Solved:** Labels needed to be visible on all fabric colors (dark and light)
+- **Solution:** Semi-transparent white background boxes (rgba(255, 255, 255, 0.95)) with black text
+- **Subtle border:** 1px stroke with 10% opacity for definition against light backgrounds
+- **Result:** Labels readable on all fabric colors including dark blues, blacks, and reds
+- Black text provides excellent contrast against white background
+- 4px rounded corners for polished, modern appearance
+- Clean, professional look that works with any fabric color
 
 ### 5. **Interactive Navigation**
 - **Click any slice** → Automatically navigates to `/orders?fabricId={id}`

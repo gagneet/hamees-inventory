@@ -34,12 +34,14 @@ This is a comprehensive inventory and order management system built specifically
 2. **Enhanced Chart Display** (`components/dashboard/owner-dashboard.tsx`)
    - **Before**: Showed fabric name in slices (truncated to 15 chars), white text invisible on light colors
    - **After**: Shows `₹45,200.00\n(23.5%)` with actual amount and percentage
-   - **Dark label backgrounds** - Semi-transparent black boxes (75% opacity) ensure visibility on all colors
+   - **White translucent label backgrounds** - Semi-transparent white boxes (95% opacity) with black text for clean appearance
+   - Subtle border stroke (10% opacity) for definition
    - Larger outer radius (110px vs 100px)
    - Chart height increased (350px vs 300px)
    - 2px white stroke borders between slices for better separation
    - Label lines enabled for better readability
    - Clickable slices navigate to filtered orders page
+   - Black legend text for consistent readability
 
 3. **Improved Legend**
    - Shows full fabric name with color name
@@ -70,8 +72,9 @@ Legend: ━━━━ Premium Cotton (Blue)  ━━━━ Silk Blend (Red)
 - ✅ Percentage shows contribution to total revenue
 - ✅ Professional, industry-standard chart presentation
 - ✅ Easier to correlate with physical inventory
-- ✅ Labels visible on all fabric colors (dark background boxes)
+- ✅ Labels visible on all fabric colors (white translucent boxes with black text)
 - ✅ Click any slice to view filtered orders for that fabric
+- ✅ Clean, modern design with consistent dark text throughout
 
 **Files Modified:**
 - `app/api/dashboard/enhanced-stats/route.ts` - Added `color` and `colorHex` fields (lines 676-685)
