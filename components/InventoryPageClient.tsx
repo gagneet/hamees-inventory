@@ -39,6 +39,7 @@ import { InventoryType } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
 import { formatCurrency } from "@/lib/utils"
 import { Pagination } from "@/components/ui/pagination"
+import { ItemEditDialog } from "@/components/inventory/item-edit-dialog"
 
 // Dynamically import barcode scanner to reduce initial bundle size (html5-qrcode is ~100KB)
 const BarcodeScannerImproved = dynamic(
@@ -68,18 +69,20 @@ interface ClothInventoryItem {
   minimum: number
   supplier: string
   location?: string
-  supplierRel?: { name: string }
+  supplierRel?: { name: string; id: string }
 }
 
 interface AccessoryInventoryItem {
   id: string
+  sku: string
   type: string
   name: string
   color?: string
   currentStock: number
   pricePerUnit: number
   minimum: number
-  supplierRel?: { name: string }
+  supplier: string
+  supplierRel?: { name: string; id: string }
 }
 
 export default function InventoryPageClient() {
@@ -97,6 +100,8 @@ export default function InventoryPageClient() {
   const [isFetchingInventory, setIsFetchingInventory] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [editItem, setEditItem] = useState<{ type: 'cloth' | 'accessory'; item: ClothInventoryItem | AccessoryInventoryItem } | null>(null)
 
   // Check if user is a Tailor (hide pricing information)
   const isTailor = session?.user?.role === 'TAILOR'
@@ -207,33 +212,49 @@ export default function InventoryPageClient() {
 
     try {
       const response = await fetch(`/api/inventory/barcode?barcode=${encodeURIComponent(barcode)}`)
-      
+
       if (!response.ok) {
         throw new Error(`API request failed with status ${response.status}`)
       }
-      
+
       const result = await response.json()
       setLookupResult(result)
-      
+
       if (result.found) {
+        // Item found - Open edit dialog with item data
         toast({
           title: "Item Found",
-          description: `Found ${result.type} item: ${result.item?.name || barcode}`,
+          description: `Found ${result.type} item: ${result.item?.name || barcode}. Opening editor...`,
         })
+
+        setEditItem({
+          type: result.type as 'cloth' | 'accessory',
+          item: result.item as ClothInventoryItem | AccessoryInventoryItem
+        })
+        setShowEditDialog(true)
       } else {
+        // Item not found - Open add form with barcode pre-filled
         toast({
           title: "Item Not Found",
-          description: `No item found with barcode: ${barcode}. You can create a new item below.`,
-          variant: "default",
+          description: `No item found with barcode: ${barcode}. Opening form to create new item...`,
         })
+
+        // Set the active tab based on barcode prefix
+        if (barcode.startsWith('CLT-')) {
+          setActiveTab('cloth')
+        } else if (barcode.startsWith('ACC-')) {
+          setActiveTab('accessory')
+        }
+
+        setShowAddForm(true)
       }
     } catch (error) {
       console.error("Lookup failed:", error)
       setLookupResult({ found: false })
-      
+
       toast({
         title: "Lookup Failed",
-        description: error instanceof Error 
+        description: error instanceof Error
           ? `Network error: ${error.message}. Please check your connection and try again.`
           : "Unable to lookup barcode. Please check your connection and try again.",
         variant: "destructive",
@@ -387,6 +408,23 @@ export default function InventoryPageClient() {
             />
           </div>
         </div>
+      )}
+
+      {/* Edit Item Dialog */}
+      {showEditDialog && editItem && (
+        <ItemEditDialog
+          isOpen={showEditDialog}
+          onClose={() => {
+            setShowEditDialog(false)
+            setEditItem(null)
+            setScannedBarcode(null)
+            setLookupResult(null)
+            fetchInventory() // Refresh inventory after edit
+          }}
+          itemType={editItem.type}
+          item={editItem.item}
+          userRole={session?.user?.role}
+        />
       )}
 
       {/* Add Form Modal */}

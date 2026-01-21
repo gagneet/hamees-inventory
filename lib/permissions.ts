@@ -1,5 +1,8 @@
 import { UserRole } from '@prisma/client'
 
+// Re-export UserRole for convenience
+export type { UserRole }
+
 /**
  * Role-based access control permissions
  * Defines what each role can do in the system
