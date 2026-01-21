@@ -85,7 +85,7 @@ interface OwnerDashboardProps {
 export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: OwnerDashboardProps) {
   const router = useRouter()
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [dialogType, setDialogType] = useState<'revenue' | 'cash' | 'expenses' | 'profit' | 'outstanding' | 'stockTurnover' | 'fulfillmentRate' | null>(null)
+  const [dialogType, setDialogType] = useState<'revenue' | 'cash' | 'expenses' | 'profit' | 'outstanding' | 'stockTurnover' | 'fulfillmentRate' | 'inventoryValue' | 'totalOrders' | null>(null)
 
   // Calculate total revenue for percentage calculation
   const totalFabricRevenue = stats.revenueByFabric.reduce((sum, item) => sum + (item.revenue || 0), 0)
@@ -153,7 +153,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
       ? ((stats.cashCollectedThisMonth - stats.cashCollectedLastMonth) / stats.cashCollectedLastMonth) * 100
       : stats.cashCollectedThisMonth > 0 ? 100 : 0
 
-  const openDialog = (type: 'revenue' | 'cash' | 'expenses' | 'profit' | 'outstanding' | 'stockTurnover' | 'fulfillmentRate') => {
+  const openDialog = (type: 'revenue' | 'cash' | 'expenses' | 'profit' | 'outstanding' | 'stockTurnover' | 'fulfillmentRate' | 'inventoryValue' | 'totalOrders') => {
     setDialogType(type)
     setDialogOpen(true)
   }
@@ -474,7 +474,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
           <CardContent className="space-y-4">
             <div
               className="flex items-center justify-between p-4 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors"
-              onClick={() => router.push('/inventory')}
+              onClick={() => openDialog('inventoryValue')}
             >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-green-100 rounded-lg">
@@ -510,7 +510,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
 
             <div
               className="flex items-center justify-between p-4 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors"
-              onClick={() => router.push('/orders')}
+              onClick={() => openDialog('totalOrders')}
             >
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-purple-100 rounded-lg">
@@ -561,6 +561,8 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
               {dialogType === 'outstanding' && 'Outstanding Payments Details'}
               {dialogType === 'stockTurnover' && 'Stock Turnover Analysis'}
               {dialogType === 'fulfillmentRate' && 'Fulfillment Rate Breakdown'}
+              {dialogType === 'inventoryValue' && 'Inventory Value Breakdown'}
+              {dialogType === 'totalOrders' && 'Total Orders Analysis'}
             </DialogTitle>
             <DialogDescription>
               {dialogType === 'revenue' && 'Revenue from delivered orders (accrual basis)'}
@@ -570,6 +572,8 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
               {dialogType === 'outstanding' && 'Pending payments from customers'}
               {dialogType === 'stockTurnover' && 'Fabric usage efficiency over last 30 days'}
               {dialogType === 'fulfillmentRate' && 'Order completion and delivery performance'}
+              {dialogType === 'inventoryValue' && 'Total value of current inventory stock'}
+              {dialogType === 'totalOrders' && 'Complete order history and status breakdown'}
             </DialogDescription>
           </DialogHeader>
 
@@ -888,6 +892,209 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
                   <Link href="/orders">
                     <Button variant="outline">
                       View All Orders
+                    </Button>
+                  </Link>
+                  <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                    Close
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {dialogType === 'inventoryValue' && (
+              <div>
+                <div className="p-4 bg-green-50 rounded-lg mb-4">
+                  <p className="text-2xl font-bold text-green-600">
+                    {formatCurrency(generalStats.inventory.totalValue)}
+                  </p>
+                  <p className="text-sm text-slate-600 mt-1">Total Inventory Value (Current Stock)</p>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-900 mb-2">What is Inventory Value?</h4>
+                    <p className="text-sm text-slate-600">
+                      Inventory value represents the total worth of all fabric and accessories currently in stock.
+                      This is calculated by multiplying the current stock quantity by the price per unit for each item.
+                    </p>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 rounded border">
+                    <p className="text-xs font-medium text-slate-700 mb-2">Calculation Formula:</p>
+                    <p className="text-sm text-slate-900 font-mono">
+                      Σ (Current Stock × Price per Unit) for all items
+                    </p>
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-900 mb-2">Inventory Breakdown:</h4>
+                    <div className="space-y-3">
+                      <div className="p-3 bg-slate-50 rounded border">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-sm font-medium text-slate-700">Total Items</span>
+                          <span className="text-lg font-bold text-slate-900">{generalStats.inventory.totalItems}</span>
+                        </div>
+                        <p className="text-xs text-slate-600">Cloth fabrics + Accessories</p>
+                      </div>
+
+                      <div className="p-3 bg-blue-50 rounded border border-blue-200">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-sm font-medium text-blue-700">Total Fabric Stock</span>
+                          <span className="text-lg font-bold text-blue-700">{generalStats.inventory.totalMeters.toFixed(2)}m</span>
+                        </div>
+                        <p className="text-xs text-blue-600">Total meters available across all fabrics</p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="p-3 bg-amber-50 rounded border border-amber-200">
+                          <p className="text-xs text-amber-700 mb-1">Low Stock Items</p>
+                          <p className="text-2xl font-bold text-amber-700">{generalStats.inventory.lowStock}</p>
+                        </div>
+                        <div className="p-3 bg-red-50 rounded border border-red-200">
+                          <p className="text-xs text-red-700 mb-1">Critical Stock</p>
+                          <p className="text-2xl font-bold text-red-700">{generalStats.inventory.criticalStock}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-green-50 border border-green-200 rounded">
+                    <p className="text-sm font-medium text-green-900">💡 Inventory Health</p>
+                    <p className="text-xs text-green-700 mt-1">
+                      {generalStats.inventory.lowStock + generalStats.inventory.criticalStock === 0
+                        ? '✅ Excellent! All inventory items are well-stocked.'
+                        : generalStats.inventory.criticalStock > 0
+                        ? `⚠️ Action needed: ${generalStats.inventory.criticalStock} items at critical stock level. Consider reordering immediately.`
+                        : `⚡ ${generalStats.inventory.lowStock} items running low. Plan restocking soon.`}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 mt-4">
+                  <Link href="/inventory">
+                    <Button variant="default">
+                      View Inventory Details
+                    </Button>
+                  </Link>
+                  {(generalStats.inventory.lowStock > 0 || generalStats.inventory.criticalStock > 0) && (
+                    <Link href="/purchase-orders/new">
+                      <Button variant="outline">
+                        Create Purchase Order
+                      </Button>
+                    </Link>
+                  )}
+                  <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                    Close
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {dialogType === 'totalOrders' && (
+              <div>
+                <div className="p-4 bg-purple-50 rounded-lg mb-4">
+                  <p className="text-2xl font-bold text-purple-600">
+                    {generalStats.orders.total}
+                  </p>
+                  <p className="text-sm text-slate-600 mt-1">Total Orders (All Time)</p>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-900 mb-2">Order History Overview</h4>
+                    <p className="text-sm text-slate-600">
+                      This represents all orders created in the system since inception, including completed,
+                      in-progress, and cancelled orders. Track your business growth and order trends.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 bg-green-50 rounded border border-green-200">
+                      <p className="text-xs text-green-700 mb-1">Delivered</p>
+                      <p className="text-2xl font-bold text-green-700">{generalStats.orders.delivered}</p>
+                      <p className="text-xs text-green-600 mt-1">
+                        {generalStats.orders.total > 0
+                          ? ((generalStats.orders.delivered / generalStats.orders.total) * 100).toFixed(1)
+                          : 0}% of total
+                      </p>
+                    </div>
+                    <div className="p-3 bg-blue-50 rounded border border-blue-200">
+                      <p className="text-xs text-blue-700 mb-1">In Progress</p>
+                      <p className="text-2xl font-bold text-blue-700">
+                        {generalStats.orders.total - generalStats.orders.delivered}
+                      </p>
+                      <p className="text-xs text-blue-600 mt-1">
+                        {generalStats.orders.total > 0
+                          ? (((generalStats.orders.total - generalStats.orders.delivered) / generalStats.orders.total) * 100).toFixed(1)
+                          : 0}% of total
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-900 mb-2">Business Insights:</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center p-3 bg-slate-50 rounded">
+                        <div>
+                          <p className="text-sm font-medium text-slate-700">Average Fulfillment Time</p>
+                          <p className="text-xs text-slate-500">Time to complete orders</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-slate-900">{stats.avgFulfillmentTime.toFixed(1)} days</p>
+                          <p className={`text-xs ${stats.avgFulfillmentTime <= 15 ? 'text-green-600' : stats.avgFulfillmentTime <= 22 ? 'text-yellow-600' : 'text-red-600'}`}>
+                            {stats.avgFulfillmentTime <= 15 ? '✅ Excellent' : stats.avgFulfillmentTime <= 22 ? '⚠️ Good' : '🔴 Slow'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-between items-center p-3 bg-slate-50 rounded">
+                        <div>
+                          <p className="text-sm font-medium text-slate-700">Fulfillment Rate</p>
+                          <p className="text-xs text-slate-500">Orders successfully completed</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg font-bold text-slate-900">
+                            {generalStats.orders.total > 0
+                              ? ((generalStats.orders.delivered / generalStats.orders.total) * 100).toFixed(1)
+                              : 0}%
+                          </p>
+                          <p className={`text-xs ${
+                            generalStats.orders.total > 0 && ((generalStats.orders.delivered / generalStats.orders.total) * 100) >= 80
+                              ? 'text-green-600'
+                              : generalStats.orders.total > 0 && ((generalStats.orders.delivered / generalStats.orders.total) * 100) >= 60
+                              ? 'text-yellow-600'
+                              : 'text-red-600'
+                          }`}>
+                            {generalStats.orders.total > 0 && ((generalStats.orders.delivered / generalStats.orders.total) * 100) >= 80
+                              ? '✅ Excellent'
+                              : generalStats.orders.total > 0 && ((generalStats.orders.delivered / generalStats.orders.total) * 100) >= 60
+                              ? '⚠️ Good'
+                              : '🔴 Needs attention'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-purple-50 border border-purple-200 rounded">
+                    <p className="text-sm font-medium text-purple-900">💡 Growth Indicator</p>
+                    <p className="text-xs text-purple-700 mt-1">
+                      {generalStats.orders.total >= 200
+                        ? '🎉 Excellent! You have a strong order history with 200+ orders.'
+                        : generalStats.orders.total >= 100
+                        ? '✓ Great progress! You\'re building a solid customer base with 100+ orders.'
+                        : generalStats.orders.total >= 50
+                        ? '📈 Growing steadily! Keep up the good work with your order pipeline.'
+                        : '🌱 Just getting started! Focus on marketing and customer acquisition.'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 mt-4">
+                  <Link href="/orders">
+                    <Button variant="default">
+                      View All Orders
+                    </Button>
+                  </Link>
+                  <Link href="/orders/new">
+                    <Button variant="outline">
+                      Create New Order
                     </Button>
                   </Link>
                   <Button variant="outline" onClick={() => setDialogOpen(false)}>
