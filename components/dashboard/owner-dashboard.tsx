@@ -82,12 +82,61 @@ interface OwnerDashboardProps {
   }>
 }
 
-const FABRIC_COLORS = ['#3B82F6', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#06B6D4', '#EF4444', '#84CC16', '#F97316', '#A855F7']
-
 export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: OwnerDashboardProps) {
   const router = useRouter()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogType, setDialogType] = useState<'revenue' | 'cash' | 'expenses' | 'profit' | 'outstanding' | 'stockTurnover' | 'fulfillmentRate' | null>(null)
+
+  // Calculate total revenue for percentage calculation
+  const totalFabricRevenue = stats.revenueByFabric.reduce((sum, item) => sum + (item.revenue || 0), 0)
+
+  // Custom label renderer with dark background for visibility on light colors
+  const renderCustomLabel = (props: any) => {
+    const { cx, cy, midAngle, outerRadius, fill, payload } = props
+    const RADIAN = Math.PI / 180
+    const radius = outerRadius + 25
+    const x = cx + radius * Math.cos(-midAngle * RADIAN)
+    const y = cy + radius * Math.sin(-midAngle * RADIAN)
+
+    const percentage = ((payload.revenue / totalFabricRevenue) * 100).toFixed(1)
+    const amount = formatCurrency(payload.revenue)
+
+    return (
+      <g>
+        <rect
+          x={x - 50}
+          y={y - 18}
+          width={100}
+          height={36}
+          fill="rgba(0, 0, 0, 0.75)"
+          rx={4}
+          ry={4}
+        />
+        <text
+          x={x}
+          y={y - 4}
+          fill="#fff"
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fontSize={11}
+          fontWeight="600"
+        >
+          {amount}
+        </text>
+        <text
+          x={x}
+          y={y + 10}
+          fill="#fff"
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fontSize={11}
+          fontWeight="500"
+        >
+          ({percentage}%)
+        </text>
+      </g>
+    )
+  }
 
   const currentMonthProfit = stats.financialTrend[stats.financialTrend.length - 1]?.profit || 0
   const netRevenue = generalStats.revenue.thisMonth - stats.expensesThisMonth
@@ -349,15 +398,15 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
           <CardContent>
             {stats.revenueByFabric.length > 0 ? (
               <>
-                <ResponsiveContainer width="100%" height={300}>
+                <ResponsiveContainer width="100%" height={350}>
                   <PieChart>
                     <Pie
                       data={stats.revenueByFabric}
                       cx="50%"
                       cy="50%"
-                      labelLine={false}
-                      label={(entry: any) => `${(entry.name || '').substring(0, 15)}`}
-                      outerRadius={100}
+                      labelLine={true}
+                      label={renderCustomLabel}
+                      outerRadius={110}
                       fill="#8884d8"
                       dataKey="revenue"
                       onClick={(data: any) => {
@@ -367,32 +416,45 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
                       }}
                       style={{ cursor: 'pointer' }}
                     >
-                      {stats.revenueByFabric.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={FABRIC_COLORS[index % FABRIC_COLORS.length]} />
+                      {stats.revenueByFabric.map((entry: any, index: number) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={entry.colorHex || '#94a3b8'}
+                          stroke="#fff"
+                          strokeWidth={2}
+                        />
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(value: number | undefined) => formatCurrency(value || 0)}
+                      formatter={(value: number | undefined, name: string | undefined, props: any) => {
+                        const percentage = ((value || 0) / totalFabricRevenue * 100).toFixed(1)
+                        return [`${formatCurrency(value || 0)} (${percentage}%)`, props.payload.name]
+                      }}
                       contentStyle={{
                         backgroundColor: '#fff',
                         border: '1px solid #e2e8f0',
                         borderRadius: '6px',
+                        padding: '12px',
                       }}
                     />
                     <Legend
                       layout="horizontal"
                       verticalAlign="bottom"
                       align="center"
-                      wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }}
+                      wrapperStyle={{ paddingTop: '20px', fontSize: '13px' }}
+                      formatter={(value: string, entry: any) => {
+                        const payload = entry.payload as any
+                        return `${payload.name} (${payload.color})`
+                      }}
                     />
                   </PieChart>
                 </ResponsiveContainer>
                 <p className="text-xs text-center text-slate-500 mt-2">
-                  Click on any fabric to view orders using that fabric
+                  Click on any fabric slice to view orders using that fabric
                 </p>
               </>
             ) : (
-              <div className="h-[300px] flex items-center justify-center text-slate-500">
+              <div className="h-[350px] flex items-center justify-center text-slate-500">
                 <p>No revenue data available</p>
               </div>
             )}

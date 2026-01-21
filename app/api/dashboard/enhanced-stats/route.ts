@@ -673,12 +673,14 @@ export async function GET(request: Request) {
       revenueByFabric.map(async (item: RevenueByFabricItem) => {
         const cloth = await prisma.clothInventory.findUnique({
           where: { id: item.clothInventoryId },
-          select: { id: true, name: true, type: true },
+          select: { id: true, name: true, type: true, color: true, colorHex: true },
         })
         return {
           id: cloth?.id || item.clothInventoryId,
           name: cloth?.name || 'Unknown',
           type: cloth?.type || 'Unknown',
+          color: cloth?.color || 'Unknown',
+          colorHex: cloth?.colorHex || '#94a3b8', // Default slate-400 if no color
           revenue: item._sum.totalPrice || 0,
         }
       })

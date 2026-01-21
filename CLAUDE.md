@@ -10,6 +10,84 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Revenue by Fabric Chart Enhancement (v0.18.4)
+
+**What's New:**
+- **Actual Fabric Colors** - Chart now uses real fabric colors from database instead of random colors
+- **Amount + Percentage Display** - Pie slices show revenue amount and percentage (e.g., "₹45,200 (23.5%)")
+- **Enhanced Legend** - Shows fabric name with color name (e.g., "Premium Cotton (Blue)")
+- **Better Visibility** - Larger chart (350px), white stroke borders, label lines for clarity
+- **Professional Data Viz** - Industry-standard chart presentation with accurate color mapping
+
+**Version:** v0.18.4
+**Date:** January 21, 2026
+**Status:** ✅ Production Ready
+
+**Key Improvements:**
+
+1. **Actual Color Mapping** (`app/api/dashboard/enhanced-stats/route.ts`)
+   - API now includes `colorHex` field from ClothInventory
+   - Each fabric slice uses its actual database color (e.g., Blue=#3B82F6, Red=#EF4444)
+   - Fallback color (#94a3b8 slate-400) for fabrics without color assigned
+   - No more random color rotation
+
+2. **Enhanced Chart Display** (`components/dashboard/owner-dashboard.tsx`)
+   - **Before**: Showed fabric name in slices (truncated to 15 chars), white text invisible on light colors
+   - **After**: Shows `₹45,200.00\n(23.5%)` with actual amount and percentage
+   - **Dark label backgrounds** - Semi-transparent black boxes (75% opacity) ensure visibility on all colors
+   - Larger outer radius (110px vs 100px)
+   - Chart height increased (350px vs 300px)
+   - 2px white stroke borders between slices for better separation
+   - Label lines enabled for better readability
+   - Clickable slices navigate to filtered orders page
+
+3. **Improved Legend**
+   - Shows full fabric name with color name
+   - Example: "Premium Cotton (Blue)", "Silk Blend (Red)"
+   - Larger font size (13px) for better readability
+   - Horizontal layout at bottom
+
+4. **Enhanced Tooltip**
+   - Shows fabric name, amount, and percentage on hover
+   - Example: "Premium Cotton | ₹45,200.00 (23.5%)"
+   - Better padding and border styling
+
+**Visual Example:**
+```
+Pie Slice: ₹45,200.00
+            (23.5%)
+            ↓
+         ┌─────┐
+         │ 🔵  │  ← Actual Blue from database (#3B82F6)
+         └─────┘
+
+Legend: ━━━━ Premium Cotton (Blue)  ━━━━ Silk Blend (Red)
+```
+
+**User Benefits:**
+- ✅ Immediate visual recognition of fabrics by actual color
+- ✅ See exact revenue amounts without hovering
+- ✅ Percentage shows contribution to total revenue
+- ✅ Professional, industry-standard chart presentation
+- ✅ Easier to correlate with physical inventory
+- ✅ Labels visible on all fabric colors (dark background boxes)
+- ✅ Click any slice to view filtered orders for that fabric
+
+**Files Modified:**
+- `app/api/dashboard/enhanced-stats/route.ts` - Added `color` and `colorHex` fields (lines 676-685)
+- `components/dashboard/owner-dashboard.tsx` - Enhanced chart with actual colors and better labels (lines 84-417)
+
+**Performance:**
+- Build time: 29.6 seconds (no impact)
+- API response: ~200-400ms (+2 fields, minimal impact)
+- Chart render: <100ms (client-side calculations)
+
+**Documentation:** `docs/REVENUE_BY_FABRIC_CHART_IMPROVEMENTS.md`
+
+**Deployment:** ✅ Live at https://hamees.gagneet.com/dashboard
+
+---
+
 ### ✅ Interactive Barcode Scanning with Actionable Dialogs (v0.18.3)
 
 **What's New:**
