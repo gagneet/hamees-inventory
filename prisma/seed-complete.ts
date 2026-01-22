@@ -262,6 +262,9 @@ async function main() {
         regularAdjustment: 0,
         largeAdjustment: 0.3,
         xlAdjustment: 0.5,
+        basicStitchingCharge: 2000,
+        premiumStitchingCharge: 3000,
+        luxuryStitchingCharge: 4000,
       },
     }),
     prisma.garmentPattern.create({
@@ -273,6 +276,9 @@ async function main() {
         regularAdjustment: 0,
         largeAdjustment: 0.3,
         xlAdjustment: 0.5,
+        basicStitchingCharge: 2500,
+        premiumStitchingCharge: 3500,
+        luxuryStitchingCharge: 5000,
       },
     }),
     prisma.garmentPattern.create({
@@ -284,6 +290,9 @@ async function main() {
         regularAdjustment: 0,
         largeAdjustment: 0.5,
         xlAdjustment: 0.8,
+        basicStitchingCharge: 8000,
+        premiumStitchingCharge: 12000,
+        luxuryStitchingCharge: 16000,
       },
     }),
     prisma.garmentPattern.create({
@@ -295,6 +304,9 @@ async function main() {
         regularAdjustment: 0,
         largeAdjustment: 0.4,
         xlAdjustment: 0.6,
+        basicStitchingCharge: 12000,
+        premiumStitchingCharge: 18000,
+        luxuryStitchingCharge: 25000,
       },
     }),
   ])

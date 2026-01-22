@@ -268,6 +268,9 @@ async function exportToExcel() {
           regularAdjustment: p.regularAdjustment,
           largeAdjustment: p.largeAdjustment,
           xlAdjustment: p.xlAdjustment,
+          basicStitchingCharge: p.basicStitchingCharge,
+          premiumStitchingCharge: p.premiumStitchingCharge,
+          luxuryStitchingCharge: p.luxuryStitchingCharge,
           active: p.active,
           createdAt: p.createdAt.toISOString(),
           updatedAt: p.updatedAt.toISOString()
@@ -282,11 +285,14 @@ async function exportToExcel() {
         { key: 'regularAdjustment', header: 'Regular Adjustment', width: 18 },
         { key: 'largeAdjustment', header: 'Large Adjustment', width: 15 },
         { key: 'xlAdjustment', header: 'XL Adjustment', width: 15 },
+        { key: 'basicStitchingCharge', header: 'Basic Stitching (₹)', width: 18 },
+        { key: 'premiumStitchingCharge', header: 'Premium Stitching (₹)', width: 20 },
+        { key: 'luxuryStitchingCharge', header: 'Luxury Stitching (₹)', width: 20 },
         { key: 'active', header: 'Active', width: 10 },
         { key: 'createdAt', header: 'Created At', width: 20 },
         { key: 'updatedAt', header: 'Updated At', width: 20 }
       ],
-      notes: 'Body Type adjustments are additional meters added to baseMeters'
+      notes: 'Body Type adjustments are additional meters added to baseMeters. Stitching charges vary by quality tier (BASIC/PREMIUM/LUXURY).'
     },
 
     // 7. Garment Accessories (junction table - depends on GarmentPattern and AccessoryInventory)

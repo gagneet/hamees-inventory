@@ -10,6 +10,206 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Premium Pricing System with Workmanship Add-ons (v0.22.0)
+
+**What's New:**
+- **Itemized Cost Breakdown** - Separate display for Fabric, Accessories, Tailoring, and Workmanship costs
+- **Dynamic Stitching Charges** - Three-tier pricing (Basic/Premium/Luxury) linked to garment patterns
+- **Workmanship Premiums** - Hand stitching, full canvas construction, rush orders, complex designs
+- **Manual Override Capability** - Users can adjust any line item with override notes
+- **Fabric Wastage Factor** - Optional 10-15% wastage margin for bespoke work
+- **Designer Consultation Fee** - Add consultation charges for style guidance
+- **Industry-Standard Pricing** - Based on global bespoke tailoring research (2024)
+
+**Version:** v0.22.0
+**Date:** January 22, 2026
+**Status:** 🚧 In Development
+
+**Business Context:**
+
+This system implements premium bespoke suiting pricing based on comprehensive industry research:
+
+**Global Bespoke Pricing Standards (2024):**
+- Entry Bespoke: $1,200-$2,500 (₹1L-₹2L)
+- Mid-Range Bespoke: $2,500-$5,000 (₹2L-₹4L)
+- Premium Bespoke: $5,000-$10,000+ (₹4L-₹8L+)
+
+**India Premium Tailoring:**
+- Basic Tailored Suit: ₹5,000-₹8,500
+- Premium Bespoke: ₹100,000+ (including fabric)
+- Labor Component: 30-50% of total cost
+- Fabric Component: 40-60% of total cost
+
+**Key Pricing Components:**
+
+1. **Dynamic Stitching Charges by Garment Type:**
+   | Garment | Basic | Premium | Luxury |
+   |---------|-------|---------|--------|
+   | 3-Piece Suit | ₹10,000 | ₹15,000 | ₹20,000+ |
+   | 2-Piece Suit | ₹8,000 | ₹12,000 | ₹16,000+ |
+   | Jacket/Blazer | ₹5,000 | ₹7,500 | ₹10,000+ |
+   | Trouser | ₹2,500 | ₹3,500 | ₹5,000 |
+   | Shirt | ₹2,000 | ₹3,000 | ₹4,000 |
+   | Sherwani | ₹12,000 | ₹18,000 | ₹25,000+ |
+
+2. **Workmanship Premiums:**
+   - **Hand Stitching**: +30-40% (20-50 hours artisan work)
+   - **Full Canvas Construction**: +₹3,000-₹5,000 (superior drape, 6 weeks crafting)
+   - **Complex Design**: +20-30% (peak lapels, working buttonholes, special vents)
+   - **Rush Order (<7 days)**: +50% (priority scheduling, overtime)
+   - **Multiple Fittings**: +₹1,500/fitting (beyond standard 2 fittings)
+   - **Designer Consultation**: ₹3,000-₹8,000 (style guidance, fabric selection)
+   - **Fabric Wastage**: +10-15% on fabric (industry standard for bespoke)
+   - **Premium Lining**: +₹2,000-₹5,000 (silk, custom monograms)
+
+3. **Itemized Cost Breakdown Display:**
+   ```
+   Fabric Cost:              ₹45,000.00
+     - Premium Cotton (Blue)
+     - 3.2m × ₹14,062.50/m
+     - Wastage (15%):        ₹6,750.00
+
+   Accessories Cost:         ₹2,400.00
+     - Buttons (20 units)    ₹1,600.00
+     - Thread (2 spools)     ₹400.00
+     - Zipper (1 unit)       ₹400.00
+
+   Tailoring Cost:           ₹15,000.00
+     - Base (Premium tier)   ₹15,000.00
+
+   Workmanship Premiums:     ₹11,000.00
+     - Hand Stitching        ₹6,000.00
+     - Full Canvas           ₹5,000.00
+
+   Designer Consultation:    ₹5,000.00
+
+   ------------------------
+   Subtotal (before GST):    ₹78,400.00
+   CGST (6%):                ₹4,704.00
+   SGST (6%):                ₹4,704.00
+   Total GST (12%):          ₹9,408.00
+   ------------------------
+   Total Amount:             ₹87,808.00
+   ```
+
+4. **Manual Override Fields:**
+   - Each cost component can be overridden with custom amount
+   - Override reason field (mandatory for audit trail)
+   - Original calculated value displayed for reference
+   - Overrides highlighted in UI with amber badges
+
+5. **Database Schema Enhancements:**
+
+**GarmentPattern Model:**
+```prisma
+model GarmentPattern {
+  // Existing fields...
+  basicStitchingCharge    Float   @default(1500)  // Basic tier
+  premiumStitchingCharge  Float   @default(3000)  // Premium tier
+  luxuryStitchingCharge   Float   @default(5000)  // Luxury tier
+}
+```
+
+**Order Model:**
+```prisma
+model Order {
+  // Existing fields...
+
+  // Cost Breakdown Fields
+  fabricCost              Float   @default(0)
+  accessoriesCost         Float   @default(0)
+  stitchingCost           Float   @default(0)
+  workmanshipPremiums     Float   @default(0)
+  designerConsultationFee Float   @default(0)
+  fabricWastageAmount     Float   @default(0)
+
+  // Stitching Tier
+  stitchingTier           StitchingTier  @default(BASIC)
+
+  // Workmanship Premium Flags
+  isHandStitched          Boolean @default(false)
+  handStitchingCost       Float   @default(0)
+
+  isFullCanvas            Boolean @default(false)
+  fullCanvasCost          Float   @default(0)
+
+  isRushOrder             Boolean @default(false)
+  rushOrderCost           Float   @default(0)
+
+  hasComplexDesign        Boolean @default(false)
+  complexDesignCost       Float   @default(0)
+
+  additionalFittings      Int     @default(0)
+  additionalFittingsCost  Float   @default(0)
+
+  hasPremiumLining        Boolean @default(false)
+  premiumLiningCost       Float   @default(0)
+
+  fabricWastagePercent    Float   @default(0)
+
+  // Manual Override Fields
+  isFabricCostOverridden  Boolean @default(false)
+  fabricCostOverrideReason String?
+
+  isStitchingCostOverridden Boolean @default(false)
+  stitchingCostOverrideReason String?
+
+  // Override notes for complete transparency
+  pricingNotes            String?
+}
+
+enum StitchingTier {
+  BASIC
+  PREMIUM
+  LUXURY
+}
+```
+
+**Files Added:**
+- `docs/PREMIUM_PRICING_SYSTEM.md` - Complete pricing methodology documentation
+- Database migration with new fields
+
+**Files Modified:**
+- `prisma/schema.prisma` - Added pricing fields to GarmentPattern and Order models
+- `app/api/orders/route.ts` - Enhanced pricing calculation with itemized breakdown
+- `app/(dashboard)/orders/new/page.tsx` - Itemized cost display with premium controls
+- `CLAUDE.md` - This documentation
+
+**Testing:**
+```bash
+# Test Premium Pricing Workflow
+1. Login as owner@hameesattire.com / admin123
+2. Navigate to /orders/new
+3. Select customer and add 3-Piece Suit
+4. Select premium fabric (e.g., Silk Blend)
+5. Choose "Premium" stitching tier
+6. Enable workmanship premiums:
+   - ✓ Hand Stitching
+   - ✓ Full Canvas Construction
+7. Add designer consultation fee: ₹5,000
+8. Enable fabric wastage (15%)
+9. Review itemized breakdown:
+   - Fabric Cost (with wastage)
+   - Accessories Cost
+   - Tailoring Cost (Premium tier)
+   - Workmanship Premiums
+   - Designer Fee
+10. Verify total calculation matches breakdown
+11. Create order and verify all fields saved
+```
+
+**Business Impact:**
+- ✅ Accurate pricing for premium bespoke work
+- ✅ Transparent cost breakdown for customers
+- ✅ Flexibility for custom pricing scenarios
+- ✅ Industry-standard pricing methodology
+- ✅ Complete audit trail for pricing decisions
+- ✅ Support for exclusive, high-value orders
+
+**Deployment:** 🚧 Testing in development environment
+
+---
+
 ### ✅ Interactive Dashboard Cards & Revenue Forecasting (v0.21.0)
 
 **What's New:**

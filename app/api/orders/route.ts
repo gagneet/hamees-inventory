@@ -3,7 +3,7 @@ import { after } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
 import { z } from 'zod'
-import { OrderStatus, OrderPriority, BodyType, StockMovementType } from '@/lib/types'
+import { OrderStatus, OrderPriority, BodyType, StockMovementType, StitchingTier } from '@/lib/types'
 
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 
@@ -14,6 +14,35 @@ const orderSchema = z.object({
   priority: z.nativeEnum(OrderPriority).default(OrderPriority.NORMAL),
   advancePaid: z.number().min(0).default(0),
   notes: z.string().nullish(),
+
+  // ✨ PREMIUM PRICING SYSTEM (v0.22.0) - New fields
+  stitchingTier: z.nativeEnum(StitchingTier).default(StitchingTier.BASIC),
+  fabricWastagePercent: z.number().min(0).max(15).default(0),
+  designerConsultationFee: z.number().min(0).default(0),
+
+  // Workmanship premiums
+  isHandStitched: z.boolean().default(false),
+  isFullCanvas: z.boolean().default(false),
+  isRushOrder: z.boolean().default(false),
+  hasComplexDesign: z.boolean().default(false),
+  additionalFittings: z.number().int().min(0).default(0),
+  hasPremiumLining: z.boolean().default(false),
+
+  // Manual overrides
+  isFabricCostOverridden: z.boolean().default(false),
+  fabricCostOverride: z.number().nullish(),
+  fabricCostOverrideReason: z.string().nullish(),
+
+  isStitchingCostOverridden: z.boolean().default(false),
+  stitchingCostOverride: z.number().nullish(),
+  stitchingCostOverrideReason: z.string().nullish(),
+
+  isAccessoriesCostOverridden: z.boolean().default(false),
+  accessoriesCostOverride: z.number().nullish(),
+  accessoriesCostOverrideReason: z.string().nullish(),
+
+  pricingNotes: z.string().nullish(),
+
   items: z.array(
     z.object({
       garmentPatternId: z.string().min(1),
@@ -219,8 +248,10 @@ export async function POST(request: Request) {
     const body = await request.json()
     const validatedData = orderSchema.parse(body)
 
-    // Calculate order details
-    let subTotal = 0
+    // ✨ PREMIUM PRICING SYSTEM (v0.22.0) - Itemized cost calculation
+    let fabricCost = 0
+    let accessoriesCost = 0
+    let stitchingCost = 0
     const orderItems: any[] = []
 
     // Extract unique IDs to fetch all required data in parallel (avoid N+1 queries)
@@ -290,27 +321,40 @@ export async function POST(request: Request) {
         )
       }
 
-      let itemTotal = estimatedMeters * cloth.pricePerMeter
+      // Calculate fabric cost
+      const itemFabricCost = estimatedMeters * cloth.pricePerMeter
+      fabricCost += itemFabricCost
 
       // Calculate accessories cost using lookup map
+      let itemAccessoriesCost = 0
       if (item.accessories && item.accessories.length > 0) {
         for (const acc of item.accessories) {
           const accessory = accessoryMap.get(acc.accessoryId)
           if (accessory) {
             const accessoryTotal = acc.quantity * item.quantity * accessory.pricePerUnit
-            itemTotal += accessoryTotal
+            itemAccessoriesCost += accessoryTotal
           }
         }
       }
+      accessoriesCost += itemAccessoriesCost
 
-      subTotal += itemTotal
+      // Calculate stitching cost based on tier
+      let tierCharge = pattern.basicStitchingCharge // Default to BASIC
+      if (validatedData.stitchingTier === StitchingTier.PREMIUM) {
+        tierCharge = pattern.premiumStitchingCharge
+      } else if (validatedData.stitchingTier === StitchingTier.LUXURY) {
+        tierCharge = pattern.luxuryStitchingCharge
+      }
+      stitchingCost += tierCharge * item.quantity
 
       // Find matching measurement for this garment type
-      // Match pattern name with measurement garmentType (e.g., "Men's Shirt" -> "Shirt")
       const garmentTypeName = pattern.name.replace(/^(Men's|Women's|Kids)\s+/i, '').trim()
       const matchingMeasurement = customerMeasurements.find(
         m => m.garmentType.toLowerCase() === garmentTypeName.toLowerCase()
       )
+
+      // Calculate item total
+      const itemTotal = itemFabricCost + itemAccessoriesCost
 
       orderItems.push({
         garmentPatternId: item.garmentPatternId,
@@ -320,14 +364,75 @@ export async function POST(request: Request) {
         estimatedMeters,
         pricePerUnit: itemTotal / item.quantity,
         totalPrice: itemTotal,
-        measurementId: matchingMeasurement?.id, // Link measurement to order item
-        assignedTailorId: item.assignedTailorId || undefined, // Optional tailor assignment
+        measurementId: matchingMeasurement?.id,
+        assignedTailorId: item.assignedTailorId || undefined,
       })
     }
 
-    // Add stitching charges (can be customized)
-    const stitchingCharges = orderItems.length * 1500
-    subTotal += stitchingCharges
+    // Apply fabric wastage
+    const fabricWastageAmount = parseFloat((fabricCost * (validatedData.fabricWastagePercent / 100)).toFixed(2))
+
+    // Calculate workmanship premiums
+    let workmanshipPremiums = 0
+    let handStitchingCost = 0
+    let fullCanvasCost = 0
+    let rushOrderCost = 0
+    let complexDesignCost = 0
+    let additionalFittingsCost = 0
+    let premiumLiningCost = 0
+
+    if (validatedData.isHandStitched) {
+      handStitchingCost = parseFloat((stitchingCost * 0.40).toFixed(2)) // +40%
+      workmanshipPremiums += handStitchingCost
+    }
+
+    if (validatedData.isFullCanvas) {
+      fullCanvasCost = 5000 // Fixed premium
+      workmanshipPremiums += fullCanvasCost
+    }
+
+    if (validatedData.isRushOrder) {
+      rushOrderCost = parseFloat((stitchingCost * 0.50).toFixed(2)) // +50%
+      workmanshipPremiums += rushOrderCost
+    }
+
+    if (validatedData.hasComplexDesign) {
+      complexDesignCost = parseFloat((stitchingCost * 0.30).toFixed(2)) // +30%
+      workmanshipPremiums += complexDesignCost
+    }
+
+    if (validatedData.additionalFittings > 0) {
+      additionalFittingsCost = validatedData.additionalFittings * 1500
+      workmanshipPremiums += additionalFittingsCost
+    }
+
+    if (validatedData.hasPremiumLining) {
+      premiumLiningCost = 5000 // Fixed premium
+      workmanshipPremiums += premiumLiningCost
+    }
+
+    // Apply manual overrides
+    if (validatedData.isFabricCostOverridden && validatedData.fabricCostOverride != null) {
+      fabricCost = validatedData.fabricCostOverride
+    }
+
+    if (validatedData.isStitchingCostOverridden && validatedData.stitchingCostOverride != null) {
+      stitchingCost = validatedData.stitchingCostOverride
+    }
+
+    if (validatedData.isAccessoriesCostOverridden && validatedData.accessoriesCostOverride != null) {
+      accessoriesCost = validatedData.accessoriesCostOverride
+    }
+
+    // Calculate subtotal
+    const subTotal = parseFloat((
+      fabricCost +
+      fabricWastageAmount +
+      accessoriesCost +
+      stitchingCost +
+      workmanshipPremiums +
+      validatedData.designerConsultationFee
+    ).toFixed(2))
 
     // Calculate GST (12% for garments - split into CGST 6% + SGST 6% for intra-state)
     const gstRate = 12
@@ -356,6 +461,52 @@ export async function POST(request: Request) {
           status: OrderStatus.NEW,
           priority: validatedData.priority,
           deliveryDate: new Date(validatedData.deliveryDate),
+
+          // ✨ PREMIUM PRICING SYSTEM (v0.22.0) - Itemized costs
+          fabricCost,
+          fabricWastagePercent: validatedData.fabricWastagePercent,
+          fabricWastageAmount,
+          accessoriesCost,
+          stitchingCost,
+          stitchingTier: validatedData.stitchingTier,
+          workmanshipPremiums,
+          designerConsultationFee: validatedData.designerConsultationFee,
+
+          // Workmanship premium details
+          isHandStitched: validatedData.isHandStitched,
+          handStitchingCost,
+
+          isFullCanvas: validatedData.isFullCanvas,
+          fullCanvasCost,
+
+          isRushOrder: validatedData.isRushOrder,
+          rushOrderCost,
+
+          hasComplexDesign: validatedData.hasComplexDesign,
+          complexDesignCost,
+
+          additionalFittings: validatedData.additionalFittings,
+          additionalFittingsCost,
+
+          hasPremiumLining: validatedData.hasPremiumLining,
+          premiumLiningCost,
+
+          // Manual overrides
+          isFabricCostOverridden: validatedData.isFabricCostOverridden,
+          fabricCostOverride: validatedData.fabricCostOverride,
+          fabricCostOverrideReason: validatedData.fabricCostOverrideReason,
+
+          isStitchingCostOverridden: validatedData.isStitchingCostOverridden,
+          stitchingCostOverride: validatedData.stitchingCostOverride,
+          stitchingCostOverrideReason: validatedData.stitchingCostOverrideReason,
+
+          isAccessoriesCostOverridden: validatedData.isAccessoriesCostOverridden,
+          accessoriesCostOverride: validatedData.accessoriesCostOverride,
+          accessoriesCostOverrideReason: validatedData.accessoriesCostOverrideReason,
+
+          pricingNotes: validatedData.pricingNotes,
+
+          // Standard GST fields
           subTotal,
           gstRate,
           cgst,

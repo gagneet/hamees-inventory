@@ -4,6 +4,7 @@ import {
   StockMovementType,
   OrderPriority,
   BodyType,
+  StitchingTier,
 } from '@prisma/client';
 import type {
   ClothInventory,
@@ -18,6 +19,7 @@ export {
   StockMovementType,
   OrderPriority,
   BodyType,
+  StitchingTier,
 };
 
 export type {

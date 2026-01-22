@@ -98,6 +98,12 @@ enum DesignFileCategory {
   FINAL             // Final product photo
 }
 
+enum StitchingTier {
+  BASIC             // Entry-level stitching
+  PREMIUM           // Mid-range quality
+  LUXURY            // High-end bespoke
+}
+
 // Models
 model User {
   id            String    @id @default(cuid())
@@ -268,6 +274,11 @@ model GarmentPattern {
   largeAdjustment    Float @default(0.3)
   xlAdjustment       Float @default(0.5)
 
+  // Stitching charge tiers (premium bespoke pricing)
+  basicStitchingCharge    Float @default(1500)   // Basic tier stitching
+  premiumStitchingCharge  Float @default(3000)   // Premium tier stitching
+  luxuryStitchingCharge   Float @default(5000)   // Luxury tier stitching
+
   active        Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -325,6 +336,50 @@ model Order {
   invoiceNumber   String?      @unique       // GST invoice number
   invoiceDate     DateTime?                  // GST invoice date
   placeOfSupply   String?                    // State for GST
+
+  // PREMIUM PRICING SYSTEM (v0.22.0) - Itemized Cost Breakdown
+  fabricCost              Float         @default(0)  // Total fabric cost (excluding wastage)
+  fabricWastagePercent    Float         @default(0)  // Wastage percentage (10-15% typical)
+  fabricWastageAmount     Float         @default(0)  // Wastage amount in rupees
+  accessoriesCost         Float         @default(0)  // Total accessories cost
+  stitchingCost           Float         @default(0)  // Base stitching cost
+  stitchingTier           StitchingTier @default(BASIC)  // BASIC/PREMIUM/LUXURY tier
+  workmanshipPremiums     Float         @default(0)  // Total workmanship premiums
+  designerConsultationFee Float         @default(0)  // Designer consultation charges
+
+  // Workmanship Premium Flags and Costs
+  isHandStitched          Boolean       @default(false)
+  handStitchingCost       Float         @default(0)  // +30-40% or fixed amount
+
+  isFullCanvas            Boolean       @default(false)
+  fullCanvasCost          Float         @default(0)  // +₹3,000-₹5,000
+
+  isRushOrder             Boolean       @default(false)
+  rushOrderCost           Float         @default(0)  // +50% of base cost
+
+  hasComplexDesign        Boolean       @default(false)
+  complexDesignCost       Float         @default(0)  // +20-30% or fixed amount
+
+  additionalFittings      Int           @default(0)  // Beyond standard 2 fittings
+  additionalFittingsCost  Float         @default(0)  // +₹1,500/fitting
+
+  hasPremiumLining        Boolean       @default(false)
+  premiumLiningCost       Float         @default(0)  // +₹2,000-₹5,000
+
+  // Manual Override Fields (for custom pricing adjustments)
+  isFabricCostOverridden      Boolean   @default(false)
+  fabricCostOverride          Float?    // Override value if different from calculated
+  fabricCostOverrideReason    String?   // Mandatory reason for override
+
+  isStitchingCostOverridden   Boolean   @default(false)
+  stitchingCostOverride       Float?    // Override value
+  stitchingCostOverrideReason String?   // Mandatory reason for override
+
+  isAccessoriesCostOverridden Boolean   @default(false)
+  accessoriesCostOverride     Float?    // Override value
+  accessoriesCostOverrideReason String? // Mandatory reason for override
+
+  pricingNotes                String?   @db.Text  // Complete pricing notes and adjustments
 
   notes           String?   // Customer instructions and special requests
   tailorNotes     String?   // Tailor's observations and modifications (separate from customer notes)
