@@ -32,6 +32,9 @@ type GarmentPattern = {
   regularAdjustment: number
   largeAdjustment: number
   xlAdjustment: number
+  basicStitchingCharge: number
+  premiumStitchingCharge: number
+  luxuryStitchingCharge: number
   accessories?: Array<{
     id: string
     quantity: number
@@ -95,6 +98,19 @@ function NewOrderForm() {
   const [advancePaid, setAdvancePaid] = useState(0)
   const [notes, setNotes] = useState('')
   const [items, setItems] = useState<OrderItem[]>([])
+
+  // Premium Pricing Configuration
+  const [stitchingTier, setStitchingTier] = useState<'BASIC' | 'PREMIUM' | 'LUXURY'>('BASIC')
+  const [fabricWastagePercent, setFabricWastagePercent] = useState(0)
+  const [designerConsultationFee, setDesignerConsultationFee] = useState(0)
+
+  // Workmanship Premiums
+  const [isHandStitched, setIsHandStitched] = useState(false)
+  const [isFullCanvas, setIsFullCanvas] = useState(false)
+  const [isRushOrder, setIsRushOrder] = useState(false)
+  const [hasComplexDesign, setHasComplexDesign] = useState(false)
+  const [additionalFittings, setAdditionalFittings] = useState(0)
+  const [hasPremiumLining, setHasPremiumLining] = useState(false)
 
   // Available data
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -243,47 +259,135 @@ function NewOrderForm() {
 
   const calculateEstimate = () => {
     if (!garmentPatterns || !clothInventory || !items || !accessories) {
-      return { subTotal: 0, gstAmount: 0, total: 0, cgst: 0, sgst: 0, gstRate: 0 }
+      return {
+        fabricCost: 0,
+        fabricWastageAmount: 0,
+        accessoriesCost: 0,
+        stitchingCost: 0,
+        workmanshipPremiums: 0,
+        subTotal: 0,
+        gstAmount: 0,
+        total: 0,
+        cgst: 0,
+        sgst: 0,
+        gstRate: 0
+      }
     }
 
-    let subTotal = 0
+    // Calculate itemized costs
+    let fabricCost = 0
+    let accessoriesCost = 0
+    let stitchingCost = 0
+
     for (const item of items) {
       const pattern = garmentPatterns.find(p => p.id === item.garmentPatternId)
       const cloth = clothInventory.find(c => c.id === item.clothInventoryId)
 
       if (pattern && cloth) {
+        // Fabric cost
         let adjustment = pattern.regularAdjustment
         if (item.bodyType === 'SLIM') adjustment = pattern.slimAdjustment
         if (item.bodyType === 'LARGE') adjustment = pattern.largeAdjustment
         if (item.bodyType === 'XL') adjustment = pattern.xlAdjustment
 
         const meters = (pattern.baseMeters + adjustment) * item.quantity
-        subTotal += meters * cloth.pricePerMeter
+        fabricCost += parseFloat((meters * cloth.pricePerMeter).toFixed(2))
 
-        // Add accessory costs from item's accessories
+        // Accessories cost
         if (item.accessories && item.accessories.length > 0) {
           for (const itemAcc of item.accessories) {
             const accessory = accessories.find(a => a.id === itemAcc.accessoryId)
             if (accessory) {
               const accessoryTotal = itemAcc.quantity * item.quantity * accessory.pricePerUnit
-              subTotal += accessoryTotal
+              accessoriesCost += parseFloat(accessoryTotal.toFixed(2))
             }
           }
         }
+
+        // Stitching cost based on tier
+        let tierCharge = pattern.basicStitchingCharge
+        if (stitchingTier === 'PREMIUM') {
+          tierCharge = pattern.premiumStitchingCharge
+        } else if (stitchingTier === 'LUXURY') {
+          tierCharge = pattern.luxuryStitchingCharge
+        }
+        stitchingCost += tierCharge * item.quantity
       }
     }
-    // Add stitching charges
-    const stitchingCharges = items.length * 1500
-    subTotal += stitchingCharges
+
+    // Apply fabric wastage
+    const fabricWastageAmount = parseFloat((fabricCost * (fabricWastagePercent / 100)).toFixed(2))
+
+    // Calculate workmanship premiums
+    let workmanshipPremiums = 0
+    let handStitchingCost = 0
+    let fullCanvasCost = 0
+    let rushOrderCost = 0
+    let complexDesignCost = 0
+    let additionalFittingsCost = 0
+    let premiumLiningCost = 0
+
+    if (isHandStitched) {
+      handStitchingCost = parseFloat((stitchingCost * 0.40).toFixed(2)) // +40%
+      workmanshipPremiums += handStitchingCost
+    }
+
+    if (isFullCanvas) {
+      fullCanvasCost = 5000 // Fixed premium
+      workmanshipPremiums += fullCanvasCost
+    }
+
+    if (isRushOrder) {
+      rushOrderCost = parseFloat((stitchingCost * 0.50).toFixed(2)) // +50%
+      workmanshipPremiums += rushOrderCost
+    }
+
+    if (hasComplexDesign) {
+      complexDesignCost = parseFloat((stitchingCost * 0.30).toFixed(2)) // +30%
+      workmanshipPremiums += complexDesignCost
+    }
+
+    if (additionalFittings > 0) {
+      additionalFittingsCost = additionalFittings * 1500
+      workmanshipPremiums += additionalFittingsCost
+    }
+
+    if (hasPremiumLining) {
+      premiumLiningCost = 5000
+      workmanshipPremiums += premiumLiningCost
+    }
+
+    // Calculate subtotal
+    const subTotal = parseFloat((
+      fabricCost +
+      fabricWastageAmount +
+      accessoriesCost +
+      stitchingCost +
+      workmanshipPremiums +
+      designerConsultationFee
+    ).toFixed(2))
 
     // Calculate GST (12% for garments - split into CGST 6% + SGST 6%)
     const gstRate = 12
-    const gstAmount = (subTotal * gstRate) / 100
-    const cgst = gstAmount / 2
-    const sgst = gstAmount / 2
-    const total = subTotal + gstAmount
+    const gstAmount = parseFloat(((subTotal * gstRate) / 100).toFixed(2))
+    const cgst = parseFloat((gstAmount / 2).toFixed(2))
+    const sgst = parseFloat((gstAmount / 2).toFixed(2))
+    const total = parseFloat((subTotal + gstAmount).toFixed(2))
 
-    return { subTotal, gstAmount, total, cgst, sgst, gstRate }
+    return {
+      fabricCost,
+      fabricWastageAmount,
+      accessoriesCost,
+      stitchingCost,
+      workmanshipPremiums,
+      designerFee: designerConsultationFee,
+      subTotal,
+      gstAmount,
+      total,
+      cgst,
+      sgst,
+      gstRate
+    }
   }
 
   const handleSubmit = async () => {
@@ -325,6 +429,17 @@ function NewOrderForm() {
           advancePaid: advancePaid || 0,
           notes: notes || '',
           items: validItems,
+          // Premium Pricing Configuration
+          stitchingTier,
+          fabricWastagePercent,
+          designerConsultationFee,
+          // Workmanship Premiums
+          isHandStitched,
+          isFullCanvas,
+          isRushOrder,
+          hasComplexDesign,
+          additionalFittings,
+          hasPremiumLining,
         }),
       })
 
@@ -345,7 +460,20 @@ function NewOrderForm() {
   }
 
   const selectedCustomer = customers?.find(c => c.id === customerId)
-  const { subTotal, gstAmount, total, cgst, sgst, gstRate } = calculateEstimate()
+  const {
+    fabricCost,
+    fabricWastageAmount,
+    accessoriesCost,
+    stitchingCost,
+    workmanshipPremiums,
+    designerFee,
+    subTotal,
+    gstAmount,
+    total,
+    cgst,
+    sgst,
+    gstRate
+  } = calculateEstimate()
   const balanceAmount = total - advancePaid
 
   return (
@@ -736,24 +864,281 @@ function NewOrderForm() {
               </CardContent>
             </Card>
 
+            {/* Premium Pricing Configuration */}
+            <Card className="border-2 border-orange-200 bg-orange-50/30">
+              <CardHeader>
+                <CardTitle className="text-orange-900">Premium Pricing Configuration</CardTitle>
+                <CardDescription>Select stitching quality tier and workmanship premiums</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Stitching Tier Selector */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-3">
+                    Stitching Quality Tier
+                  </label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div
+                      onClick={() => setStitchingTier('BASIC')}
+                      className={`cursor-pointer rounded-lg border-2 p-4 transition-all ${
+                        stitchingTier === 'BASIC'
+                          ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
+                          : 'border-slate-300 bg-white hover:border-blue-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-semibold text-slate-900">BASIC</span>
+                        <input
+                          type="radio"
+                          checked={stitchingTier === 'BASIC'}
+                          onChange={() => setStitchingTier('BASIC')}
+                          className="h-4 w-4"
+                        />
+                      </div>
+                      <p className="text-sm text-slate-600">Entry-level bespoke quality</p>
+                      <p className="text-xs text-slate-500 mt-2">₹2K-₹12K per garment</p>
+                    </div>
+
+                    <div
+                      onClick={() => setStitchingTier('PREMIUM')}
+                      className={`cursor-pointer rounded-lg border-2 p-4 transition-all ${
+                        stitchingTier === 'PREMIUM'
+                          ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
+                          : 'border-slate-300 bg-white hover:border-blue-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-semibold text-slate-900">PREMIUM</span>
+                        <input
+                          type="radio"
+                          checked={stitchingTier === 'PREMIUM'}
+                          onChange={() => setStitchingTier('PREMIUM')}
+                          className="h-4 w-4"
+                        />
+                      </div>
+                      <p className="text-sm text-slate-600">Mid-range quality</p>
+                      <p className="text-xs text-slate-500 mt-2">₹3K-₹18K per garment</p>
+                    </div>
+
+                    <div
+                      onClick={() => setStitchingTier('LUXURY')}
+                      className={`cursor-pointer rounded-lg border-2 p-4 transition-all ${
+                        stitchingTier === 'LUXURY'
+                          ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
+                          : 'border-slate-300 bg-white hover:border-blue-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-semibold text-slate-900">LUXURY</span>
+                        <input
+                          type="radio"
+                          checked={stitchingTier === 'LUXURY'}
+                          onChange={() => setStitchingTier('LUXURY')}
+                          className="h-4 w-4"
+                        />
+                      </div>
+                      <p className="text-sm text-slate-600">High-end bespoke quality</p>
+                      <p className="text-xs text-slate-500 mt-2">₹4K-₹25K per garment</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Workmanship Premiums */}
+                <div className="border-t pt-6">
+                  <label className="block text-sm font-medium text-slate-700 mb-3">
+                    Workmanship Premiums
+                  </label>
+                  <div className="space-y-3">
+                    <label className="flex items-start space-x-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={isHandStitched}
+                        onChange={(e) => setIsHandStitched(e.target.checked)}
+                        className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <div className="flex-1">
+                        <span className="font-medium text-slate-900 group-hover:text-blue-600">Hand Stitching</span>
+                        <p className="text-sm text-slate-600">20-50 hours artisan work (+40% of stitching cost)</p>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start space-x-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={isFullCanvas}
+                        onChange={(e) => setIsFullCanvas(e.target.checked)}
+                        className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <div className="flex-1">
+                        <span className="font-medium text-slate-900 group-hover:text-blue-600">Full Canvas Construction</span>
+                        <p className="text-sm text-slate-600">Superior drape, 6 weeks crafting (+₹5,000)</p>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start space-x-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={isRushOrder}
+                        onChange={(e) => setIsRushOrder(e.target.checked)}
+                        className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <div className="flex-1">
+                        <span className="font-medium text-slate-900 group-hover:text-blue-600">Rush Order</span>
+                        <p className="text-sm text-slate-600">&lt;7 days delivery, priority scheduling (+50% of stitching cost)</p>
+                      </div>
+                    </label>
+
+                    <label className="flex items-start space-x-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={hasComplexDesign}
+                        onChange={(e) => setHasComplexDesign(e.target.checked)}
+                        className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <div className="flex-1">
+                        <span className="font-medium text-slate-900 group-hover:text-blue-600">Complex Design</span>
+                        <p className="text-sm text-slate-600">Peak lapels, working buttonholes, special vents (+30% of stitching cost)</p>
+                      </div>
+                    </label>
+
+                    <div className="flex items-start space-x-3">
+                      <div className="flex-1">
+                        <label className="block font-medium text-slate-900 mb-2">Additional Fittings</label>
+                        <p className="text-sm text-slate-600 mb-2">Beyond standard 2 fittings (+₹1,500 per fitting)</p>
+                        <input
+                          type="number"
+                          min="0"
+                          max="10"
+                          value={additionalFittings}
+                          onChange={(e) => setAdditionalFittings(parseInt(e.target.value) || 0)}
+                          className="w-32 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+
+                    <label className="flex items-start space-x-3 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={hasPremiumLining}
+                        onChange={(e) => setHasPremiumLining(e.target.checked)}
+                        className="mt-1 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <div className="flex-1">
+                        <span className="font-medium text-slate-900 group-hover:text-blue-600">Premium Lining</span>
+                        <p className="text-sm text-slate-600">Silk lining, custom monograms (+₹5,000)</p>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Fabric Wastage */}
+                <div className="border-t pt-6">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Fabric Wastage: {fabricWastagePercent}% {fabricWastageAmount > 0 && `(+₹${fabricWastageAmount.toLocaleString('en-IN', {minimumFractionDigits: 2})})`}
+                  </label>
+                  <p className="text-sm text-slate-600 mb-3">Industry standard: 10-15% for bespoke work</p>
+                  <input
+                    type="range"
+                    min="0"
+                    max="15"
+                    step="1"
+                    value={fabricWastagePercent}
+                    onChange={(e) => setFabricWastagePercent(parseInt(e.target.value))}
+                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-orange-500"
+                  />
+                  <div className="flex justify-between text-xs text-slate-500 mt-1">
+                    <span>0%</span>
+                    <span>15%</span>
+                  </div>
+                </div>
+
+                {/* Designer Consultation Fee */}
+                <div className="border-t pt-6">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Designer Consultation Fee (Optional)
+                  </label>
+                  <p className="text-sm text-slate-600 mb-3">Style guidance, fabric selection, fitting adjustments</p>
+                  <input
+                    type="number"
+                    min="0"
+                    step="100"
+                    value={designerConsultationFee}
+                    onChange={(e) => setDesignerConsultationFee(parseFloat(e.target.value) || 0)}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="0"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle>Order Summary</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
+                  {/* Customer and Items Info */}
                   <div className="flex justify-between">
                     <span className="text-slate-600">Customer:</span>
                     <span className="font-semibold text-slate-900">{selectedCustomer?.name}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between pb-3 border-b">
                     <span className="text-slate-600">Items:</span>
                     <span className="font-semibold text-slate-900">{items.length}</span>
                   </div>
+
+                  {/* Itemized Cost Breakdown */}
+                  <div className="bg-blue-50 rounded-lg p-4 space-y-2">
+                    <p className="text-sm font-semibold text-blue-900 mb-2">Cost Breakdown</p>
+
+                    {fabricCost > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-700">Fabric Cost:</span>
+                        <span className="font-medium text-slate-900">₹{fabricCost.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                      </div>
+                    )}
+
+                    {fabricWastageAmount > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-700">Fabric Wastage ({fabricWastagePercent}%):</span>
+                        <span className="font-medium text-orange-600">₹{fabricWastageAmount.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                      </div>
+                    )}
+
+                    {accessoriesCost > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-700">Accessories:</span>
+                        <span className="font-medium text-slate-900">₹{accessoriesCost.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                      </div>
+                    )}
+
+                    {stitchingCost > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-700">Stitching ({stitchingTier}):</span>
+                        <span className="font-medium text-slate-900">₹{stitchingCost.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                      </div>
+                    )}
+
+                    {workmanshipPremiums > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-700">Workmanship Premiums:</span>
+                        <span className="font-medium text-orange-600">₹{workmanshipPremiums.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                      </div>
+                    )}
+
+                    {designerFee && designerFee > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-700">Designer Consultation:</span>
+                        <span className="font-medium text-slate-900">₹{designerFee.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Subtotal and GST */}
                   <div className="flex justify-between pt-3 border-t">
-                    <span className="text-slate-600">Subtotal (before GST):</span>
+                    <span className="text-slate-700 font-medium">Subtotal (before GST):</span>
                     <span className="font-semibold text-slate-900">₹{subTotal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                   </div>
+
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-600">CGST ({(gstRate / 2).toFixed(2)}%):</span>
                     <span className="text-slate-700">₹{cgst.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
@@ -766,6 +1151,8 @@ function NewOrderForm() {
                     <span className="text-slate-600">Total GST ({gstRate.toFixed(2)}%):</span>
                     <span className="font-semibold text-slate-900">₹{gstAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                   </div>
+
+                  {/* Total, Advance, Balance */}
                   <div className="flex justify-between">
                     <span className="text-slate-700 font-medium">Total Amount:</span>
                     <span className="font-bold text-lg text-blue-600">₹{total.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
