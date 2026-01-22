@@ -74,7 +74,7 @@ export async function generateStockAlerts() {
             data: {
               type: AlertType.CRITICAL_STOCK,
               severity: AlertSeverity.CRITICAL,
-              title: 'Critical Stock Alert',
+              title: `Critical Stock Alert: ${item.name}`,
               message: `${item.name} (${item.brand} ${item.color}) is at or below minimum threshold. Available: ${available.toFixed(2)}m, Minimum: ${item.minimum}m`,
               relatedId: item.id,
               relatedType: 'cloth',
@@ -91,7 +91,7 @@ export async function generateStockAlerts() {
             data: {
               type: AlertType.LOW_STOCK,
               severity: AlertSeverity.MEDIUM,
-              title: 'Low Stock Warning',
+              title: `Low Stock Warning: ${item.name}`,
               message: `${item.name} (${item.brand} ${item.color}) is in warning zone. Available: ${available.toFixed(2)}m, Minimum: ${item.minimum}m`,
               relatedId: item.id,
               relatedType: 'cloth',
@@ -141,7 +141,7 @@ export async function generateStockAlerts() {
             data: {
               type: AlertType.CRITICAL_STOCK,
               severity: AlertSeverity.CRITICAL,
-              title: 'Critical Stock Alert',
+              title: `Critical Stock Alert: ${item.name}`,
               message: `${item.name} (${item.type}) is at or below minimum threshold. Available: ${available} units, Minimum: ${item.minimum} units`,
               relatedId: item.id,
               relatedType: 'accessory',
@@ -158,7 +158,7 @@ export async function generateStockAlerts() {
             data: {
               type: AlertType.LOW_STOCK,
               severity: AlertSeverity.MEDIUM,
-              title: 'Low Stock Warning',
+              title: `Low Stock Warning: ${item.name}`,
               message: `${item.name} (${item.type}) is in warning zone. Available: ${available} units, Minimum: ${item.minimum} units`,
               relatedId: item.id,
               relatedType: 'accessory',
@@ -174,13 +174,141 @@ export async function generateStockAlerts() {
       }
     }
 
+    // ===================
+    // GENERATE ORDER ALERTS
+    // ===================
+
+    // Get overdue orders (past delivery date, not delivered/cancelled)
+    const now = new Date()
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+    const overdueOrders = await prisma.order.findMany({
+      where: {
+        deliveryDate: {
+          lt: startOfToday,
+        },
+        status: {
+          notIn: ['DELIVERED', 'CANCELLED'],
+        },
+      },
+      select: {
+        id: true,
+        orderNumber: true,
+        deliveryDate: true,
+        customer: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    })
+
+    // Get existing overdue order alerts
+    const existingOverdueAlerts = await prisma.alert.findMany({
+      where: {
+        relatedId: { in: overdueOrders.map(o => o.id) },
+        relatedType: 'order',
+        isDismissed: false,
+        type: AlertType.ORDER_DELAYED,
+      },
+    })
+
+    const overdueAlertsMap = new Map(existingOverdueAlerts.map(alert => [alert.relatedId, alert]))
+
+    // Process overdue orders
+    for (const order of overdueOrders) {
+      if (!overdueAlertsMap.has(order.id)) {
+        const daysOverdue = Math.floor((now.getTime() - order.deliveryDate.getTime()) / (1000 * 60 * 60 * 24))
+        await prisma.alert.create({
+          data: {
+            type: AlertType.ORDER_DELAYED,
+            severity: daysOverdue > 7 ? AlertSeverity.CRITICAL : AlertSeverity.HIGH,
+            title: `Overdue Order: ${order.orderNumber}`,
+            message: `Order ${order.orderNumber} for ${order.customer.name} is ${daysOverdue} day${daysOverdue === 1 ? '' : 's'} overdue. Expected delivery: ${order.deliveryDate.toLocaleDateString()}`,
+            relatedId: order.id,
+            relatedType: 'order',
+          },
+        })
+        alertsCreated++
+      }
+    }
+
+    // Resolve alerts for orders that are no longer overdue
+    const currentOverdueIds = new Set(overdueOrders.map(o => o.id))
+    for (const alert of existingOverdueAlerts) {
+      if (alert.relatedId && !currentOverdueIds.has(alert.relatedId)) {
+        await prisma.alert.delete({ where: { id: alert.id } })
+        alertsResolved++
+      }
+    }
+
+    // Get orders with pending balance (delivered but not fully paid)
+    const pendingPaymentOrders = await prisma.order.findMany({
+      where: {
+        balanceAmount: {
+          gt: 0,
+        },
+        status: 'DELIVERED',
+      },
+      select: {
+        id: true,
+        orderNumber: true,
+        balanceAmount: true,
+        deliveryDate: true,
+        customer: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    })
+
+    // Get existing payment reminder alerts
+    const existingPaymentAlerts = await prisma.alert.findMany({
+      where: {
+        relatedId: { in: pendingPaymentOrders.map(o => o.id) },
+        relatedType: 'order',
+        isDismissed: false,
+        type: AlertType.REORDER_REMINDER, // Reusing REORDER_REMINDER for payment reminders
+      },
+    })
+
+    const paymentAlertsMap = new Map(existingPaymentAlerts.map(alert => [alert.relatedId, alert]))
+
+    // Process pending payments
+    for (const order of pendingPaymentOrders) {
+      if (!paymentAlertsMap.has(order.id)) {
+        const daysSinceDelivery = Math.floor((now.getTime() - order.deliveryDate.getTime()) / (1000 * 60 * 60 * 24))
+        await prisma.alert.create({
+          data: {
+            type: AlertType.REORDER_REMINDER,
+            severity: daysSinceDelivery > 30 ? AlertSeverity.HIGH : AlertSeverity.MEDIUM,
+            title: `Pending Payment: ${order.orderNumber}`,
+            message: `Order ${order.orderNumber} for ${order.customer.name} has pending balance of ₹${order.balanceAmount.toFixed(2)}. Delivered ${daysSinceDelivery} day${daysSinceDelivery === 1 ? '' : 's'} ago.`,
+            relatedId: order.id,
+            relatedType: 'order',
+          },
+        })
+        alertsCreated++
+      }
+    }
+
+    // Resolve payment alerts for orders that are now fully paid
+    const currentPendingPaymentIds = new Set(pendingPaymentOrders.map(o => o.id))
+    for (const alert of existingPaymentAlerts) {
+      if (alert.relatedId && !currentPendingPaymentIds.has(alert.relatedId)) {
+        await prisma.alert.delete({ where: { id: alert.id } })
+        alertsResolved++
+      }
+    }
+
     return {
       success: true,
       alertsCreated,
       alertsResolved,
     }
   } catch (error) {
-    console.error('Error generating stock alerts:', error)
+    console.error('Error generating alerts:', error)
     return {
       success: false,
       alertsCreated: 0,
