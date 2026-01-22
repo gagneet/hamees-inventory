@@ -1008,14 +1008,16 @@ export async function GET(request: Request) {
     })
 
     // Calculate using AVAILABLE stock (currentStock - reserved) not just currentStock
+    // Low Stock: Available > minimum AND Available <= (minimum × 1.25) [warning zone: threshold+0.01 to threshold+25%]
     const lowStockCount = allInventoryItems.filter(item => {
       const available = item.currentStock - item.reserved
-      return available < item.minimum && available >= item.minimum * 0.5
+      return available > item.minimum && available <= item.minimum * 1.25
     }).length
 
+    // Critical Stock: Available <= minimum [at or below threshold]
     const criticalStockCount = allInventoryItems.filter(item => {
       const available = item.currentStock - item.reserved
-      return available < item.minimum * 0.5
+      return available <= item.minimum
     }).length
 
     // Calculate total value and total meters from all inventory items

@@ -223,8 +223,8 @@ export function InventorySummary({ stats }: InventorySummaryProps) {
             </DialogTitle>
             <DialogDescription>
               {stockType === 'low'
-                ? 'Items in warning zone (between minimum and 1.1× minimum). Click any row to view details.'
-                : 'Items critically low (below minimum threshold). Click any row to view details.'}
+                ? 'Items in warning zone (above minimum but within 25% buffer: min+0.01 to min×1.25). Click any row to view details.'
+                : 'Items at or below minimum threshold. Urgent reorder required. Click any row to view details.'}
             </DialogDescription>
           </DialogHeader>
 

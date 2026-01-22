@@ -53,33 +53,33 @@ export async function GET(request: Request) {
 
     // Filter based on type
     // IMPORTANT: These calculations must match the dashboard API calculations
-    // Low Stock: Available < minimum AND available >= minimum × 0.5 (between 50% and 100% of minimum)
-    // Critical Stock: Available < minimum × 0.5 (below 50% of minimum)
+    // Critical Stock: Available <= minimum (at or below threshold)
+    // Low Stock: Available > minimum AND Available <= (minimum × 1.25) [warning zone: threshold+0.01 to threshold+25%]
     let lowStockCloth: ClothInventoryItem[] = []
     let lowStockAccessories: AccessoryInventoryItem[] = []
 
     if (type === 'critical') {
-      // Critical: Below 50% of minimum threshold (urgent action needed)
+      // Critical: At or below minimum threshold (urgent action needed)
       lowStockCloth = clothInventory.filter(
         (item: ClothInventoryItem) => {
           const available = item.currentStock - item.reserved
-          return available < item.minimum * 0.5
+          return available <= item.minimum
         }
       )
       lowStockAccessories = accessoryInventory.filter(
-        (item: AccessoryInventoryItem) => item.currentStock < item.minimum * 0.5
+        (item: AccessoryInventoryItem) => item.currentStock <= item.minimum
       )
     } else {
-      // Low: Between 50% and 100% of minimum (warning zone)
+      // Low: Above minimum but within 25% warning zone
       lowStockCloth = clothInventory.filter(
         (item: ClothInventoryItem) => {
           const available = item.currentStock - item.reserved
-          return available < item.minimum && available >= item.minimum * 0.5
+          return available > item.minimum && available <= item.minimum * 1.25
         }
       )
       lowStockAccessories = accessoryInventory.filter(
         (item: AccessoryInventoryItem) =>
-          item.currentStock < item.minimum && item.currentStock >= item.minimum * 0.5
+          item.currentStock > item.minimum && item.currentStock <= item.minimum * 1.25
       )
     }
 
