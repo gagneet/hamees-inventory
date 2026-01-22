@@ -748,6 +748,135 @@ export async function GET(request: Request) {
         : 0
 
     // ===================
+    // EFFICIENCY METRICS (Fabric Usage & Wastage)
+    // ===================
+
+    // Get efficiency data for current month AND all-time
+    const [efficiencyDataMonth, efficiencyDataAllTime] = await Promise.all([
+      // Current month data
+      prisma.orderItem.findMany({
+        where: {
+          order: {
+            createdAt: {
+              gte: startOfMonth(now),
+              lte: endOfMonth(now),
+            },
+          },
+          actualMetersUsed: {
+            not: null,
+          },
+        },
+        select: {
+          id: true,
+          estimatedMeters: true,
+          actualMetersUsed: true,
+          wastage: true,
+          clothInventory: {
+            select: {
+              name: true,
+              type: true,
+              color: true,
+            },
+          },
+          garmentPattern: {
+            select: {
+              name: true,
+            },
+          },
+          order: {
+            select: {
+              orderNumber: true,
+              orderDate: true,
+            },
+          },
+        },
+      }),
+
+      // All-time data
+      prisma.orderItem.findMany({
+        where: {
+          actualMetersUsed: {
+            not: null,
+          },
+        },
+        select: {
+          id: true,
+          estimatedMeters: true,
+          actualMetersUsed: true,
+          wastage: true,
+        },
+      }),
+    ])
+
+    // Process current month data
+    const efficiencyData = efficiencyDataMonth
+
+    // Current month metrics
+    const totalEstimated = efficiencyData.reduce((sum, item) => sum + item.estimatedMeters, 0)
+    const totalActualUsed = efficiencyData.reduce((sum, item) => sum + (item.actualMetersUsed || 0), 0)
+    const totalWastage = efficiencyData.reduce((sum, item) => sum + (item.wastage || 0), 0)
+    const efficiencyPercentage = totalEstimated > 0 ? ((totalEstimated - Math.abs(totalWastage)) / totalEstimated) * 100 : 0
+
+    // All-time metrics
+    const totalEstimatedAllTime = efficiencyDataAllTime.reduce((sum, item) => sum + item.estimatedMeters, 0)
+    const totalActualUsedAllTime = efficiencyDataAllTime.reduce((sum, item) => sum + (item.actualMetersUsed || 0), 0)
+    const totalWastageAllTime = efficiencyDataAllTime.reduce((sum, item) => sum + (item.wastage || 0), 0)
+    const efficiencyPercentageAllTime = totalEstimatedAllTime > 0 ? ((totalEstimatedAllTime - Math.abs(totalWastageAllTime)) / totalEstimatedAllTime) * 100 : 0
+
+    // Group wastage by fabric type for detailed analysis
+    const wastageByFabric = efficiencyData.reduce((acc: any[], item) => {
+      const fabricKey = `${item.clothInventory.name} (${item.clothInventory.color})`
+      const existing = acc.find(f => f.fabricName === fabricKey)
+
+      if (existing) {
+        existing.estimated += item.estimatedMeters
+        existing.actualUsed += item.actualMetersUsed || 0
+        existing.wastage += item.wastage || 0
+        existing.orderCount += 1
+      } else {
+        acc.push({
+          fabricName: fabricKey,
+          fabricType: item.clothInventory.type,
+          estimated: item.estimatedMeters,
+          actualUsed: item.actualMetersUsed || 0,
+          wastage: item.wastage || 0,
+          orderCount: 1,
+        })
+      }
+
+      return acc
+    }, [])
+
+    // Sort by highest wastage
+    wastageByFabric.sort((a, b) => Math.abs(b.wastage) - Math.abs(a.wastage))
+
+    const efficiencyMetrics = {
+      // Current month metrics
+      totalEstimated: Math.round(totalEstimated * 100) / 100,
+      totalActualUsed: Math.round(totalActualUsed * 100) / 100,
+      totalWastage: Math.round(totalWastage * 100) / 100,
+      efficiencyPercentage: Math.round(efficiencyPercentage * 100) / 100,
+      orderItemsAnalyzed: efficiencyData.length,
+      // All-time metrics
+      totalEstimatedAllTime: Math.round(totalEstimatedAllTime * 100) / 100,
+      totalActualUsedAllTime: Math.round(totalActualUsedAllTime * 100) / 100,
+      totalWastageAllTime: Math.round(totalWastageAllTime * 100) / 100,
+      efficiencyPercentageAllTime: Math.round(efficiencyPercentageAllTime * 100) / 100,
+      orderItemsAnalyzedAllTime: efficiencyDataAllTime.length,
+      // Detailed breakdowns (current month only)
+      wastageByFabric: wastageByFabric.slice(0, 10), // Top 10 fabrics
+      detailedItems: efficiencyData.map(item => ({
+        orderNumber: item.order.orderNumber,
+        orderDate: item.order.orderDate,
+        garmentType: item.garmentPattern.name,
+        fabric: `${item.clothInventory.name} (${item.clothInventory.color})`,
+        estimated: Math.round(item.estimatedMeters * 100) / 100,
+        actualUsed: Math.round((item.actualMetersUsed || 0) * 100) / 100,
+        wastage: Math.round((item.wastage || 0) * 100) / 100,
+      })).slice(0, 20), // Top 20 recent items
+    }
+
+    // ===================
     // SHARED DATA (Alerts, Order Status)
     // ===================
 
@@ -835,6 +964,7 @@ export async function GET(request: Request) {
               : 0,
         },
         stockTurnoverRatio: Math.round(stockTurnoverRatio * 10) / 10,
+        efficiencyMetrics, // Added efficiency and wastage analysis
       },
 
       // Shared data for all roles

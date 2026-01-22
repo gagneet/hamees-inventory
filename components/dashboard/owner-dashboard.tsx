@@ -17,7 +17,7 @@ import { CustomerRetentionChart } from './customer-retention-chart'
 import { OrdersStatusChart } from './orders-status-chart'
 import { InventorySummary } from './inventory-summary'
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
-import { DollarSign, TrendingUp, TrendingDown, Clock, Users, Package, AlertCircle } from 'lucide-react'
+import { DollarSign, TrendingUp, TrendingDown, Clock, Users, Package, AlertCircle, Activity } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import Link from 'next/link'
 
@@ -46,6 +46,35 @@ interface OwnerDashboardProps {
       retentionRate: number
     }
     stockTurnoverRatio: number
+    efficiencyMetrics: {
+      totalEstimated: number
+      totalActualUsed: number
+      totalWastage: number
+      efficiencyPercentage: number
+      orderItemsAnalyzed: number
+      totalEstimatedAllTime: number
+      totalActualUsedAllTime: number
+      totalWastageAllTime: number
+      efficiencyPercentageAllTime: number
+      orderItemsAnalyzedAllTime: number
+      wastageByFabric: Array<{
+        fabricName: string
+        fabricType: string
+        estimated: number
+        actualUsed: number
+        wastage: number
+        orderCount: number
+      }>
+      detailedItems: Array<{
+        orderNumber: string
+        orderDate: string
+        garmentType: string
+        fabric: string
+        estimated: number
+        actualUsed: number
+        wastage: number
+      }>
+    }
   }
   generalStats: {
     revenue: {
@@ -85,7 +114,7 @@ interface OwnerDashboardProps {
 export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: OwnerDashboardProps) {
   const router = useRouter()
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [dialogType, setDialogType] = useState<'revenue' | 'cash' | 'expenses' | 'profit' | 'outstanding' | 'stockTurnover' | 'fulfillmentRate' | 'inventoryValue' | 'totalOrders' | null>(null)
+  const [dialogType, setDialogType] = useState<'revenue' | 'cash' | 'expenses' | 'profit' | 'outstanding' | 'stockTurnover' | 'fulfillmentRate' | 'inventoryValue' | 'totalOrders' | 'efficiency' | null>(null)
 
   // Calculate total revenue for percentage calculation
   const totalFabricRevenue = stats.revenueByFabric.reduce((sum, item) => sum + (item.revenue || 0), 0)
@@ -153,7 +182,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
       ? ((stats.cashCollectedThisMonth - stats.cashCollectedLastMonth) / stats.cashCollectedLastMonth) * 100
       : stats.cashCollectedThisMonth > 0 ? 100 : 0
 
-  const openDialog = (type: 'revenue' | 'cash' | 'expenses' | 'profit' | 'outstanding' | 'stockTurnover' | 'fulfillmentRate' | 'inventoryValue' | 'totalOrders') => {
+  const openDialog = (type: 'revenue' | 'cash' | 'expenses' | 'profit' | 'outstanding' | 'stockTurnover' | 'fulfillmentRate' | 'inventoryValue' | 'totalOrders' | 'efficiency') => {
     setDialogType(type)
     setDialogOpen(true)
   }
@@ -545,6 +574,29 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
                   : 0}%
               </div>
             </div>
+
+            <div
+              className="flex items-center justify-between p-4 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors"
+              onClick={() => openDialog('efficiency')}
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-cyan-100 rounded-lg">
+                  <Activity className="h-5 w-5 text-cyan-700" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-700">Fabric Efficiency</p>
+                  <p className="text-xs text-slate-500">This month wastage</p>
+                </div>
+              </div>
+              <div className="flex flex-col items-end">
+                <div className={`text-xl font-bold ${stats.efficiencyMetrics.efficiencyPercentage >= 95 ? 'text-green-700' : stats.efficiencyMetrics.efficiencyPercentage >= 85 ? 'text-amber-700' : 'text-red-700'}`}>
+                  {stats.efficiencyMetrics.efficiencyPercentage.toFixed(2)}%
+                </div>
+                <div className="text-xs text-slate-500">
+                  {stats.efficiencyMetrics.totalWastage >= 0 ? '+' : ''}{stats.efficiencyMetrics.totalWastage.toFixed(2)}m
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -563,6 +615,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
               {dialogType === 'fulfillmentRate' && 'Fulfillment Rate Breakdown'}
               {dialogType === 'inventoryValue' && 'Inventory Value Breakdown'}
               {dialogType === 'totalOrders' && 'Total Orders Analysis'}
+              {dialogType === 'efficiency' && 'Fabric Efficiency & Wastage Analysis'}
             </DialogTitle>
             <DialogDescription>
               {dialogType === 'revenue' && 'Revenue from delivered orders (accrual basis)'}
@@ -574,6 +627,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
               {dialogType === 'fulfillmentRate' && 'Order completion and delivery performance'}
               {dialogType === 'inventoryValue' && 'Total value of current inventory stock'}
               {dialogType === 'totalOrders' && 'Complete order history and status breakdown'}
+              {dialogType === 'efficiency' && 'Detailed fabric usage, wastage patterns, and efficiency metrics for this month'}
             </DialogDescription>
           </DialogHeader>
 
@@ -1097,6 +1151,218 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
                       Create New Order
                     </Button>
                   </Link>
+                  <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                    Close
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {dialogType === 'efficiency' && (
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900 mb-3">📅 Current Month Performance</h3>
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <p className="text-xs text-blue-700 mb-1">Estimated</p>
+                    <p className="text-2xl font-bold text-blue-700">{stats.efficiencyMetrics.totalEstimated.toFixed(2)}m</p>
+                    <p className="text-xs text-blue-600 mt-1">Total expected usage</p>
+                  </div>
+                  <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                    <p className="text-xs text-purple-700 mb-1">Actual Used</p>
+                    <p className="text-2xl font-bold text-purple-700">{stats.efficiencyMetrics.totalActualUsed.toFixed(2)}m</p>
+                    <p className="text-xs text-purple-600 mt-1">Fabric consumed</p>
+                  </div>
+                  <div className={`p-4 rounded-lg border ${stats.efficiencyMetrics.totalWastage >= 0 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+                    <p className={`text-xs mb-1 ${stats.efficiencyMetrics.totalWastage >= 0 ? 'text-red-700' : 'text-green-700'}`}>
+                      {stats.efficiencyMetrics.totalWastage >= 0 ? 'Wastage' : 'Saved'}
+                    </p>
+                    <p className={`text-2xl font-bold ${stats.efficiencyMetrics.totalWastage >= 0 ? 'text-red-700' : 'text-green-700'}`}>
+                      {stats.efficiencyMetrics.totalWastage >= 0 ? '+' : ''}{stats.efficiencyMetrics.totalWastage.toFixed(2)}m
+                    </p>
+                    <p className={`text-xs mt-1 ${stats.efficiencyMetrics.totalWastage >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      {stats.efficiencyMetrics.totalWastage >= 0 ? 'Extra used' : 'Efficiency gain'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className={`p-4 rounded-lg mb-4 ${stats.efficiencyMetrics.efficiencyPercentage >= 95 ? 'bg-green-50 border border-green-200' : stats.efficiencyMetrics.efficiencyPercentage >= 85 ? 'bg-amber-50 border border-amber-200' : 'bg-red-50 border border-red-200'}`}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className={`text-sm font-medium ${stats.efficiencyMetrics.efficiencyPercentage >= 95 ? 'text-green-900' : stats.efficiencyMetrics.efficiencyPercentage >= 85 ? 'text-amber-900' : 'text-red-900'}`}>
+                        Overall Efficiency Rating
+                      </p>
+                      <p className={`text-xs mt-1 ${stats.efficiencyMetrics.efficiencyPercentage >= 95 ? 'text-green-700' : stats.efficiencyMetrics.efficiencyPercentage >= 85 ? 'text-amber-700' : 'text-red-700'}`}>
+                        Based on {stats.efficiencyMetrics.orderItemsAnalyzed} order items this month
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-3xl font-bold ${stats.efficiencyMetrics.efficiencyPercentage >= 95 ? 'text-green-700' : stats.efficiencyMetrics.efficiencyPercentage >= 85 ? 'text-amber-700' : 'text-red-700'}`}>
+                        {stats.efficiencyMetrics.efficiencyPercentage.toFixed(2)}%
+                      </p>
+                      <p className={`text-xs font-medium mt-1 ${stats.efficiencyMetrics.efficiencyPercentage >= 95 ? 'text-green-600' : stats.efficiencyMetrics.efficiencyPercentage >= 85 ? 'text-amber-600' : 'text-red-600'}`}>
+                        {stats.efficiencyMetrics.efficiencyPercentage >= 95 ? '✅ Excellent' : stats.efficiencyMetrics.efficiencyPercentage >= 85 ? '⚠️ Good' : '🔴 Needs Improvement'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* All-Time Metrics Section */}
+                <div className="border-t-2 border-slate-200 pt-4 mt-6">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-3">📊 All-Time Historical Performance</h3>
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className={`p-4 rounded-lg border ${stats.efficiencyMetrics.efficiencyPercentageAllTime >= 95 ? 'bg-green-50 border-green-200' : stats.efficiencyMetrics.efficiencyPercentageAllTime >= 85 ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200'}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className={`text-sm font-medium ${stats.efficiencyMetrics.efficiencyPercentageAllTime >= 95 ? 'text-green-900' : stats.efficiencyMetrics.efficiencyPercentageAllTime >= 85 ? 'text-amber-900' : 'text-red-900'}`}>
+                          Overall Efficiency (All Time)
+                        </p>
+                        <p className={`text-3xl font-bold ${stats.efficiencyMetrics.efficiencyPercentageAllTime >= 95 ? 'text-green-700' : stats.efficiencyMetrics.efficiencyPercentageAllTime >= 85 ? 'text-amber-700' : 'text-red-700'}`}>
+                          {stats.efficiencyMetrics.efficiencyPercentageAllTime.toFixed(2)}%
+                        </p>
+                      </div>
+                      <p className={`text-xs ${stats.efficiencyMetrics.efficiencyPercentageAllTime >= 95 ? 'text-green-700' : stats.efficiencyMetrics.efficiencyPercentageAllTime >= 85 ? 'text-amber-700' : 'text-red-700'}`}>
+                        Based on {stats.efficiencyMetrics.orderItemsAnalyzedAllTime} total order items
+                      </p>
+                    </div>
+
+                    <div className={`p-4 rounded-lg border ${stats.efficiencyMetrics.totalWastageAllTime >= 0 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className={`text-sm font-medium ${stats.efficiencyMetrics.totalWastageAllTime >= 0 ? 'text-red-900' : 'text-green-900'}`}>
+                          Total Wastage (All Time)
+                        </p>
+                        <p className={`text-3xl font-bold ${stats.efficiencyMetrics.totalWastageAllTime >= 0 ? 'text-red-700' : 'text-green-700'}`}>
+                          {stats.efficiencyMetrics.totalWastageAllTime >= 0 ? '+' : ''}{stats.efficiencyMetrics.totalWastageAllTime.toFixed(2)}m
+                        </p>
+                      </div>
+                      <p className={`text-xs ${stats.efficiencyMetrics.totalWastageAllTime >= 0 ? 'text-red-700' : 'text-green-700'}`}>
+                        Out of {stats.efficiencyMetrics.totalEstimatedAllTime.toFixed(2)}m estimated total
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="p-3 bg-slate-50 rounded border">
+                      <p className="text-slate-600 mb-1">Estimated (All Time)</p>
+                      <p className="text-xl font-bold text-slate-900">{stats.efficiencyMetrics.totalEstimatedAllTime.toFixed(2)}m</p>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded border">
+                      <p className="text-slate-600 mb-1">Actual Used (All Time)</p>
+                      <p className="text-xl font-bold text-slate-900">{stats.efficiencyMetrics.totalActualUsedAllTime.toFixed(2)}m</p>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded mt-3">
+                    <p className="text-sm font-medium text-blue-900">💡 Performance Comparison</p>
+                    <p className="text-xs text-blue-700 mt-1">
+                      {stats.efficiencyMetrics.efficiencyPercentage > stats.efficiencyMetrics.efficiencyPercentageAllTime
+                        ? `✅ Current month (${stats.efficiencyMetrics.efficiencyPercentage.toFixed(2)}%) is better than all-time average (${stats.efficiencyMetrics.efficiencyPercentageAllTime.toFixed(2)}%). Great improvement!`
+                        : stats.efficiencyMetrics.efficiencyPercentage < stats.efficiencyMetrics.efficiencyPercentageAllTime
+                        ? `⚠️ Current month (${stats.efficiencyMetrics.efficiencyPercentage.toFixed(2)}%) is lower than all-time average (${stats.efficiencyMetrics.efficiencyPercentageAllTime.toFixed(2)}%). Review recent changes.`
+                        : `Current month performance matches all-time average (${stats.efficiencyMetrics.efficiencyPercentage.toFixed(2)}%). Consistent performance.`}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="border-t-2 border-slate-200 pt-4 mt-6">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-3">🔍 Detailed Analysis (Current Month)</h3>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-900 mb-3">Wastage by Fabric Type (Top 10)</h4>
+                    {stats.efficiencyMetrics.wastageByFabric.length > 0 ? (
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {stats.efficiencyMetrics.wastageByFabric.map((fabric, index) => (
+                          <div key={index} className="p-3 bg-slate-50 rounded-lg border">
+                            <div className="flex justify-between items-start mb-2">
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-slate-900">{fabric.fabricName}</p>
+                                <p className="text-xs text-slate-600">{fabric.fabricType} • {fabric.orderCount} orders</p>
+                              </div>
+                              <div className={`text-right ${fabric.wastage >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                <p className="text-sm font-bold">
+                                  {fabric.wastage >= 0 ? '+' : ''}{fabric.wastage.toFixed(2)}m
+                                </p>
+                                <p className="text-xs">
+                                  {((fabric.wastage / fabric.estimated) * 100).toFixed(1)}%
+                                </p>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-2 text-xs">
+                              <div>
+                                <span className="text-slate-600">Est:</span>
+                                <span className="font-medium text-slate-900 ml-1">{fabric.estimated.toFixed(2)}m</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-600">Used:</span>
+                                <span className="font-medium text-slate-900 ml-1">{fabric.actualUsed.toFixed(2)}m</span>
+                              </div>
+                              <div>
+                                <span className="text-slate-600">Diff:</span>
+                                <span className={`font-medium ml-1 ${fabric.wastage >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                  {fabric.wastage >= 0 ? '+' : ''}{fabric.wastage.toFixed(2)}m
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-600 text-center py-4">No wastage data available for this month</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-900 mb-3">Recent Order Items (Top 20)</h4>
+                    {stats.efficiencyMetrics.detailedItems.length > 0 ? (
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {stats.efficiencyMetrics.detailedItems.map((item, index) => (
+                          <div key={index} className="p-2 bg-white rounded border text-xs">
+                            <div className="flex justify-between items-start mb-1">
+                              <div className="flex-1">
+                                <p className="font-medium text-slate-900">{item.orderNumber}</p>
+                                <p className="text-slate-600">
+                                  {item.garmentType} • {item.fabric}
+                                </p>
+                              </div>
+                              <div className={`text-right ${item.wastage >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                <p className="font-bold">
+                                  {item.wastage >= 0 ? '+' : ''}{item.wastage.toFixed(2)}m
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex gap-3 text-slate-600">
+                              <span>Est: {item.estimated.toFixed(2)}m</span>
+                              <span>Used: {item.actualUsed.toFixed(2)}m</span>
+                              <span className="text-slate-400">
+                                {new Date(item.orderDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-600 text-center py-4">No detailed items available</p>
+                    )}
+                  </div>
+
+                  <div className="p-3 bg-cyan-50 border border-cyan-200 rounded">
+                    <p className="text-sm font-medium text-cyan-900">💡 Efficiency Insights</p>
+                    <p className="text-xs text-cyan-700 mt-1">
+                      {stats.efficiencyMetrics.efficiencyPercentage >= 95
+                        ? '✅ Excellent fabric management! Your wastage is minimal. Keep up the precise cutting and measurement practices.'
+                        : stats.efficiencyMetrics.efficiencyPercentage >= 85
+                        ? '⚠️ Good efficiency overall. Review fabrics with highest wastage to identify patterns. Consider retraining on cutting techniques for specific garment types.'
+                        : '🔴 High wastage detected. Immediate action needed: Review measurement accuracy, cutting processes, and fabric estimation formulas. Consider investing in training or better cutting tools.'}
+                    </p>
+                    {stats.efficiencyMetrics.totalWastage > 0 && (
+                      <p className="text-xs text-cyan-700 mt-2">
+                        💰 Financial Impact: {stats.efficiencyMetrics.totalWastage.toFixed(2)}m wastage could represent significant inventory value loss. Review high-wastage fabrics first.
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 mt-4">
                   <Button variant="outline" onClick={() => setDialogOpen(false)}>
                     Close
                   </Button>
