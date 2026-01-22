@@ -15,6 +15,7 @@ import { RoleDashboardRouter } from "@/components/dashboard/role-dashboard-route
 
 // Data fetching and session
 import { auth } from "@/lib/auth"
+import { getDashboardData } from "@/lib/dashboard-data"
 
 export default async function Dashboard() {
   const session = await auth()
@@ -23,6 +24,7 @@ export default async function Dashboard() {
   }
 
   const userRole = session.user.role
+  const dashboardData = await getDashboardData('month')
 
   return (
     <DashboardLayout>
@@ -50,7 +52,7 @@ export default async function Dashboard() {
       </div>
 
       {/* Role-based dashboard */}
-      <RoleDashboardRouter userRole={userRole} dateRange="month" />
+      <RoleDashboardRouter userRole={userRole} dashboardData={dashboardData} />
     </DashboardLayout>
   )
 }
