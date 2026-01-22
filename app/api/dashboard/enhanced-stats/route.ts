@@ -776,6 +776,7 @@ export async function GET(request: Request) {
               name: true,
               type: true,
               color: true,
+              pricePerMeter: true,
             },
           },
           garmentPattern: {
@@ -804,6 +805,11 @@ export async function GET(request: Request) {
           estimatedMeters: true,
           actualMetersUsed: true,
           wastage: true,
+          clothInventory: {
+            select: {
+              pricePerMeter: true,
+            },
+          },
         },
       }),
     ])
@@ -821,6 +827,12 @@ export async function GET(request: Request) {
       const calculatedVariance = (item.actualMetersUsed || 0) - item.estimatedMeters
       return sum + calculatedVariance
     }, 0)
+    // Calculate financial impact of variance (variance × price per meter)
+    const totalVarianceAmount = efficiencyData.reduce((sum, item) => {
+      const calculatedVariance = (item.actualMetersUsed || 0) - item.estimatedMeters
+      const varianceCost = calculatedVariance * item.clothInventory.pricePerMeter
+      return sum + varianceCost
+    }, 0)
     const efficiencyPercentage = totalEstimated > 0 ? ((totalEstimated - Math.abs(totalWastage)) / totalEstimated) * 100 : 0
 
     // All-time metrics
@@ -831,6 +843,12 @@ export async function GET(request: Request) {
       const calculatedVariance = (item.actualMetersUsed || 0) - item.estimatedMeters
       return sum + calculatedVariance
     }, 0)
+    // Calculate financial impact of variance (all-time)
+    const totalVarianceAmountAllTime = efficiencyDataAllTime.reduce((sum, item) => {
+      const calculatedVariance = (item.actualMetersUsed || 0) - item.estimatedMeters
+      const varianceCost = calculatedVariance * item.clothInventory.pricePerMeter
+      return sum + varianceCost
+    }, 0)
     const efficiencyPercentageAllTime = totalEstimatedAllTime > 0 ? ((totalEstimatedAllTime - Math.abs(totalWastageAllTime)) / totalEstimatedAllTime) * 100 : 0
 
     // Group wastage by fabric type for detailed analysis
@@ -840,11 +858,13 @@ export async function GET(request: Request) {
 
       // Calculate variance on-the-fly
       const calculatedVariance = (item.actualMetersUsed || 0) - item.estimatedMeters
+      const varianceCost = calculatedVariance * item.clothInventory.pricePerMeter
 
       if (existing) {
         existing.estimated += item.estimatedMeters
         existing.actualUsed += item.actualMetersUsed || 0
         existing.wastage += calculatedVariance
+        existing.varianceAmount += varianceCost
         existing.orderCount += 1
       } else {
         acc.push({
@@ -853,6 +873,7 @@ export async function GET(request: Request) {
           estimated: item.estimatedMeters,
           actualUsed: item.actualMetersUsed || 0,
           wastage: calculatedVariance,
+          varianceAmount: varianceCost,
           orderCount: 1,
         })
       }
@@ -868,12 +889,14 @@ export async function GET(request: Request) {
       totalEstimated: Math.round(totalEstimated * 100) / 100,
       totalActualUsed: Math.round(totalActualUsed * 100) / 100,
       totalWastage: Math.round(totalWastage * 100) / 100,
+      totalVarianceAmount: Math.round(totalVarianceAmount * 100) / 100,
       efficiencyPercentage: Math.round(efficiencyPercentage * 100) / 100,
       orderItemsAnalyzed: efficiencyData.length,
       // All-time metrics
       totalEstimatedAllTime: Math.round(totalEstimatedAllTime * 100) / 100,
       totalActualUsedAllTime: Math.round(totalActualUsedAllTime * 100) / 100,
       totalWastageAllTime: Math.round(totalWastageAllTime * 100) / 100,
+      totalVarianceAmountAllTime: Math.round(totalVarianceAmountAllTime * 100) / 100,
       efficiencyPercentageAllTime: Math.round(efficiencyPercentageAllTime * 100) / 100,
       orderItemsAnalyzedAllTime: efficiencyDataAllTime.length,
       // Detailed breakdowns (current month only)
@@ -881,6 +904,7 @@ export async function GET(request: Request) {
       detailedItems: efficiencyData.map(item => {
         // Calculate variance on-the-fly for each item
         const calculatedVariance = (item.actualMetersUsed || 0) - item.estimatedMeters
+        const varianceCost = calculatedVariance * item.clothInventory.pricePerMeter
         return {
           orderNumber: item.order.orderNumber,
           orderDate: item.order.orderDate,
@@ -889,6 +913,7 @@ export async function GET(request: Request) {
           estimated: Math.round(item.estimatedMeters * 100) / 100,
           actualUsed: Math.round((item.actualMetersUsed || 0) * 100) / 100,
           wastage: Math.round(calculatedVariance * 100) / 100,
+          varianceAmount: Math.round(varianceCost * 100) / 100,
         }
       }).slice(0, 20), // Top 20 recent items
     }

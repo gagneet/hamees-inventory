@@ -50,11 +50,13 @@ interface OwnerDashboardProps {
       totalEstimated: number
       totalActualUsed: number
       totalWastage: number
+      totalVarianceAmount: number
       efficiencyPercentage: number
       orderItemsAnalyzed: number
       totalEstimatedAllTime: number
       totalActualUsedAllTime: number
       totalWastageAllTime: number
+      totalVarianceAmountAllTime: number
       efficiencyPercentageAllTime: number
       orderItemsAnalyzedAllTime: number
       wastageByFabric: Array<{
@@ -63,6 +65,7 @@ interface OwnerDashboardProps {
         estimated: number
         actualUsed: number
         wastage: number
+        varianceAmount: number
         orderCount: number
       }>
       detailedItems: Array<{
@@ -73,6 +76,7 @@ interface OwnerDashboardProps {
         estimated: number
         actualUsed: number
         wastage: number
+        varianceAmount: number
       }>
     }
   }
@@ -1179,6 +1183,9 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
                     <p className={`text-2xl font-bold ${stats.efficiencyMetrics.totalWastage >= 0 ? 'text-orange-700' : 'text-green-700'}`}>
                       {stats.efficiencyMetrics.totalWastage >= 0 ? '+' : ''}{stats.efficiencyMetrics.totalWastage.toFixed(2)}m
                     </p>
+                    <p className={`text-lg font-bold mt-1 ${stats.efficiencyMetrics.totalWastage >= 0 ? 'text-orange-700' : 'text-green-700'}`}>
+                      {stats.efficiencyMetrics.totalVarianceAmount >= 0 ? '+' : ''}{formatCurrency(stats.efficiencyMetrics.totalVarianceAmount)}
+                    </p>
                     <p className={`text-xs mt-1 ${stats.efficiencyMetrics.totalWastage >= 0 ? 'text-orange-600' : 'text-green-600'}`}>
                       {stats.efficiencyMetrics.totalWastage >= 0 ? 'Over estimate' : 'Under estimate'}
                     </p>
@@ -1242,9 +1249,14 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
                         <p className={`text-sm font-medium ${stats.efficiencyMetrics.totalWastageAllTime >= 0 ? 'text-orange-900' : 'text-green-900'}`}>
                           Total Variance (All Time)
                         </p>
-                        <p className={`text-3xl font-bold ${stats.efficiencyMetrics.totalWastageAllTime >= 0 ? 'text-orange-700' : 'text-green-700'}`}>
-                          {stats.efficiencyMetrics.totalWastageAllTime >= 0 ? '+' : ''}{stats.efficiencyMetrics.totalWastageAllTime.toFixed(2)}m
-                        </p>
+                        <div className="text-right">
+                          <p className={`text-3xl font-bold ${stats.efficiencyMetrics.totalWastageAllTime >= 0 ? 'text-orange-700' : 'text-green-700'}`}>
+                            {stats.efficiencyMetrics.totalWastageAllTime >= 0 ? '+' : ''}{stats.efficiencyMetrics.totalWastageAllTime.toFixed(2)}m
+                          </p>
+                          <p className={`text-lg font-bold ${stats.efficiencyMetrics.totalWastageAllTime >= 0 ? 'text-orange-700' : 'text-green-700'}`}>
+                            {stats.efficiencyMetrics.totalVarianceAmountAllTime >= 0 ? '+' : ''}{formatCurrency(stats.efficiencyMetrics.totalVarianceAmountAllTime)}
+                          </p>
+                        </div>
                       </div>
                       <p className={`text-xs ${stats.efficiencyMetrics.totalWastageAllTime >= 0 ? 'text-orange-700' : 'text-green-700'}`}>
                         Out of {stats.efficiencyMetrics.totalEstimatedAllTime.toFixed(2)}m estimated total
@@ -1319,6 +1331,12 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
                                 </span>
                               </div>
                             </div>
+                            <div className="mt-1">
+                              <span className={`text-xs font-semibold ${fabric.varianceAmount >= 0 ? 'text-orange-700' : 'text-green-700'}`}>
+                                {fabric.varianceAmount >= 0 ? '+' : ''}{formatCurrency(fabric.varianceAmount)}
+                              </span>
+                              <span className="text-xs text-slate-500 ml-1">financial impact</span>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -1346,6 +1364,9 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
                               <div className={`text-right ${item.wastage >= 0 ? 'text-orange-600' : 'text-green-600'}`}>
                                 <p className="font-bold">
                                   {item.wastage >= 0 ? '+' : ''}{item.wastage.toFixed(2)}m
+                                </p>
+                                <p className="text-xs font-semibold">
+                                  {item.varianceAmount >= 0 ? '+' : ''}{formatCurrency(item.varianceAmount)}
                                 </p>
                               </div>
                             </div>
