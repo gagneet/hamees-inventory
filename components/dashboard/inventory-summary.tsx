@@ -118,6 +118,7 @@ export function InventorySummary({ stats }: InventorySummaryProps) {
         {stats.totalItems > 0 && (
           <div className="p-4 bg-white rounded-lg border border-slate-200">
             <p className="text-sm font-medium text-slate-700 mb-3">Stock Health Overview</p>
+            <p className="text-xs text-slate-500 mb-2">Click on a segment to view details</p>
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
                 <Pie
@@ -128,6 +129,17 @@ export function InventorySummary({ stats }: InventorySummaryProps) {
                   outerRadius={80}
                   paddingAngle={2}
                   dataKey="value"
+                  onClick={(data) => {
+                    // Click Low Stock segment → open Low Stock dialog
+                    if (data.name === 'Low Stock' && stats.lowStock > 0) {
+                      fetchStockDetails('low')
+                    }
+                    // Click Critical Stock segment → open Critical Stock dialog
+                    else if (data.name === 'Critical Stock' && stats.criticalStock > 0) {
+                      fetchStockDetails('critical')
+                    }
+                  }}
+                  cursor="pointer"
                 >
                   {stockHealthData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
@@ -145,6 +157,9 @@ export function InventorySummary({ stats }: InventorySummaryProps) {
                           <p className="text-xs text-slate-600">
                             {data.value} items ({((data.value as number / stats.totalItems) * 100).toFixed(1)}%)
                           </p>
+                          {(data.name === 'Low Stock' || data.name === 'Critical Stock') && data.value > 0 && (
+                            <p className="text-xs text-blue-600 mt-1">Click to view details</p>
+                          )}
                         </div>
                       )
                     }

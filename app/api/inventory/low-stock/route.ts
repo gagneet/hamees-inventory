@@ -52,36 +52,34 @@ export async function GET(request: Request) {
     const accessoryInventory = await getAccessoryInventory()
 
     // Filter based on type
-    // Low Stock: Available < (minimum × 1.1) AND > minimum [10% buffer above minimum]
-    // Critical Stock: Available <= minimum [at or below minimum threshold]
+    // IMPORTANT: These calculations must match the dashboard API calculations
+    // Low Stock: Available < minimum AND available >= minimum × 0.5 (between 50% and 100% of minimum)
+    // Critical Stock: Available < minimum × 0.5 (below 50% of minimum)
     let lowStockCloth: ClothInventoryItem[] = []
     let lowStockAccessories: AccessoryInventoryItem[] = []
 
     if (type === 'critical') {
-      // Critical: At or below minimum threshold (urgent action needed)
+      // Critical: Below 50% of minimum threshold (urgent action needed)
       lowStockCloth = clothInventory.filter(
         (item: ClothInventoryItem) => {
           const available = item.currentStock - item.reserved
-          return available <= item.minimum
+          return available < item.minimum * 0.5
         }
       )
       lowStockAccessories = accessoryInventory.filter(
-        (item: AccessoryInventoryItem) => item.currentStock <= item.minimum
+        (item: AccessoryInventoryItem) => item.currentStock < item.minimum * 0.5
       )
     } else {
-      // Low: Between minimum and 1.1× minimum (warning zone, above minimum)
+      // Low: Between 50% and 100% of minimum (warning zone)
       lowStockCloth = clothInventory.filter(
         (item: ClothInventoryItem) => {
           const available = item.currentStock - item.reserved
-          const threshold = item.minimum * 1.1
-          return available < threshold && available > item.minimum
+          return available < item.minimum && available >= item.minimum * 0.5
         }
       )
       lowStockAccessories = accessoryInventory.filter(
-        (item: AccessoryInventoryItem) => {
-          const threshold = item.minimum * 1.1
-          return item.currentStock < threshold && item.currentStock > item.minimum
-        }
+        (item: AccessoryInventoryItem) =>
+          item.currentStock < item.minimum && item.currentStock >= item.minimum * 0.5
       )
     }
 

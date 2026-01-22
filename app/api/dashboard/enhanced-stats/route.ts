@@ -1001,18 +1001,22 @@ export async function GET(request: Request) {
       select: {
         id: true,
         currentStock: true,
+        reserved: true,
         minimum: true,
         pricePerMeter: true,
       },
     })
 
-    const lowStockCount = allInventoryItems.filter(
-      item => item.currentStock < item.minimum && item.currentStock >= item.minimum * 0.5
-    ).length
+    // Calculate using AVAILABLE stock (currentStock - reserved) not just currentStock
+    const lowStockCount = allInventoryItems.filter(item => {
+      const available = item.currentStock - item.reserved
+      return available < item.minimum && available >= item.minimum * 0.5
+    }).length
 
-    const criticalStockCount = allInventoryItems.filter(
-      item => item.currentStock < item.minimum * 0.5
-    ).length
+    const criticalStockCount = allInventoryItems.filter(item => {
+      const available = item.currentStock - item.reserved
+      return available < item.minimum * 0.5
+    }).length
 
     // Calculate total value and total meters from all inventory items
     const totalInventoryValue = allInventoryItems.reduce(
