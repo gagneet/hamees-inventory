@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db'
-import { startOfMonth, endOfMonth, subMonths, format, startOfDay, endOfDay } from 'date-fns'
+import { startOfMonth, endOfMonth, subMonths, subDays, format, startOfDay, endOfDay } from 'date-fns'
 import { generateStockAlerts } from '@/lib/generate-alerts'
 
 /**
@@ -54,17 +54,15 @@ export async function getDashboardData(
       case 'today':
         currentPeriodStart = startOfDay(now)
         currentPeriodEnd = endOfDay(now)
-        previousPeriodStart = startOfDay(subMonths(now, 1))
-        previousPeriodEnd = endOfDay(subMonths(now, 1))
+        previousPeriodStart = startOfDay(subDays(now, 1))
+        previousPeriodEnd = endOfDay(subDays(now, 1))
         break
       
       case 'week':
-        currentPeriodStart = startOfDay(subMonths(now, 0))
-        currentPeriodStart.setDate(currentPeriodStart.getDate() - 7)
+        currentPeriodStart = startOfDay(subDays(now, 7))
         currentPeriodEnd = endOfDay(now)
-        previousPeriodStart = startOfDay(subMonths(currentPeriodStart, 0))
-        previousPeriodStart.setDate(previousPeriodStart.getDate() - 7)
-        previousPeriodEnd = new Date(currentPeriodStart.getTime() - 1)
+        previousPeriodStart = startOfDay(subDays(now, 14))
+        previousPeriodEnd = endOfDay(subDays(now, 8))
         break
       
       case '3months':
@@ -210,8 +208,16 @@ export async function getDashboardData(
     },
   })
 
-  // Revenue trend based on date range
-  const trendMonths = dateRange === 'year' ? 12 : dateRange === '6months' ? 6 : dateRange === '3months' ? 3 : 6
+  // Revenue trend based on date range - determine months to show in chart
+  const trendMonthsMap: Record<DateRangePreset, number> = {
+    'today': 1,
+    'week': 1,
+    'month': 6,
+    '3months': 3,
+    '6months': 6,
+    'year': 12,
+  }
+  const trendMonths = trendMonthsMap[dateRange]
   const revenueByMonth = []
   for (let i = trendMonths - 1; i >= 0; i--) {
     const monthStart = startOfMonth(subMonths(now, i))
@@ -386,10 +392,12 @@ export async function getDashboardData(
   }
 
   // Financial Stats (Owner/Admin)
+  // NOTE: Expense tracking not yet integrated with date range filtering
+  // The /api/expenses route handles expense data separately
   const financialStats = {
     revenue: revenueCurrentPeriod._sum.totalAmount || 0,
-    expenses: 0, // TODO: Implement expense tracking
-    profit: revenueCurrentPeriod._sum.totalAmount || 0,
+    expenses: 0, // Expenses are tracked separately - see /api/expenses
+    profit: revenueCurrentPeriod._sum.totalAmount || 0, // Profit = Revenue when expenses not integrated
     outstandingPayments: await prisma.order.aggregate({
       where: {
         balanceAmount: {
