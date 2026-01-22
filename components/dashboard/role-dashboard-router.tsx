@@ -33,15 +33,17 @@ function DashboardLoader() {
 }
 
 import { getDashboardData } from '@/lib/dashboard-data'
+import type { DateRangePreset } from '@/lib/dashboard-data'
 
 type DashboardData = Awaited<ReturnType<typeof getDashboardData>>
 
 interface RoleDashboardRouterProps {
   userRole: string
   dashboardData: DashboardData
+  dateRange?: DateRangePreset
 }
 
-export function RoleDashboardRouter({ userRole, dashboardData }: RoleDashboardRouterProps) {
+export function RoleDashboardRouter({ userRole, dashboardData, dateRange = 'month' }: RoleDashboardRouterProps) {
   if (!dashboardData) {
     return (
       <Card className="border-red-200 bg-red-50">
