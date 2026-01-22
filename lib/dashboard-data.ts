@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db'
-import { startOfMonth, endOfMonth, subMonths, subDays, format, startOfDay, endOfDay } from 'date-fns'
+import { startOfMonth, endOfMonth, subMonths, subDays, format, startOfDay, endOfDay, addDays, differenceInDays } from 'date-fns'
 import { generateStockAlerts } from '@/lib/generate-alerts'
 
 /**
@@ -323,15 +323,42 @@ export async function getDashboardData(
   // ===== Role-Specific Stats =====
   
   // Tailor Dashboard Stats
-  const tailorStats = {
-    inProgress: await prisma.order.count({
+  const [inProgressOrders, ordersToday, overdueOrders] = await Promise.all([
+    // Orders in progress (stitching phase) - full details
+    prisma.order.findMany({
       where: {
         status: {
           in: ['CUTTING', 'STITCHING', 'FINISHING'],
         },
       },
+      select: {
+        id: true,
+        orderNumber: true,
+        deliveryDate: true,
+        status: true,
+        totalAmount: true,
+        customer: {
+          select: {
+            name: true,
+          },
+        },
+        items: {
+          select: {
+            garmentPattern: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        deliveryDate: 'asc',
+      },
     }),
-    dueToday: await prisma.order.count({
+
+    // Orders due today
+    prisma.order.findMany({
       where: {
         deliveryDate: {
           gte: startOfDay(now),
@@ -341,8 +368,34 @@ export async function getDashboardData(
           not: 'DELIVERED',
         },
       },
+      select: {
+        id: true,
+        orderNumber: true,
+        deliveryDate: true,
+        status: true,
+        totalAmount: true,
+        customer: {
+          select: {
+            name: true,
+          },
+        },
+        items: {
+          select: {
+            garmentPattern: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        deliveryDate: 'asc',
+      },
     }),
-    overdue: await prisma.order.count({
+
+    // Overdue orders
+    prisma.order.findMany({
       where: {
         deliveryDate: {
           lt: startOfDay(now),
@@ -351,44 +404,306 @@ export async function getDashboardData(
           not: 'DELIVERED',
         },
       },
-    }),
-    workloadByType: await prisma.orderItem.groupBy({
-      by: ['garmentPatternId'],
-      where: {
-        order: {
-          status: {
-            in: ['CUTTING', 'STITCHING', 'FINISHING'],
+      select: {
+        id: true,
+        orderNumber: true,
+        deliveryDate: true,
+        status: true,
+        totalAmount: true,
+        customer: {
+          select: {
+            name: true,
+          },
+        },
+        items: {
+          select: {
+            garmentPattern: {
+              select: {
+                name: true,
+              },
+            },
           },
         },
       },
-      _count: {
-        id: true,
+      orderBy: {
+        deliveryDate: 'asc',
       },
     }),
+  ])
+
+  type OrderWithDetails = typeof ordersToday[number]
+
+  const dueTodayFiltered = ordersToday.filter(
+    (order: OrderWithDetails) => differenceInDays(order.deliveryDate, now) === 0
+  )
+
+  // Workload by garment type (for stitching phase)
+  const workloadByGarment = await prisma.orderItem.groupBy({
+    by: ['garmentPatternId'],
+    where: {
+      order: {
+        status: {
+          in: ['CUTTING', 'STITCHING', 'FINISHING'],
+        },
+      },
+    },
+    _count: {
+      id: true,
+    },
+  })
+
+  type WorkloadItem = typeof workloadByGarment[number]
+
+  const workloadDetails = await Promise.all(
+    workloadByGarment.map(async (item: WorkloadItem) => {
+      const pattern = await prisma.garmentPattern.findUnique({
+        where: { id: item.garmentPatternId },
+        select: { name: true },
+      })
+      return {
+        name: pattern?.name || 'Unknown',
+        count: item._count.id,
+      }
+    })
+  )
+
+  // Upcoming deadlines (next 7 days)
+  const upcomingDeadlines = await prisma.order.findMany({
+    where: {
+      deliveryDate: {
+        gte: now,
+        lte: addDays(now, 7),
+      },
+      status: {
+        not: 'DELIVERED',
+      },
+    },
+    select: {
+      id: true,
+      orderNumber: true,
+      deliveryDate: true,
+      status: true,
+      customer: {
+        select: {
+          name: true,
+        },
+      },
+      items: {
+        select: {
+          garmentPattern: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: {
+      deliveryDate: 'asc',
+    },
+  })
+
+  const tailorStats = {
+    inProgress: inProgressOrders.length,
+    inProgressList: inProgressOrders,
+    dueToday: dueTodayFiltered.length,
+    dueTodayList: dueTodayFiltered,
+    overdue: overdueOrders.length,
+    overdueList: overdueOrders,
+    workloadByGarment: workloadDetails,
+    upcomingDeadlines: upcomingDeadlines.slice(0, 10),
+    dailyTarget: 5, // This could be configurable
   }
 
   // Inventory Manager Stats
-  const inventoryStats = {
-    lowStock: clothLowStock + accessoryLowStock,
-    criticalStock: clothCriticalStock + accessoryCriticalStock,
-    totalValue: totalClothWorth + totalAccessoryWorth,
-    recentPurchases: await prisma.purchaseOrder.count({
+  const [pendingPOs, fabricUsage] = await Promise.all([
+    // Pending purchase orders
+    prisma.purchaseOrder.count({
       where: {
-        createdAt: {
-          gte: currentPeriodStart,
-          lte: currentPeriodEnd,
+        status: {
+          in: ['PENDING', 'PARTIAL'],
         },
       },
     }),
+
+    // Fast-moving fabrics (high usage rate with low stock)
+    prisma.orderItem.groupBy({
+      by: ['clothInventoryId'],
+      where: {
+        createdAt: {
+          gte: subMonths(now, 1),
+        },
+      },
+      _sum: {
+        estimatedMeters: true,
+      },
+      orderBy: {
+        _sum: {
+          estimatedMeters: 'desc',
+        },
+      },
+      take: 20,
+    }),
+  ])
+
+  type FabricUsageItem = typeof fabricUsage[number]
+
+  const fastMovingFabrics = await Promise.all(
+    fabricUsage.map(async (item: FabricUsageItem) => {
+      const cloth = await prisma.clothInventory.findUnique({
+        where: { id: item.clothInventoryId },
+        select: {
+          id: true,
+          name: true,
+          currentStock: true,
+          reserved: true,
+          minimum: true,
+          pricePerMeter: true,
+        },
+      })
+
+      if (!cloth) return null
+
+      const availableStock = cloth.currentStock - cloth.reserved
+      const usageRate = item._sum.estimatedMeters || 0
+      const daysOfStockRemaining = usageRate > 0 ? (availableStock / usageRate) * 30 : 999
+
+      return {
+        id: cloth.id,
+        name: cloth.name,
+        currentStock: cloth.currentStock,
+        availableStock,
+        usageRate,
+        daysRemaining: Math.round(daysOfStockRemaining),
+        isLowStock: availableStock < cloth.minimum,
+        needsReorder: daysOfStockRemaining < 30,
+      }
+    })
+  )
+
+  type FabricDetail = typeof fastMovingFabrics[number]
+
+  const fastMovingFiltered = fastMovingFabrics
+    .filter((f: FabricDetail) => f !== null)
+    .sort((a: FabricDetail, b: FabricDetail) => (a!.daysRemaining - b!.daysRemaining))
+
+  // Committed vs Available stock
+  const stockComparison = await prisma.clothInventory.findMany({
+    select: {
+      name: true,
+      currentStock: true,
+      reserved: true,
+      type: true,
+    },
+    take: 10,
+    orderBy: {
+      reserved: 'desc',
+    },
+  })
+
+  type StockComparisonItem = typeof stockComparison[number]
+
+  const stockComparisonData = stockComparison.map((cloth: StockComparisonItem) => ({
+    name: cloth.name,
+    type: cloth.type,
+    available: cloth.currentStock - cloth.reserved,
+    committed: cloth.reserved,
+    total: cloth.currentStock,
+  }))
+
+  const inventoryStats = {
+    pendingPOs,
+    fastMovingFabrics: fastMovingFiltered.slice(0, 10),
+    stockComparison: stockComparisonData,
   }
 
   // Sales Manager Stats
+  const [newOrdersToday, readyForPickup, orderPipeline, topCustomers] = await Promise.all([
+    // New orders today
+    prisma.order.count({
+      where: {
+        createdAt: {
+          gte: startOfDay(now),
+        },
+      },
+    }),
+
+    // Ready for pickup
+    prisma.order.count({
+      where: {
+        status: 'READY',
+      },
+    }),
+
+    // Order status funnel (pipeline)
+    prisma.order.groupBy({
+      by: ['status'],
+      _count: {
+        status: true,
+      },
+    }),
+
+    // Top customers (by order count and value)
+    prisma.customer.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        orders: {
+          select: {
+            totalAmount: true,
+            status: true,
+          },
+        },
+      },
+      take: 50,
+    }),
+  ])
+
+  const pipelineOrder = ['NEW', 'MATERIAL_SELECTED', 'CUTTING', 'STITCHING', 'FINISHING', 'READY']
+  type PipelineItem = typeof orderPipeline[number]
+
+  const pipelineData = pipelineOrder.map((status) => {
+    const data = orderPipeline.find((p: PipelineItem) => p.status === status)
+    return {
+      status,
+      count: data?._count.status || 0,
+    }
+  })
+
+  type TopCustomer = typeof topCustomers[number]
+  type CustomerOrder = TopCustomer['orders'][number]
+
+  const customerStats = topCustomers
+    .map((customer: TopCustomer) => {
+      const totalOrders = customer.orders.length
+      const totalSpent = customer.orders
+        .filter((o: CustomerOrder) => o.status === 'DELIVERED')
+        .reduce((sum: number, o: CustomerOrder) => sum + o.totalAmount, 0)
+      const pendingOrders = customer.orders.filter(
+        (o: CustomerOrder) => o.status !== 'DELIVERED' && o.status !== 'CANCELLED'
+      ).length
+
+      return {
+        id: customer.id,
+        name: customer.name,
+        email: customer.email,
+        phone: customer.phone,
+        totalOrders,
+        totalSpent,
+        pendingOrders,
+        isReturning: totalOrders > 1,
+      }
+    })
+    .sort((a: { totalSpent: number }, b: { totalSpent: number }) => b.totalSpent - a.totalSpent)
+    .slice(0, 10)
+
   const salesStats = {
-    newOrders: ordersCurrentPeriod,
-    revenue: revenueCurrentPeriod._sum.totalAmount || 0,
-    pendingOrders,
-    readyOrders,
-    customerCount: await prisma.customer.count(),
+    newOrdersToday,
+    readyForPickup,
+    orderPipeline: pipelineData,
+    topCustomers: customerStats,
   }
 
   // Financial Stats (Owner/Admin)
@@ -443,6 +758,7 @@ export async function getDashboardData(
         pending: pendingOrders,
         ready: readyOrders,
         delivered: deliveredOrders,
+        thisMonth: ordersCurrentPeriod,
         currentPeriod: ordersCurrentPeriod,
         previousPeriod: ordersPreviousPeriod,
         growth: orderGrowth,

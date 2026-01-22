@@ -607,7 +607,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
 
       {/* Financial Details Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {dialogType === 'revenue' && 'Revenue Details (This Month)'}

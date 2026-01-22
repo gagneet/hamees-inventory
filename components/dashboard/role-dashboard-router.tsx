@@ -32,15 +32,10 @@ function DashboardLoader() {
   )
 }
 
-import { getDashboardData } from '@/lib/dashboard-data'
-import type { DateRangePreset } from '@/lib/dashboard-data'
-
-type DashboardData = Awaited<ReturnType<typeof getDashboardData>>
-
 interface RoleDashboardRouterProps {
   userRole: string
-  dashboardData: DashboardData
-  dateRange?: DateRangePreset
+  dashboardData: any // API response from /api/dashboard/enhanced-stats
+  dateRange?: string
 }
 
 export function RoleDashboardRouter({ userRole, dashboardData, dateRange = 'month' }: RoleDashboardRouterProps) {

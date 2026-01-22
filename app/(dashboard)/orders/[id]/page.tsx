@@ -26,6 +26,7 @@ import { PrintInvoiceButton } from '@/components/orders/print-invoice-button'
 import { EditMeasurementDialog } from '@/components/orders/edit-measurement-dialog'
 import { OrderItemDetailDialog } from '@/components/orders/order-item-detail-dialog'
 import { AssignTailorDialog } from '@/components/orders/assign-tailor-dialog'
+import { SendWhatsAppButton } from '@/components/orders/send-whatsapp-button'
 
 async function getOrderDetails(id: string) {
   try {
@@ -709,9 +710,13 @@ export default async function OrderDetailPage({
                   }}
                 />
               )}
-              <Button className="w-full" variant="outline" size="sm">
-                Send WhatsApp Update
-              </Button>
+              <SendWhatsAppButton
+                orderId={order.id}
+                orderNumber={order.orderNumber}
+                customerPhone={order.customer.phone}
+                customerName={order.customer.name}
+                orderStatus={order.status}
+              />
             </CardContent>
           </Card>
         </div>
