@@ -6,6 +6,14 @@ A comprehensive inventory and order management system built specifically for tai
 
 ## 🎉 What's New in v0.8.2
 
+This version introduces GST integration, a more interactive dashboard, and production-ready seed data. For a detailed list of changes, see the [CHANGELOG.md](CHANGELOG.md).
+
+- **GST Integration**: Automatic 12% GST calculation (6% CGST + 6% SGST) on all orders.
+- **Interactive Dashboard**: KPI cards are now clickable, showing detailed breakdowns.
+- **Enhanced Analytics**: Improved charts and customer retention analysis.
+- **Production Seed Data**: Includes 192 historical orders for realistic testing.
+- **Bug Fixes**: Addressed issues with GST display, expense tracking, and more.
+
 ### GST Integration (Tax Compliance)
 - **Complete GST Calculation**: 12% GST automatically calculated on all orders
 - **GST Breakdown Display**: Order summary shows CGST (6%) + SGST (6%) breakdown
@@ -33,8 +41,14 @@ A comprehensive inventory and order management system built specifically for tai
 
 ## ✨ Features
 
+### Core Modules
+- **Inventory Management**: Track cloth and accessory inventory with barcode/SKU support, automatic stock alerts, and supplier tracking.
+- **Order Management**: Create and manage orders with GST compliance, automatic material calculation, and detailed status tracking.
+- **Customer Management**: Maintain customer profiles with detailed measurements and order history.
+- **Dashboard & Analytics**: Access real-time KPIs, interactive charts, and detailed reports on revenue, expenses, and customer retention.
+
 ### Authentication & Security
-- **NextAuth.js v5**: Secure credentials-based authentication
+- **NextAuth.js v5**: Secure, role-based authentication (Owner, Admin, Inventory Manager, Sales Manager, Tailor, Viewer).
 - **Role-Based Access**: OWNER, ADMIN, INVENTORY_MANAGER, SALES_MANAGER, TAILOR, VIEWER
 - **Protected Routes**: Automatic middleware-based route protection
 - **JWT Sessions**: Secure session management
@@ -144,6 +158,13 @@ After seeding, use these credentials:
 - **Password:** `admin123`
 
 ## 🌐 Production Deployment
+
+For detailed instructions on deploying the application to a production environment, please refer to the [SETUP.md](SETUP.md) guide. This document covers:
+- Dedicated database user setup
+- Environment configuration for production
+- Application deployment with PM2
+- Nginx reverse proxy setup
+- SSL certificate installation with Certbot
 
 ### Database Setup
 
@@ -501,15 +522,27 @@ const prisma = new PrismaClient({ adapter })
 
 ## 🤝 Contributing
 
-This is a custom project built for tailor shops. Contributions and suggestions are welcome!
+Contributions are welcome! If you have suggestions for improvements or want to report a bug, please open an issue on GitHub.
+
+### Bug Reports
+When reporting a bug, please include:
+- A clear and descriptive title.
+- Steps to reproduce the bug.
+- The expected behavior and what actually happened.
+- Screenshots or screen recordings, if applicable.
+
+### Feature Requests
+For feature requests, please provide:
+- A clear description of the feature and its potential benefits.
+- Any mockups or examples that might help illustrate the idea.
 
 ## 📝 License
 
-Private project - All rights reserved
+This is a private project, and all rights are reserved.
 
 ## 🆘 Support
 
-For setup issues, see [SETUP.md](SETUP.md) or check the troubleshooting section.
+For setup issues or troubleshooting, please refer to the [SETUP.md](SETUP.md) guide.
 
 ## 🎯 Goals
 
