@@ -48,7 +48,11 @@ export async function PATCH(
         // Batch update order items - prepare all updates
         const orderItemUpdates = order.items.map(item => {
           const metersUsed = actualMetersUsed || item.estimatedMeters
-          const wastedMeters = wastage || 0
+          // Auto-calculate wastage: if actualMetersUsed is provided, calculate difference
+          // Otherwise use provided wastage value or default to 0
+          const wastedMeters = actualMetersUsed
+            ? (actualMetersUsed - item.estimatedMeters)
+            : (wastage || 0)
           return tx.orderItem.update({
             where: { id: item.id },
             data: {
@@ -61,7 +65,10 @@ export async function PATCH(
         // Batch update cloth inventory - prepare all updates
         const clothInventoryUpdates = order.items.map(item => {
           const metersUsed = actualMetersUsed || item.estimatedMeters
-          const wastedMeters = wastage || 0
+          // Auto-calculate wastage: if actualMetersUsed is provided, calculate difference
+          const wastedMeters = actualMetersUsed
+            ? (actualMetersUsed - item.estimatedMeters)
+            : (wastage || 0)
           return tx.clothInventory.update({
             where: { id: item.clothInventoryId },
             data: {
@@ -78,7 +85,10 @@ export async function PATCH(
         // Batch create stock movements - prepare all creates
         const stockMovementCreates = order.items.map(item => {
           const metersUsed = actualMetersUsed || item.estimatedMeters
-          const wastedMeters = wastage || 0
+          // Auto-calculate wastage: if actualMetersUsed is provided, calculate difference
+          const wastedMeters = actualMetersUsed
+            ? (actualMetersUsed - item.estimatedMeters)
+            : (wastage || 0)
           return tx.stockMovement.create({
             data: {
               clothInventoryId: item.clothInventoryId,
@@ -185,6 +195,23 @@ export async function PATCH(
       // Simple status update
         // @ts-ignore
       await prisma.$transaction(async (tx) => {
+        // If actualMetersUsed is provided, update all order items
+        // This typically happens when status changes to CUTTING
+        if (actualMetersUsed !== null && actualMetersUsed !== undefined) {
+          const orderItemUpdates = order.items.map(item => {
+            // Auto-calculate wastage based on the difference
+            const calculatedWastage = actualMetersUsed - item.estimatedMeters
+            return tx.orderItem.update({
+              where: { id: item.id },
+              data: {
+                actualMetersUsed: actualMetersUsed,
+                wastage: calculatedWastage,
+              },
+            })
+          })
+          await Promise.all(orderItemUpdates)
+        }
+
         await tx.order.update({
           where: { id },
           data: {
@@ -194,6 +221,11 @@ export async function PATCH(
         })
 
         // Create audit history record
+        const descriptionParts = [`Status changed from ${order.status} to ${status}`]
+        if (actualMetersUsed !== null && actualMetersUsed !== undefined) {
+          descriptionParts.push(`Actual meters used: ${actualMetersUsed}m`)
+        }
+
         await tx.orderHistory.create({
           data: {
             orderId: order.id,
@@ -202,7 +234,7 @@ export async function PATCH(
             fieldName: 'status',
             oldValue: order.status,
             newValue: status,
-            description: `Status changed from ${order.status} to ${status}`,
+            description: descriptionParts.join('. '),
           },
         })
       })
