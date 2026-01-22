@@ -1,6 +1,12 @@
 import dynamic from 'next/dynamic'
 import { Scissors, Package, Users, TrendingUp } from 'lucide-react'
 
+// NOTE:
+// The LoginForm uses client-side session/auth hooks and browser-only APIs,
+// so we intentionally disable SSR here to avoid hydration and runtime errors.
+// This may negatively impact SEO and initial page load performance for this
+// above-the-fold component, but the trade-off is accepted to ensure correct
+// authentication behavior.
 const LoginForm = dynamic(() => import('@/components/login-form').then(mod => ({ default: mod.LoginForm })), {
   ssr: false,
   loading: () => <div className="w-full max-w-md animate-pulse rounded-lg bg-slate-200 h-96" />
