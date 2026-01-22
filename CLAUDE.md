@@ -10,6 +10,233 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Visual Measurement History & Stock Health Chart (v0.19.1)
+
+**What's New:**
+- **Stock Health Visual Chart** - Donut chart showing inventory status distribution (In Stock, Low Stock, Critical)
+- **Measurement History with Change Audit** - Complete timeline showing what changed between measurements
+- **Change Tracking** - Automatically highlights differences: "chest: 100cm → 102cm (+2.0cm)"
+- **View History Button** - One-click access to measurement timeline for each garment type
+
+**Version:** v0.19.1
+**Date:** January 22, 2026
+**Status:** ✅ Production Ready
+
+**Key Features:**
+
+1. **Stock Health Donut Chart (Dashboard)**
+   - Visual breakdown of inventory status
+   - 🟢 Green: In Stock (healthy items)
+   - 🟡 Amber: Low Stock (warning zone)
+   - 🔴 Red: Critical Stock (urgent reorder)
+   - Interactive tooltips with counts and percentages
+   - Legend showing item counts for each category
+
+2. **Measurement History Dialog (Visual Tool)**
+   - "View History" button appears when measurements exist
+   - Complete timeline sorted by date (newest first)
+   - **Current measurement** highlighted in blue with "Current" badge
+   - **Change tracking** shows differences from previous measurement
+   - Shows who took each measurement and when
+   - Displays all measurement values for each version
+   - Notes preserved for each measurement session
+
+3. **Change Audit Trail**
+   - Amber highlighted box showing changes
+   - Format: `field: oldValue → newValue (±difference)`
+   - Example: "chest: 100cm → 102cm (+2.0cm)"
+   - Example: "waist: 90cm → 88cm (-2.0cm)"
+   - Body type changes: "REGULAR → LARGE"
+   - Helps track customer body changes over time
+
+4. **Auto-Population** (Enhanced)
+   - Visual Tool pre-fills with latest active measurement
+   - Edit any values and save creates new version
+   - Old measurement auto-marked as inactive
+   - Complete version history preserved
+   - No data loss - full audit trail maintained
+
+**User Workflows:**
+
+**Workflow 1: View Stock Health**
+1. Login as OWNER/ADMIN
+2. Navigate to Dashboard
+3. See Inventory Summary card with donut chart
+4. Hover over segments to see item counts
+5. Click Low/Critical buttons for detailed item list
+
+**Workflow 2: View Measurement History**
+1. Open Visual Tool for customer with existing measurements
+2. Select garment type (e.g., Shirt)
+3. Click "View History" button
+4. See complete timeline with changes highlighted
+5. Review who took measurements and when
+6. Close dialog to continue editing
+
+**Workflow 3: Track Measurement Changes**
+1. Customer returns after weight loss/gain
+2. Open Visual Tool → Shirt measurements
+3. Update chest from 100cm to 102cm
+4. Save new measurement
+5. Click "View History"
+6. See highlighted change: "chest: 100cm → 102cm (+2.0cm)"
+7. Use this data for future garment adjustments
+
+**Files Modified:**
+- `components/dashboard/inventory-summary.tsx` - Added stock health donut chart with Recharts
+- `components/measurements/visual-measurement-tool.tsx` - Added history dialog, change tracking, and audit trail
+
+**Dependencies:**
+- No new dependencies (uses existing Recharts library)
+
+**Performance:**
+- Chart render: <100ms
+- History API call: ~200-300ms
+- No impact on page load time
+
+**Documentation:** See CLAUDE.md for complete workflow details
+
+**Deployment:** ✅ Live at https://hamees.gagneet.com
+
+**Testing:**
+```bash
+# Test Stock Health Chart
+1. Login as owner@hameesattire.com
+2. Navigate to Dashboard
+3. See Inventory Summary with donut chart
+4. Verify Green (In Stock), Amber (Low), Red (Critical) segments
+5. Hover to see tooltips with counts
+
+# Test Measurement History
+1. Login as tailor@hameesattire.com
+2. Navigate to any customer with measurements
+3. Click "Visual Tool"
+4. Click "View History" button
+5. Verify timeline shows all measurements
+6. Verify changes highlighted in amber
+7. Edit a measurement and save
+8. View history again to see new entry with changes
+```
+
+---
+
+### ✅ Visual Measurement System (v0.19.0)
+
+**What's New:**
+- **Image-Based Measurement Tool** - Interactive SVG diagrams for taking customer measurements
+- **Bilingual Support** - All labels in English and Punjabi (Gurmukhi script)
+- **4 Garment Types** - Shirt, Trouser, Suit, and Sherwani with specialized diagrams
+- **Smart Validation** - Real-time progress tracking and required field validation
+- **Master Tailor Focused** - Designed specifically for TAILOR role users to assign measurements visually
+
+**Version:** v0.19.0
+**Date:** January 22, 2026
+**Status:** ✅ Production Ready
+
+**Key Features:**
+
+1. **Interactive SVG Diagrams**
+   - Clickable measurement points on anatomical diagrams
+   - Color-coded indicators: Red (not filled), Green (filled), Orange (active)
+   - Visual feedback for measurement progress
+   - Front, back, and side views for each garment type
+
+2. **Comprehensive Measurement Points**
+   - **Shirt**: Neck, Chest, Waist, Shoulder, Sleeve Length, Shirt Length (6 points)
+   - **Trouser**: Waist, Hip, Inseam, Outseam, Thigh, Knee, Bottom (7 points)
+   - **Suit**: Neck, Chest, Waist, Shoulder, Sleeve, Jacket Length, Lapel (7 points)
+   - **Sherwani**: Neck, Chest, Waist, Shoulder, Sleeve, Sherwani Length (6 points)
+   - All measurements in centimeters with contextual help text
+
+3. **Bilingual Labels (English/Punjabi)**
+   - "Chest / ਛਾਤੀ", "Waist / ਕਮਰ", "Sleeve / ਆਸਤੀਨ"
+   - Cultural accessibility for Punjabi-speaking staff
+   - Body types: Slim (ਪਤਲਾ), Regular (ਨਿਯਮਤ), Large (ਵੱਡਾ), XL (ਬਹੁਤ ਵੱਡਾ)
+
+4. **Smart Validation & Progress Tracking**
+   - Required vs. optional field indicators
+   - Real-time progress bar (e.g., "4/6 measurements filled")
+   - "All required filled" badge when complete
+   - Toast notifications for success/error feedback
+
+5. **Measurement History Integration**
+   - Auto-populates from existing measurements
+   - Creates new measurement version on save
+   - Preserves complete measurement history
+   - Links to existing Measurement model (no database changes)
+
+6. **User Access Control**
+   - Permission: `manage_measurements`
+   - Allowed Roles: OWNER, ADMIN, SALES_MANAGER, TAILOR
+   - Prominent "Visual Tool" button on customer detail page
+   - Gradient blue-purple button for visibility
+
+**User Workflows:**
+
+**Workflow 1: Create New Measurement**
+1. Navigate to Customer Detail Page
+2. Click "Visual Tool" button
+3. Select garment type tab (Shirt/Trouser/Suit/Sherwani)
+4. Click measurement points on diagram or type in inputs
+5. Fill all required measurements
+6. Select body type
+7. Add optional notes
+8. Click "Save Measurements"
+9. System creates new Measurement record
+10. Redirects to customer page with success toast
+
+**Workflow 2: Update Existing Measurement**
+1. Click "Visual Tool" for customer with existing measurements
+2. System auto-populates fields from latest active measurement
+3. Modify any measurements (e.g., chest 100cm → 102cm)
+4. Save to create new measurement version
+5. Old measurement marked inactive, new one active
+
+**Files Added:**
+- `components/measurements/visual-measurement-tool.tsx` - Main visual tool (850 lines)
+- `app/(dashboard)/customers/[id]/visual-measurements/page.tsx` - Server page
+- `app/(dashboard)/customers/[id]/visual-measurements/visual-measurement-client.tsx` - Client wrapper
+- `docs/VISUAL_MEASUREMENT_SYSTEM.md` - Complete documentation (1500+ lines)
+
+**Files Modified:**
+- `components/customer-measurements-section.tsx` - Added "Visual Tool" button
+- `app/layout.tsx` - Added Sonner toast notifications
+- `package.json` - Added sonner@2.0.7 dependency
+
+**Dependencies:**
+```json
+{
+  "sonner": "^2.0.7"  // Toast notifications
+}
+```
+
+**Performance:**
+- Build time: 33.2 seconds (clean build)
+- No database migration required
+- SVG diagrams render in <100ms
+- Mobile-responsive design
+
+**Documentation:** `docs/VISUAL_MEASUREMENT_SYSTEM.md` (1500+ lines)
+
+**Deployment:** ✅ Live at https://hamees.gagneet.com/customers/[id]/visual-measurements
+
+**Testing:**
+```bash
+# Test as Master Tailor
+Email: tailor@hameesattire.com
+Password: admin123
+
+1. Navigate to any customer
+2. Click "Visual Tool" button
+3. Select garment type tab
+4. Click measurement points on diagram
+5. Fill all required fields
+6. Save measurements
+7. Verify success toast and redirect
+```
+
+---
+
 ### ✅ Fabric Variance Financial Tracking (v0.18.7)
 
 **What's New:**

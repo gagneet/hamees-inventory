@@ -22,7 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Ruler, Edit, Trash2, History, Loader2 } from 'lucide-react'
+import { Ruler, Edit, Trash2, History, Loader2, Camera } from 'lucide-react'
 import { MeasurementEditDialog } from '@/components/measurement-edit-dialog'
 import { MeasurementHistoryDialog } from '@/components/measurement-history-dialog'
 
@@ -137,16 +137,28 @@ export function CustomerMeasurementsSection({
               Measurements
             </CardTitle>
             {canManage && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setSelectedMeasurement(null)
-                  setEditDialogOpen(true)
-                }}
-              >
-                Add
-              </Button>
+              <div className="flex gap-2">
+                <Link href={`/customers/${customerId}/visual-measurements`}>
+                  <Button
+                    size="sm"
+                    variant="default"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                  >
+                    <Camera className="h-4 w-4 mr-2" />
+                    Visual Tool
+                  </Button>
+                </Link>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setSelectedMeasurement(null)
+                    setEditDialogOpen(true)
+                  }}
+                >
+                  Add
+                </Button>
+              </div>
             )}
           </div>
           <CardDescription>{measurements.length} measurement records</CardDescription>
@@ -157,16 +169,28 @@ export function CustomerMeasurementsSection({
               <Ruler className="h-12 w-12 text-slate-400 mx-auto mb-3" />
               <p className="text-sm text-slate-600 mb-4">No measurements yet</p>
               {canManage && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setSelectedMeasurement(null)
-                    setEditDialogOpen(true)
-                  }}
-                >
-                  Add Measurements
-                </Button>
+                <div className="flex gap-2 justify-center">
+                  <Link href={`/customers/${customerId}/visual-measurements`}>
+                    <Button
+                      size="sm"
+                      variant="default"
+                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                    >
+                      <Camera className="h-4 w-4 mr-2" />
+                      Use Visual Tool
+                    </Button>
+                  </Link>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedMeasurement(null)
+                      setEditDialogOpen(true)
+                    }}
+                  >
+                    Add Manually
+                  </Button>
+                </div>
               )}
             </div>
           ) : (
