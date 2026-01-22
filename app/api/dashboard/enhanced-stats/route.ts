@@ -812,15 +812,25 @@ export async function GET(request: Request) {
     const efficiencyData = efficiencyDataMonth
 
     // Current month metrics
+    // IMPORTANT: Calculate variance on-the-fly instead of reading stored wastage field
+    // This ensures we always get accurate variance even if database records haven't been updated
     const totalEstimated = efficiencyData.reduce((sum, item) => sum + item.estimatedMeters, 0)
     const totalActualUsed = efficiencyData.reduce((sum, item) => sum + (item.actualMetersUsed || 0), 0)
-    const totalWastage = efficiencyData.reduce((sum, item) => sum + (item.wastage || 0), 0)
+    const totalWastage = efficiencyData.reduce((sum, item) => {
+      // Calculate variance: actualUsed - estimated
+      const calculatedVariance = (item.actualMetersUsed || 0) - item.estimatedMeters
+      return sum + calculatedVariance
+    }, 0)
     const efficiencyPercentage = totalEstimated > 0 ? ((totalEstimated - Math.abs(totalWastage)) / totalEstimated) * 100 : 0
 
     // All-time metrics
     const totalEstimatedAllTime = efficiencyDataAllTime.reduce((sum, item) => sum + item.estimatedMeters, 0)
     const totalActualUsedAllTime = efficiencyDataAllTime.reduce((sum, item) => sum + (item.actualMetersUsed || 0), 0)
-    const totalWastageAllTime = efficiencyDataAllTime.reduce((sum, item) => sum + (item.wastage || 0), 0)
+    const totalWastageAllTime = efficiencyDataAllTime.reduce((sum, item) => {
+      // Calculate variance: actualUsed - estimated
+      const calculatedVariance = (item.actualMetersUsed || 0) - item.estimatedMeters
+      return sum + calculatedVariance
+    }, 0)
     const efficiencyPercentageAllTime = totalEstimatedAllTime > 0 ? ((totalEstimatedAllTime - Math.abs(totalWastageAllTime)) / totalEstimatedAllTime) * 100 : 0
 
     // Group wastage by fabric type for detailed analysis
@@ -828,10 +838,13 @@ export async function GET(request: Request) {
       const fabricKey = `${item.clothInventory.name} (${item.clothInventory.color})`
       const existing = acc.find(f => f.fabricName === fabricKey)
 
+      // Calculate variance on-the-fly
+      const calculatedVariance = (item.actualMetersUsed || 0) - item.estimatedMeters
+
       if (existing) {
         existing.estimated += item.estimatedMeters
         existing.actualUsed += item.actualMetersUsed || 0
-        existing.wastage += item.wastage || 0
+        existing.wastage += calculatedVariance
         existing.orderCount += 1
       } else {
         acc.push({
@@ -839,7 +852,7 @@ export async function GET(request: Request) {
           fabricType: item.clothInventory.type,
           estimated: item.estimatedMeters,
           actualUsed: item.actualMetersUsed || 0,
-          wastage: item.wastage || 0,
+          wastage: calculatedVariance,
           orderCount: 1,
         })
       }
@@ -865,15 +878,19 @@ export async function GET(request: Request) {
       orderItemsAnalyzedAllTime: efficiencyDataAllTime.length,
       // Detailed breakdowns (current month only)
       wastageByFabric: wastageByFabric.slice(0, 10), // Top 10 fabrics
-      detailedItems: efficiencyData.map(item => ({
-        orderNumber: item.order.orderNumber,
-        orderDate: item.order.orderDate,
-        garmentType: item.garmentPattern.name,
-        fabric: `${item.clothInventory.name} (${item.clothInventory.color})`,
-        estimated: Math.round(item.estimatedMeters * 100) / 100,
-        actualUsed: Math.round((item.actualMetersUsed || 0) * 100) / 100,
-        wastage: Math.round((item.wastage || 0) * 100) / 100,
-      })).slice(0, 20), // Top 20 recent items
+      detailedItems: efficiencyData.map(item => {
+        // Calculate variance on-the-fly for each item
+        const calculatedVariance = (item.actualMetersUsed || 0) - item.estimatedMeters
+        return {
+          orderNumber: item.order.orderNumber,
+          orderDate: item.order.orderDate,
+          garmentType: item.garmentPattern.name,
+          fabric: `${item.clothInventory.name} (${item.clothInventory.color})`,
+          estimated: Math.round(item.estimatedMeters * 100) / 100,
+          actualUsed: Math.round((item.actualMetersUsed || 0) * 100) / 100,
+          wastage: Math.round(calculatedVariance * 100) / 100,
+        }
+      }).slice(0, 20), // Top 20 recent items
     }
 
     // ===================
