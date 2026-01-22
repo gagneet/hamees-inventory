@@ -224,6 +224,8 @@ async function exportToExcel() {
           city: c.city || '',
           state: c.state || '',
           pincode: c.pincode || '',
+          gstin: c.gstin || '',
+          customerType: c.customerType,
           notes: c.notes || '',
           active: c.active,
           createdAt: c.createdAt.toISOString(),
@@ -239,11 +241,14 @@ async function exportToExcel() {
         { key: 'city', header: 'City', width: 20 },
         { key: 'state', header: 'State', width: 20 },
         { key: 'pincode', header: 'Pincode', width: 10 },
+        { key: 'gstin', header: 'GSTIN', width: 20 },
+        { key: 'customerType', header: 'Customer Type', width: 15 },
         { key: 'notes', header: 'Notes', width: 40 },
         { key: 'active', header: 'Active', width: 10 },
         { key: 'createdAt', header: 'Created At', width: 20 },
         { key: 'updatedAt', header: 'Updated At', width: 20 }
-      ]
+      ],
+      notes: 'Customer Type: B2B (has GSTIN) or B2C (individual)'
     },
 
     // 6. Garment Patterns (no dependencies)
@@ -473,6 +478,7 @@ async function exportToExcel() {
           garmentPatternId: i.garmentPatternId,
           clothInventoryId: i.clothInventoryId,
           measurementId: i.measurementId || '',
+          assignedTailorId: i.assignedTailorId || '',
           quantity: i.quantity,
           bodyType: i.bodyType,
           estimatedMeters: i.estimatedMeters,
@@ -491,6 +497,7 @@ async function exportToExcel() {
         { key: 'garmentPatternId', header: 'Garment Pattern ID (FK)', width: 30 },
         { key: 'clothInventoryId', header: 'Cloth Inventory ID (FK)', width: 30 },
         { key: 'measurementId', header: 'Measurement ID (FK)', width: 30 },
+        { key: 'assignedTailorId', header: 'Assigned Tailor ID (FK)', width: 30 },
         { key: 'quantity', header: 'Quantity', width: 10 },
         { key: 'bodyType', header: 'Body Type', width: 12 },
         { key: 'estimatedMeters', header: 'Estimated Meters', width: 15 },
@@ -502,7 +509,7 @@ async function exportToExcel() {
         { key: 'createdAt', header: 'Created At', width: 20 },
         { key: 'updatedAt', header: 'Updated At', width: 20 }
       ],
-      notes: 'Body Type: SLIM, REGULAR, LARGE, XL'
+      notes: 'Body Type: SLIM, REGULAR, LARGE, XL | Assigned Tailor: Optional User ID (TAILOR role)'
     },
 
     // 11. Purchase Orders (depends on Supplier)
@@ -520,9 +527,19 @@ async function exportToExcel() {
           orderDate: p.orderDate.toISOString().split('T')[0],
           expectedDate: p.expectedDate ? p.expectedDate.toISOString().split('T')[0] : '',
           receivedDate: p.receivedDate ? p.receivedDate.toISOString().split('T')[0] : '',
+          subTotal: p.subTotal,
+          gstRate: p.gstRate,
+          cgst: p.cgst,
+          sgst: p.sgst,
+          igst: p.igst,
+          gstAmount: p.gstAmount,
           totalAmount: p.totalAmount,
           paidAmount: p.paidAmount,
           balanceAmount: p.balanceAmount,
+          isInputTaxCredit: p.isInputTaxCredit,
+          itcClaimed: p.itcClaimed,
+          supplierInvoiceNumber: p.supplierInvoiceNumber || '',
+          supplierInvoiceDate: p.supplierInvoiceDate ? p.supplierInvoiceDate.toISOString().split('T')[0] : '',
           status: p.status,
           notes: p.notes || '',
           active: p.active,
@@ -537,16 +554,26 @@ async function exportToExcel() {
         { key: 'orderDate', header: 'Order Date', width: 15 },
         { key: 'expectedDate', header: 'Expected Date', width: 15 },
         { key: 'receivedDate', header: 'Received Date', width: 15 },
-        { key: 'totalAmount', header: 'Total Amount', width: 12 },
+        { key: 'subTotal', header: 'Subtotal (Before GST)', width: 18 },
+        { key: 'gstRate', header: 'GST Rate (%)', width: 12 },
+        { key: 'cgst', header: 'CGST', width: 12 },
+        { key: 'sgst', header: 'SGST', width: 12 },
+        { key: 'igst', header: 'IGST', width: 12 },
+        { key: 'gstAmount', header: 'GST Amount', width: 12 },
+        { key: 'totalAmount', header: 'Total Amount', width: 15 },
         { key: 'paidAmount', header: 'Paid Amount', width: 12 },
         { key: 'balanceAmount', header: 'Balance Amount', width: 15 },
+        { key: 'isInputTaxCredit', header: 'ITC Eligible', width: 12 },
+        { key: 'itcClaimed', header: 'ITC Claimed', width: 12 },
+        { key: 'supplierInvoiceNumber', header: 'Supplier Invoice #', width: 20 },
+        { key: 'supplierInvoiceDate', header: 'Supplier Invoice Date', width: 18 },
         { key: 'status', header: 'Status', width: 15 },
         { key: 'notes', header: 'Notes', width: 40 },
         { key: 'active', header: 'Active', width: 10 },
         { key: 'createdAt', header: 'Created At', width: 20 },
         { key: 'updatedAt', header: 'Updated At', width: 20 }
       ],
-      notes: 'Status: PENDING, RECEIVED, PARTIAL, CANCELLED'
+      notes: 'Status: PENDING, RECEIVED, PARTIAL, CANCELLED | GST: 18% standard for fabric purchases | ITC: Input Tax Credit tracking'
     },
 
     // 12. PO Items (depends on PurchaseOrder)

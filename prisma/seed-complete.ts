@@ -327,6 +327,11 @@ async function main() {
 
   const customers = []
   for (let i = 0; i < customerNames.length; i++) {
+    // 20% of customers are B2B (have GSTIN)
+    const isB2B = i % 5 === 0
+    const states = ['Maharashtra', 'Delhi', 'Karnataka', 'Telangana', 'Tamil Nadu']
+    const state = randomChoice(states)
+
     const customer = await prisma.customer.create({
       data: {
         name: customerNames[i],
@@ -334,8 +339,10 @@ async function main() {
         email: `${customerNames[i].toLowerCase().replace(' ', '.')}@email.com`,
         address: `${randomInt(1, 999)} MG Road`,
         city: randomChoice(['Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai']),
-        state: randomChoice(['Maharashtra', 'Delhi', 'Karnataka', 'Telangana', 'Tamil Nadu']),
+        state: state,
         pincode: `${randomInt(100000, 999999)}`,
+        customerType: isB2B ? 'B2B' : 'B2C',
+        gstin: isB2B ? `${randomInt(10, 37)}AABCU${randomInt(1000, 9999)}R${randomInt(1, 9)}Z${randomInt(1, 9)}` : null,
       },
     })
 
@@ -438,6 +445,7 @@ async function main() {
           garmentPatternId: pattern.id,
           clothInventoryId: cloth.id,
           measurementId: measurement?.id, // Link measurement!
+          assignedTailorId: randomChoice([tailor.id, null, null]), // 33% chance tailor is assigned
           quantity: 1,
           bodyType: bodyType,
           estimatedMeters: parseFloat(estimatedMeters.toFixed(2)),
@@ -513,9 +521,13 @@ async function main() {
   for (let i = 0; i < 15; i++) {
     const supplier = randomChoice(suppliers)
     const poDate = randomDate(new Date(2025, 6, 1), new Date())
-    const totalAmount = randomFloat(50000, 200000)
+    const subTotal = randomFloat(50000, 200000)
+    const gstRate = 18 // 18% GST for fabric purchases
+    const gstAmount = parseFloat(((subTotal * gstRate) / 100).toFixed(2))
+    const totalAmount = parseFloat((subTotal + gstAmount).toFixed(2))
     const paidAmount = randomFloat(30000, Math.min(totalAmount, 150000))
     const balanceAmount = parseFloat((totalAmount - paidAmount).toFixed(2))
+    const isReceived = i < 12
 
     await prisma.purchaseOrder.create({
       data: {
@@ -523,16 +535,26 @@ async function main() {
         supplierId: supplier.id,
         orderDate: poDate,
         expectedDate: new Date(poDate.getTime() + randomInt(7, 21) * 24 * 60 * 60 * 1000),
-        receivedDate: i < 12 ? new Date(poDate.getTime() + randomInt(7, 14) * 24 * 60 * 60 * 1000) : null,
+        receivedDate: isReceived ? new Date(poDate.getTime() + randomInt(7, 14) * 24 * 60 * 60 * 1000) : null,
+        subTotal: subTotal,
+        gstRate: gstRate,
+        cgst: parseFloat((gstAmount / 2).toFixed(2)),
+        sgst: parseFloat((gstAmount / 2).toFixed(2)),
+        igst: 0,
+        gstAmount: gstAmount,
+        isInputTaxCredit: true, // Eligible for ITC
+        itcClaimed: isReceived && i % 3 === 0, // Claimed for 1/3 of received POs
+        supplierInvoiceNumber: isReceived ? `SINV-${supplier.name.substring(0, 3).toUpperCase()}-${randomInt(1000, 9999)}` : null,
+        supplierInvoiceDate: isReceived ? poDate : null,
         totalAmount: totalAmount,
         paidAmount: paidAmount,
         balanceAmount: balanceAmount,
-        status: i < 12 ? 'RECEIVED' : 'PENDING',
+        status: isReceived ? 'RECEIVED' : 'PENDING',
         notes: `Bulk order for ${randomChoice(['summer', 'winter', 'wedding'])} season`,
       },
     })
   }
-  console.log(`✅ Created 15 purchase orders\n`)
+  console.log(`✅ Created 15 purchase orders with GST and ITC tracking\n`)
 
   // 9. Create Expenses
   console.log('💰 Creating expenses...')

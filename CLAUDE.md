@@ -10,6 +10,107 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Database Schema Update - Complete Field Alignment (v0.20.0)
+
+**What's New:**
+- **Customer B2B/B2C Classification** - Added `customerType` and `gstin` fields for business vs individual customers
+- **Tailor Assignment System** - Added `assignedTailorId` to OrderItem for workload tracking
+- **Complete PurchaseOrder GST Tracking** - Added 10 new fields for GST breakdown and ITC management
+- **Updated Seed Data** - All 232 orders, 25 customers, and 15 POs regenerated with new fields
+- **Enhanced Excel Export** - All new fields included in bulk upload templates
+
+**Version:** v0.20.0
+**Date:** January 22, 2026
+**Status:** ✅ Production Ready
+
+**Key Changes:**
+
+1. **Customer Model (2 new fields)**
+   - `gstin` (String, nullable) - GST Identification Number for B2B customers
+   - `customerType` (String, default: "B2C") - "B2B" or "B2C" classification
+   - **Seed Data**: 5 B2B customers (20%) with GSTIN, 20 B2C customers (80%)
+
+2. **OrderItem Model (1 new field)**
+   - `assignedTailorId` (String, nullable) - Links to User with TAILOR role
+   - **Seed Data**: 155 items (33%) have assigned tailors, 315 unassigned
+
+3. **PurchaseOrder Model (10 new fields)**
+   - GST Breakdown: `subTotal`, `gstRate`, `cgst`, `sgst`, `igst`, `gstAmount`
+   - ITC Tracking: `isInputTaxCredit`, `itcClaimed`
+   - Invoice Reference: `supplierInvoiceNumber`, `supplierInvoiceDate`
+   - **Seed Data**: All 15 POs have 18% GST, 4 have claimed ITC
+
+**Usage Examples:**
+
+```typescript
+// Create B2B customer
+await prisma.customer.create({
+  data: {
+    name: 'ABC Retail Pvt Ltd',
+    customerType: 'B2B',
+    gstin: '27AABCU9603R1ZM',
+    // ... other fields
+  }
+})
+
+// Assign tailor to order item
+await prisma.orderItem.update({
+  where: { id: itemId },
+  data: { assignedTailorId: tailorUserId }
+})
+
+// Create PO with complete GST breakdown
+const subTotal = 100000
+const gstRate = 18
+const gstAmount = (subTotal * gstRate) / 100
+
+await prisma.purchaseOrder.create({
+  data: {
+    subTotal: subTotal,
+    gstRate: gstRate,
+    cgst: gstAmount / 2,
+    sgst: gstAmount / 2,
+    gstAmount: gstAmount,
+    totalAmount: subTotal + gstAmount,
+    isInputTaxCredit: true,
+    // ... other fields
+  }
+})
+```
+
+**Files Modified:**
+- `prisma/seed-complete.ts` - Updated with all new field population
+- `scripts/export-to-excel.ts` - Added new columns to Customer, OrderItem, PurchaseOrder sheets
+- `lib/excel-processor.ts` - Automatically handles new fields (no changes needed)
+
+**Database Refresh:**
+```bash
+# Refresh database with updated seed data
+pnpm tsx prisma/seed-complete.ts
+
+# Verify new fields
+PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -c \
+  "SELECT 'Customers' as table, COUNT(*) as total,
+   COUNT(CASE WHEN customerType = 'B2B' THEN 1 END) as b2b,
+   COUNT(CASE WHEN gstin IS NOT NULL THEN 1 END) as with_gstin
+   FROM \"Customer\";"
+```
+
+**Documentation:**
+- `docs/DATABASE_SCHEMA_UPDATE_JAN_2026.md` - Complete schema update documentation (14,000+ lines)
+- `docs/DATABASE_REFRESH_VERIFICATION_JAN_2026.md` - Full verification report with test results
+
+**Business Impact:**
+- ✅ Support for B2B customers with GSTIN-compliant invoicing
+- ✅ Tailor workload distribution and performance tracking
+- ✅ Complete GST compliance with Input Tax Credit tracking
+- ✅ Audit-ready purchase order records
+- ✅ Enhanced financial reporting capabilities
+
+**Deployment:** ✅ Database refreshed at https://hamees.gagneet.com
+
+---
+
 ### ✅ Critical Stock Fix & Interactive Stock Health Chart (v0.19.2)
 
 **What's New:**
