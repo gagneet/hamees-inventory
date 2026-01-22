@@ -1,7 +1,7 @@
 import dynamic from 'next/dynamic'
 import { Scissors, Package, Users, TrendingUp } from 'lucide-react'
 
-const LoginForm = dynamic(() => import('@/components/login-form').then(mod => mod.LoginForm), {
+const LoginForm = dynamic(() => import('@/components/login-form').then(mod => ({ default: mod.LoginForm })), {
   ssr: false,
   loading: () => <div className="w-full max-w-md animate-pulse rounded-lg bg-slate-200 h-96" />
 })
