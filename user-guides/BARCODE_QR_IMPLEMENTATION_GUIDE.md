@@ -1,7 +1,7 @@
 # Hamees Attire - Barcode & QR Code Implementation Guide
 
-**Version:** 1.0
-**Date:** January 20, 2026
+**Version:** 0.15.4
+**Last Updated:** January 16, 2026
 **For:** Store Workers, Inventory Managers, Owners
 
 ---

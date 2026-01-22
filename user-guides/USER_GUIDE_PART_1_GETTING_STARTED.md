@@ -1,7 +1,7 @@
 # Hamees Attire - Complete User Guide (Part 1: Getting Started)
 
-**Version:** 1.0
-**Date:** January 20, 2026
+**Version:** 0.15.4
+**Last Updated:** January 16, 2026
 **Application URL:** https://hamees.gagneet.com
 
 ---
@@ -28,7 +28,6 @@ Welcome to the Hamees Attire Inventory and Order Management System. This compreh
 - **Financial Tracking** with GST compliance
 - **Reporting and Analytics** with interactive charts
 - **Alerts and Notifications** for low stock and delayed orders
-- **WhatsApp Integration** for customer communications
 
 ### What This Guide Covers
 

@@ -1,7 +1,7 @@
 # Hamees Attire - Complete User Guide (Part 6: Best Practices & Workflows)
 
-**Version:** 1.0
-**Date:** January 20, 2026
+**Version:** 0.15.4
+**Last Updated:** January 16, 2026
 **Application URL:** https://hamees.gagneet.com
 
 ---
@@ -630,7 +630,6 @@ Difference: -7.5m (missing)
 **If Development Mode:**
 - Messages only logged to console
 - Ask ADMIN to configure WhatsApp Business API
-- See `docs/WHATSAPP_AND_BARCODE_INTEGRATION.md`
 
 **If Production Mode:**
 1. Verify customer phone number
@@ -1045,7 +1044,6 @@ Planned keyboard shortcuts:
    - Phone: (your admin's number)
 
 3. **Report Bug:**
-   - GitHub: https://github.com/anthropics/claude-code/issues
    - Describe issue, steps to reproduce, screenshots
 
 4. **Feature Request:**
@@ -1077,9 +1075,9 @@ Planned keyboard shortcuts:
 4. **Improve:** Provide feedback for future enhancements
 
 **Version Updates:**
-- This guide is for v0.18.2 (January 2026)
+- This guide is for v0.15.4 (January 2026)
 - Check for updates quarterly
-- New features documented in CLAUDE.md
+- New features documented in `CHANGELOG.md`
 
 ---
 

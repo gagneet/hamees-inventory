@@ -1,7 +1,7 @@
 # Hamees Attire - Complete User Guide (Part 5: Reports & Administration)
 
-**Version:** 1.0
-**Date:** January 20, 2026
+**Version:** 0.15.4
+**Last Updated:** January 16, 2026
 **Application URL:** https://hamees.gagneet.com
 
 ---

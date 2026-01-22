@@ -1,7 +1,7 @@
 # Hamees Attire - Complete Documentation Index
 
-**Version:** 1.0
-**Date:** January 20, 2026
+**Version:** 0.15.4
+**Last Updated:** January 16, 2026
 **Application URL:** https://hamees.gagneet.com
 
 ---
@@ -165,94 +165,6 @@ A comprehensive guide covering every aspect of the system, broken into 6 managea
 
 ---
 
-## 📊 Feature-Specific Documentation
-
-### WhatsApp & Barcode Integration
-**File:** `WHATSAPP_AND_BARCODE_INTEGRATION.md`
-
-**Contents:**
-- WhatsApp Business API integration
-- Automated customer notifications
-- Message templates (order confirmation, pickup, payment reminder)
-- QR code service architecture
-- Printable label generation
-- Configuration and setup
-- API endpoints reference
-- Testing in development mode
-
-**Who Should Read:** Owners, Admins (for setup and configuration)
-
-**When to Read:** Before enabling WhatsApp notifications
-
-**Estimated Reading Time:** 45 minutes
-
----
-
-### Phase Documentation
-
-**Historical documentation for specific feature releases:**
-
-#### Phase 13: Reports & Analytics
-**File:** `PHASE_13_REPORTS_AND_ANALYSIS.md`
-
-- Financial reporting system
-- Expense analytics
-- Customer segmentation
-- Dashboard charts
-
-#### Phase 3: Prominent Measurements
-**File:** `PHASE_3_PROMINENT_MEASUREMENTS.md`
-
-- Measurement display enhancements
-- Punjabi translation support
-- Visual hierarchy improvements
-
-#### Phase 2: Order Workflow Enhancements
-**File:** `PHASE_2_ENHANCEMENTS.md`
-
-- Timeline and phase tracking
-- Quick status updates
-- Work instructions
-- Efficiency metrics
-
-#### Order Item Detail Dialog
-**File:** `ORDER_ITEM_DETAIL_DIALOG.md`
-
-- Design upload system
-- Comprehensive garment information view
-- Measurement auto-linking
-
----
-
-## 🔒 Security & Operations
-
-### Setup and Installation
-**File:** `SETUP.md`
-
-**Contents:**
-- PostgreSQL database installation
-- Environment configuration
-- Production deployment (PM2, nginx)
-- Troubleshooting database issues
-- SSL certificate setup
-
-**Who Should Read:** System administrators, IT staff
-
----
-
-### User Roles and Permissions
-**File:** `USER_ROLES_AND_PERMISSIONS.md`
-
-**Contents:**
-- Complete permission matrix (6 roles × 39 permissions)
-- Role descriptions and responsibilities
-- Access control implementation
-- Permission-based UI filtering
-
-**Who Should Read:** Owners, Admins (for understanding access control)
-
----
-
 ## 🎯 Quick Start Guides
 
 ### For New Users
@@ -304,18 +216,15 @@ A comprehensive guide covering every aspect of the system, broken into 6 managea
 
 ## 📋 Document Versions
 
-| Document | Version | Last Updated | Pages |
-|----------|---------|--------------|-------|
-| User Guide Part 1 | 1.0 | Jan 20, 2026 | ~35 |
-| User Guide Part 2 | 1.0 | Jan 20, 2026 | ~40 |
-| User Guide Part 3 | 1.0 | Jan 20, 2026 | ~35 |
-| User Guide Part 4 | 1.0 | Jan 20, 2026 | ~45 |
-| User Guide Part 5 | 1.0 | Jan 20, 2026 | ~40 |
-| User Guide Part 6 | 1.0 | Jan 20, 2026 | ~50 |
-| Barcode Implementation | 1.0 | Jan 20, 2026 | ~75 |
-| WhatsApp Integration | 1.0 | Jan 17, 2026 | ~50 |
-
-**Total Documentation:** ~370 pages
+| Document | Version | Last Updated |
+|----------|---------|--------------|
+| User Guide Part 1 | 0.15.4 | Jan 16, 2026 |
+| User Guide Part 2 | 0.15.4 | Jan 16, 2026 |
+| User Guide Part 3 | 0.15.4 | Jan 16, 2026 |
+| User Guide Part 4 | 0.15.4 | Jan 16, 2026 |
+| User Guide Part 5 | 0.15.4 | Jan 16, 2026 |
+| User Guide Part 6 | 0.15.4 | Jan 16, 2026 |
+| Barcode Implementation | 0.15.4 | Jan 16, 2026 |
 
 ---
 
@@ -323,46 +232,21 @@ A comprehensive guide covering every aspect of the system, broken into 6 managea
 
 **When Updates Are Released:**
 
-1. **Minor Updates (v0.18.x → v0.18.y):**
-   - Bug fixes and small improvements
-   - Documentation updated as needed
-   - Check CLAUDE.md for changelog
+1. **Minor Updates (v0.15.x → v0.15.y):**
+   - Bug fixes and small improvements are documented in the `CHANGELOG.md`.
 
-2. **Major Updates (v0.18 → v0.19):**
-   - New features and major changes
-   - All affected documentation updated
-   - Training sessions recommended
-   - Release notes published
-
-**How to Check Version:**
-- Application footer shows current version
-- CLAUDE.md lists all updates
-- Dashboard shows version in settings
+2. **Major Updates (v0.15 → v0.16):**
+   - New features and major changes will be documented here and in the `CHANGELOG.md`.
 
 **How to Stay Updated:**
-- Subscribe to update notifications (future feature)
-- Check CLAUDE.md monthly
-- Contact ADMIN for version updates
+- Check the `CHANGELOG.md` for a detailed history of changes.
+- The application footer always displays the current version.
 
 ---
 
 ## 📥 Downloading Documentation
 
-**All documentation available at:**
-```
-/home/gagneet/hamees/docs/
-```
-
-**Files:**
-- `USER_GUIDE_PART_1_GETTING_STARTED.md`
-- `USER_GUIDE_PART_2_INVENTORY.md`
-- `USER_GUIDE_PART_3_CUSTOMERS.md`
-- `USER_GUIDE_PART_4_ORDERS.md`
-- `USER_GUIDE_PART_5_REPORTS_ADMIN.md`
-- `USER_GUIDE_PART_6_BEST_PRACTICES.md`
-- `BARCODE_QR_IMPLEMENTATION_GUIDE.md`
-- `WHATSAPP_AND_BARCODE_INTEGRATION.md`
-- `DOCUMENTATION_INDEX.md` (this file)
+The user guides are available in the `user-guides` directory of this repository. You can access them directly from the file system or view them on GitHub.
 
 **Formats:**
 - Markdown (.md) - view in any text editor or Markdown viewer
@@ -441,8 +325,8 @@ A comprehensive guide covering every aspect of the system, broken into 6 managea
 
 **Thank you for using Hamees Attire Inventory Management System!**
 
-**Version:** v0.18.2
-**Documentation Date:** January 20, 2026
+**Version:** v0.15.4
+**Documentation Date:** January 16, 2026
 **Application:** https://hamees.gagneet.com
 **Support:** admin@hameesattire.com
 

@@ -6,84 +6,25 @@ A comprehensive inventory and order management system built specifically for tai
 
 ## 🎉 What's New in v0.8.2
 
-### GST Integration (Tax Compliance)
-- **Complete GST Calculation**: 12% GST automatically calculated on all orders
-- **GST Breakdown Display**: Order summary shows CGST (6%) + SGST (6%) breakdown
-- **Compliant Storage**: All GST components stored in database for reporting
-- **Real-time Updates**: GST recalculates as order items change
+This version introduces GST integration, a more interactive dashboard, and production-ready seed data. For a detailed list of changes, see the [CHANGELOG.md](CHANGELOG.md).
 
-### Interactive Dashboard & Analytics
-- **Clickable Financial Cards**: All KPI cards (Revenue, Expenses, Profit, Outstanding) now show detailed breakdowns
-- **Enhanced Charts**: Orders by Status chart with larger size, white background, and percentage-only labels
-- **Customer Retention Analysis**: Click to view returning customers (3+ orders across different months)
-- **Decimal Precision**: All values standardized to exactly 2 decimal places
-
-### Production Seed Data
-- **192 Historical Orders**: July-December 2025 with realistic seasonal patterns
-- **7.5 Day Avg Fulfillment**: Realistic fulfillment times under 14 days
-- **20 Customers**: Including repeat customers with cross-month ordering patterns
-- **Run with**: `pnpm tsx prisma/seed-production.ts`
-
-### Bug Fixes & Improvements
-- **Fixed GST not displaying on new orders** - Complete GST calculation and display now integrated
-- Fixed Expenses tracking to include Purchase Order payments
-- Fixed Expenses Filter error (SelectItem validation)
-- Fixed all TypeScript strict type checking errors
-- Improved chart consistency across dashboard
+- **GST Integration**: Automatic 12% GST calculation (6% CGST + 6% SGST) on all orders.
+- **Interactive Dashboard**: KPI cards are now clickable, showing detailed breakdowns.
+- **Enhanced Analytics**: Improved charts and customer retention analysis.
+- **Production Seed Data**: Includes 192 historical orders for realistic testing.
+- **Bug Fixes**: Addressed issues with GST display, expense tracking, and more.
 
 ## ✨ Features
 
+### Core Modules
+- **Inventory Management**: Track cloth and accessory inventory with barcode/SKU support, automatic stock alerts, and supplier tracking.
+- **Order Management**: Create and manage orders with GST compliance, automatic material calculation, and detailed status tracking.
+- **Customer Management**: Maintain customer profiles with detailed measurements and order history.
+- **Dashboard & Analytics**: Access real-time KPIs, interactive charts, and detailed reports on revenue, expenses, and customer retention.
+
 ### Authentication & Security
-- **NextAuth.js v5**: Secure credentials-based authentication
-- **Role-Based Access**: OWNER, ADMIN, INVENTORY_MANAGER, SALES_MANAGER, TAILOR, VIEWER
-- **Protected Routes**: Automatic middleware-based route protection
-- **JWT Sessions**: Secure session management
-- **Password Hashing**: bcryptjs with 10 salt rounds
-
-### Inventory Management
-- **Cloth Inventory**: Track fabrics by type, color, pattern, quality
-- **Accessories**: Manage buttons, threads, zippers, and other supplies
-- **Barcode Scanning**: Mobile camera or manual barcode/SKU entry for quick item lookup
-- **Stock Levels**: Real-time available stock (current - reserved)
-- **Auto Alerts**: Low stock and critical stock notifications
-- **Supplier Tracking**: Link inventory to suppliers with pricing history
-- **Auto SKU Generation**: Automatic SKU generation for new items
-
-### Order Management
-- **Order Creation**: Create orders with customer measurements
-- **GST Compliance**: Automatic 12% GST calculation with CGST/SGST breakdown
-- **Garment Patterns**: Pre-configured patterns (Shirt, Trouser, Suit, Sherwani)
-- **Material Calculation**: Automatic fabric calculation based on pattern and body type
-- **Stock Reservation**: Auto-reserve fabric when order is created
-- **Status Tracking**: NEW → CUTTING → STITCHING → FINISHING → READY → DELIVERED
-- **Payment Tracking**: Advance payment and balance management (GST-inclusive totals)
-
-### Customer Management
-- **Customer Profiles**: Contact info, address, order history
-- **Measurements**: Store detailed measurements by garment type
-- **Measurement History**: Track measurement changes over time
-
-### Alerts & Notifications
-- **Low Stock Alerts**: Automatic alerts when stock < minimum
-- **Critical Alerts**: High-priority warnings for very low stock
-- **Order Delays**: Track overdue orders
-- **Alert Dismissal**: Temporary dismissal with auto-reset on expiry
-
-### Dashboard & Analytics
-- **Interactive Financial Cards**: Clickable KPI cards with detailed breakdowns
-  - Revenue: View all delivered orders contributing to revenue
-  - Expenses: Breakdown of operational + purchase order payments
-  - Net Profit: Revenue minus expenses calculation view
-  - Outstanding: Customers with pending payments
-- **Enhanced Charts**:
-  - Revenue Trend (6-month line chart) - Click to navigate to expenses by month
-  - Orders by Status (interactive pie chart) - Click to filter orders by status
-  - Top Fabrics Usage (bar chart) - Click to view fabric details
-  - Customer Retention (pie chart) - Click to view returning customers
-- **Real-time KPIs**: Total orders, revenue growth, inventory value, stock alerts
-- **Fulfillment Tracking**: Average order completion time
-- **Stock Reports**: Inventory value, movement history, low stock items
-- **Supplier Performance**: Delivery times, pricing trends
+- **NextAuth.js v5**: Secure, role-based authentication (Owner, Admin, Inventory Manager, Sales Manager, Tailor, Viewer).
+- **Protected Routes**: Middleware-based route protection and secure JWT session management.
 
 ## 🚀 Quick Start (5-Minute Setup)
 
@@ -92,179 +33,50 @@ A comprehensive inventory and order management system built specifically for tai
 - PostgreSQL 14+
 - pnpm
 
-### Step 1: Create PostgreSQL User (30 seconds)
-Open your terminal and run:
+### 1. Database Setup
+First, create a PostgreSQL user and database.
 ```bash
+# Create a user (if it doesn't exist)
 sudo -u postgres psql -c "CREATE ROLE gagneet WITH LOGIN SUPERUSER CREATEDB CREATEROLE;"
-```
-**Expected Output:** `CREATE ROLE`
-If you see "already exists", that's fine!
 
-### Step 2: Create Database (30 seconds)
-```bash
+# Create the database (if it doesn't exist)
 sudo -u postgres psql -c "CREATE DATABASE tailor_inventory OWNER gagneet;"
 ```
-**Expected Output:** `CREATE DATABASE`
-If you see "already exists", that's fine!
 
-### Step 3: Configure Environment Variables (1 minute)
+### 2. Environment Configuration
+Copy the example environment file and update the `DATABASE_URL` with your credentials.
 ```bash
-# Copy example env file
 cp .env.example .env
 ```
-Now, open the `.env` file and update the `DATABASE_URL` with your PostgreSQL credentials. It should look like this:
+Your `DATABASE_URL` should look like this:
 `DATABASE_URL="postgresql://gagneet:<YOUR_PASSWORD>@localhost:5432/tailor_inventory?schema=public"`
 
-### Step 4: Install Dependencies (1 minute)
+### 3. Installation and Setup
+Install dependencies, push the database schema, and seed the database with sample data.
 ```bash
 pnpm install
-```
-
-### Step 5: Push Database Schema (30 seconds)
-```bash
 pnpm db:push
-```
-**Expected Output:** `✔ Generated Prisma Client... Your database is now in sync with your Prisma schema.`
-
-### Step 6: Seed Sample Data (30 seconds)
-```bash
 pnpm db:seed
 ```
-This will populate your database with sample users, inventory, orders, and more.
 
-### Step 7: Start Development Server (10 seconds)
+### 4. Run the Development Server
+Start the development server, which will be available at **http://localhost:3009**.
 ```bash
 pnpm dev
 ```
-The application will be running at **http://localhost:3009**.
 
 ### Default Login
-After seeding, use these credentials:
 - **Email:** `owner@hameesattire.com`
 - **Password:** `admin123`
 
 ## 🌐 Production Deployment
 
-### Database Setup
-
-1. **Create dedicated PostgreSQL user**
-   ```bash
-   psql -U postgres -d postgres
-   CREATE USER hamees_user WITH PASSWORD 'your_secure_password';
-   GRANT ALL PRIVILEGES ON DATABASE tailor_inventory TO hamees_user;
-   \c tailor_inventory
-   GRANT ALL PRIVILEGES ON SCHEMA public TO hamees_user;
-   GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO hamees_user;
-   GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO hamees_user;
-   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON TABLES TO hamees_user;
-   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL PRIVILEGES ON SEQUENCES TO hamees_user;
-   \q
-   ```
-
-2. **Update .env for production**
-   ```bash
-   DATABASE_URL="postgresql://hamees_user:your_secure_password@localhost:5432/tailor_inventory?schema=public"
-   NEXTAUTH_URL="https://hamees.gagneet.com"
-   NEXTAUTH_SECRET="generate_with_openssl_rand_-base64_32"
-   NODE_ENV="production"
-   ```
-
-3. **Generate secure secret**
-   ```bash
-   openssl rand -base64 32
-   ```
-
-### Application Deployment
-
-1. **Install dependencies and build**
-   ```bash
-   pnpm install
-   pnpm build
-   ```
-
-2. **Install PM2 globally**
-   ```bash
-   npm install -g pm2
-   ```
-
-3. **Start with PM2**
-   ```bash
-   pm2 start ecosystem.config.js
-   pm2 save
-   ```
-
-4. **Enable PM2 startup on boot**
-   ```bash
-   pm2 startup
-   # Run the command that PM2 outputs
-   ```
-
-### Nginx Configuration
-
-The application is configured to run behind nginx as a reverse proxy on port 3009.
-
-1. **Test nginx configuration**
-   ```bash
-   sudo nginx -t
-   ```
-
-2. **Reload nginx**
-   ```bash
-   sudo systemctl reload nginx
-   ```
-
-### SSL Certificate Setup
-
-1. **Install certbot (if not installed)**
-   ```bash
-   sudo apt install certbot python3-certbot-nginx
-   ```
-
-2. **Obtain SSL certificate**
-   ```bash
-   sudo certbot --nginx -d hamees.gagneet.com
-   ```
-
-3. **Auto-renewal** (certbot sets this up automatically)
-   ```bash
-   sudo certbot renew --dry-run
-   ```
-
-### Production Management
-
-**Check application status:**
-```bash
-pm2 status
-pm2 logs hamees-inventory
-pm2 monit
-```
-
-**Restart application:**
-```bash
-pm2 restart hamees-inventory
-```
-
-**View logs:**
-```bash
-pm2 logs hamees-inventory --lines 100
-tail -f logs/out.log
-tail -f logs/err.log
-```
-
-**Database management:**
-```bash
-pnpm db:studio          # Open Prisma Studio
-psql -U hamees_user -d tailor_inventory
-```
-
-### Current Production Setup
-
-- **URL:** https://hamees.gagneet.com
-- **Port:** 3009
-- **Database:** tailor_inventory (user: hamees_user)
-- **Process Manager:** PM2
-- **Web Server:** nginx
-- **SSL:** Let's Encrypt (certbot)
+For detailed instructions on deploying the application to a production environment, please refer to the [SETUP.md](SETUP.md) guide. This document covers:
+- Dedicated database user setup
+- Environment configuration for production
+- Application deployment with PM2
+- Nginx reverse proxy setup
+- SSL certificate installation with Certbot
 
 ## 📚 Documentation
 
@@ -501,15 +313,27 @@ const prisma = new PrismaClient({ adapter })
 
 ## 🤝 Contributing
 
-This is a custom project built for tailor shops. Contributions and suggestions are welcome!
+Contributions are welcome! If you have suggestions for improvements or want to report a bug, please open an issue on GitHub.
+
+### Bug Reports
+When reporting a bug, please include:
+- A clear and descriptive title.
+- Steps to reproduce the bug.
+- The expected behavior and what actually happened.
+- Screenshots or screen recordings, if applicable.
+
+### Feature Requests
+For feature requests, please provide:
+- A clear description of the feature and its potential benefits.
+- Any mockups or examples that might help illustrate the idea.
 
 ## 📝 License
 
-Private project - All rights reserved
+This is a private project, and all rights are reserved.
 
 ## 🆘 Support
 
-For setup issues, see [SETUP.md](SETUP.md) or check the troubleshooting section.
+For setup issues or troubleshooting, please refer to the [SETUP.md](SETUP.md) guide.
 
 ## 🎯 Goals
 

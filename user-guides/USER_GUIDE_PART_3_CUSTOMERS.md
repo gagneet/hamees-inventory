@@ -1,7 +1,7 @@
 # Hamees Attire - Complete User Guide (Part 3: Customer Management)
 
-**Version:** 1.0
-**Date:** January 20, 2026
+**Version:** 0.15.4
+**Last Updated:** January 16, 2026
 **Application URL:** https://hamees.gagneet.com
 
 ---
@@ -645,30 +645,6 @@ Search: "rajesh@"      → Finds email starting with rajesh@
 - Average order value
 - Last order date
 - Customer segmentation (High/Medium/Low value)
-
----
-
-## WhatsApp Integration
-
-### Automatic Notifications
-
-**When Configured:**
-
-Customers automatically receive WhatsApp messages:
-
-1. **Order Confirmation**
-   - Sent when order created
-   - Includes order number, delivery date, amount
-
-2. **Order Ready Notification**
-   - Sent when status → READY
-   - Pickup reminder with address
-
-3. **Payment Reminder**
-   - Manual trigger for arrears
-   - OWNER/SALES_MANAGER can send
-
-**See:** [WhatsApp Integration Guide](WHATSAPP_AND_BARCODE_INTEGRATION.md) for setup details
 
 ---
 
