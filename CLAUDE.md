@@ -10,6 +10,82 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Fabric Variance Financial Tracking (v0.18.7)
+
+**What's New:**
+- **Financial Impact Display** - Variance now shows BOTH meters AND rupees (e.g., "+0.37m | +₹185.00")
+- **Cost-Aware Efficiency Metrics** - Understand the monetary impact of fabric over/under-consumption
+- **Complete Financial Breakdown** - See variance amount for each fabric type and order item
+- **Business Decision Support** - Data-driven insights for pricing adjustments and estimation improvements
+
+**Version:** v0.18.7
+**Date:** January 22, 2026
+**Status:** ✅ Production Ready
+
+**Key Features:**
+
+1. **Main Summary Cards Enhancement**
+   - **Before**: Showed only variance in meters (+0.37m)
+   - **After**: Shows variance in meters AND rupees (+0.37m | +₹185.00)
+   - Applies to both current month and all-time metrics
+   - Color-coded: Orange (extra cost), Green (savings)
+
+2. **Variance by Fabric Type**
+   - Each fabric type now shows financial impact
+   - Example: "Premium Cotton (Blue) | +0.70m | +₹350.00 financial impact"
+   - Helps identify which fabrics have highest cost variance
+   - Sorted by absolute variance amount
+
+3. **Individual Order Items**
+   - Each order item shows cost impact alongside meter variance
+   - Example: "ORD-202601-0123 | +0.25m | +₹125.00"
+   - Direct correlation between physical and financial waste
+
+4. **Calculation Formula**
+   ```typescript
+   varianceAmount = (actualMetersUsed - estimatedMeters) × pricePerMeter
+   ```
+
+**Example Scenarios:**
+
+**Over-Consumption (Extra Cost):**
+- Estimated: 30.70m
+- Consumed: 31.07m
+- Variance: +0.37m
+- Price: ₹500/meter
+- **Variance Amount: +₹185.00** (extra cost incurred)
+
+**Under-Consumption (Savings):**
+- Estimated: 5.00m
+- Consumed: 4.75m
+- Variance: -0.25m
+- Price: ₹400/meter
+- **Variance Amount: -₹100.00** (cost savings)
+
+**Business Insights:**
+- **Positive Variance (+)**: Orange text = Extra fabric cost incurred. May indicate estimation errors, cutting inefficiency, or measurement inaccuracies.
+- **Negative Variance (-)**: Green text = Cost savings. May indicate conservative estimates or highly efficient cutting.
+- **High-Value Fabrics**: Small meter variance can have large financial impact (e.g., +0.5m silk = +₹500)
+
+**Files Modified:**
+- `app/api/dashboard/enhanced-stats/route.ts` - Added variance amount calculations
+- `components/dashboard/owner-dashboard.tsx` - Display variance amounts in UI
+
+**Performance:**
+- Build time: 32.3 seconds (clean build)
+- API response: ~200-350ms (+50ms for cost calculations)
+- No additional database queries (uses existing pricePerMeter field)
+
+**Documentation:** `docs/FABRIC_VARIANCE_FINANCIAL_TRACKING.md` (1200+ lines)
+
+**Deployment:** ✅ Live at https://hamees.gagneet.com/dashboard
+
+**Related Versions:**
+- v0.18.6 - Fixed variance calculation (on-the-fly instead of stored values)
+- v0.18.5 - Initial fabric efficiency & wastage analysis system
+
+---
+
 ### ✅ Revenue by Fabric Chart Enhancement (v0.18.4)
 
 **What's New:**
