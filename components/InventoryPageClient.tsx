@@ -117,6 +117,12 @@ export default function InventoryPageClient() {
   const [accessoryTotal, setAccessoryTotal] = useState(0)
   const [accessoryTotalPages, setAccessoryTotalPages] = useState(0)
 
+  // Sorting states
+  const [clothSortField, setClothSortField] = useState<string>('name')
+  const [clothSortDirection, setClothSortDirection] = useState<'asc' | 'desc'>('asc')
+  const [accessorySortField, setAccessorySortField] = useState<string>('name')
+  const [accessorySortDirection, setAccessorySortDirection] = useState<'asc' | 'desc'>('asc')
+
   // Debounce search term
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -125,6 +131,85 @@ export default function InventoryPageClient() {
 
     return () => clearTimeout(timer)
   }, [searchTerm])
+
+  // Sorting function
+  const handleSort = (field: string, type: 'cloth' | 'accessory') => {
+    if (type === 'cloth') {
+      if (clothSortField === field) {
+        // Toggle direction
+        setClothSortDirection(clothSortDirection === 'asc' ? 'desc' : 'asc')
+      } else {
+        // New field, default to ascending
+        setClothSortField(field)
+        setClothSortDirection('asc')
+      }
+    } else {
+      if (accessorySortField === field) {
+        // Toggle direction
+        setAccessorySortDirection(accessorySortDirection === 'asc' ? 'desc' : 'asc')
+      } else {
+        // New field, default to ascending
+        setAccessorySortField(field)
+        setAccessorySortDirection('asc')
+      }
+    }
+  }
+
+  // Client-side sorting function
+  const sortData = <T extends ClothInventoryItem | AccessoryInventoryItem>(
+    data: T[],
+    field: string,
+    direction: 'asc' | 'desc',
+    type: 'cloth' | 'accessory'
+  ): T[] => {
+    return [...data].sort((a, b) => {
+      let aValue: unknown
+      let bValue: unknown
+
+      // Special handling for calculated fields
+      if (field === 'available' && type === 'cloth') {
+        aValue = (a as ClothInventoryItem).currentStock - (a as ClothInventoryItem).reserved
+        bValue = (b as ClothInventoryItem).currentStock - (b as ClothInventoryItem).reserved
+      } else if (field === 'status') {
+        // Sort by status priority: Out of Stock > Critical > Low Stock > In Stock
+        const getStatusPriority = (item: T) => {
+          if (type === 'cloth') {
+            const clothItem = item as ClothInventoryItem
+            const available = clothItem.currentStock - clothItem.reserved
+            if (available <= 0) return 0 // Out of Stock
+            if (available <= clothItem.minimum) return 1 // Critical
+            if (available > clothItem.minimum && available <= clothItem.minimum * 1.25) return 2 // Low Stock
+            return 3 // In Stock
+          } else {
+            const accItem = item as AccessoryInventoryItem
+            if (accItem.currentStock <= 0) return 0
+            if (accItem.currentStock <= accItem.minimum) return 1
+            if (accItem.currentStock > accItem.minimum && accItem.currentStock <= accItem.minimum * 1.25) return 2
+            return 3
+          }
+        }
+        aValue = getStatusPriority(a)
+        bValue = getStatusPriority(b)
+      } else {
+        aValue = (a as unknown as Record<string, unknown>)[field]
+        bValue = (b as unknown as Record<string, unknown>)[field]
+      }
+
+      // Handle null/undefined
+      if (aValue === null || aValue === undefined) return 1
+      if (bValue === null || bValue === undefined) return -1
+
+      // Compare values
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        const comparison = aValue.toLowerCase().localeCompare(bValue.toLowerCase())
+        return direction === 'asc' ? comparison : -comparison
+      } else if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return direction === 'asc' ? aValue - bValue : bValue - aValue
+      }
+
+      return 0
+    })
+  }
 
   // Fetch inventory on mount, tab change, search change, and pagination change
   useEffect(() => {
@@ -176,11 +261,15 @@ export default function InventoryPageClient() {
     }
   }
 
+  // Stock status calculation matching dashboard and alerts logic
+  // Critical: Available <= minimum (at or below threshold)
+  // Low Stock: Available > minimum AND <= minimum × 1.25 (25% buffer zone)
+  // Healthy: Available > minimum × 1.25
   const getStockStatus = (current: number, reserved: number, minimum: number) => {
     const available = current - (reserved || 0)
     if (available <= 0) return { label: "Out of Stock", variant: "destructive" as const }
-    if (available < minimum * 0.5) return { label: "Critical", variant: "destructive" as const }
-    if (available < minimum) return { label: "Low Stock", variant: "default" as const }
+    if (available <= minimum) return { label: "Critical", variant: "destructive" as const }
+    if (available > minimum && available <= minimum * 1.25) return { label: "Low Stock", variant: "default" as const }
     return { label: "In Stock", variant: "default" as const }
   }
 
@@ -653,19 +742,85 @@ export default function InventoryPageClient() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>SKU</TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Color</TableHead>
-                        <TableHead>Stock</TableHead>
-                        <TableHead>Available</TableHead>
-                        {!isTailor && <TableHead>Price</TableHead>}
-                        <TableHead>Status</TableHead>
+                        <TableHead
+                          className="cursor-pointer hover:bg-slate-100 select-none"
+                          onClick={() => handleSort('sku', 'cloth')}
+                        >
+                          <div className="flex items-center gap-1">
+                            SKU
+                            <ArrowUpDown className={`h-3 w-3 ${clothSortField === 'sku' ? 'text-blue-600' : 'text-slate-400'}`} />
+                          </div>
+                        </TableHead>
+                        <TableHead
+                          className="cursor-pointer hover:bg-slate-100 select-none"
+                          onClick={() => handleSort('name', 'cloth')}
+                        >
+                          <div className="flex items-center gap-1">
+                            Name
+                            <ArrowUpDown className={`h-3 w-3 ${clothSortField === 'name' ? 'text-blue-600' : 'text-slate-400'}`} />
+                          </div>
+                        </TableHead>
+                        <TableHead
+                          className="cursor-pointer hover:bg-slate-100 select-none"
+                          onClick={() => handleSort('type', 'cloth')}
+                        >
+                          <div className="flex items-center gap-1">
+                            Type
+                            <ArrowUpDown className={`h-3 w-3 ${clothSortField === 'type' ? 'text-blue-600' : 'text-slate-400'}`} />
+                          </div>
+                        </TableHead>
+                        <TableHead
+                          className="cursor-pointer hover:bg-slate-100 select-none"
+                          onClick={() => handleSort('color', 'cloth')}
+                        >
+                          <div className="flex items-center gap-1">
+                            Color
+                            <ArrowUpDown className={`h-3 w-3 ${clothSortField === 'color' ? 'text-blue-600' : 'text-slate-400'}`} />
+                          </div>
+                        </TableHead>
+                        <TableHead
+                          className="cursor-pointer hover:bg-slate-100 select-none"
+                          onClick={() => handleSort('currentStock', 'cloth')}
+                        >
+                          <div className="flex items-center gap-1">
+                            Stock
+                            <ArrowUpDown className={`h-3 w-3 ${clothSortField === 'currentStock' ? 'text-blue-600' : 'text-slate-400'}`} />
+                          </div>
+                        </TableHead>
+                        <TableHead
+                          className="cursor-pointer hover:bg-slate-100 select-none"
+                          onClick={() => handleSort('available', 'cloth')}
+                        >
+                          <div className="flex items-center gap-1">
+                            Available
+                            <ArrowUpDown className={`h-3 w-3 ${clothSortField === 'available' ? 'text-blue-600' : 'text-slate-400'}`} />
+                          </div>
+                        </TableHead>
+                        {!isTailor && (
+                          <TableHead
+                            className="cursor-pointer hover:bg-slate-100 select-none"
+                            onClick={() => handleSort('pricePerMeter', 'cloth')}
+                          >
+                            <div className="flex items-center gap-1">
+                              Price
+                              <ArrowUpDown className={`h-3 w-3 ${clothSortField === 'pricePerMeter' ? 'text-blue-600' : 'text-slate-400'}`} />
+                            </div>
+                          </TableHead>
+                        )}
+                        <TableHead
+                          className="cursor-pointer hover:bg-slate-100 select-none"
+                          onClick={() => handleSort('status', 'cloth')}
+                        >
+                          <div className="flex items-center gap-1">
+                            Status
+                            <ArrowUpDown className={`h-3 w-3 ${clothSortField === 'status' ? 'text-blue-600' : 'text-slate-400'}`} />
+                          </div>
+                        </TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {clothInventory.map((item) => {
+                      {sortData(clothInventory, clothSortField, clothSortDirection, 'cloth').map((item) => {
                         const available = item.currentStock - item.reserved
                         const status = getStockStatus(item.currentStock, item.reserved, item.minimum)
                         return (
@@ -773,18 +928,76 @@ export default function InventoryPageClient() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Color</TableHead>
-                        <TableHead>Stock</TableHead>
-                        <TableHead>Minimum</TableHead>
-                        {!isTailor && <TableHead>Price/Unit</TableHead>}
-                        <TableHead>Status</TableHead>
+                        <TableHead
+                          className="cursor-pointer hover:bg-slate-100 select-none"
+                          onClick={() => handleSort('type', 'accessory')}
+                        >
+                          <div className="flex items-center gap-1">
+                            Type
+                            <ArrowUpDown className={`h-3 w-3 ${accessorySortField === 'type' ? 'text-blue-600' : 'text-slate-400'}`} />
+                          </div>
+                        </TableHead>
+                        <TableHead
+                          className="cursor-pointer hover:bg-slate-100 select-none"
+                          onClick={() => handleSort('name', 'accessory')}
+                        >
+                          <div className="flex items-center gap-1">
+                            Name
+                            <ArrowUpDown className={`h-3 w-3 ${accessorySortField === 'name' ? 'text-blue-600' : 'text-slate-400'}`} />
+                          </div>
+                        </TableHead>
+                        <TableHead
+                          className="cursor-pointer hover:bg-slate-100 select-none"
+                          onClick={() => handleSort('color', 'accessory')}
+                        >
+                          <div className="flex items-center gap-1">
+                            Color
+                            <ArrowUpDown className={`h-3 w-3 ${accessorySortField === 'color' ? 'text-blue-600' : 'text-slate-400'}`} />
+                          </div>
+                        </TableHead>
+                        <TableHead
+                          className="cursor-pointer hover:bg-slate-100 select-none"
+                          onClick={() => handleSort('currentStock', 'accessory')}
+                        >
+                          <div className="flex items-center gap-1">
+                            Stock
+                            <ArrowUpDown className={`h-3 w-3 ${accessorySortField === 'currentStock' ? 'text-blue-600' : 'text-slate-400'}`} />
+                          </div>
+                        </TableHead>
+                        <TableHead
+                          className="cursor-pointer hover:bg-slate-100 select-none"
+                          onClick={() => handleSort('minimum', 'accessory')}
+                        >
+                          <div className="flex items-center gap-1">
+                            Minimum
+                            <ArrowUpDown className={`h-3 w-3 ${accessorySortField === 'minimum' ? 'text-blue-600' : 'text-slate-400'}`} />
+                          </div>
+                        </TableHead>
+                        {!isTailor && (
+                          <TableHead
+                            className="cursor-pointer hover:bg-slate-100 select-none"
+                            onClick={() => handleSort('pricePerUnit', 'accessory')}
+                          >
+                            <div className="flex items-center gap-1">
+                              Price/Unit
+                              <ArrowUpDown className={`h-3 w-3 ${accessorySortField === 'pricePerUnit' ? 'text-blue-600' : 'text-slate-400'}`} />
+                            </div>
+                          </TableHead>
+                        )}
+                        <TableHead
+                          className="cursor-pointer hover:bg-slate-100 select-none"
+                          onClick={() => handleSort('status', 'accessory')}
+                        >
+                          <div className="flex items-center gap-1">
+                            Status
+                            <ArrowUpDown className={`h-3 w-3 ${accessorySortField === 'status' ? 'text-blue-600' : 'text-slate-400'}`} />
+                          </div>
+                        </TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {accessoryInventory.map((item) => {
+                      {sortData(accessoryInventory, accessorySortField, accessorySortDirection, 'accessory').map((item) => {
                         const status = getStockStatus(item.currentStock, 0, item.minimum)
                         return (
                           <TableRow
