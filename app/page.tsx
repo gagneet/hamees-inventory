@@ -1,5 +1,10 @@
-import { LoginForm } from '@/components/login-form'
+import dynamic from 'next/dynamic'
 import { Scissors, Package, Users, TrendingUp } from 'lucide-react'
+
+const LoginForm = dynamic(() => import('@/components/login-form').then(mod => mod.LoginForm), {
+  ssr: false,
+  loading: () => <div className="w-full max-w-md animate-pulse rounded-lg bg-slate-200 h-96" />
+})
 
 export default function Home() {
   return (
