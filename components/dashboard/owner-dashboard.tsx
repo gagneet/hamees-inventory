@@ -585,15 +585,15 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
                 </div>
                 <div>
                   <p className="text-sm font-medium text-slate-700">Fabric Efficiency</p>
-                  <p className="text-xs text-slate-500">This month wastage</p>
+                  <p className="text-xs text-slate-500">Estimate vs actual</p>
                 </div>
               </div>
               <div className="flex flex-col items-end">
                 <div className={`text-xl font-bold ${stats.efficiencyMetrics.efficiencyPercentage >= 95 ? 'text-green-700' : stats.efficiencyMetrics.efficiencyPercentage >= 85 ? 'text-amber-700' : 'text-red-700'}`}>
                   {stats.efficiencyMetrics.efficiencyPercentage.toFixed(2)}%
                 </div>
-                <div className="text-xs text-slate-500">
-                  {stats.efficiencyMetrics.totalWastage >= 0 ? '+' : ''}{stats.efficiencyMetrics.totalWastage.toFixed(2)}m
+                <div className={`text-xs ${stats.efficiencyMetrics.totalWastage >= 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                  {stats.efficiencyMetrics.totalWastage >= 0 ? '+' : ''}{stats.efficiencyMetrics.totalWastage.toFixed(2)}m variance
                 </div>
               </div>
             </div>
@@ -1163,26 +1163,39 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
                 <h3 className="text-lg font-semibold text-slate-900 mb-3">📅 Current Month Performance</h3>
                 <div className="grid grid-cols-3 gap-3 mb-4">
                   <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <p className="text-xs text-blue-700 mb-1">Estimated</p>
+                    <p className="text-xs text-blue-700 mb-1">Estimated Required</p>
                     <p className="text-2xl font-bold text-blue-700">{stats.efficiencyMetrics.totalEstimated.toFixed(2)}m</p>
-                    <p className="text-xs text-blue-600 mt-1">Total expected usage</p>
+                    <p className="text-xs text-blue-600 mt-1">Based on patterns</p>
                   </div>
                   <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-                    <p className="text-xs text-purple-700 mb-1">Actual Used</p>
+                    <p className="text-xs text-purple-700 mb-1">Total Consumed</p>
                     <p className="text-2xl font-bold text-purple-700">{stats.efficiencyMetrics.totalActualUsed.toFixed(2)}m</p>
-                    <p className="text-xs text-purple-600 mt-1">Fabric consumed</p>
+                    <p className="text-xs text-purple-600 mt-1">From inventory</p>
                   </div>
-                  <div className={`p-4 rounded-lg border ${stats.efficiencyMetrics.totalWastage >= 0 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
-                    <p className={`text-xs mb-1 ${stats.efficiencyMetrics.totalWastage >= 0 ? 'text-red-700' : 'text-green-700'}`}>
-                      {stats.efficiencyMetrics.totalWastage >= 0 ? 'Wastage' : 'Saved'}
+                  <div className={`p-4 rounded-lg border ${stats.efficiencyMetrics.totalWastage >= 0 ? 'bg-orange-50 border-orange-200' : 'bg-green-50 border-green-200'}`}>
+                    <p className={`text-xs mb-1 ${stats.efficiencyMetrics.totalWastage >= 0 ? 'text-orange-700' : 'text-green-700'}`}>
+                      Variance
                     </p>
-                    <p className={`text-2xl font-bold ${stats.efficiencyMetrics.totalWastage >= 0 ? 'text-red-700' : 'text-green-700'}`}>
+                    <p className={`text-2xl font-bold ${stats.efficiencyMetrics.totalWastage >= 0 ? 'text-orange-700' : 'text-green-700'}`}>
                       {stats.efficiencyMetrics.totalWastage >= 0 ? '+' : ''}{stats.efficiencyMetrics.totalWastage.toFixed(2)}m
                     </p>
-                    <p className={`text-xs mt-1 ${stats.efficiencyMetrics.totalWastage >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      {stats.efficiencyMetrics.totalWastage >= 0 ? 'Extra used' : 'Efficiency gain'}
+                    <p className={`text-xs mt-1 ${stats.efficiencyMetrics.totalWastage >= 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                      {stats.efficiencyMetrics.totalWastage >= 0 ? 'Over estimate' : 'Under estimate'}
                     </p>
                   </div>
+                </div>
+
+                {/* Explanation box */}
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg mb-4 text-xs text-slate-700">
+                  <p className="font-medium mb-1">📖 Understanding the Metrics:</p>
+                  <ul className="space-y-1 ml-4 list-disc">
+                    <li><strong>Estimated Required:</strong> Fabric calculated from garment patterns and measurements</li>
+                    <li><strong>Total Consumed:</strong> Actual fabric taken from inventory (includes garment + cutting waste)</li>
+                    <li><strong>Variance:</strong> Difference between consumed and estimated (positive = over, negative = under)</li>
+                  </ul>
+                  <p className="mt-2 text-amber-700 font-medium">
+                    ⚠️ High variance may indicate: estimation errors, cutting inefficiency, or measurement inaccuracies
+                  </p>
                 </div>
 
                 <div className={`p-4 rounded-lg mb-4 ${stats.efficiencyMetrics.efficiencyPercentage >= 95 ? 'bg-green-50 border border-green-200' : stats.efficiencyMetrics.efficiencyPercentage >= 85 ? 'bg-amber-50 border border-amber-200' : 'bg-red-50 border border-red-200'}`}>
@@ -1224,16 +1237,16 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
                       </p>
                     </div>
 
-                    <div className={`p-4 rounded-lg border ${stats.efficiencyMetrics.totalWastageAllTime >= 0 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+                    <div className={`p-4 rounded-lg border ${stats.efficiencyMetrics.totalWastageAllTime >= 0 ? 'bg-orange-50 border-orange-200' : 'bg-green-50 border-green-200'}`}>
                       <div className="flex items-center justify-between mb-2">
-                        <p className={`text-sm font-medium ${stats.efficiencyMetrics.totalWastageAllTime >= 0 ? 'text-red-900' : 'text-green-900'}`}>
-                          Total Wastage (All Time)
+                        <p className={`text-sm font-medium ${stats.efficiencyMetrics.totalWastageAllTime >= 0 ? 'text-orange-900' : 'text-green-900'}`}>
+                          Total Variance (All Time)
                         </p>
-                        <p className={`text-3xl font-bold ${stats.efficiencyMetrics.totalWastageAllTime >= 0 ? 'text-red-700' : 'text-green-700'}`}>
+                        <p className={`text-3xl font-bold ${stats.efficiencyMetrics.totalWastageAllTime >= 0 ? 'text-orange-700' : 'text-green-700'}`}>
                           {stats.efficiencyMetrics.totalWastageAllTime >= 0 ? '+' : ''}{stats.efficiencyMetrics.totalWastageAllTime.toFixed(2)}m
                         </p>
                       </div>
-                      <p className={`text-xs ${stats.efficiencyMetrics.totalWastageAllTime >= 0 ? 'text-red-700' : 'text-green-700'}`}>
+                      <p className={`text-xs ${stats.efficiencyMetrics.totalWastageAllTime >= 0 ? 'text-orange-700' : 'text-green-700'}`}>
                         Out of {stats.efficiencyMetrics.totalEstimatedAllTime.toFixed(2)}m estimated total
                       </p>
                     </div>
@@ -1268,7 +1281,10 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
 
                 <div className="space-y-4">
                   <div>
-                    <h4 className="text-sm font-semibold text-slate-900 mb-3">Wastage by Fabric Type (Top 10)</h4>
+                    <h4 className="text-sm font-semibold text-slate-900 mb-3">Variance by Fabric Type (Top 10)</h4>
+                    <p className="text-xs text-slate-600 mb-2">
+                      Shows fabric consumption vs estimates. High variance = estimation issues or cutting inefficiency.
+                    </p>
                     {stats.efficiencyMetrics.wastageByFabric.length > 0 ? (
                       <div className="space-y-2 max-h-60 overflow-y-auto">
                         {stats.efficiencyMetrics.wastageByFabric.map((fabric, index) => (
@@ -1278,7 +1294,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
                                 <p className="text-sm font-medium text-slate-900">{fabric.fabricName}</p>
                                 <p className="text-xs text-slate-600">{fabric.fabricType} • {fabric.orderCount} orders</p>
                               </div>
-                              <div className={`text-right ${fabric.wastage >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                              <div className={`text-right ${fabric.wastage >= 0 ? 'text-orange-600' : 'text-green-600'}`}>
                                 <p className="text-sm font-bold">
                                   {fabric.wastage >= 0 ? '+' : ''}{fabric.wastage.toFixed(2)}m
                                 </p>
@@ -1293,12 +1309,12 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
                                 <span className="font-medium text-slate-900 ml-1">{fabric.estimated.toFixed(2)}m</span>
                               </div>
                               <div>
-                                <span className="text-slate-600">Used:</span>
+                                <span className="text-slate-600">Consumed:</span>
                                 <span className="font-medium text-slate-900 ml-1">{fabric.actualUsed.toFixed(2)}m</span>
                               </div>
                               <div>
-                                <span className="text-slate-600">Diff:</span>
-                                <span className={`font-medium ml-1 ${fabric.wastage >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                <span className="text-slate-600">Variance:</span>
+                                <span className={`font-medium ml-1 ${fabric.wastage >= 0 ? 'text-orange-600' : 'text-green-600'}`}>
                                   {fabric.wastage >= 0 ? '+' : ''}{fabric.wastage.toFixed(2)}m
                                 </span>
                               </div>
@@ -1307,12 +1323,15 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-slate-600 text-center py-4">No wastage data available for this month</p>
+                      <p className="text-sm text-slate-600 text-center py-4">No data available for this month</p>
                     )}
                   </div>
 
                   <div>
                     <h4 className="text-sm font-semibold text-slate-900 mb-3">Recent Order Items (Top 20)</h4>
+                    <p className="text-xs text-slate-600 mb-2">
+                      Individual order variance. Consistent patterns may indicate estimation formula issues.
+                    </p>
                     {stats.efficiencyMetrics.detailedItems.length > 0 ? (
                       <div className="space-y-2 max-h-60 overflow-y-auto">
                         {stats.efficiencyMetrics.detailedItems.map((item, index) => (
@@ -1324,7 +1343,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
                                   {item.garmentType} • {item.fabric}
                                 </p>
                               </div>
-                              <div className={`text-right ${item.wastage >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                              <div className={`text-right ${item.wastage >= 0 ? 'text-orange-600' : 'text-green-600'}`}>
                                 <p className="font-bold">
                                   {item.wastage >= 0 ? '+' : ''}{item.wastage.toFixed(2)}m
                                 </p>
@@ -1332,7 +1351,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
                             </div>
                             <div className="flex gap-3 text-slate-600">
                               <span>Est: {item.estimated.toFixed(2)}m</span>
-                              <span>Used: {item.actualUsed.toFixed(2)}m</span>
+                              <span>Consumed: {item.actualUsed.toFixed(2)}m</span>
                               <span className="text-slate-400">
                                 {new Date(item.orderDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
                               </span>
@@ -1346,19 +1365,25 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
                   </div>
 
                   <div className="p-3 bg-cyan-50 border border-cyan-200 rounded">
-                    <p className="text-sm font-medium text-cyan-900">💡 Efficiency Insights</p>
-                    <p className="text-xs text-cyan-700 mt-1">
-                      {stats.efficiencyMetrics.efficiencyPercentage >= 95
-                        ? '✅ Excellent fabric management! Your wastage is minimal. Keep up the precise cutting and measurement practices.'
-                        : stats.efficiencyMetrics.efficiencyPercentage >= 85
-                        ? '⚠️ Good efficiency overall. Review fabrics with highest wastage to identify patterns. Consider retraining on cutting techniques for specific garment types.'
-                        : '🔴 High wastage detected. Immediate action needed: Review measurement accuracy, cutting processes, and fabric estimation formulas. Consider investing in training or better cutting tools.'}
-                    </p>
-                    {stats.efficiencyMetrics.totalWastage > 0 && (
-                      <p className="text-xs text-cyan-700 mt-2">
-                        💰 Financial Impact: {stats.efficiencyMetrics.totalWastage.toFixed(2)}m wastage could represent significant inventory value loss. Review high-wastage fabrics first.
+                    <p className="text-sm font-medium text-cyan-900">💡 What This Data Tells You</p>
+                    <div className="text-xs text-cyan-700 mt-2 space-y-2">
+                      <p>
+                        <strong>High Positive Variance (+):</strong> Either estimation formulas are too low, cutting process is inefficient, or both.
+                        Action: {stats.efficiencyMetrics.efficiencyPercentage >= 95
+                          ? 'Continue current practices - variance is minimal.'
+                          : stats.efficiencyMetrics.efficiencyPercentage >= 85
+                          ? 'Review garment patterns with highest variance. Update estimation formulas or improve cutting techniques.'
+                          : 'URGENT: Audit measurement accuracy, review all garment formulas, and assess cutting process efficiency.'}
                       </p>
-                    )}
+                      <p>
+                        <strong>Negative Variance (-):</strong> Consuming less than estimated. Either formulas are conservative or cutting is very efficient. Consider reducing estimates.
+                      </p>
+                      {stats.efficiencyMetrics.totalWastage > 0 && (
+                        <p className="mt-2 font-medium">
+                          💰 Financial Impact: {stats.efficiencyMetrics.totalWastage.toFixed(2)}m excess consumption this month. At average fabric cost, this could represent ₹{(stats.efficiencyMetrics.totalWastage * 500).toFixed(0)}+ in additional inventory cost (assuming ₹500/m average).
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
 
