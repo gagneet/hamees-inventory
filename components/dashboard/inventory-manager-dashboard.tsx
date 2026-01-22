@@ -4,6 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { StockComparisonChart } from './stock-comparison-chart'
 import { Package, AlertTriangle, ShoppingCart, TrendingDown, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
+import { InventoryStockDialog } from './inventory-stock-dialog'
+import { PendingPOsDialog } from './pending-pos-dialog'
+import { CreatePODialog } from './create-po-dialog'
+import { Button } from '@/components/ui/button'
 
 interface InventoryManagerDashboardProps {
   stats: {
@@ -44,57 +48,81 @@ export function InventoryManagerDashboard({ stats, generalStats }: InventoryMana
     <div className="space-y-6">
       {/* Row 1: Critical Metrics */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className="border-l-4 border-l-amber-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Low Stock Items</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-amber-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-amber-600">{generalStats.inventory.lowStock}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Below minimum threshold
-            </p>
-          </CardContent>
-        </Card>
+        {/* Low Stock Items - Clickable */}
+        <InventoryStockDialog
+          type="low"
+          title="Low Stock Items"
+          description="Items below minimum threshold but above critical level"
+          trigger={
+            <Card className="border-l-4 border-l-amber-500 cursor-pointer hover:shadow-lg transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Low Stock Items</CardTitle>
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-amber-600">{generalStats.inventory.lowStock}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Click for details
+                </p>
+              </CardContent>
+            </Card>
+          }
+        />
 
-        <Card className="border-l-4 border-l-red-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Critical Stock</CardTitle>
-            <TrendingDown className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-red-600">{generalStats.inventory.criticalStock}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Urgent reorder needed
-            </p>
-          </CardContent>
-        </Card>
+        {/* Critical Stock - Clickable */}
+        <InventoryStockDialog
+          type="critical"
+          title="Critical Stock Items"
+          description="Items at or below minimum threshold - urgent reorder needed"
+          trigger={
+            <Card className="border-l-4 border-l-red-500 cursor-pointer hover:shadow-lg transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Critical Stock</CardTitle>
+                <TrendingDown className="h-4 w-4 text-red-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-red-600">{generalStats.inventory.criticalStock}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Click for details
+                </p>
+              </CardContent>
+            </Card>
+          }
+        />
 
-        <Card className="border-l-4 border-l-blue-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending POs</CardTitle>
-            <ShoppingCart className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-blue-600">{stats.pendingPOs}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Awaiting delivery
-            </p>
-          </CardContent>
-        </Card>
+        {/* Pending POs - Clickable */}
+        <PendingPOsDialog
+          trigger={
+            <Card className="border-l-4 border-l-blue-500 cursor-pointer hover:shadow-lg transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Pending POs</CardTitle>
+                <ShoppingCart className="h-4 w-4 text-blue-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-blue-600">{stats.pendingPOs}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Click for details
+                </p>
+              </CardContent>
+            </Card>
+          }
+        />
 
-        <Card className="border-l-4 border-l-green-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Items</CardTitle>
-            <Package className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-green-600">{generalStats.inventory.totalItems}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              In inventory
-            </p>
-          </CardContent>
-        </Card>
+        {/* Total Items - Link to Inventory */}
+        <Link href="/inventory">
+          <Card className="border-l-4 border-l-green-500 cursor-pointer hover:shadow-lg transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Items</CardTitle>
+              <Package className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-green-600">{generalStats.inventory.totalItems}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Click to view all
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Row 2: Fast Moving Fabrics - Priority List */}
@@ -187,17 +215,30 @@ export function InventoryManagerDashboard({ stats, generalStats }: InventoryMana
         </CardContent>
       </Card>
 
-      {/* Critical Alert Section */}
+      {/* Critical Alert Section - Clickable to Create PO */}
       {criticalFabrics.length > 0 && (
         <Card className="border-red-200 bg-red-50">
           <CardHeader>
-            <CardTitle className="text-red-900 flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5" />
-              Critical Stock Alert - Less than 15 Days Remaining
-            </CardTitle>
-            <CardDescription className="text-red-700">
-              Create purchase orders immediately for these fabrics
-            </CardDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <CardTitle className="text-red-900 flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5" />
+                  Critical Stock Alert - Less than 15 Days Remaining
+                </CardTitle>
+                <CardDescription className="text-red-700">
+                  Create purchase orders immediately for these fabrics
+                </CardDescription>
+              </div>
+              <CreatePODialog
+                criticalFabrics={criticalFabrics}
+                trigger={
+                  <Button variant="destructive" size="sm" className="shrink-0">
+                    <ShoppingCart className="h-4 w-4 mr-2" />
+                    Create PO
+                  </Button>
+                }
+              />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="grid gap-3 md:grid-cols-2">

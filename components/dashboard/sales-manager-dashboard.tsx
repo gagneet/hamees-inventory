@@ -2,14 +2,47 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ProductionPipelineChart } from './production-pipeline-chart'
+import { SalesOrdersDialog } from './sales-orders-dialog'
+import { RevenueForecastChart } from './revenue-forecast-chart'
 import { ShoppingBag, Package, Users, TrendingUp, Mail, Phone } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import Link from 'next/link'
 
+interface OrderItem {
+  id: string
+  quantity: number
+  garmentPattern: {
+    name: string
+  }
+}
+
+interface OrderDetails {
+  id: string
+  orderNumber: string
+  orderDate: string | Date
+  deliveryDate: string | Date
+  status: string
+  totalAmount: number
+  balanceAmount: number
+  customer: {
+    id: string
+    name: string
+    phone: string
+    email: string | null
+  }
+  items: OrderItem[]
+}
+
 interface SalesManagerDashboardProps {
   stats: {
     newOrdersToday: number
+    newOrdersTodayList: OrderDetails[]
     readyForPickup: number
+    readyForPickupList: OrderDetails[]
+    pendingOrders: number
+    pendingOrdersList: OrderDetails[]
+    thisMonthOrders: number
+    thisMonthOrdersList: OrderDetails[]
     orderPipeline: Array<{ status: string; count: number }>
     topCustomers: Array<{
       id: string
@@ -21,6 +54,13 @@ interface SalesManagerDashboardProps {
       pendingOrders: number
       isReturning: boolean
     }>
+    revenueForecast: {
+      deliveredRevenue: number
+      pendingRevenue: number
+      forecastedRevenue: number
+      lastMonthRevenue: number
+      growthRate: number
+    }
   }
   generalStats: {
     orders: {
@@ -35,63 +75,111 @@ interface SalesManagerDashboardProps {
 export function SalesManagerDashboard({ stats, generalStats }: SalesManagerDashboardProps) {
   return (
     <div className="space-y-6">
-      {/* Row 1: Sales Velocity */}
+      {/* Row 1: Sales Velocity - All Cards Clickable */}
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className="border-l-4 border-l-green-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">New Orders Today</CardTitle>
-            <ShoppingBag className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-green-600">{stats.newOrdersToday}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Created in last 24 hours
-            </p>
-          </CardContent>
-        </Card>
+        {/* New Orders Today */}
+        <SalesOrdersDialog
+          title="New Orders Today"
+          description="Orders created in the last 24 hours"
+          orders={stats.newOrdersTodayList}
+          emptyMessage="No new orders today"
+          trigger={
+            <Card className="border-l-4 border-l-green-500 cursor-pointer hover:shadow-lg transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">New Orders Today</CardTitle>
+                <ShoppingBag className="h-4 w-4 text-green-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-green-600">
+                  {stats.newOrdersToday}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Click for details</p>
+              </CardContent>
+            </Card>
+          }
+        />
 
-        <Card className="border-l-4 border-l-blue-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ready for Pickup</CardTitle>
-            <Package className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-blue-600">{stats.readyForPickup}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Notify customers
-            </p>
-          </CardContent>
-        </Card>
+        {/* Ready for Pickup */}
+        <SalesOrdersDialog
+          title="Ready for Pickup"
+          description="Orders ready for customer collection"
+          orders={stats.readyForPickupList}
+          emptyMessage="No orders ready for pickup"
+          trigger={
+            <Card className="border-l-4 border-l-blue-500 cursor-pointer hover:shadow-lg transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Ready for Pickup</CardTitle>
+                <Package className="h-4 w-4 text-blue-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-blue-600">
+                  {stats.readyForPickup}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Click to notify customers</p>
+              </CardContent>
+            </Card>
+          }
+        />
 
-        <Card className="border-l-4 border-l-amber-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending Orders</CardTitle>
-            <TrendingUp className="h-4 w-4 text-amber-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-amber-600">{generalStats.orders.pending}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Currently in production
-            </p>
-          </CardContent>
-        </Card>
+        {/* Pending Orders */}
+        <SalesOrdersDialog
+          title="Pending Orders"
+          description="Orders currently in production (not yet delivered)"
+          orders={stats.pendingOrdersList}
+          emptyMessage="No pending orders"
+          trigger={
+            <Card className="border-l-4 border-l-amber-500 cursor-pointer hover:shadow-lg transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Pending Orders</CardTitle>
+                <TrendingUp className="h-4 w-4 text-amber-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-amber-600">
+                  {stats.pendingOrders}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Click for details</p>
+              </CardContent>
+            </Card>
+          }
+        />
 
-        <Card className="border-l-4 border-l-purple-500">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">This Month</CardTitle>
-            <ShoppingBag className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-purple-600">{generalStats.orders.thisMonth}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {generalStats.orders.growth >= 0 ? '+' : ''}
-              {generalStats.orders.growth.toFixed(2)}% vs last month
-            </p>
-          </CardContent>
-        </Card>
+        {/* This Month */}
+        <SalesOrdersDialog
+          title="Orders This Month"
+          description="All orders created this month"
+          orders={stats.thisMonthOrdersList}
+          emptyMessage="No orders this month"
+          trigger={
+            <Card className="border-l-4 border-l-purple-500 cursor-pointer hover:shadow-lg transition-shadow">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">This Month</CardTitle>
+                <ShoppingBag className="h-4 w-4 text-purple-600" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-purple-600">
+                  {stats.thisMonthOrders}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {generalStats.orders.growth !== undefined &&
+                  generalStats.orders.growth !== null ? (
+                    <>
+                      {generalStats.orders.growth >= 0 ? '+' : ''}
+                      {generalStats.orders.growth.toFixed(2)}% vs last month
+                    </>
+                  ) : (
+                    'Click for details'
+                  )}
+                </p>
+              </CardContent>
+            </Card>
+          }
+        />
       </div>
 
-      {/* Row 2: Order Status Funnel */}
+      {/* Row 2: Revenue Forecast */}
+      <RevenueForecastChart data={stats.revenueForecast} />
+
+      {/* Row 3: Order Status Funnel */}
       <Card>
         <CardHeader>
           <CardTitle>Order Pipeline - Production Status</CardTitle>
@@ -110,7 +198,7 @@ export function SalesManagerDashboard({ stats, generalStats }: SalesManagerDashb
         </CardContent>
       </Card>
 
-      {/* Row 3: Top Customers */}
+      {/* Row 4: Top Customers */}
       <Card>
         <CardHeader>
           <CardTitle>Top 10 Customers</CardTitle>

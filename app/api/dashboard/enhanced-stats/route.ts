@@ -326,20 +326,164 @@ export async function GET(request: Request) {
     // SALES MANAGER DATA (Parallelized)
     // ===================
 
-    const [newOrdersToday, readyForPickup, orderPipeline, topCustomers] = await Promise.all([
-      // New orders today
-      prisma.order.count({
+    const [newOrdersTodayList, readyForPickupList, pendingOrdersList, thisMonthOrdersList, orderPipeline, topCustomers] = await Promise.all([
+      // New orders today - full details
+      prisma.order.findMany({
         where: {
           createdAt: {
             gte: startOfDay(now),
           },
         },
+        select: {
+          id: true,
+          orderNumber: true,
+          orderDate: true,
+          deliveryDate: true,
+          status: true,
+          totalAmount: true,
+          balanceAmount: true,
+          customer: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+              email: true,
+            },
+          },
+          items: {
+            select: {
+              id: true,
+              quantity: true,
+              garmentPattern: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
       }),
 
-      // Ready for pickup
-      prisma.order.count({
+      // Ready for pickup - full details
+      prisma.order.findMany({
         where: {
           status: 'READY',
+        },
+        select: {
+          id: true,
+          orderNumber: true,
+          orderDate: true,
+          deliveryDate: true,
+          status: true,
+          totalAmount: true,
+          balanceAmount: true,
+          customer: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+              email: true,
+            },
+          },
+          items: {
+            select: {
+              id: true,
+              quantity: true,
+              garmentPattern: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          deliveryDate: 'asc',
+        },
+      }),
+
+      // Pending orders (all non-delivered, non-cancelled) - full details
+      prisma.order.findMany({
+        where: {
+          status: {
+            notIn: ['DELIVERED', 'CANCELLED'],
+          },
+        },
+        select: {
+          id: true,
+          orderNumber: true,
+          orderDate: true,
+          deliveryDate: true,
+          status: true,
+          totalAmount: true,
+          balanceAmount: true,
+          customer: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+              email: true,
+            },
+          },
+          items: {
+            select: {
+              id: true,
+              quantity: true,
+              garmentPattern: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          deliveryDate: 'asc',
+        },
+        take: 50, // Limit to prevent huge response
+      }),
+
+      // This month orders - full details
+      prisma.order.findMany({
+        where: {
+          orderDate: {
+            gte: startOfMonth(now),
+            lte: endOfMonth(now),
+          },
+        },
+        select: {
+          id: true,
+          orderNumber: true,
+          orderDate: true,
+          deliveryDate: true,
+          status: true,
+          totalAmount: true,
+          balanceAmount: true,
+          customer: {
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+              email: true,
+            },
+          },
+          items: {
+            select: {
+              id: true,
+              quantity: true,
+              garmentPattern: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          orderDate: 'desc',
         },
       }),
 
@@ -1036,6 +1180,20 @@ export async function GET(request: Request) {
       ? ((revenueThisMonthAmount - revenueLastMonthAmount) / revenueLastMonthAmount) * 100
       : 0
 
+    // Calculate order growth (this month vs last month)
+    const ordersThisMonthCount = thisMonthOrdersList.length
+    const ordersLastMonthCount = await prisma.order.count({
+      where: {
+        orderDate: {
+          gte: startOfMonth(subMonths(now, 1)),
+          lte: endOfMonth(subMonths(now, 1)),
+        },
+      },
+    })
+    const ordersGrowth = ordersLastMonthCount > 0
+      ? ((ordersThisMonthCount - ordersLastMonthCount) / ordersLastMonthCount) * 100
+      : 0
+
     const generalStats = {
       revenue: {
         thisMonth: revenueThisMonthAmount,
@@ -1045,6 +1203,10 @@ export async function GET(request: Request) {
       orders: {
         total: totalOrders,
         delivered: deliveredOrdersCount,
+        pending: pendingOrdersList.length,
+        thisMonth: ordersThisMonthCount,
+        lastMonth: ordersLastMonthCount,
+        growth: Math.round(ordersGrowth * 100) / 100,
       },
       inventory: {
         totalItems: allInventoryItems.length,
@@ -1085,10 +1247,35 @@ export async function GET(request: Request) {
 
       // Sales Manager metrics
       sales: {
-        newOrdersToday,
-        readyForPickup,
+        newOrdersToday: newOrdersTodayList.length,
+        newOrdersTodayList: newOrdersTodayList,
+        readyForPickup: readyForPickupList.length,
+        readyForPickupList: readyForPickupList,
+        pendingOrders: pendingOrdersList.length,
+        pendingOrdersList: pendingOrdersList,
+        thisMonthOrders: thisMonthOrdersList.length,
+        thisMonthOrdersList: thisMonthOrdersList,
         orderPipeline: pipelineData,
         topCustomers: customerStats,
+        // Revenue forecast
+        revenueForecast: {
+          deliveredRevenue: thisMonthOrdersList
+            .filter(o => o.status === 'DELIVERED')
+            .reduce((sum, o) => sum + o.totalAmount, 0),
+          pendingRevenue: thisMonthOrdersList
+            .filter(o => o.status !== 'DELIVERED' && o.status !== 'CANCELLED')
+            .reduce((sum, o) => sum + o.totalAmount, 0),
+          forecastedRevenue: thisMonthOrdersList
+            .filter(o => o.status !== 'CANCELLED')
+            .reduce((sum, o) => sum + o.totalAmount, 0),
+          lastMonthRevenue: revenueLastMonthAmount,
+          growthRate: revenueLastMonthAmount > 0
+            ? ((thisMonthOrdersList
+                .filter(o => o.status !== 'CANCELLED')
+                .reduce((sum, o) => sum + o.totalAmount, 0) - revenueLastMonthAmount) /
+               revenueLastMonthAmount) * 100
+            : 0,
+        },
       },
 
       // Owner/Admin metrics

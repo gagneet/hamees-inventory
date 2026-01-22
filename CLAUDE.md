@@ -10,6 +10,144 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Interactive Dashboard Cards & Revenue Forecasting (v0.21.0)
+
+**What's New:**
+- **Inventory Manager Interactive Cards** - All 4 dashboard cards now clickable with detailed popups and actions
+- **Sales Manager Interactive Cards** - All 4 dashboard cards now clickable with comprehensive order details
+- **Revenue Forecast Chart** - New predictive chart showing delivered, pending, and forecasted revenue
+- **Create PO from Critical Alerts** - One-click PO creation from critical stock alerts
+- **Enhanced API** - Dashboard API now returns full order lists for drill-down functionality
+- **Cross-Role Verification** - All dashboard APIs verified to work correctly across all 6 roles
+
+**Version:** v0.21.0
+**Date:** January 22, 2026
+**Status:** ✅ Production Ready
+
+**Key Features:**
+
+1. **Inventory Manager Dashboard (4 Clickable Cards)**
+   - **Low Stock Items** - Opens dialog with detailed low stock list (available stock > minimum, ≤ 1.25× minimum)
+     - Shows: Item name, type, category (cloth/accessory), available/reserved/minimum stock, stock percentage, price, value
+     - Action: "View" button to navigate to inventory item
+   - **Critical Stock** - Opens dialog with critical stock items (available ≤ minimum)
+     - Same detailed view as low stock
+     - Urgent reorder indicator
+   - **Pending POs** - Opens dialog with all pending purchase orders
+     - Shows: PO number, supplier, expected date, items breakdown, total value, overdue status
+     - Summary: Total POs, total value, overdue count
+     - Action: "View Details" button to navigate to PO detail page
+   - **Total Items** - Direct link to full inventory page
+   - **Create PO Button** - Red button in critical alerts section
+     - Pre-fills form with critical fabric items
+     - Smart defaults: 3 months supply or 50m minimum
+     - Complete PO workflow with supplier selection
+
+2. **Sales Manager Dashboard (4 Clickable Cards + Revenue Forecast)**
+   - **New Orders Today** (Green) - Shows all orders created in last 24 hours
+     - Details: Customer info (name, phone, email), order number, status, items, delivery date, total amount, balance
+     - Actions: Clickable customer contact links (tel:, mailto:), view order details
+   - **Ready for Pickup** (Blue) - Shows all READY status orders
+     - Sorted by delivery date
+     - Customer notification workflow
+   - **Pending Orders** (Amber) - Shows all non-delivered, non-cancelled orders (max 50)
+     - Track production progress
+     - Identify bottlenecks
+     - Overdue highlighting (red background)
+   - **This Month** (Purple) - Shows all orders created this month
+     - Growth percentage vs last month
+     - Complete order history
+   - **Revenue Forecast Chart** (NEW)
+     - 4-bar comparison: Last Month, Delivered, Pending Pipeline, Forecasted Total
+     - Growth indicator with trending arrow
+     - Forecast formula breakdown
+     - Summary cards for each metric
+
+3. **Enhanced Dashboard API** (`app/api/dashboard/enhanced-stats/route.ts`)
+   - **Sales Manager Data Enhanced**:
+     - `newOrdersTodayList`: Full order details for today's orders
+     - `readyForPickupList`: Full details for READY status orders
+     - `pendingOrdersList`: Full details for pending orders (max 50)
+     - `thisMonthOrdersList`: Full details for this month's orders
+     - `revenueForecast`: { deliveredRevenue, pendingRevenue, forecastedRevenue, lastMonthRevenue, growthRate }
+   - **General Stats Enhanced**:
+     - `orders.pending`: Count of pending orders (available to all roles)
+     - `orders.thisMonth`: Count of this month's orders
+     - `orders.lastMonth`: Count of last month's orders
+     - `orders.growth`: Month-over-month growth percentage
+   - **Backward Compatible**: All existing API fields preserved
+
+4. **New Reusable Dialog Components**
+   - `components/dashboard/inventory-stock-dialog.tsx` - Low/Critical stock popup with summary stats
+   - `components/dashboard/pending-pos-dialog.tsx` - Pending POs popup with item breakdown
+   - `components/dashboard/create-po-dialog.tsx` - Complete PO creation form with pre-filled items
+   - `components/dashboard/sales-orders-dialog.tsx` - Order list popup with rich details and actions
+   - `components/dashboard/revenue-forecast-chart.tsx` - Revenue prediction visualization
+
+**Dialog Features:**
+- **Summary Statistics**: Total count, total value, category breakdowns
+- **Rich Order Details**: Customer info, items, dates, amounts, status badges
+- **Overdue Highlighting**: Red backgrounds for orders past delivery date
+- **Balance Indicators**: Amber badges for outstanding balances
+- **Direct Actions**: Clickable phone/email links, navigation to detail pages
+- **Mobile Responsive**: Scroll support, max-height constraints, adaptive layouts
+
+**Revenue Forecast Calculation:**
+```typescript
+Delivered Revenue = This month's DELIVERED orders total
+Pending Revenue = This month's non-delivered/non-cancelled orders total
+Forecasted Revenue = Delivered + Pending
+Growth Rate = ((Forecasted - Last Month) / Last Month) × 100
+```
+
+**Cross-Role Verification:**
+- ✅ **Owner Dashboard**: Uses `generalStats` - no conflicts, enhanced with order growth data
+- ✅ **Admin Dashboard**: Same as Owner - no conflicts
+- ✅ **Tailor Dashboard**: Uses `tailor.*` - completely separate, no conflicts
+- ✅ **Inventory Manager Dashboard**: Uses `inventory.*` - separate metrics, interactive cards working
+- ✅ **Sales Manager Dashboard**: Uses `sales.*` - enhanced with new fields, backward compatible
+- ✅ **Viewer Dashboard**: Read-only access - no conflicts
+
+**Files Added:**
+- `components/dashboard/inventory-stock-dialog.tsx` (280 lines)
+- `components/dashboard/pending-pos-dialog.tsx` (260 lines)
+- `components/dashboard/create-po-dialog.tsx` (420 lines)
+- `components/dashboard/sales-orders-dialog.tsx` (340 lines)
+- `components/dashboard/revenue-forecast-chart.tsx` (155 lines)
+
+**Files Modified:**
+- `components/dashboard/inventory-manager-dashboard.tsx` - All cards now clickable with dialogs
+- `components/dashboard/sales-manager-dashboard.tsx` - All cards clickable, added revenue forecast chart
+- `app/api/dashboard/enhanced-stats/route.ts` - Enhanced with full order lists and revenue forecast data
+
+**Testing:**
+```bash
+# Test Inventory Manager (inventory@hameesattire.com / admin123)
+1. Click "Low Stock Items" → See detailed low stock list
+2. Click "Critical Stock" → See critical items with urgent indicator
+3. Click "Pending POs" → See all pending purchase orders with supplier details
+4. Click "Total Items" → Navigate to full inventory page
+5. If critical alerts exist, click "Create PO" → Pre-filled PO form opens
+
+# Test Sales Manager (sales@hameesattire.com / admin123)
+1. Click "New Orders Today" → See today's orders with customer details
+2. Click "Ready for Pickup" → See READY orders, notify customers
+3. Click "Pending Orders" → See all in-progress orders
+4. Click "This Month" → See monthly order history with growth rate
+5. View Revenue Forecast chart → See delivered, pending, and forecasted revenue
+```
+
+**Business Impact:**
+- ✅ Faster decision-making with one-click access to detailed data
+- ✅ Improved customer service with direct contact links
+- ✅ Proactive inventory management with create PO workflow
+- ✅ Revenue prediction for cash flow planning
+- ✅ Mobile-friendly interfaces for on-the-go management
+
+**Deployment:** ✅ Live at https://hamees.gagneet.com
+
+---
+
 ### ✅ Database Schema Update - Complete Field Alignment (v0.20.0)
 
 **What's New:**
