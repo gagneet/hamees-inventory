@@ -59,13 +59,13 @@ export async function POST(
       where: { purchaseOrderId: id },
     })
 
-    const allItemsReceived = items.every((item) => item.receivedQuantity >= item.quantity)
+    const allItemsReceived = items.every((item: any) => item.receivedQuantity >= item.quantity)
 
     // Determine new status
     let newStatus = purchaseOrder.status
     if (allItemsReceived && paymentComplete) {
       newStatus = 'RECEIVED' // Fully complete
-    } else if (newPaidAmount > 0 || items.some((item) => item.receivedQuantity > 0)) {
+    } else if (newPaidAmount > 0 || items.some((item: any) => item.receivedQuantity > 0)) {
       newStatus = 'PARTIAL' // Partial payment or partial receipt
     }
 

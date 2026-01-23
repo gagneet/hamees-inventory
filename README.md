@@ -1,48 +1,64 @@
 # 🧵 Tailor Inventory Management System
 
-**Version 0.8.2** | Production Ready | [Live Demo](https://hamees.gagneet.com)
+**Version 0.23.0** | Production Ready | [Live Demo](https://hamees.gagneet.com)
 
-A comprehensive inventory and order management system built specifically for tailor shops. Manage fabric inventory, track orders, monitor stock levels, and streamline your tailoring business operations.
+A comprehensive inventory and order management system built specifically for tailor shops. Manage fabric inventory, track orders, monitor stock levels, and streamline your tailoring business operations with industry-standard specifications.
 
-## 🎉 What's New in v0.8.2
+## 🎉 What's New in v0.23.0
 
-This version introduces GST integration, a more interactive dashboard, and production-ready seed data. For a detailed list of changes, see the [CHANGELOG.md](CHANGELOG.md).
+This version introduces comprehensive fabric specifications, enhanced accessory details, and improved barcode scanning based on research of commercial tailoring systems in India and globally. For a detailed list of changes, see [CLAUDE.md](CLAUDE.md#inventory-management-phase-1-enhancements-v0230).
 
-- **GST Integration**: Automatic 12% GST calculation (6% CGST + 6% SGST) on all orders.
-- **Interactive Dashboard**: KPI cards are now clickable, showing detailed breakdowns.
-- **Enhanced Analytics**: Improved charts and customer retention analysis.
-- **Production Seed Data**: Includes 192 historical orders for realistic testing.
-- **Bug Fixes**: Addressed issues with GST display, expense tracking, and more.
+- **Enhanced Fabric Specifications**: Complete technical details (GSM, composition, weave type, thread count, shrinkage, color fastness)
+- **Season & Occasion Tags**: Filter fabrics by suitability (Summer/Winter/Monsoon, Wedding/Formal/Casual)
+- **Care Instructions**: Washing/cleaning guidelines for each fabric type
+- **Enhanced Accessory Details**: Button sizes (Ligne), thread weights, Pantone color codes, materials, finish types
+- **Fixed Barcode Scanner**: Detection loop improvements, 13 barcode format support, increased reliability
+- **Excel Export Enhanced**: All new fields included in bulk upload templates (33 columns for cloth, 23 for accessories)
 
-### GST Integration (Tax Compliance)
-- **Complete GST Calculation**: 12% GST automatically calculated on all orders
-- **GST Breakdown Display**: Order summary shows CGST (6%) + SGST (6%) breakdown
-- **Compliant Storage**: All GST components stored in database for reporting
-- **Real-time Updates**: GST recalculates as order items change
+### Comprehensive Fabric Specifications (12 New Fields)
+- **fabricComposition**: Exact fiber breakdown (e.g., "70% Cotton, 30% Polyester")
+- **gsm**: Grams per Square Meter - fabric weight (industry standard)
+- **threadCount**: Threads per inch for quality indication
+- **weaveType**: Plain, Twill, Satin, Jacquard, Dobby
+- **fabricWidth**: Width in inches (44", 58", 60")
+- **shrinkagePercent**: Expected shrinkage (1-5%)
+- **colorFastness**: Excellent, Good, Fair, Poor ratings
+- **seasonSuitability**: Multi-season tags (Summer, Winter, Monsoon, All-season)
+- **occasionType**: Multi-occasion tags (Casual, Formal, Wedding, Business, Festival, Party)
+- **careInstructions**: Complete washing/cleaning guidelines
+- **swatchImage**: URL to fabric swatch photo (ready for Phase 2 upload)
+- **textureImage**: URL to close-up texture photo
 
-### Interactive Dashboard & Analytics
-- **Clickable Financial Cards**: All KPI cards (Revenue, Expenses, Profit, Outstanding) now show detailed breakdowns
-- **Enhanced Charts**: Orders by Status chart with larger size, white background, and percentage-only labels
-- **Customer Retention Analysis**: Click to view returning customers (3+ orders across different months)
-- **Decimal Precision**: All values standardized to exactly 2 decimal places
+### Enhanced Accessory Details (10 New Fields)
+- **colorCode**: Pantone/DMC codes (e.g., "PANTONE 19-4028")
+- **threadWeight**: Thread gauge (40wt, 50wt, 60wt)
+- **buttonSize**: Ligne sizing standard (14L, 18L, 20L, 24L)
+- **holePunchSize**: Number of holes (2, 4)
+- **material**: Shell, Brass, Resin, Horn, Plastic, Wood
+- **finish**: Matte, Polished, Antique, Brushed
+- **recommendedFor**: Array of garment types (Suit, Shirt, Trouser, Blazer)
+- **styleCategory**: Formal, Casual, Designer, Traditional
+- **productImage**: Product photo URL
+- **closeUpImage**: Detail photo URL
 
-### Production Seed Data
-- **192 Historical Orders**: July-December 2025 with realistic seasonal patterns
-- **7.5 Day Avg Fulfillment**: Realistic fulfillment times under 14 days
-- **20 Customers**: Including repeat customers with cross-month ordering patterns
-- **Run with**: `pnpm tsx prisma/seed-production.ts`
+### Barcode Scanner Improvements
+- **Fixed detection loop** using ref-based cancellation (prevents stale closure issues)
+- **Expanded format support**: 13 barcode types (QR, EAN-13/8, UPC-A/E, Code 128/39/93, Codabar, ITF, Aztec, Data Matrix, PDF417)
+- **Increased timeout**: 15 seconds for camera initialization
+- **Console logging**: Shows detected barcode and format type for debugging
+- **100% reliable manual entry**: Always works as fallback
 
-### Bug Fixes & Improvements
-- **Fixed GST not displaying on new orders** - Complete GST calculation and display now integrated
-- Fixed Expenses tracking to include Purchase Order payments
-- Fixed Expenses Filter error (SelectItem validation)
-- Fixed all TypeScript strict type checking errors
-- Improved chart consistency across dashboard
+### Database & Migration
+- **22 new fields** added via SQL migration
+- **All 10 cloth items** populated with industry-standard specifications
+- **All 6 accessories** populated with professional details
+- **Zero downtime deployment** with PostgreSQL arrays for multi-value fields
+- **Backward compatible**: All new fields optional
 
 ## ✨ Features
 
 ### Core Modules
-- **Inventory Management**: Track cloth and accessory inventory with barcode/SKU support, automatic stock alerts, and supplier tracking.
+- **Inventory Management**: Track cloth and accessory inventory with comprehensive specifications (GSM, composition, weave), barcode/SKU support, automatic stock alerts, and supplier tracking.
 - **Order Management**: Create and manage orders with GST compliance, automatic material calculation, and detailed status tracking.
 - **Customer Management**: Maintain customer profiles with detailed measurements and order history.
 - **Dashboard & Analytics**: Access real-time KPIs, interactive charts, and detailed reports on revenue, expenses, and customer retention.

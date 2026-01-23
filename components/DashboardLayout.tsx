@@ -22,8 +22,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import { SignOutButton } from './dashboard/sign-out-button';
-import { hasPermission, Permission } from '@/lib/permissions';
-import { UserRole } from '@prisma/client';
+import { hasPermission, Permission, type UserRole } from '@/lib/permissions';
 
 type NavItem = {
   href: string;

@@ -178,6 +178,120 @@ export default async function ClothDetailPage({
               </CardContent>
             </Card>
 
+            {/* Fabric Specifications (Phase 1) */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Fabric Specifications</CardTitle>
+                <CardDescription>Technical details and composition</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {cloth.fabricComposition && (
+                    <div className="col-span-2 md:col-span-3">
+                      <p className="text-sm text-slate-500 mb-1">Fabric Composition</p>
+                      <p className="font-semibold">{cloth.fabricComposition}</p>
+                    </div>
+                  )}
+                  {cloth.gsm && (
+                    <div>
+                      <p className="text-sm text-slate-500 mb-1">GSM (Weight)</p>
+                      <p className="font-semibold">{cloth.gsm} g/m²</p>
+                    </div>
+                  )}
+                  {cloth.threadCount && (
+                    <div>
+                      <p className="text-sm text-slate-500 mb-1">Thread Count</p>
+                      <p className="font-semibold">{cloth.threadCount} TPI</p>
+                    </div>
+                  )}
+                  {cloth.weaveType && (
+                    <div>
+                      <p className="text-sm text-slate-500 mb-1">Weave Type</p>
+                      <p className="font-semibold">{cloth.weaveType}</p>
+                    </div>
+                  )}
+                  {cloth.fabricWidth && (
+                    <div>
+                      <p className="text-sm text-slate-500 mb-1">Fabric Width</p>
+                      <p className="font-semibold">{cloth.fabricWidth}</p>
+                    </div>
+                  )}
+                  {cloth.shrinkagePercent !== null && cloth.shrinkagePercent !== undefined && (
+                    <div>
+                      <p className="text-sm text-slate-500 mb-1">Shrinkage</p>
+                      <p className="font-semibold">{cloth.shrinkagePercent}%</p>
+                    </div>
+                  )}
+                  {cloth.colorFastness && (
+                    <div>
+                      <p className="text-sm text-slate-500 mb-1">Color Fastness</p>
+                      <Badge variant={
+                        cloth.colorFastness === 'Excellent' ? 'default' :
+                        cloth.colorFastness === 'Good' ? 'outline' : 'destructive'
+                      }>
+                        {cloth.colorFastness}
+                      </Badge>
+                    </div>
+                  )}
+                  {cloth.seasonSuitability && cloth.seasonSuitability.length > 0 && (
+                    <div className="col-span-2 md:col-span-3">
+                      <p className="text-sm text-slate-500 mb-2">Season Suitability</p>
+                      <div className="flex flex-wrap gap-2">
+                        {cloth.seasonSuitability.map((season: string) => (
+                          <Badge key={season} variant="outline">{season}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {cloth.occasionType && cloth.occasionType.length > 0 && (
+                    <div className="col-span-2 md:col-span-3">
+                      <p className="text-sm text-slate-500 mb-2">Occasion Type</p>
+                      <div className="flex flex-wrap gap-2">
+                        {cloth.occasionType.map((occasion: string) => (
+                          <Badge key={occasion} variant="secondary">{occasion}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {cloth.careInstructions && (
+                    <div className="col-span-2 md:col-span-3">
+                      <p className="text-sm text-slate-500 mb-1">Care Instructions</p>
+                      <p className="text-sm text-slate-700">{cloth.careInstructions}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Fabric Images */}
+                {(cloth.swatchImage || cloth.textureImage) && (
+                  <div className="mt-6 pt-6 border-t">
+                    <p className="text-sm text-slate-500 mb-3">Fabric Images</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      {cloth.swatchImage && (
+                        <div>
+                          <p className="text-xs text-slate-500 mb-2">Swatch</p>
+                          <img
+                            src={cloth.swatchImage}
+                            alt="Fabric Swatch"
+                            className="w-full h-32 object-cover rounded border border-slate-300"
+                          />
+                        </div>
+                      )}
+                      {cloth.textureImage && (
+                        <div>
+                          <p className="text-xs text-slate-500 mb-2">Texture</p>
+                          <img
+                            src={cloth.textureImage}
+                            alt="Fabric Texture"
+                            className="w-full h-32 object-cover rounded border border-slate-300"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Related Orders */}
             <Card>
               <CardHeader>

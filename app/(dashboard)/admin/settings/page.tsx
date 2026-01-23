@@ -31,9 +31,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Plus, Edit2, Shield, ShieldAlert, ShieldCheck } from 'lucide-react'
-import { UserRole } from '@prisma/client'
-import { getRoleName, roleDescriptions } from '@/lib/permissions'
-import { hasPermission } from '@/lib/permissions'
+import { getRoleName, roleDescriptions, hasPermission, type UserRole } from '@/lib/permissions'
 
 type User = {
   id: string

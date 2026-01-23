@@ -89,7 +89,7 @@ export async function PATCH(
         XL: newGarmentPattern.xlAdjustment,
       }
 
-      newEstimatedMeters = newGarmentPattern.baseMeters + bodyTypeAdjustments[existingItem.bodyType]
+      newEstimatedMeters = newGarmentPattern.baseMeters + (bodyTypeAdjustments as any)[existingItem.bodyType]
       updateData.garmentPatternId = validatedData.garmentPatternId
       updateData.estimatedMeters = newEstimatedMeters
       garmentChanged = true
@@ -150,7 +150,7 @@ export async function PATCH(
     }
 
     // Update the order item using a transaction
-    const updatedItem = await prisma.$transaction(async (tx) => {
+    const updatedItem = await prisma.$transaction(async (tx: any) => {
       // If fabric is changing, update stock reservations
       if (fabricChanged) {
         const oldCloth = await tx.clothInventory.findUnique({

@@ -106,19 +106,19 @@ export async function getDashboardData(
     },
   })
 
-  const clothLowStock = clothInventory.filter(item => {
+  const clothLowStock = clothInventory.filter((item: any) => {
     const available = item.currentStock - item.reserved
     const threshold = item.minimum * 1.1
     return available < threshold && available > item.minimum
   }).length
 
-  const clothCriticalStock = clothInventory.filter(item => {
+  const clothCriticalStock = clothInventory.filter((item: any) => {
     const available = item.currentStock - item.reserved
     return available <= item.minimum
   }).length
 
   const totalClothWorth = clothInventory.reduce(
-    (sum, item) => sum + item.currentStock * item.pricePerMeter,
+    (sum: number, item: any) => sum + item.currentStock * item.pricePerMeter,
     0
   )
 
@@ -130,17 +130,17 @@ export async function getDashboardData(
     },
   })
 
-  const accessoryLowStock = accessoryInventory.filter(item => {
+  const accessoryLowStock = accessoryInventory.filter((item: any) => {
     const threshold = item.minimum * 1.1
     return item.currentStock < threshold && item.currentStock > item.minimum
   }).length
 
   const accessoryCriticalStock = accessoryInventory.filter(
-    item => item.currentStock <= item.minimum
+    (item: any) => item.currentStock <= item.minimum
   ).length
 
   const totalAccessoryWorth = accessoryInventory.reduce(
-    (sum, item) => sum + item.currentStock * item.pricePerUnit,
+    (sum: number, item: any) => sum + item.currentStock * item.pricePerUnit,
     0
   )
 
@@ -250,7 +250,7 @@ export async function getDashboardData(
     },
   })
 
-  const statusData = ordersByStatus.map(item => ({
+  const statusData = ordersByStatus.map((item: any) => ({
     status: item.status,
     count: item._count.status,
   }))
@@ -279,8 +279,8 @@ export async function getDashboardData(
 
   const topFabricsWithDetails = await Promise.all(
     topFabrics
-      .filter(item => item.clothInventoryId)
-      .map(async item => {
+      .filter((item: any) => item.clothInventoryId)
+      .map(async (item: any) => {
         const cloth = await prisma.clothInventory.findUnique({
           where: { id: item.clothInventoryId! },
           select: { id: true, name: true, type: true, color: true, colorHex: true },

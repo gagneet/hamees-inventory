@@ -12,6 +12,19 @@ const updateAccessorySchema = z.object({
   pricePerUnit: z.number().optional(),
   minimum: z.number().int().optional(),
   notes: z.string().nullish(),
+  // Phase 1 Enhancement Fields
+  colorCode: z.string().nullish(),
+  threadWeight: z.string().nullish(),
+  buttonSize: z.string().nullish(),
+  holePunchSize: z.string().nullish(),
+  material: z.string().nullish(),
+  finish: z.string().nullish(),
+  recommendedFor: z.array(z.string()).nullish(),
+  styleCategory: z.string().nullish(),
+  productImage: z.string().nullish(),
+  closeUpImage: z.string().nullish(),
+  // Optional audit note for history tracking
+  _auditNote: z.string().optional(),
 })
 
 // GET single accessory item
@@ -59,7 +72,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check permissions
+    // Check permissions - ADMIN or INVENTORY_MANAGER only
     if (!hasPermission(session.user.role as UserRole, 'manage_inventory')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
@@ -67,6 +80,9 @@ export async function PATCH(
     const { id } = await params
     const body = await request.json()
     const validatedData = updateAccessorySchema.parse(body)
+
+    // Extract audit note (not stored in accessory table)
+    const { _auditNote, ...updateData } = validatedData
 
     // Check if item exists
     const existingItem = await prisma.accessoryInventory.findUnique({
@@ -77,10 +93,15 @@ export async function PATCH(
       return NextResponse.json({ error: 'Item not found' }, { status: 404 })
     }
 
-    // Update the item
+    // Clean up data: remove undefined/null values to avoid Prisma type issues
+    const cleanedData = Object.fromEntries(
+      Object.entries(updateData).filter(([_, value]) => value !== undefined && value !== null)
+    )
+
+    // Update the item (accessories don't have stock movements, simpler update)
     const updatedItem = await prisma.accessoryInventory.update({
       where: { id },
-      data: validatedData,
+      data: cleanedData as any,
       include: {
         supplierRel: true,
       },

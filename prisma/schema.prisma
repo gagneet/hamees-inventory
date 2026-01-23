@@ -150,6 +150,25 @@ model ClothInventory {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  // ====== PHASE 1 ENHANCEMENTS (v0.23.0) ======
+  // Fabric Technical Specifications
+  fabricComposition String?   // e.g., "70% Cotton, 30% Polyester"
+  gsm               Float?    // Grams per Square Meter (fabric weight)
+  threadCount       Int?      // Threads per inch
+  weaveType         String?   // Plain, Twill, Satin, Jacquard, Dobby
+  fabricWidth       Float?    // Width in inches (usually 44", 58", 60")
+  shrinkagePercent  Float?    // Expected shrinkage percentage (2-5%)
+  colorFastness     String?   // Excellent, Good, Fair, Poor
+
+  // Business Classification
+  seasonSuitability String[]  // e.g., ["Summer", "Winter", "All-season", "Monsoon"]
+  occasionType      String[]  // e.g., ["Casual", "Formal", "Wedding", "Festival", "Party"]
+  careInstructions  String?   // e.g., "Dry clean only", "Machine wash cold"
+
+  // Visual Assets
+  swatchImage       String?   // URL to primary fabric swatch photo
+  textureImage      String?   // URL to close-up texture photo
+
   // Relations
   orderItems    OrderItem[]
   stockMovements StockMovement[]
@@ -175,6 +194,25 @@ model AccessoryInventory {
   active        Boolean   @default(true)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
+  // ====== PHASE 1 ENHANCEMENTS (v0.23.0) ======
+  // Thread-Specific Fields
+  colorCode         String?   // Pantone/DMC color code (e.g., "PANTONE 19-4028")
+  threadWeight      String?   // e.g., "40wt", "50wt", "60wt"
+
+  // Button-Specific Fields
+  buttonSize        String?   // Ligne sizing: "14L", "18L", "20L", "24L", etc.
+  holePunchSize     Int?      // Number of holes: 2, 4
+  material          String?   // Shell, Brass, Resin, Horn, Plastic, Wood
+  finish            String?   // Matte, Polished, Antique, Brushed
+
+  // Compatibility & Recommendations
+  recommendedFor    String[]  // e.g., ["Suit", "Shirt", "Trouser", "Blazer"]
+  styleCategory     String?   // Formal, Casual, Designer, Traditional
+
+  // Visual Assets
+  productImage      String?   // URL to product photo
+  closeUpImage      String?   // URL to close-up detail photo
 
   // Relations
   garmentAccessories GarmentAccessory[]

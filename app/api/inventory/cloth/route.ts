@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Use transaction to ensure atomicity
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       const clothItem = await tx.clothInventory.create({
         data: {
           sku,

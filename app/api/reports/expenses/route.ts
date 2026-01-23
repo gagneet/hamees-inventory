@@ -86,14 +86,14 @@ export async function GET(request: Request) {
       }),
     ])
 
-    const categoryData = expensesByCategory.map((item) => ({
+    const categoryData = expensesByCategory.map((item: any) => ({
       category: item.category,
       amount: item._sum.totalAmount || 0,
       count: item._count,
     }))
 
     // Total expenses
-    const totalExpenses = categoryData.reduce((sum, cat) => sum + cat.amount, 0)
+    const totalExpenses = categoryData.reduce((sum: number, cat: any) => sum + cat.amount, 0)
 
     const growth =
       (lastMonthExpenses._sum.totalAmount || 0) > 0
@@ -113,7 +113,7 @@ export async function GET(request: Request) {
       },
       expensesByMonth,
       expensesByCategory: categoryData,
-      topExpenses: topExpenses.map((expense) => ({
+      topExpenses: topExpenses.map((expense: any) => ({
         id: expense.id,
         title: expense.description,
         category: expense.category,

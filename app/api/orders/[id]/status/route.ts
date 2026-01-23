@@ -44,9 +44,9 @@ export async function PATCH(
     if (status === OrderStatus.DELIVERED && order.status !== OrderStatus.DELIVERED) {
       // When order is delivered, convert reserved stock to used stock
       // @ts-ignore
-      await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx: any) => {
         // Batch update order items - prepare all updates
-        const orderItemUpdates = order.items.map(item => {
+        const orderItemUpdates = order.items.map((item: any) => {
           const metersUsed = actualMetersUsed || item.estimatedMeters
           // Auto-calculate wastage: if actualMetersUsed is provided, calculate difference
           // Otherwise use provided wastage value or default to 0
@@ -63,7 +63,7 @@ export async function PATCH(
         })
 
         // Batch update cloth inventory - prepare all updates
-        const clothInventoryUpdates = order.items.map(item => {
+        const clothInventoryUpdates = order.items.map((item: any) => {
           const metersUsed = actualMetersUsed || item.estimatedMeters
           // Auto-calculate wastage: if actualMetersUsed is provided, calculate difference
           const wastedMeters = actualMetersUsed
@@ -83,7 +83,7 @@ export async function PATCH(
         })
 
         // Batch create stock movements - prepare all creates
-        const stockMovementCreates = order.items.map(item => {
+        const stockMovementCreates = order.items.map((item: any) => {
           const metersUsed = actualMetersUsed || item.estimatedMeters
           // Auto-calculate wastage: if actualMetersUsed is provided, calculate difference
           const wastedMeters = actualMetersUsed
@@ -135,9 +135,9 @@ export async function PATCH(
     } else if (status === OrderStatus.CANCELLED && order.status !== OrderStatus.CANCELLED) {
       // When order is cancelled, release reserved stock
         // @ts-ignore
-      await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx: any) => {
         // Batch update cloth inventory - prepare all updates
-        const clothInventoryUpdates = order.items.map(item =>
+        const clothInventoryUpdates = order.items.map((item: any) =>
           tx.clothInventory.update({
             where: { id: item.clothInventoryId },
             data: {
@@ -149,7 +149,7 @@ export async function PATCH(
         )
 
         // Batch create stock movements - prepare all creates
-        const stockMovementCreates = order.items.map(item =>
+        const stockMovementCreates = order.items.map((item: any) =>
           tx.stockMovement.create({
             data: {
               clothInventoryId: item.clothInventoryId,
@@ -194,11 +194,11 @@ export async function PATCH(
     } else {
       // Simple status update
         // @ts-ignore
-      await prisma.$transaction(async (tx) => {
+      await prisma.$transaction(async (tx: any) => {
         // If actualMetersUsed is provided, update all order items
         // This typically happens when status changes to CUTTING
         if (actualMetersUsed !== null && actualMetersUsed !== undefined) {
-          const orderItemUpdates = order.items.map(item => {
+          const orderItemUpdates = order.items.map((item: any) => {
             // Auto-calculate wastage based on the difference
             const calculatedWastage = actualMetersUsed - item.estimatedMeters
             return tx.orderItem.update({

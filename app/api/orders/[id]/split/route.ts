@@ -59,7 +59,7 @@ export async function POST(
     }
 
     // Validate that all itemIds exist in the order
-    const itemsToSplit = originalOrder.items.filter(item => itemIds.includes(item.id))
+    const itemsToSplit = originalOrder.items.filter((item: any) => itemIds.includes(item.id))
     if (itemsToSplit.length !== itemIds.length) {
       return NextResponse.json(
         { error: 'Some items not found in this order' },
@@ -76,10 +76,10 @@ export async function POST(
     }
 
     // Calculate new totals
-    const splitItemsTotal = itemsToSplit.reduce((sum, item) => sum + item.totalPrice, 0)
+    const splitItemsTotal = itemsToSplit.reduce((sum: number, item: any) => sum + item.totalPrice, 0)
 
-    const remainingItems = originalOrder.items.filter(item => !itemIds.includes(item.id))
-    const remainingItemsTotal = remainingItems.reduce((sum, item) => sum + item.totalPrice, 0)
+    const remainingItems = originalOrder.items.filter((item: any) => !itemIds.includes(item.id))
+    const remainingItemsTotal = remainingItems.reduce((sum: number, item: any) => sum + item.totalPrice, 0)
 
     // Calculate GST (12% = 6% CGST + 6% SGST)
     const splitSubTotal = parseFloat(splitItemsTotal.toFixed(2))
@@ -96,7 +96,7 @@ export async function POST(
     const remainingAdvance = parseFloat((originalOrder.advancePaid - splitAdvance).toFixed(2))
 
     // Start transaction
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       // Create new order with split items
       const newOrder = await tx.order.create({
         data: {

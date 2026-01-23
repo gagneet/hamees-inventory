@@ -177,10 +177,23 @@ erDiagram
         boolean active
         datetime createdAt
         datetime updatedAt
+        string fabricComposition "Phase1"
+        int gsm "Phase1"
+        int threadCount "Phase1"
+        string weaveType "Phase1"
+        string fabricWidth "Phase1"
+        float shrinkagePercent "Phase1"
+        string colorFastness "Phase1"
+        array seasonSuitability "Phase1"
+        array occasionType "Phase1"
+        string careInstructions "Phase1"
+        string swatchImage "Phase1"
+        string textureImage "Phase1"
     }
 
     AccessoryInventory {
         string id PK
+        string sku UK
         string name
         string type
         string color
@@ -192,6 +205,17 @@ erDiagram
         boolean active
         datetime createdAt
         datetime updatedAt
+        string notes
+        string colorCode "Phase1"
+        string threadWeight "Phase1"
+        string buttonSize "Phase1"
+        string holePunchSize "Phase1"
+        string material "Phase1"
+        string finish "Phase1"
+        array recommendedFor "Phase1"
+        string styleCategory "Phase1"
+        string productImage "Phase1"
+        string closeUpImage "Phase1"
     }
 
     StockMovement {
