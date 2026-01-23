@@ -257,7 +257,7 @@ function OrdersContent() {
                     value={status}
                     onChange={(e) => setStatus(e.target.value)}
                   >
-                    <option value="">All Statuses</option>
+                    <option value="">All Status</option>
                     {Object.entries(statusLabels).map(([key, label]) => (
                       <option key={key} value={key}>
                         {label}
