@@ -69,7 +69,7 @@ export async function PATCH(
 
     // Delete existing accessories and create new ones
     // @ts-ignore
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       // Delete old accessories
       await tx.garmentAccessory.deleteMany({
         where: { garmentPatternId: id },

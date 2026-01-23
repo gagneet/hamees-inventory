@@ -27,17 +27,17 @@ export async function GET(request: Request) {
     })
 
     const customersWithStats = customers
-      .map((customer) => ({
+      .map((customer: any) => ({
         id: customer.id,
         name: customer.name,
         phone: customer.phone,
         email: customer.email,
         city: customer.city,
         orderCount: customer.orders.length,
-        totalRevenue: customer.orders.reduce((sum, o) => sum + o.totalAmount, 0),
+        totalRevenue: customer.orders.reduce((sum: number, o: any) => sum + o.totalAmount, 0),
         avgOrderValue:
           customer.orders.length > 0
-            ? customer.orders.reduce((sum, o) => sum + o.totalAmount, 0) /
+            ? customer.orders.reduce((sum: number, o: any) => sum + o.totalAmount, 0) /
               customer.orders.length
             : 0,
         lastOrderDate:
@@ -46,11 +46,11 @@ export async function GET(request: Request) {
             : null,
         hasMeasurements: customer.measurements.length > 0,
       }))
-      .filter((c) => c.orderCount > 0)
-      .sort((a, b) => b.totalRevenue - a.totalRevenue)
+      .filter((c: any) => c.orderCount > 0)
+      .sort((a: any, b: any) => b.totalRevenue - a.totalRevenue)
 
     // Repeat customer rate
-    const repeatCustomers = customersWithStats.filter((c) => c.orderCount > 1).length
+    const repeatCustomers = customersWithStats.filter((c: any) => c.orderCount > 1).length
     const repeatRate =
       customersWithStats.length > 0
         ? (repeatCustomers / customersWithStats.length) * 100
@@ -59,7 +59,7 @@ export async function GET(request: Request) {
     // Average lifetime value
     const avgLifetimeValue =
       customersWithStats.length > 0
-        ? customersWithStats.reduce((sum, c) => sum + c.totalRevenue, 0) /
+        ? customersWithStats.reduce((sum: number, c: any) => sum + c.totalRevenue, 0) /
           customersWithStats.length
         : 0
 
@@ -73,18 +73,18 @@ export async function GET(request: Request) {
         avgOrderValue:
           customersWithStats.length > 0
             ? (
-                customersWithStats.reduce((sum, c) => sum + c.avgOrderValue, 0) /
+                customersWithStats.reduce((sum: number, c: any) => sum + c.avgOrderValue, 0) /
                 customersWithStats.length
               ).toFixed(0)
             : 0,
       },
       topCustomers: customersWithStats.slice(0, 20),
       customerSegments: {
-        highValue: customersWithStats.filter((c) => c.totalRevenue > 50000).length,
+        highValue: customersWithStats.filter((c: any) => c.totalRevenue > 50000).length,
         mediumValue: customersWithStats.filter(
-          (c) => c.totalRevenue >= 20000 && c.totalRevenue <= 50000
+          (c: any) => c.totalRevenue >= 20000 && c.totalRevenue <= 50000
         ).length,
-        lowValue: customersWithStats.filter((c) => c.totalRevenue < 20000).length,
+        lowValue: customersWithStats.filter((c: any) => c.totalRevenue < 20000).length,
       },
     })
   } catch (error) {

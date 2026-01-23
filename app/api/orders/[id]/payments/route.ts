@@ -91,7 +91,7 @@ export async function POST(
     // order balance fails to update, leading to financial discrepancies and data corruption.
     // All three operations (create installment, update balance, create history) must succeed
     // together or fail together to maintain data consistency.
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
       const installment = await tx.paymentInstallment.create({
         data: {
           orderId: order.id,

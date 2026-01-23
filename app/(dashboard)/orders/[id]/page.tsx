@@ -147,6 +147,8 @@ async function getOrderDetails(id: string) {
 
 type OrderDetails = NonNullable<Awaited<ReturnType<typeof getOrderDetails>>>
 type OrderItem = OrderDetails['items'][number]
+type OrderInstallment = OrderDetails['installments'][number]
+type OrderHistoryEntry = OrderDetails['history'][number]
 
 export default async function OrderDetailPage({
   params,
@@ -196,8 +198,8 @@ export default async function OrderDetailPage({
 
   // Calculate total balance payments (all installments except #1 which is advance)
   const balancePayments = order.installments
-    .filter(i => i.installmentNumber > 1 && i.status === 'PAID')
-    .reduce((sum, i) => sum + i.paidAmount, 0)
+    .filter((i: OrderInstallment) => i.installmentNumber > 1 && i.status === 'PAID')
+    .reduce((sum: number, i: OrderInstallment) => sum + i.paidAmount, 0)
 
   return (
     <DashboardLayout>
@@ -338,7 +340,7 @@ export default async function OrderDetailPage({
                                     id: order.customer.id,
                                     name: order.customer.name,
                                   },
-                                  history: order.history.map(h => ({
+                                  history: order.history.map((h: OrderHistoryEntry) => ({
                                     id: h.id,
                                     changeType: h.changeType,
                                     oldValue: h.oldValue || undefined,
@@ -665,7 +667,7 @@ export default async function OrderDetailPage({
                 <SplitOrderDialog
                   orderId={order.id}
                   orderNumber={order.orderNumber}
-                  items={order.items.map(item => ({
+                  items={order.items.map((item: OrderItem) => ({
                     id: item.id,
                     garmentPattern: {
                       name: item.garmentPattern.name

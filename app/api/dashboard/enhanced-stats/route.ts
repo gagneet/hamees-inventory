@@ -638,7 +638,7 @@ export async function GET(request: Request) {
     let poPaymentsThisMonth = 0
     let poPaymentsLastMonth = 0
 
-    allPurchaseOrders.forEach((po) => {
+    allPurchaseOrders.forEach((po: { notes: string | null }) => {
       if (!po.notes) return
 
       // Extract all payment entries from notes
@@ -701,7 +701,7 @@ export async function GET(request: Request) {
 
         // Calculate PO payments for this month from parsed notes
         let monthPoPayments = 0
-        allPurchaseOrders.forEach((po) => {
+        allPurchaseOrders.forEach((po: { notes: string | null }) => {
           if (!po.notes) return
 
           const paymentRegex = /\[(\d{1,2})\/(\d{1,2})\/(\d{4})\]\s+Payment:\s+([\d.]+)/g
@@ -851,14 +851,14 @@ export async function GET(request: Request) {
 
       // Get unique months from orders
       const uniqueMonths = new Set(
-        c.orders.map(order => format(new Date(order.orderDate), 'MMM yyyy'))
+        c.orders.map((order: { orderDate: Date }) => format(new Date(order.orderDate), 'MMM yyyy'))
       )
 
       // Must have orders in at least 2 different months
       if (uniqueMonths.size < 2) return false
 
       // Check if at least 2 orders are at least 2 weeks (14 days) apart
-      const orderDates = c.orders.map(o => new Date(o.orderDate).getTime())
+      const orderDates = c.orders.map((o: { orderDate: Date }) => new Date(o.orderDate).getTime())
       let hasTwoWeeksApart = false
 
       for (let i = 0; i < orderDates.length - 1; i++) {
@@ -964,15 +964,15 @@ export async function GET(request: Request) {
     // Current month metrics
     // IMPORTANT: Calculate variance on-the-fly instead of reading stored wastage field
     // This ensures we always get accurate variance even if database records haven't been updated
-    const totalEstimated = efficiencyData.reduce((sum, item) => sum + item.estimatedMeters, 0)
-    const totalActualUsed = efficiencyData.reduce((sum, item) => sum + (item.actualMetersUsed || 0), 0)
-    const totalWastage = efficiencyData.reduce((sum, item) => {
+    const totalEstimated = efficiencyData.reduce((sum: number, item: any) => sum + item.estimatedMeters, 0)
+    const totalActualUsed = efficiencyData.reduce((sum: number, item: any) => sum + (item.actualMetersUsed || 0), 0)
+    const totalWastage = efficiencyData.reduce((sum: number, item: any) => {
       // Calculate variance: actualUsed - estimated
       const calculatedVariance = (item.actualMetersUsed || 0) - item.estimatedMeters
       return sum + calculatedVariance
     }, 0)
     // Calculate financial impact of variance (variance × price per meter)
-    const totalVarianceAmount = efficiencyData.reduce((sum, item) => {
+    const totalVarianceAmount = efficiencyData.reduce((sum: number, item: any) => {
       const calculatedVariance = (item.actualMetersUsed || 0) - item.estimatedMeters
       const varianceCost = calculatedVariance * item.clothInventory.pricePerMeter
       return sum + varianceCost
@@ -980,15 +980,15 @@ export async function GET(request: Request) {
     const efficiencyPercentage = totalEstimated > 0 ? ((totalEstimated - Math.abs(totalWastage)) / totalEstimated) * 100 : 0
 
     // All-time metrics
-    const totalEstimatedAllTime = efficiencyDataAllTime.reduce((sum, item) => sum + item.estimatedMeters, 0)
-    const totalActualUsedAllTime = efficiencyDataAllTime.reduce((sum, item) => sum + (item.actualMetersUsed || 0), 0)
-    const totalWastageAllTime = efficiencyDataAllTime.reduce((sum, item) => {
+    const totalEstimatedAllTime = efficiencyDataAllTime.reduce((sum: number, item: any) => sum + item.estimatedMeters, 0)
+    const totalActualUsedAllTime = efficiencyDataAllTime.reduce((sum: number, item: any) => sum + (item.actualMetersUsed || 0), 0)
+    const totalWastageAllTime = efficiencyDataAllTime.reduce((sum: number, item: any) => {
       // Calculate variance: actualUsed - estimated
       const calculatedVariance = (item.actualMetersUsed || 0) - item.estimatedMeters
       return sum + calculatedVariance
     }, 0)
     // Calculate financial impact of variance (all-time)
-    const totalVarianceAmountAllTime = efficiencyDataAllTime.reduce((sum, item) => {
+    const totalVarianceAmountAllTime = efficiencyDataAllTime.reduce((sum: number, item: any) => {
       const calculatedVariance = (item.actualMetersUsed || 0) - item.estimatedMeters
       const varianceCost = calculatedVariance * item.clothInventory.pricePerMeter
       return sum + varianceCost
@@ -996,9 +996,9 @@ export async function GET(request: Request) {
     const efficiencyPercentageAllTime = totalEstimatedAllTime > 0 ? ((totalEstimatedAllTime - Math.abs(totalWastageAllTime)) / totalEstimatedAllTime) * 100 : 0
 
     // Group wastage by fabric type for detailed analysis
-    const wastageByFabric = efficiencyData.reduce((acc: any[], item) => {
+    const wastageByFabric = efficiencyData.reduce((acc: any[], item: any) => {
       const fabricKey = `${item.clothInventory.name} (${item.clothInventory.color})`
-      const existing = acc.find(f => f.fabricName === fabricKey)
+      const existing = acc.find((f: any) => f.fabricName === fabricKey)
 
       // Calculate variance on-the-fly
       const calculatedVariance = (item.actualMetersUsed || 0) - item.estimatedMeters
@@ -1026,7 +1026,7 @@ export async function GET(request: Request) {
     }, [])
 
     // Sort by highest wastage
-    wastageByFabric.sort((a, b) => Math.abs(b.wastage) - Math.abs(a.wastage))
+    wastageByFabric.sort((a: any, b: any) => Math.abs(b.wastage) - Math.abs(a.wastage))
 
     const efficiencyMetrics = {
       // Current month metrics
@@ -1045,7 +1045,7 @@ export async function GET(request: Request) {
       orderItemsAnalyzedAllTime: efficiencyDataAllTime.length,
       // Detailed breakdowns (current month only)
       wastageByFabric: wastageByFabric.slice(0, 10), // Top 10 fabrics
-      detailedItems: efficiencyData.map(item => {
+      detailedItems: efficiencyData.map((item: any) => {
         // Calculate variance on-the-fly for each item
         const calculatedVariance = (item.actualMetersUsed || 0) - item.estimatedMeters
         const varianceCost = calculatedVariance * item.clothInventory.pricePerMeter
@@ -1153,24 +1153,24 @@ export async function GET(request: Request) {
 
     // Calculate using AVAILABLE stock (currentStock - reserved) not just currentStock
     // Low Stock: Available > minimum AND Available <= (minimum × 1.25) [warning zone: threshold+0.01 to threshold+25%]
-    const lowStockCount = allInventoryItems.filter(item => {
+    const lowStockCount = allInventoryItems.filter((item: any) => {
       const available = item.currentStock - item.reserved
       return available > item.minimum && available <= item.minimum * 1.25
     }).length
 
     // Critical Stock: Available <= minimum [at or below threshold]
-    const criticalStockCount = allInventoryItems.filter(item => {
+    const criticalStockCount = allInventoryItems.filter((item: any) => {
       const available = item.currentStock - item.reserved
       return available <= item.minimum
     }).length
 
     // Calculate total value and total meters from all inventory items
     const totalInventoryValue = allInventoryItems.reduce(
-      (sum, item) => sum + (item.currentStock * item.pricePerMeter),
+      (sum: number, item: any) => sum + (item.currentStock * item.pricePerMeter),
       0
     )
     const totalInventoryMeters = allInventoryItems.reduce(
-      (sum, item) => sum + item.currentStock,
+      (sum: number, item: any) => sum + item.currentStock,
       0
     )
 
@@ -1260,19 +1260,19 @@ export async function GET(request: Request) {
         // Revenue forecast
         revenueForecast: {
           deliveredRevenue: thisMonthOrdersList
-            .filter(o => o.status === 'DELIVERED')
-            .reduce((sum, o) => sum + o.totalAmount, 0),
+            .filter((o: any) => o.status === 'DELIVERED')
+            .reduce((sum: number, o: any) => sum + o.totalAmount, 0),
           pendingRevenue: thisMonthOrdersList
-            .filter(o => o.status !== 'DELIVERED' && o.status !== 'CANCELLED')
-            .reduce((sum, o) => sum + o.totalAmount, 0),
+            .filter((o: any) => o.status !== 'DELIVERED' && o.status !== 'CANCELLED')
+            .reduce((sum: number, o: any) => sum + o.totalAmount, 0),
           forecastedRevenue: thisMonthOrdersList
-            .filter(o => o.status !== 'CANCELLED')
-            .reduce((sum, o) => sum + o.totalAmount, 0),
+            .filter((o: any) => o.status !== 'CANCELLED')
+            .reduce((sum: number, o: any) => sum + o.totalAmount, 0),
           lastMonthRevenue: revenueLastMonthAmount,
           growthRate: revenueLastMonthAmount > 0
             ? ((thisMonthOrdersList
-                .filter(o => o.status !== 'CANCELLED')
-                .reduce((sum, o) => sum + o.totalAmount, 0) - revenueLastMonthAmount) /
+                .filter((o: any) => o.status !== 'CANCELLED')
+                .reduce((sum: number, o: any) => sum + o.totalAmount, 0) - revenueLastMonthAmount) /
                revenueLastMonthAmount) * 100
             : 0,
         },

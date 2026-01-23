@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
     const filePath = join(UPLOAD_DIR, uniqueFileName)
 
 // Use transaction to ensure atomicity
-const design = await prisma.$transaction(async (tx) => {
+const design = await prisma.$transaction(async (tx: any) => {
   // Save to database first
   const design = await tx.designUpload.create({
     data: {

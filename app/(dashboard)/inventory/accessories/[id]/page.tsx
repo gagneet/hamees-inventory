@@ -119,7 +119,106 @@ export default async function AccessoryDetailPage({
                       <p className="font-semibold">{accessory.color}</p>
                     </div>
                   )}
+                  {accessory.sku && (
+                    <div className="col-span-2 md:col-span-3">
+                      <p className="text-sm text-slate-500 mb-1">SKU</p>
+                      <p className="font-mono text-sm">{accessory.sku}</p>
+                    </div>
+                  )}
                 </div>
+              </CardContent>
+            </Card>
+
+            {/* Accessory Specifications (Phase 1) */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Accessory Specifications</CardTitle>
+                <CardDescription>Technical details and characteristics</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {accessory.colorCode && (
+                    <div>
+                      <p className="text-sm text-slate-500 mb-1">Color Code</p>
+                      <p className="font-semibold font-mono text-sm">{accessory.colorCode}</p>
+                    </div>
+                  )}
+                  {accessory.material && (
+                    <div>
+                      <p className="text-sm text-slate-500 mb-1">Material</p>
+                      <p className="font-semibold">{accessory.material}</p>
+                    </div>
+                  )}
+                  {accessory.finish && (
+                    <div>
+                      <p className="text-sm text-slate-500 mb-1">Finish</p>
+                      <p className="font-semibold">{accessory.finish}</p>
+                    </div>
+                  )}
+                  {accessory.styleCategory && (
+                    <div>
+                      <p className="text-sm text-slate-500 mb-1">Style Category</p>
+                      <Badge variant="outline">{accessory.styleCategory}</Badge>
+                    </div>
+                  )}
+                  {accessory.threadWeight && (
+                    <div>
+                      <p className="text-sm text-slate-500 mb-1">Thread Weight</p>
+                      <p className="font-semibold">{accessory.threadWeight}</p>
+                    </div>
+                  )}
+                  {accessory.buttonSize && (
+                    <div>
+                      <p className="text-sm text-slate-500 mb-1">Button Size</p>
+                      <p className="font-semibold">{accessory.buttonSize}</p>
+                    </div>
+                  )}
+                  {accessory.holePunchSize !== null && accessory.holePunchSize !== undefined && (
+                    <div>
+                      <p className="text-sm text-slate-500 mb-1">Hole Count</p>
+                      <p className="font-semibold">{accessory.holePunchSize} holes</p>
+                    </div>
+                  )}
+                  {accessory.recommendedFor && accessory.recommendedFor.length > 0 && (
+                    <div className="col-span-2 md:col-span-3">
+                      <p className="text-sm text-slate-500 mb-2">Recommended For</p>
+                      <div className="flex flex-wrap gap-2">
+                        {accessory.recommendedFor.map((garment: string) => (
+                          <Badge key={garment} variant="secondary">{garment}</Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Accessory Images */}
+                {(accessory.productImage || accessory.closeUpImage) && (
+                  <div className="mt-6 pt-6 border-t">
+                    <p className="text-sm text-slate-500 mb-3">Product Images</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      {accessory.productImage && (
+                        <div>
+                          <p className="text-xs text-slate-500 mb-2">Product</p>
+                          <img
+                            src={accessory.productImage}
+                            alt="Product"
+                            className="w-full h-32 object-cover rounded border border-slate-300"
+                          />
+                        </div>
+                      )}
+                      {accessory.closeUpImage && (
+                        <div>
+                          <p className="text-xs text-slate-500 mb-2">Close-up</p>
+                          <img
+                            src={accessory.closeUpImage}
+                            alt="Close-up"
+                            className="w-full h-32 object-cover rounded border border-slate-300"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

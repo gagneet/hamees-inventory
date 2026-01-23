@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
 import { z } from 'zod'
 import bcrypt from 'bcryptjs'
-import { UserRole } from '@prisma/client'
+import { type UserRole } from '@/lib/permissions'
 
 const createUserSchema = z.object({
   name: z.string().min(1, 'Name is required'),

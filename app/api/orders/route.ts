@@ -255,8 +255,8 @@ export async function POST(request: Request) {
     const orderItems: any[] = []
 
     // Extract unique IDs to fetch all required data in parallel (avoid N+1 queries)
-    const patternIds = [...new Set(validatedData.items.map(item => item.garmentPatternId))]
-    const clothIds = [...new Set(validatedData.items.map(item => item.clothInventoryId))]
+    const patternIds = [...new Set(validatedData.items.map((item: any) => item.garmentPatternId))]
+    const clothIds = [...new Set(validatedData.items.map((item: any) => item.clothInventoryId))]
     const accessoryIds = [...new Set(
       validatedData.items
         .flatMap(item => item.accessories || [])
@@ -288,14 +288,14 @@ export async function POST(request: Request) {
     ])
 
     // Create lookup maps for O(1) access
-    const patternMap = new Map(patterns.map(p => [p.id, p]))
-    const clothMap = new Map(cloths.map(c => [c.id, c]))
-    const accessoryMap = new Map(accessories.map(a => [a.id, a]))
+    const patternMap = new Map(patterns.map((p: any) => [p.id, p]))
+    const clothMap = new Map(cloths.map((c: any) => [c.id, c]))
+    const accessoryMap = new Map(accessories.map((a: any) => [a.id, a]))
 
     for (const item of validatedData.items) {
       // Get pattern and cloth from lookup maps
-      const pattern = patternMap.get(item.garmentPatternId)
-      const cloth = clothMap.get(item.clothInventoryId)
+      const pattern = patternMap.get(item.garmentPatternId) as any
+      const cloth = clothMap.get(item.clothInventoryId) as any
 
       if (!pattern || !cloth) {
         return NextResponse.json(
@@ -329,7 +329,7 @@ export async function POST(request: Request) {
       let itemAccessoriesCost = 0
       if (item.accessories && item.accessories.length > 0) {
         for (const acc of item.accessories) {
-          const accessory = accessoryMap.get(acc.accessoryId)
+          const accessory = accessoryMap.get(acc.accessoryId) as any
           if (accessory) {
             const accessoryTotal = acc.quantity * item.quantity * accessory.pricePerUnit
             itemAccessoriesCost += accessoryTotal
@@ -350,7 +350,7 @@ export async function POST(request: Request) {
       // Find matching measurement for this garment type
       const garmentTypeName = pattern.name.replace(/^(Men's|Women's|Kids)\s+/i, '').trim()
       const matchingMeasurement = customerMeasurements.find(
-        m => m.garmentType.toLowerCase() === garmentTypeName.toLowerCase()
+        (m: any) => m.garmentType.toLowerCase() === garmentTypeName.toLowerCase()
       )
 
       // Calculate item total

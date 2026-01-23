@@ -55,6 +55,11 @@ export function SplitOrderDialog({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // Validate items array - prevent .map error
+  if (!Array.isArray(items) || items.length === 0) {
+    return null
+  }
+
   const handleItemToggle = (itemId: string) => {
     setSelectedItemIds(prev =>
       prev.includes(itemId)

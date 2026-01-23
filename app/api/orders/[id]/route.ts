@@ -116,7 +116,7 @@ export async function PATCH(
 
     // Update order and create history in a transaction
     // @ts-ignore
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: any) => {
       // Update the order
       await tx.order.update({
         where: { id },
