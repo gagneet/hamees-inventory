@@ -31,14 +31,12 @@ interface StockMovementHistoryProps {
 export function StockMovementHistory({ clothId }: StockMovementHistoryProps) {
   const [movements, setMovements] = useState<StockMovement[]>([])
   const [loading, setLoading] = useState(true)
-  const [clothName, setClothName] = useState('')
 
   useEffect(() => {
     fetch(`/api/inventory/cloth/${clothId}/history`)
       .then((res) => res.json())
       .then((data) => {
         setMovements(data.movements || [])
-        setClothName(data.cloth?.name || 'Unknown Item')
         setLoading(false)
       })
       .catch((error) => {

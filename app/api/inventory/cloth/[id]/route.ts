@@ -4,6 +4,9 @@ import { prisma } from '@/lib/db'
 import { z } from 'zod'
 import { hasPermission, type UserRole } from '@/lib/permissions'
 
+// Type for Prisma transaction client
+type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
+
 const updateClothSchema = z.object({
   name: z.string().optional(),
   type: z.string().optional(),
@@ -114,11 +117,11 @@ export async function PATCH(
     )
 
     // Update item and create stock movement if needed (in transaction)
-    const updatedItem = await prisma.$transaction(async (tx: any) => {
+    const updatedItem = await prisma.$transaction(async (tx: TransactionClient) => {
       // Update the cloth item
       const updated = await tx.clothInventory.update({
         where: { id },
-        data: cleanedData as any,
+        data: cleanedData,
         include: {
           supplierRel: true,
         },

@@ -14,8 +14,22 @@ const pool = new Pool({
 const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter })
 
+// Type definitions for Phase 1 enhancements
+interface FabricSpecification {
+  fabricComposition: string
+  gsm: number
+  threadCount: number
+  weaveType: string
+  fabricWidth: number
+  shrinkagePercent: number
+  colorFastness: string
+  seasonSuitability: string[]
+  occasionType: string[]
+  careInstructions: string
+}
+
 // Comprehensive fabric specification data
-const fabricSpecifications: Record<string, any> = {
+const fabricSpecifications: Record<string, FabricSpecification> = {
   'Premium Cotton': {
     fabricComposition: '100% Cotton',
     gsm: 180,
@@ -138,8 +152,20 @@ const fabricSpecifications: Record<string, any> = {
   },
 }
 
+// Type definition for accessory specifications
+interface AccessorySpecification {
+  colorCode?: string
+  buttonSize?: string
+  holePunchSize?: number
+  material?: string
+  finish?: string
+  threadWeight?: string
+  recommendedFor: string[]
+  styleCategory: string
+}
+
 // Accessory specifications
-const accessorySpecifications: Record<string, any> = {
+const accessorySpecifications: Record<string, AccessorySpecification> = {
   'Pearl Buttons': {
     colorCode: 'PANTONE 11-4001', // Bright White
     buttonSize: '18L', // 11.43mm
