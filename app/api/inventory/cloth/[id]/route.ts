@@ -17,6 +17,21 @@ const updateClothSchema = z.object({
   minimum: z.number().optional(),
   location: z.string().nullish(),
   notes: z.string().nullish(),
+  // Phase 1 Enhancement Fields
+  fabricComposition: z.string().nullish(),
+  gsm: z.number().int().nullish(),
+  threadCount: z.number().int().nullish(),
+  weaveType: z.string().nullish(),
+  fabricWidth: z.string().nullish(),
+  shrinkagePercent: z.number().nullish(),
+  colorFastness: z.string().nullish(),
+  seasonSuitability: z.array(z.string()).nullish(),
+  occasionType: z.array(z.string()).nullish(),
+  careInstructions: z.string().nullish(),
+  swatchImage: z.string().nullish(),
+  textureImage: z.string().nullish(),
+  // Optional audit note for history tracking
+  _auditNote: z.string().optional(),
 })
 
 // GET single cloth item
@@ -68,7 +83,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check permissions
+    // Check permissions - ADMIN or INVENTORY_MANAGER only
     if (!hasPermission(session.user.role as UserRole, 'manage_inventory')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
@@ -76,6 +91,9 @@ export async function PATCH(
     const { id } = await params
     const body = await request.json()
     const validatedData = updateClothSchema.parse(body)
+
+    // Extract audit note (not stored in cloth table)
+    const { _auditNote, ...updateData } = validatedData
 
     // Check if item exists
     const existingItem = await prisma.clothInventory.findUnique({
@@ -86,13 +104,43 @@ export async function PATCH(
       return NextResponse.json({ error: 'Item not found' }, { status: 404 })
     }
 
-    // Update the item
-    const updatedItem = await prisma.clothInventory.update({
-      where: { id },
-      data: validatedData,
-      include: {
-        supplierRel: true,
-      },
+    // Check if stock is changing
+    const stockChanged = updateData.currentStock !== undefined &&
+                        updateData.currentStock !== existingItem.currentStock
+
+    // Clean up data: remove undefined/null values to avoid Prisma type issues
+    const cleanedData = Object.fromEntries(
+      Object.entries(updateData).filter(([_, value]) => value !== undefined && value !== null)
+    )
+
+    // Update item and create stock movement if needed (in transaction)
+    const updatedItem = await prisma.$transaction(async (tx: any) => {
+      // Update the cloth item
+      const updated = await tx.clothInventory.update({
+        where: { id },
+        data: cleanedData as any,
+        include: {
+          supplierRel: true,
+        },
+      })
+
+      // Create stock movement record if stock changed
+      if (stockChanged && updateData.currentStock !== undefined) {
+        const quantityChange = updateData.currentStock - existingItem.currentStock
+
+        await tx.stockMovement.create({
+          data: {
+            clothInventoryId: id,
+            userId: session.user.id,
+            type: 'ADJUSTMENT',
+            quantity: quantityChange,
+            balanceAfter: updateData.currentStock,
+            notes: _auditNote || `Stock adjusted from ${existingItem.currentStock}m to ${updateData.currentStock}m`,
+          },
+        })
+      }
+
+      return updated
     })
 
     return NextResponse.json(updatedItem)
