@@ -81,6 +81,7 @@ export function RoleDashboardRouter({ userRole, dashboardData, dateRange = 'mont
           generalStats={dashboardData.generalStats}
           alerts={dashboardData.alerts}
           orderStatus={dashboardData.orderStatus}
+          salesStats={dashboardData.sales}
         />
       )
 
@@ -92,6 +93,7 @@ export function RoleDashboardRouter({ userRole, dashboardData, dateRange = 'mont
           generalStats={dashboardData.generalStats}
           alerts={dashboardData.alerts}
           orderStatus={dashboardData.orderStatus}
+          salesStats={dashboardData.sales}
         />
       )
 

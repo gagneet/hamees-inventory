@@ -16,6 +16,8 @@ import { GaugeChart } from './gauge-chart'
 import { CustomerRetentionChart } from './customer-retention-chart'
 import { OrdersStatusChart } from './orders-status-chart'
 import { InventorySummary } from './inventory-summary'
+import { TopCustomersChart } from './top-customers-chart'
+import { GarmentTypeRevenueChart } from './garment-type-revenue-chart'
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
 import { DollarSign, TrendingUp, TrendingDown, Clock, Users, Package, AlertCircle, Activity } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
@@ -35,9 +37,16 @@ interface OwnerDashboardProps {
     }>
     outstandingPayments: number
     revenueByFabric: Array<{
+      id: string
       name: string
       type: string
       revenue: number
+    }>
+    revenueByGarmentType: Array<{
+      id: string
+      name: string
+      revenue: number
+      orderCount: number
     }>
     avgFulfillmentTime: number
     customerRetention: {
@@ -113,9 +122,23 @@ interface OwnerDashboardProps {
     status: string
     count: number
   }>
+  salesStats?: {
+    topCustomers: Array<{
+      id: string
+      name: string
+      email: string | null
+      phone: string
+      totalOrders: number
+      totalSpent: number
+      pendingOrders: number
+      totalItems: number
+      monthsActive: number
+      valueScore: number
+    }>
+  }
 }
 
-export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: OwnerDashboardProps) {
+export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, salesStats }: OwnerDashboardProps) {
   const router = useRouter()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogType, setDialogType] = useState<'revenue' | 'cash' | 'expenses' | 'profit' | 'outstanding' | 'stockTurnover' | 'fulfillmentRate' | 'inventoryValue' | 'totalOrders' | 'efficiency' | null>(null)
@@ -348,75 +371,20 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
         </Card>
       )}
 
-      {/* Row 2: Inventory Summary & Order Status */}
-      <div className="grid gap-6 md:grid-cols-2">
-        <InventorySummary stats={generalStats.inventory} />
-        {orderStatus && <OrdersStatusChart data={orderStatus} />}
-      </div>
-
-      {/* Row 3: Revenue vs Expenses Trend */}
+      {/* Row 3: Financial Trend - Full Width */}
       <Card>
         <CardHeader>
-          <CardTitle>Revenue vs Expenses Trend (Last 6 Months)</CardTitle>
+          <CardTitle>Revenue vs Expenses Trend</CardTitle>
           <CardDescription>
-            Track financial health and profitability over time
+            6-month financial performance comparison with profit margin
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {stats.financialTrend.length > 0 ? (
-            <FinancialTrendChart data={stats.financialTrend} />
-          ) : (
-            <div className="h-[350px] flex items-center justify-center text-slate-500">
-              <p>No financial data available</p>
-            </div>
-          )}
+          <FinancialTrendChart data={stats.financialTrend} />
         </CardContent>
       </Card>
 
-      {/* Row 4: Key Metrics & Customer Retention */}
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Average Fulfillment Time */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Average Fulfillment Time</CardTitle>
-            <CardDescription>
-              Days from order creation to delivery completion (last 100 delivered orders).
-              <br />
-              <span className="text-green-600 font-semibold">Green (&lt;15 days)</span>: Excellent performance |{' '}
-              <span className="text-yellow-600 font-semibold">Yellow (15-22 days)</span>: Needs improvement |{' '}
-              <span className="text-red-600 font-semibold">Red (&gt;22 days)</span>: Critical delay
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex justify-center items-center py-4">
-            <GaugeChart
-              value={stats.avgFulfillmentTime}
-              max={30}
-              label="Fulfillment Time"
-              unit="days"
-              goodThreshold={0.5}
-              warningThreshold={0.75}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Customer Retention */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Customer Retention</CardTitle>
-            <CardDescription>
-              New vs returning customers
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <CustomerRetentionChart
-              newCustomers={stats.customerRetention.new}
-              returningCustomers={stats.customerRetention.returning}
-            />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Row 5: Revenue by Fabric & Stock Metrics */}
+      {/* Row 4: Revenue Distribution Charts */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Revenue by Fabric */}
         <Card>
@@ -496,15 +464,202 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
           </CardContent>
         </Card>
 
-        {/* Stock & Business Metrics */}
+        {/* Revenue by Garment Type */}
+        {stats.revenueByGarmentType && stats.revenueByGarmentType.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Revenue by Garment Type</CardTitle>
+              <CardDescription>
+                Revenue distribution across different garment categories
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <GarmentTypeRevenueChart data={stats.revenueByGarmentType} />
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Row 5: Inventory Summary, Order Status & Stock Health (3 columns) */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {/* Column 1: Inventory Summary */}
+        <InventorySummary stats={generalStats.inventory} />
+
+        {/* Column 2: Orders by Status Chart */}
+        {orderStatus && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Orders by Status</CardTitle>
+              <CardDescription>
+                Distribution of orders across different stages
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <OrdersStatusChart data={orderStatus} />
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Column 3: Stock Health Overview Chart */}
         <Card>
           <CardHeader>
-            <CardTitle>Business Metrics</CardTitle>
+            <CardTitle>Stock Health Overview</CardTitle>
             <CardDescription>
-              Key performance indicators
+              Distribution of inventory by stock status
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent>
+            {generalStats.inventory.totalItems > 0 ? (
+              <div className="space-y-2">
+                <p className="text-xs text-slate-500">Click on a segment to view details</p>
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={[
+                        {
+                          name: 'In Stock',
+                          value: generalStats.inventory.totalItems - generalStats.inventory.lowStock - generalStats.inventory.criticalStock,
+                          color: '#10b981'
+                        },
+                        { name: 'Low Stock', value: generalStats.inventory.lowStock, color: '#f59e0b' },
+                        { name: 'Critical Stock', value: generalStats.inventory.criticalStock, color: '#ef4444' },
+                      ].filter(item => item.value > 0)}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={2}
+                      dataKey="value"
+                      onClick={(data) => {
+                        if (data.name === 'Low Stock' && generalStats.inventory.lowStock > 0) {
+                          router.push('/inventory?status=low')
+                        } else if (data.name === 'Critical Stock' && generalStats.inventory.criticalStock > 0) {
+                          router.push('/inventory?status=critical')
+                        }
+                      }}
+                      cursor="pointer"
+                    >
+                      {[
+                        {
+                          name: 'In Stock',
+                          value: generalStats.inventory.totalItems - generalStats.inventory.lowStock - generalStats.inventory.criticalStock,
+                          color: '#10b981'
+                        },
+                        { name: 'Low Stock', value: generalStats.inventory.lowStock, color: '#f59e0b' },
+                        { name: 'Critical Stock', value: generalStats.inventory.criticalStock, color: '#ef4444' },
+                      ].filter(item => item.value > 0).map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0]
+                          return (
+                            <div className="bg-white p-2 border border-slate-200 rounded shadow-lg">
+                              <p className="text-sm font-medium" style={{ color: data.payload.color }}>
+                                {data.name}
+                                </p>
+                                <p className="text-xs text-slate-600">
+                                  {data.value} items ({((data.value as number / generalStats.inventory.totalItems) * 100).toFixed(1)}%)
+                                </p>
+                                {(data.name === 'Low Stock' || data.name === 'Critical Stock') && data.value > 0 && (
+                                  <p className="text-xs text-blue-600 mt-1">Click to view details</p>
+                                )}
+                              </div>
+                            )
+                          }
+                          return null
+                        }}
+                      />
+                      <Legend
+                        verticalAlign="bottom"
+                        height={36}
+                        formatter={(value, entry: any) => (
+                          <span style={{ color: entry.color, fontSize: '12px', fontWeight: '500' }}>
+                            {value}: {entry.payload.value}
+                          </span>
+                        )}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-[200px] flex items-center justify-center text-slate-500">
+                  <p>No inventory data available</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+      </div>
+
+      {/* Row 6: Customer Analytics */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Average Fulfillment Time */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Average Fulfillment Time</CardTitle>
+            <CardDescription>
+              Days from order creation to delivery completion (last 100 delivered orders).
+              <br />
+              <span className="text-green-600 font-semibold">Green (&lt;15 days)</span>: Excellent performance |{' '}
+              <span className="text-yellow-600 font-semibold">Yellow (15-22 days)</span>: Needs improvement |{' '}
+              <span className="text-red-600 font-semibold">Red (&gt;22 days)</span>: Critical delay
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex justify-center items-center py-4">
+            <GaugeChart
+              value={stats.avgFulfillmentTime}
+              max={30}
+              label="Fulfillment Time"
+              unit="days"
+              goodThreshold={0.5}
+              warningThreshold={0.75}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Customer Retention */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Customer Retention</CardTitle>
+            <CardDescription>
+              New vs returning customers
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <CustomerRetentionChart
+              newCustomers={stats.customerRetention.new}
+              returningCustomers={stats.customerRetention.returning}
+            />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Row 7: Top Customers by Value */}
+      {salesStats && salesStats.topCustomers && salesStats.topCustomers.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Top 20 Customers by Value</CardTitle>
+            <CardDescription>
+              Most valuable customers ranked by revenue, order frequency, items ordered, and activity across months
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <TopCustomersChart data={salesStats.topCustomers} />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Row 8: Business Metrics */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Business Metrics</CardTitle>
+          <CardDescription>
+            Key performance indicators
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <div
               className="flex items-center justify-between p-4 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors"
               onClick={() => openDialog('inventoryValue')}
@@ -603,7 +758,6 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus }: Own
             </div>
           </CardContent>
         </Card>
-      </div>
 
       {/* Financial Details Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

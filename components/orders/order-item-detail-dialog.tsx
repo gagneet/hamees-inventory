@@ -627,7 +627,7 @@ useEffect(() => {
                     {clothRemaining.toFixed(2)}m
                   </p>
                   <p className="text-xs text-slate-500">
-                    Total: {orderItem.clothInventory.currentStock}m | Reserved: {orderItem.clothInventory.reserved}m
+                    Total: {orderItem.clothInventory.currentStock.toFixed(2)}m | Reserved: {orderItem.clothInventory.reserved.toFixed(2)}m
                   </p>
                 </div>
               </div>

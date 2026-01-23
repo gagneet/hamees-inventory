@@ -495,7 +495,7 @@ export async function GET(request: Request) {
         },
       }),
 
-      // Top customers (by order count and value)
+      // Top customers (by order count, value, and activity)
       prisma.customer.findMany({
         select: {
           id: true,
@@ -506,10 +506,16 @@ export async function GET(request: Request) {
             select: {
               totalAmount: true,
               status: true,
+              orderDate: true,
+              items: {
+                select: {
+                  id: true,
+                },
+              },
             },
           },
         },
-        take: 50,
+        take: 100,
       }),
     ])
 
@@ -529,13 +535,34 @@ export async function GET(request: Request) {
 
     const customerStats = topCustomers
       .map((customer: TopCustomer) => {
+        const deliveredOrders = customer.orders.filter((o: CustomerOrder) => o.status === 'DELIVERED')
         const totalOrders = customer.orders.length
-        const totalSpent = customer.orders
-          .filter((o: CustomerOrder) => o.status === 'DELIVERED')
-          .reduce((sum: number, o: CustomerOrder) => sum + o.totalAmount, 0)
+        const totalSpent = deliveredOrders.reduce((sum: number, o: CustomerOrder) => sum + o.totalAmount, 0)
         const pendingOrders = customer.orders.filter(
           (o: CustomerOrder) => o.status !== 'DELIVERED' && o.status !== 'CANCELLED'
         ).length
+
+        // Calculate total items across all orders
+        const totalItems = customer.orders.reduce(
+          (sum: number, o: CustomerOrder) => sum + (o.items?.length || 0),
+          0
+        )
+
+        // Calculate months active (unique year-month combinations)
+        const uniqueMonths = new Set(
+          customer.orders.map((o: CustomerOrder) => {
+            const date = new Date(o.orderDate)
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+          })
+        )
+        const monthsActive = uniqueMonths.size
+
+        // Calculate customer value score:
+        // - Primary: Total revenue (weight: 1.0)
+        // - Secondary: Number of orders (weight: 500 per order)
+        // - Tertiary: Months active (weight: 1000 per month)
+        // - Bonus: Total items (weight: 100 per item)
+        const valueScore = totalSpent + (totalOrders * 500) + (monthsActive * 1000) + (totalItems * 100)
 
         return {
           id: customer.id,
@@ -545,11 +572,14 @@ export async function GET(request: Request) {
           totalOrders,
           totalSpent,
           pendingOrders,
+          totalItems,
+          monthsActive,
+          valueScore,
           isReturning: totalOrders > 1,
         }
       })
-      .sort((a: { totalSpent: number }, b: { totalSpent: number }) => b.totalSpent - a.totalSpent)
-      .slice(0, 10)
+      .sort((a: { valueScore: number }, b: { valueScore: number }) => b.valueScore - a.valueScore)
+      .slice(0, 20)
 
     // ===================
     // OWNER/ADMIN DATA (Parallelized)
@@ -730,7 +760,7 @@ export async function GET(request: Request) {
     )
 
     // Parallel fetch for remaining owner metrics
-    const [outstandingPayments, revenueByFabric, deliveredOrders, allCustomers, stockMovements] = await Promise.all([
+    const [outstandingPayments, revenueByFabric, revenueByGarmentType, deliveredOrders, allCustomers, stockMovements] = await Promise.all([
       // Outstanding payments (balanceAmount on active orders)
       prisma.order.aggregate({
         where: {
@@ -760,6 +790,27 @@ export async function GET(request: Request) {
           },
         },
         take: 10,
+      }),
+
+      // Revenue by garment type
+      prisma.orderItem.groupBy({
+        by: ['garmentPatternId'],
+        where: {
+          order: {
+            status: 'DELIVERED',
+          },
+        },
+        _sum: {
+          totalPrice: true,
+        },
+        _count: {
+          id: true,
+        },
+        orderBy: {
+          _sum: {
+            totalPrice: 'desc',
+          },
+        },
       }),
 
       // Average fulfillment time - delivered orders
@@ -826,6 +877,23 @@ export async function GET(request: Request) {
           color: cloth?.color || 'Unknown',
           colorHex: cloth?.colorHex || '#94a3b8', // Default slate-400 if no color
           revenue: item._sum.totalPrice || 0,
+        }
+      })
+    )
+
+    type RevenueByGarmentTypeItem = typeof revenueByGarmentType[number]
+
+    const garmentTypeRevenueDetails = await Promise.all(
+      revenueByGarmentType.map(async (item: RevenueByGarmentTypeItem) => {
+        const garment = await prisma.garmentPattern.findUnique({
+          where: { id: item.garmentPatternId },
+          select: { id: true, name: true },
+        })
+        return {
+          id: garment?.id || item.garmentPatternId,
+          name: garment?.name || 'Unknown',
+          revenue: item._sum.totalPrice || 0,
+          orderCount: item._count.id,
         }
       })
     )
@@ -1287,6 +1355,7 @@ export async function GET(request: Request) {
         financialTrend,
         outstandingPayments: outstandingPayments._sum.balanceAmount || 0,
         revenueByFabric: fabricRevenueDetails,
+        revenueByGarmentType: garmentTypeRevenueDetails,
         avgFulfillmentTime: Math.round(avgFulfillmentTime),
         customerRetention: {
           new: newCustomers,

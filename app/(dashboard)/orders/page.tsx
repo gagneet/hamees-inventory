@@ -48,6 +48,7 @@ function OrdersContent() {
   const { data: session } = useSession()
   const [orders, setOrders] = useState<any[]>([])
   const [fabrics, setFabrics] = useState<any[]>([])
+  const [garmentPatterns, setGarmentPatterns] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   // Check if user is a Tailor (hide pricing information)
@@ -64,6 +65,7 @@ function OrdersContent() {
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [fabricId, setFabricId] = useState('')
+  const [garmentPatternId, setGarmentPatternId] = useState('')
   const [minAmount, setMinAmount] = useState('')
   const [maxAmount, setMaxAmount] = useState('')
   const [deliveryDateFrom, setDeliveryDateFrom] = useState('')
@@ -77,6 +79,7 @@ function OrdersContent() {
     const urlStatus = searchParams.get('status') || ''
     const urlSearch = searchParams.get('search') || ''
     const urlFabricId = searchParams.get('fabricId') || ''
+    const urlGarmentPatternId = searchParams.get('garmentPatternId') || ''
     const urlMinAmount = searchParams.get('minAmount') || ''
     const urlMaxAmount = searchParams.get('maxAmount') || ''
     const urlDeliveryDateFrom = searchParams.get('deliveryDateFrom') || ''
@@ -88,6 +91,7 @@ function OrdersContent() {
     setSearchTerm(urlSearch)
     setDebouncedSearch(urlSearch)
     setFabricId(urlFabricId)
+    setGarmentPatternId(urlGarmentPatternId)
     setMinAmount(urlMinAmount)
     setMaxAmount(urlMaxAmount)
     setDeliveryDateFrom(urlDeliveryDateFrom)
@@ -99,6 +103,7 @@ function OrdersContent() {
     searchParams.get('status'),
     searchParams.get('search'),
     searchParams.get('fabricId'),
+    searchParams.get('garmentPatternId'),
     searchParams.get('minAmount'),
     searchParams.get('maxAmount'),
     searchParams.get('deliveryDateFrom'),
@@ -132,6 +137,22 @@ function OrdersContent() {
     fetchFabrics()
   }, [])
 
+  // Fetch garment patterns for filter
+  useEffect(() => {
+    async function fetchGarmentPatterns() {
+      try {
+        const response = await fetch('/api/garment-patterns')
+        const data = await response.json()
+        if (data.patterns) {
+          setGarmentPatterns(data.patterns)
+        }
+      } catch (error) {
+        console.error('Error fetching garment patterns:', error)
+      }
+    }
+    fetchGarmentPatterns()
+  }, [])
+
   // Fetch orders
   useEffect(() => {
     async function fetchOrders() {
@@ -141,6 +162,7 @@ function OrdersContent() {
         if (status) params.append('status', status)
         if (debouncedSearch) params.append('search', debouncedSearch)
         if (fabricId) params.append('fabricId', fabricId)
+        if (garmentPatternId) params.append('garmentPatternId', garmentPatternId)
         if (minAmount) params.append('minAmount', minAmount)
         if (maxAmount) params.append('maxAmount', maxAmount)
         if (deliveryDateFrom) params.append('deliveryDateFrom', deliveryDateFrom)
@@ -170,12 +192,13 @@ function OrdersContent() {
     }
 
     fetchOrders()
-  }, [status, debouncedSearch, fabricId, minAmount, maxAmount, deliveryDateFrom, deliveryDateTo, isOverdue, balanceOutstanding, currentPage, pageSize])
+  }, [status, debouncedSearch, fabricId, garmentPatternId, minAmount, maxAmount, deliveryDateFrom, deliveryDateTo, isOverdue, balanceOutstanding, currentPage, pageSize])
 
   const clearFilters = () => {
     setStatus('')
     setSearchTerm('')
     setFabricId('')
+    setGarmentPatternId('')
     setMinAmount('')
     setMaxAmount('')
     setDeliveryDateFrom('')
@@ -195,7 +218,7 @@ function OrdersContent() {
     setCurrentPage(1) // Reset to first page when changing page size
   }
 
-  const hasActiveFilters = status || searchTerm || fabricId || minAmount || maxAmount || deliveryDateFrom || deliveryDateTo || isOverdue || balanceOutstanding
+  const hasActiveFilters = status || searchTerm || fabricId || garmentPatternId || minAmount || maxAmount || deliveryDateFrom || deliveryDateTo || isOverdue || balanceOutstanding
 
   return (
     <DashboardLayout>

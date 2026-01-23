@@ -12,7 +12,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
 
 interface InventoryStats {
   totalItems: number
@@ -64,16 +63,6 @@ export function InventorySummary({ stats }: InventorySummaryProps) {
     }
   }
 
-  // Calculate healthy stock count
-  const healthyStock = stats.totalItems - stats.lowStock - stats.criticalStock
-
-  // Prepare data for pie chart
-  const stockHealthData = [
-    { name: 'In Stock', value: healthyStock, color: '#10b981' }, // Green
-    { name: 'Low Stock', value: stats.lowStock, color: '#f59e0b' }, // Amber
-    { name: 'Critical Stock', value: stats.criticalStock, color: '#ef4444' }, // Red
-  ].filter(item => item.value > 0) // Only show non-zero values
-
   const getStockStatusColor = (item: LowStockItem) => {
     const availableRatio = item.available / item.minimum
     if (availableRatio < 0.5) return 'text-red-600'
@@ -113,72 +102,6 @@ export function InventorySummary({ stats }: InventorySummaryProps) {
             <p className="text-xl font-bold text-slate-900">{stats.totalMeters.toFixed(2)}m</p>
           </div>
         </div>
-
-        {/* Stock Health Chart */}
-        {stats.totalItems > 0 && (
-          <div className="p-4 bg-white rounded-lg border border-slate-200">
-            <p className="text-sm font-medium text-slate-700 mb-3">Stock Health Overview</p>
-            <p className="text-xs text-slate-500 mb-2">Click on a segment to view details</p>
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie
-                  data={stockHealthData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={80}
-                  paddingAngle={2}
-                  dataKey="value"
-                  onClick={(data) => {
-                    // Click Low Stock segment → open Low Stock dialog
-                    if (data.name === 'Low Stock' && stats.lowStock > 0) {
-                      fetchStockDetails('low')
-                    }
-                    // Click Critical Stock segment → open Critical Stock dialog
-                    else if (data.name === 'Critical Stock' && stats.criticalStock > 0) {
-                      fetchStockDetails('critical')
-                    }
-                  }}
-                  cursor="pointer"
-                >
-                  {stockHealthData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      const data = payload[0]
-                      return (
-                        <div className="bg-white p-2 border border-slate-200 rounded shadow-lg">
-                          <p className="text-sm font-medium" style={{ color: data.payload.color }}>
-                            {data.name}
-                          </p>
-                          <p className="text-xs text-slate-600">
-                            {data.value} items ({((data.value as number / stats.totalItems) * 100).toFixed(1)}%)
-                          </p>
-                          {(data.name === 'Low Stock' || data.name === 'Critical Stock') && data.value > 0 && (
-                            <p className="text-xs text-blue-600 mt-1">Click to view details</p>
-                          )}
-                        </div>
-                      )
-                    }
-                    return null
-                  }}
-                />
-                <Legend
-                  verticalAlign="bottom"
-                  height={36}
-                  formatter={(value, entry: any) => (
-                    <span style={{ color: entry.color, fontSize: '12px', fontWeight: '500' }}>
-                      {value}: {entry.payload.value}
-                    </span>
-                  )}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        )}
 
         <div className="grid grid-cols-2 gap-4">
           <button

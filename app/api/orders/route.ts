@@ -70,6 +70,7 @@ export async function GET(request: Request) {
     const customerId = searchParams.get('customerId')
     const search = searchParams.get('search')
     const fabricId = searchParams.get('fabricId')
+    const garmentPatternId = searchParams.get('garmentPatternId')
     const minAmount = searchParams.get('minAmount')
     const maxAmount = searchParams.get('maxAmount')
     const deliveryDateFrom = searchParams.get('deliveryDateFrom')
@@ -104,6 +105,25 @@ export async function GET(request: Request) {
       where.items = {
         some: {
           clothInventoryId: fabricId
+        }
+      }
+    }
+
+    // Filter by garment pattern (garmentPatternId)
+    if (garmentPatternId) {
+      // If fabricId is also present, we need to combine filters with AND
+      if (fabricId) {
+        where.items = {
+          some: {
+            clothInventoryId: fabricId,
+            garmentPatternId: garmentPatternId
+          }
+        }
+      } else {
+        where.items = {
+          some: {
+            garmentPatternId: garmentPatternId
+          }
         }
       }
     }

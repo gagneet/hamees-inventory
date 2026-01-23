@@ -229,25 +229,25 @@ export default function GarmentTypeDetailPage({
                   <div className="flex justify-between">
                     <span className="text-slate-600">Slim fit:</span>
                     <span className="font-medium">
-                      {pattern.baseMeters + pattern.slimAdjustment}m total
+                      {(pattern.baseMeters + pattern.slimAdjustment).toFixed(2)}m total
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-600">Regular fit:</span>
                     <span className="font-medium">
-                      {pattern.baseMeters + pattern.regularAdjustment}m total
+                      {(pattern.baseMeters + pattern.regularAdjustment).toFixed(2)}m total
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-600">Large fit:</span>
                     <span className="font-medium">
-                      {pattern.baseMeters + pattern.largeAdjustment}m total
+                      {(pattern.baseMeters + pattern.largeAdjustment).toFixed(2)}m total
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-600">XL fit:</span>
                     <span className="font-medium">
-                      {pattern.baseMeters + pattern.xlAdjustment}m total
+                      {(pattern.baseMeters + pattern.xlAdjustment).toFixed(2)}m total
                     </span>
                   </div>
                 </div>
