@@ -14,7 +14,7 @@ You now have a **complete, production-ready tailor inventory management system**
 ### **Phase 1: Client Presentation Materials**
 
 #### 1. **Interactive Client Demo (Original)** ⭐
-**File:** `tailor-inventory-interactive-demo.html`
+**File:** `hamees-inventory-interactive-demo.html`
 
 **Features:**
 - 4 screens: Dashboard, Inventory, Orders, Alerts
@@ -682,7 +682,7 @@ You now have **EVERYTHING** needed to:
 
 ## 📋 FILES CHECKLIST
 
-✅ `tailor-inventory-interactive-demo.html` - Original demo  
+✅ `hamees-inventory-interactive-demo.html` - Original demo  
 ✅ `Complete-Interactive-Demo-With-Measurements.html` - Enhanced demo  
 ✅ `Client-Demo-Guide.md` - Sales playbook  
 ✅ `Tailor_Inventory_Wireframes_Complete.md` - Design specs  

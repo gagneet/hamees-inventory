@@ -16,7 +16,7 @@ export default function Home() {
             <h1 className="text-4xl font-bold">Hamees Inventory</h1>
           </div>
           <p className="text-xl mb-12 text-white/90">
-            Complete inventory and order management system for your tailor shop
+            Complete inventory and order management system for the Hamees Attire shop
           </p>
 
           <div className="space-y-6">

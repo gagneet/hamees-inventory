@@ -30,7 +30,7 @@ sudo systemctl enable cloudflared
 
 ~/hamees$ npm run build
 
-> tailor-inventory@0.1.0 build
+> hamees-inventory@0.1.0 build
 > next build
 
 ▲ Next.js 16.1.1 (Turbopack)

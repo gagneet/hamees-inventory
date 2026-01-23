@@ -2,7 +2,7 @@
 
 ## Overview
 
-Complete guide to barcode scanning functionality in the Hamees tailor shop inventory system, optimized for mobile devices (Android/iOS) and desktop browsers.
+Complete guide to barcode scanning functionality in the Hamees Attire shop inventory system, optimized for mobile devices (Android/iOS) and desktop browsers.
 
 **Version:** v0.18.2
 **Date:** January 18, 2026

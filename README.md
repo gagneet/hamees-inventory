@@ -361,7 +361,7 @@ pm2 monit                        # Monitor resources
 ## 📁 Project Structure
 
 ```
-tailor-inventory/
+hamees-inventory/
 ├── app/                    # Next.js app directory
 │   ├── (dashboard)/        # Dashboard routes (protected)
 │   │   ├── dashboard/
