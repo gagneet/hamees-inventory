@@ -112,6 +112,21 @@ function NewOrderForm() {
   const [additionalFittings, setAdditionalFittings] = useState(0)
   const [hasPremiumLining, setHasPremiumLining] = useState(false)
 
+  // Manual Overrides
+  const [isFabricCostOverridden, setIsFabricCostOverridden] = useState(false)
+  const [fabricCostOverride, setFabricCostOverride] = useState<number | null>(null)
+  const [fabricCostOverrideReason, setFabricCostOverrideReason] = useState('')
+
+  const [isStitchingCostOverridden, setIsStitchingCostOverridden] = useState(false)
+  const [stitchingCostOverride, setStitchingCostOverride] = useState<number | null>(null)
+  const [stitchingCostOverrideReason, setStitchingCostOverrideReason] = useState('')
+
+  const [isAccessoriesCostOverridden, setIsAccessoriesCostOverridden] = useState(false)
+  const [accessoriesCostOverride, setAccessoriesCostOverride] = useState<number | null>(null)
+  const [accessoriesCostOverrideReason, setAccessoriesCostOverrideReason] = useState('')
+
+  const [pricingNotes, setPricingNotes] = useState('')
+
   // Available data
   const [customers, setCustomers] = useState<Customer[]>([])
   const [garmentPatterns, setGarmentPatterns] = useState<GarmentPattern[]>([])
@@ -315,10 +330,15 @@ function NewOrderForm() {
       }
     }
 
-    // Apply fabric wastage
-    const fabricWastageAmount = parseFloat((fabricCost * (fabricWastagePercent / 100)).toFixed(2))
+    // Apply manual overrides BEFORE calculating wastage
+    const finalFabricCost = isFabricCostOverridden && fabricCostOverride != null ? fabricCostOverride : fabricCost
+    const finalAccessoriesCost = isAccessoriesCostOverridden && accessoriesCostOverride != null ? accessoriesCostOverride : accessoriesCost
+    let finalStitchingCost = isStitchingCostOverridden && stitchingCostOverride != null ? stitchingCostOverride : stitchingCost
 
-    // Calculate workmanship premiums
+    // Apply fabric wastage (on final fabric cost, whether calculated or overridden)
+    const fabricWastageAmount = parseFloat((finalFabricCost * (fabricWastagePercent / 100)).toFixed(2))
+
+    // Calculate workmanship premiums (based on final stitching cost)
     let workmanshipPremiums = 0
     let handStitchingCost = 0
     let fullCanvasCost = 0
@@ -328,7 +348,7 @@ function NewOrderForm() {
     let premiumLiningCost = 0
 
     if (isHandStitched) {
-      handStitchingCost = parseFloat((stitchingCost * 0.40).toFixed(2)) // +40%
+      handStitchingCost = parseFloat((finalStitchingCost * 0.40).toFixed(2)) // +40%
       workmanshipPremiums += handStitchingCost
     }
 
@@ -338,12 +358,12 @@ function NewOrderForm() {
     }
 
     if (isRushOrder) {
-      rushOrderCost = parseFloat((stitchingCost * 0.50).toFixed(2)) // +50%
+      rushOrderCost = parseFloat((finalStitchingCost * 0.50).toFixed(2)) // +50%
       workmanshipPremiums += rushOrderCost
     }
 
     if (hasComplexDesign) {
-      complexDesignCost = parseFloat((stitchingCost * 0.30).toFixed(2)) // +30%
+      complexDesignCost = parseFloat((finalStitchingCost * 0.30).toFixed(2)) // +30%
       workmanshipPremiums += complexDesignCost
     }
 
@@ -357,12 +377,12 @@ function NewOrderForm() {
       workmanshipPremiums += premiumLiningCost
     }
 
-    // Calculate subtotal
+    // Calculate subtotal using final (possibly overridden) values
     const subTotal = parseFloat((
-      fabricCost +
+      finalFabricCost +
       fabricWastageAmount +
-      accessoriesCost +
-      stitchingCost +
+      finalAccessoriesCost +
+      finalStitchingCost +
       workmanshipPremiums +
       designerConsultationFee
     ).toFixed(2))
@@ -375,10 +395,16 @@ function NewOrderForm() {
     const total = parseFloat((subTotal + gstAmount).toFixed(2))
 
     return {
-      fabricCost,
+      // Calculated values (for reference/display)
+      calculatedFabricCost: fabricCost,
+      calculatedAccessoriesCost: accessoriesCost,
+      calculatedStitchingCost: stitchingCost,
+
+      // Final values (possibly overridden)
+      fabricCost: finalFabricCost,
       fabricWastageAmount,
-      accessoriesCost,
-      stitchingCost,
+      accessoriesCost: finalAccessoriesCost,
+      stitchingCost: finalStitchingCost,
       workmanshipPremiums,
       designerFee: designerConsultationFee,
       subTotal,
@@ -404,6 +430,25 @@ function NewOrderForm() {
 
       if (items.length === 0) {
         setError('Please add at least one item')
+        setLoading(false)
+        return
+      }
+
+      // Validate override reasons
+      if (isFabricCostOverridden && (!fabricCostOverride || !fabricCostOverrideReason.trim())) {
+        setError('Please provide both override amount and reason for Fabric Cost override')
+        setLoading(false)
+        return
+      }
+
+      if (isStitchingCostOverridden && (!stitchingCostOverride || !stitchingCostOverrideReason.trim())) {
+        setError('Please provide both override amount and reason for Stitching Cost override')
+        setLoading(false)
+        return
+      }
+
+      if (isAccessoriesCostOverridden && (!accessoriesCostOverride || !accessoriesCostOverrideReason.trim())) {
+        setError('Please provide both override amount and reason for Accessories Cost override')
         setLoading(false)
         return
       }
@@ -440,6 +485,17 @@ function NewOrderForm() {
           hasComplexDesign,
           additionalFittings,
           hasPremiumLining,
+          // Manual Overrides
+          isFabricCostOverridden,
+          fabricCostOverride,
+          fabricCostOverrideReason,
+          isStitchingCostOverridden,
+          stitchingCostOverride,
+          stitchingCostOverrideReason,
+          isAccessoriesCostOverridden,
+          accessoriesCostOverride,
+          accessoriesCostOverrideReason,
+          pricingNotes,
         }),
       })
 
@@ -461,6 +517,9 @@ function NewOrderForm() {
 
   const selectedCustomer = customers?.find(c => c.id === customerId)
   const {
+    calculatedFabricCost,
+    calculatedAccessoriesCost,
+    calculatedStitchingCost,
     fabricCost,
     fabricWastageAmount,
     accessoriesCost,
@@ -1065,6 +1124,219 @@ function NewOrderForm() {
                     onChange={(e) => setDesignerConsultationFee(parseFloat(e.target.value) || 0)}
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="0"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Manual Price Overrides */}
+            <Card className="border-2 border-amber-200 bg-amber-50/30">
+              <CardHeader>
+                <CardTitle className="text-amber-900 flex items-center gap-2">
+                  Manual Price Overrides
+                  <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300">Optional</Badge>
+                </CardTitle>
+                <CardDescription>Override calculated prices when needed (requires reason)</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Fabric Cost Override */}
+                <div className="p-4 bg-white rounded-lg border-2 border-slate-200">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center space-x-2 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={isFabricCostOverridden}
+                          onChange={(e) => {
+                            setIsFabricCostOverridden(e.target.checked)
+                            if (!e.target.checked) {
+                              setFabricCostOverride(null)
+                              setFabricCostOverrideReason('')
+                            }
+                          }}
+                          className="h-5 w-5 rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                        />
+                        <span className="font-semibold text-slate-900 group-hover:text-amber-700">Override Fabric Cost</span>
+                      </label>
+                      {isFabricCostOverridden && (
+                        <Badge className="bg-amber-500 text-white">OVERRIDDEN</Badge>
+                      )}
+                    </div>
+                    <div className="text-sm text-slate-600">
+                      Calculated: <span className="font-semibold text-slate-900">₹{(calculatedFabricCost || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                    </div>
+                  </div>
+
+                  {isFabricCostOverridden && (
+                    <div className="space-y-3 mt-3 pt-3 border-t border-amber-200">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Override Amount <span className="text-red-600">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={fabricCostOverride ?? ''}
+                          onChange={(e) => setFabricCostOverride(parseFloat(e.target.value) || null)}
+                          className="w-full px-4 py-2 border-2 border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-amber-50"
+                          placeholder="Enter override amount"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Reason for Override <span className="text-red-600">*</span>
+                        </label>
+                        <textarea
+                          value={fabricCostOverrideReason}
+                          onChange={(e) => setFabricCostOverrideReason(e.target.value)}
+                          rows={2}
+                          className="w-full px-4 py-2 border-2 border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-amber-50"
+                          placeholder="E.g., Special discount for bulk order, negotiated price, etc."
+                          required
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Stitching Cost Override */}
+                <div className="p-4 bg-white rounded-lg border-2 border-slate-200">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center space-x-2 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={isStitchingCostOverridden}
+                          onChange={(e) => {
+                            setIsStitchingCostOverridden(e.target.checked)
+                            if (!e.target.checked) {
+                              setStitchingCostOverride(null)
+                              setStitchingCostOverrideReason('')
+                            }
+                          }}
+                          className="h-5 w-5 rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                        />
+                        <span className="font-semibold text-slate-900 group-hover:text-amber-700">Override Stitching Cost</span>
+                      </label>
+                      {isStitchingCostOverridden && (
+                        <Badge className="bg-amber-500 text-white">OVERRIDDEN</Badge>
+                      )}
+                    </div>
+                    <div className="text-sm text-slate-600">
+                      Calculated: <span className="font-semibold text-slate-900">₹{(calculatedStitchingCost || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                    </div>
+                  </div>
+
+                  {isStitchingCostOverridden && (
+                    <div className="space-y-3 mt-3 pt-3 border-t border-amber-200">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Override Amount <span className="text-red-600">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={stitchingCostOverride ?? ''}
+                          onChange={(e) => setStitchingCostOverride(parseFloat(e.target.value) || null)}
+                          className="w-full px-4 py-2 border-2 border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-amber-50"
+                          placeholder="Enter override amount"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Reason for Override <span className="text-red-600">*</span>
+                        </label>
+                        <textarea
+                          value={stitchingCostOverrideReason}
+                          onChange={(e) => setStitchingCostOverrideReason(e.target.value)}
+                          rows={2}
+                          className="w-full px-4 py-2 border-2 border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-amber-50"
+                          placeholder="E.g., Experienced tailor discount, training order, etc."
+                          required
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Accessories Cost Override */}
+                <div className="p-4 bg-white rounded-lg border-2 border-slate-200">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center space-x-2 cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={isAccessoriesCostOverridden}
+                          onChange={(e) => {
+                            setIsAccessoriesCostOverridden(e.target.checked)
+                            if (!e.target.checked) {
+                              setAccessoriesCostOverride(null)
+                              setAccessoriesCostOverrideReason('')
+                            }
+                          }}
+                          className="h-5 w-5 rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                        />
+                        <span className="font-semibold text-slate-900 group-hover:text-amber-700">Override Accessories Cost</span>
+                      </label>
+                      {isAccessoriesCostOverridden && (
+                        <Badge className="bg-amber-500 text-white">OVERRIDDEN</Badge>
+                      )}
+                    </div>
+                    <div className="text-sm text-slate-600">
+                      Calculated: <span className="font-semibold text-slate-900">₹{(calculatedAccessoriesCost || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                    </div>
+                  </div>
+
+                  {isAccessoriesCostOverridden && (
+                    <div className="space-y-3 mt-3 pt-3 border-t border-amber-200">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Override Amount <span className="text-red-600">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={accessoriesCostOverride ?? ''}
+                          onChange={(e) => setAccessoriesCostOverride(parseFloat(e.target.value) || null)}
+                          className="w-full px-4 py-2 border-2 border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-amber-50"
+                          placeholder="Enter override amount"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">
+                          Reason for Override <span className="text-red-600">*</span>
+                        </label>
+                        <textarea
+                          value={accessoriesCostOverrideReason}
+                          onChange={(e) => setAccessoriesCostOverrideReason(e.target.value)}
+                          rows={2}
+                          className="w-full px-4 py-2 border-2 border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-amber-50"
+                          placeholder="E.g., Bulk accessory purchase discount, customer-supplied items, etc."
+                          required
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* General Pricing Notes */}
+                <div className="border-t pt-6">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    General Pricing Notes (Optional)
+                  </label>
+                  <p className="text-sm text-slate-600 mb-3">Additional notes about pricing, negotiations, or special considerations</p>
+                  <textarea
+                    value={pricingNotes}
+                    onChange={(e) => setPricingNotes(e.target.value)}
+                    rows={3}
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="E.g., VIP customer pricing, seasonal discount applied, etc."
                   />
                 </div>
               </CardContent>
