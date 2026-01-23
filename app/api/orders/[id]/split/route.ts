@@ -75,18 +75,59 @@ export async function POST(
       )
     }
 
-    // Calculate new totals
+    // Calculate new totals - PROPORTIONAL SPLIT of ALL order costs
+    // Item totals (fabric + accessories only)
     const splitItemsTotal = itemsToSplit.reduce((sum: number, item: any) => sum + item.totalPrice, 0)
-
     const remainingItems = originalOrder.items.filter((item: any) => !itemIds.includes(item.id))
     const remainingItemsTotal = remainingItems.reduce((sum: number, item: any) => sum + item.totalPrice, 0)
+    const originalItemsTotal = splitItemsTotal + remainingItemsTotal
+
+    // Calculate proportions based on item totals (fabric + accessories)
+    const splitProportion = originalItemsTotal > 0 ? splitItemsTotal / originalItemsTotal : 0.5
+    const remainingProportion = 1 - splitProportion
+
+    // Proportionally distribute ALL order-level costs
+    const splitFabricCost = parseFloat((originalOrder.fabricCost * splitProportion).toFixed(2))
+    const remainingFabricCost = parseFloat((originalOrder.fabricCost - splitFabricCost).toFixed(2))
+
+    const splitFabricWastage = parseFloat((originalOrder.fabricWastageAmount * splitProportion).toFixed(2))
+    const remainingFabricWastage = parseFloat((originalOrder.fabricWastageAmount - splitFabricWastage).toFixed(2))
+
+    const splitAccessoriesCost = parseFloat((originalOrder.accessoriesCost * splitProportion).toFixed(2))
+    const remainingAccessoriesCost = parseFloat((originalOrder.accessoriesCost - splitAccessoriesCost).toFixed(2))
+
+    const splitStitchingCost = parseFloat((originalOrder.stitchingCost * splitProportion).toFixed(2))
+    const remainingStitchingCost = parseFloat((originalOrder.stitchingCost - splitStitchingCost).toFixed(2))
+
+    const splitWorkmanshipPremiums = parseFloat((originalOrder.workmanshipPremiums * splitProportion).toFixed(2))
+    const remainingWorkmanshipPremiums = parseFloat((originalOrder.workmanshipPremiums - splitWorkmanshipPremiums).toFixed(2))
+
+    const splitDesignerFee = parseFloat((originalOrder.designerConsultationFee * splitProportion).toFixed(2))
+    const remainingDesignerFee = parseFloat((originalOrder.designerConsultationFee - splitDesignerFee).toFixed(2))
+
+    // Calculate subtotals (before GST)
+    const splitSubTotal = parseFloat((
+      splitFabricCost +
+      splitFabricWastage +
+      splitAccessoriesCost +
+      splitStitchingCost +
+      splitWorkmanshipPremiums +
+      splitDesignerFee
+    ).toFixed(2))
+
+    const remainingSubTotal = parseFloat((
+      remainingFabricCost +
+      remainingFabricWastage +
+      remainingAccessoriesCost +
+      remainingStitchingCost +
+      remainingWorkmanshipPremiums +
+      remainingDesignerFee
+    ).toFixed(2))
 
     // Calculate GST (12% = 6% CGST + 6% SGST)
-    const splitSubTotal = parseFloat(splitItemsTotal.toFixed(2))
     const splitGstAmount = parseFloat((splitSubTotal * 0.12).toFixed(2))
     const splitTotalAmount = parseFloat((splitSubTotal + splitGstAmount).toFixed(2))
 
-    const remainingSubTotal = parseFloat(remainingItemsTotal.toFixed(2))
     const remainingGstAmount = parseFloat((remainingSubTotal * 0.12).toFixed(2))
     const remainingTotalAmount = parseFloat((remainingSubTotal + remainingGstAmount).toFixed(2))
 
@@ -97,7 +138,7 @@ export async function POST(
 
     // Start transaction
     const result = await prisma.$transaction(async (tx: any) => {
-      // Create new order with split items
+      // Create new order with split items (with complete cost breakdown)
       const newOrder = await tx.order.create({
         data: {
           orderNumber: generateOrderNumber(),
@@ -107,6 +148,32 @@ export async function POST(
           status: originalOrder.status, // Same status as original
           priority: originalOrder.priority,
           deliveryDate: deliveryDate ? new Date(deliveryDate) : originalOrder.deliveryDate,
+
+          // Complete itemized cost breakdown
+          fabricCost: splitFabricCost,
+          fabricWastagePercent: originalOrder.fabricWastagePercent,
+          fabricWastageAmount: splitFabricWastage,
+          accessoriesCost: splitAccessoriesCost,
+          stitchingCost: splitStitchingCost,
+          stitchingTier: originalOrder.stitchingTier,
+          workmanshipPremiums: splitWorkmanshipPremiums,
+          designerConsultationFee: splitDesignerFee,
+
+          // Workmanship premium flags (proportional split)
+          isHandStitched: originalOrder.isHandStitched,
+          handStitchingCost: parseFloat((originalOrder.handStitchingCost * splitProportion).toFixed(2)),
+          isFullCanvas: originalOrder.isFullCanvas,
+          fullCanvasCost: parseFloat((originalOrder.fullCanvasCost * splitProportion).toFixed(2)),
+          isRushOrder: originalOrder.isRushOrder,
+          rushOrderCost: parseFloat((originalOrder.rushOrderCost * splitProportion).toFixed(2)),
+          hasComplexDesign: originalOrder.hasComplexDesign,
+          complexDesignCost: parseFloat((originalOrder.complexDesignCost * splitProportion).toFixed(2)),
+          additionalFittings: Math.floor(originalOrder.additionalFittings * splitProportion),
+          additionalFittingsCost: parseFloat((originalOrder.additionalFittingsCost * splitProportion).toFixed(2)),
+          hasPremiumLining: originalOrder.hasPremiumLining,
+          premiumLiningCost: parseFloat((originalOrder.premiumLiningCost * splitProportion).toFixed(2)),
+
+          // Totals and GST
           totalAmount: splitTotalAmount,
           subTotal: splitSubTotal,
           gstRate: 12,
@@ -149,10 +216,28 @@ export async function POST(
         })
       }
 
-      // Update original order totals
+      // Update original order totals (with complete cost breakdown)
       await tx.order.update({
         where: { id },
         data: {
+          // Complete itemized cost breakdown
+          fabricCost: remainingFabricCost,
+          fabricWastageAmount: remainingFabricWastage,
+          accessoriesCost: remainingAccessoriesCost,
+          stitchingCost: remainingStitchingCost,
+          workmanshipPremiums: remainingWorkmanshipPremiums,
+          designerConsultationFee: remainingDesignerFee,
+
+          // Workmanship premium costs (proportional)
+          handStitchingCost: parseFloat((originalOrder.handStitchingCost * remainingProportion).toFixed(2)),
+          fullCanvasCost: parseFloat((originalOrder.fullCanvasCost * remainingProportion).toFixed(2)),
+          rushOrderCost: parseFloat((originalOrder.rushOrderCost * remainingProportion).toFixed(2)),
+          complexDesignCost: parseFloat((originalOrder.complexDesignCost * remainingProportion).toFixed(2)),
+          additionalFittings: originalOrder.additionalFittings - Math.floor(originalOrder.additionalFittings * splitProportion),
+          additionalFittingsCost: parseFloat((originalOrder.additionalFittingsCost * remainingProportion).toFixed(2)),
+          premiumLiningCost: parseFloat((originalOrder.premiumLiningCost * remainingProportion).toFixed(2)),
+
+          // Totals and GST
           totalAmount: remainingTotalAmount,
           subTotal: remainingSubTotal,
           gstAmount: remainingGstAmount,

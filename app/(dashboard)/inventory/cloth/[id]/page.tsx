@@ -16,6 +16,8 @@ import {
 import { Home, Package, ArrowLeft, ShoppingBag, AlertTriangle } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import DashboardLayout from '@/components/DashboardLayout'
+import { hasPermission, type UserRole } from '@/lib/permissions'
+import { ClothDetailEditButton } from '@/components/inventory/cloth-detail-edit-button'
 
 type ClothDetails = NonNullable<Awaited<ReturnType<typeof getClothDetails>>>
 type OrderItem = ClothDetails['orderItems'][number]
@@ -81,6 +83,9 @@ export default async function ClothDetailPage({
     redirect('/inventory')
   }
 
+  // Check if user can edit inventory
+  const canEdit = hasPermission(session.user.role as UserRole, 'manage_inventory')
+
   const available = cloth.currentStock - cloth.reserved
   const totalValue = cloth.currentStock * cloth.pricePerMeter
 
@@ -126,6 +131,7 @@ export default async function ClothDetailPage({
             <p className="text-xs md:text-sm text-slate-600 dark:text-slate-300 font-mono">{cloth.sku}</p>
           </div>
         </div>
+        <ClothDetailEditButton clothId={cloth.id} canEdit={canEdit} />
       </div>
 
       {/* Main Content */}

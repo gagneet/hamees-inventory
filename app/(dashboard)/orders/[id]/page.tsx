@@ -684,6 +684,8 @@ export default async function OrderDetailPage({
                     totalPrice: item.totalPrice
                   }))}
                   currentDeliveryDate={order.deliveryDate}
+                  orderTotalAmount={order.totalAmount}
+                  orderSubTotal={order.subTotal}
                 />
               )}
               {!isTailor && order.balanceAmount > 0.01 && order.status !== 'CANCELLED' && (

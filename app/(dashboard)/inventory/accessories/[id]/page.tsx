@@ -16,6 +16,8 @@ import {
 import { Home, Package, ArrowLeft, ShoppingBag, AlertTriangle } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import DashboardLayout from '@/components/DashboardLayout'
+import { hasPermission, type UserRole } from '@/lib/permissions'
+import { AccessoryDetailEditButton } from '@/components/inventory/accessory-detail-edit-button'
 
 async function getAccessoryDetails(id: string) {
   try {
@@ -44,6 +46,9 @@ export default async function AccessoryDetailPage({
   if (!accessory) {
     redirect('/inventory')
   }
+
+  // Check if user can edit inventory
+  const canEdit = hasPermission(session.user.role as UserRole, 'manage_inventory')
 
   const totalValue = accessory.currentStock * accessory.pricePerUnit
 
@@ -89,6 +94,7 @@ export default async function AccessoryDetailPage({
             <Badge variant="outline" className="mt-1">{accessory.type}</Badge>
           </div>
         </div>
+        <AccessoryDetailEditButton accessoryId={accessory.id} canEdit={canEdit} />
       </div>
 
       {/* Main Content */}

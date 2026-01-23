@@ -10,6 +10,135 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Split Order Pricing Fix & Phase 1 Specification Edit UI (v0.24.2)
+
+**What's New:**
+- **Fixed Split Order Pricing** - Now includes complete cost breakdown (stitching, premiums, wastage)
+- **Inventory Specification Edit UI** - Integrated edit dialogs for Phase 1 fields on detail pages
+- **Permission-Based Edit Buttons** - Only OWNER, ADMIN, INVENTORY_MANAGER can edit inventory specs
+- **Complete Cost Distribution** - Split orders now proportionally divide all order-level costs
+
+**Version:** v0.24.2
+**Date:** January 23, 2026
+**Status:** ✅ Production Ready
+
+**Issues Fixed:**
+
+1. **Split Order Missing Stitching Charges & Premiums**
+   - **Problem**: Split order totals only calculated fabric + accessories (missing ₹2,000-₹20,000+ in stitching costs)
+   - **Root Cause**: Used `item.totalPrice` (fabric + accessories only) instead of proportional split of complete order costs
+   - **Solution**:
+     - Calculate proportion based on item fabric+accessories cost
+     - Distribute ALL order-level costs proportionally:
+       - Fabric cost, fabric wastage, accessories cost
+       - **Stitching cost** (tier-based: BASIC/PREMIUM/LUXURY)
+       - **Workmanship premiums** (hand stitching, full canvas, rush, complex design, additional fittings, premium lining)
+       - **Designer consultation fee**
+     - Both new and remaining orders get complete itemized cost breakdowns
+   - **Example Before**: 2-item order (₹30,000 with stitching) → Split showed ₹8,000 (fabric only)
+   - **Example After**: 2-item order (₹30,000 with stitching) → Split shows ₹15,000 (proportional split)
+
+2. **No UI to Edit Phase 1 Inventory Specifications**
+   - **Problem**: Phase 1 fields (fabric composition, GSM, weave type, etc.) existed in database but had no edit UI
+   - **Root Cause**: `ClothEditForm` and `AccessoryEditForm` created in v0.24.0 but never integrated into detail pages
+   - **Solution**:
+     - Created `cloth-detail-edit-button.tsx` and `accessory-detail-edit-button.tsx` client components
+     - Added "Edit Details" button to inventory detail pages (top-right corner)
+     - Opens dialog with comprehensive edit form (all Phase 1 fields)
+     - Permission check: Only users with `manage_inventory` see the button
+     - Auto-refreshes page after successful edit
+   - **Now Editable**: All 12 cloth Phase 1 fields + all 10 accessory Phase 1 fields
+
+**Phase 1 Fields Now Editable via UI:**
+
+**Cloth Inventory (12 Fields):**
+- Fabric Composition (e.g., "70% Cotton, 30% Polyester")
+- GSM (Grams per Square Meter, e.g., 180 GSM)
+- Thread Count (threads per inch, e.g., 100 TPI)
+- Weave Type (Plain, Twill, Satin, Jacquard, Dobby)
+- Fabric Width (44", 58", 60")
+- Shrinkage Percentage (1-5%)
+- Color Fastness (Excellent, Good, Fair, Poor)
+- Season Suitability (Summer, Winter, Monsoon, All-season)
+- Occasion Type (Casual, Formal, Wedding, Business, Festival, Party)
+- Care Instructions (washing/cleaning guidelines)
+- Swatch Image URL
+- Texture Image URL
+
+**Accessory Inventory (10 Fields):**
+- Color Code (Pantone/DMC codes, e.g., "PANTONE 19-4028")
+- Material (Shell, Brass, Resin, Horn, Plastic, Wood)
+- Finish (Matte, Polished, Antique, Brushed)
+- Thread Weight (40wt, 50wt, 60wt)
+- Button Size (Ligne standard: 14L, 18L, 20L, 24L)
+- Hole Punch Size (2-hole, 4-hole)
+- Recommended For (Suit, Shirt, Trouser, Blazer)
+- Style Category (Formal, Casual, Designer, Traditional)
+- Product Image URL
+- Close-up Image URL
+
+**Files Added:**
+- `components/inventory/cloth-detail-edit-button.tsx` - Edit button for cloth detail page
+- `components/inventory/accessory-detail-edit-button.tsx` - Edit button for accessory detail page
+
+**Files Modified:**
+- `app/api/orders/[id]/split/route.ts` - Complete proportional cost distribution (lines 78-250)
+- `components/orders/split-order-dialog.tsx` - Updated preview calculation (lines 79-97)
+- `app/(dashboard)/orders/[id]/page.tsx` - Pass order totals to split dialog (lines 687-688)
+- `app/(dashboard)/inventory/cloth/[id]/page.tsx` - Integrated edit button with permissions
+- `app/(dashboard)/inventory/accessories/[id]/page.tsx` - Integrated edit button with permissions
+
+**Testing:**
+```bash
+# Test Split Order Pricing Fix
+1. Login as owner@hameesattire.com / admin123
+2. Navigate to any multi-item order with stitching charges
+3. Click "Split Order"
+4. Select items to split
+5. Verify preview shows accurate totals (includes stitching + premiums)
+6. Complete split
+7. Verify both orders have correct proportional costs
+
+# Test Phase 1 Edit UI - OWNER (should see button)
+1. Login as owner@hameesattire.com / admin123
+2. Navigate to /inventory → Click any cloth item
+3. Expected: ✅ See "Edit Details" button in top-right
+4. Click button → Edit dialog opens with all 12 Phase 1 fields
+5. Modify fabric composition, GSM, weave type, season tags
+6. Save → Page refreshes with updated values
+
+# Test Phase 1 Edit UI - SALES_MANAGER (should NOT see button)
+1. Login as sales@hameesattire.com / admin123
+2. Navigate to /inventory → Click any accessory item
+3. Expected: ❌ NO "Edit Details" button (read-only)
+```
+
+**Permission Matrix:**
+
+| Role | Can Edit Inventory Specs | Can See Edit Button |
+|------|------------------------|-------------------|
+| OWNER | ✅ Yes | ✅ Yes |
+| ADMIN | ✅ Yes | ✅ Yes |
+| INVENTORY_MANAGER | ✅ Yes | ✅ Yes |
+| SALES_MANAGER | ❌ No | ❌ No |
+| TAILOR | ❌ No | ❌ No |
+| VIEWER | ❌ No | ❌ No |
+
+**Business Impact:**
+- ✅ Split orders now show accurate pricing (no more underestimated totals)
+- ✅ Users can now edit fabric specifications without database access
+- ✅ Industry-standard specs (GSM, weave type, thread count) maintainable via UI
+- ✅ Season and occasion tags editable for better fabric categorization
+- ✅ Complete audit trail maintained for all specification changes
+
+**Build & Deployment:**
+- Build time: 34.5 seconds (clean build)
+- PM2 restart: Successful
+- Zero TypeScript errors
+- Production deployment: ✅ https://hamees.gagneet.com
+
+---
+
 ### ✅ Tailor Assignment Permission Fix & Price Display Clarification (v0.24.1)
 
 **What's New:**

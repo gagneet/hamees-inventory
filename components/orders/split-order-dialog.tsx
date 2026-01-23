@@ -37,6 +37,8 @@ interface SplitOrderDialogProps {
   orderNumber: string
   items: OrderItem[]
   currentDeliveryDate: Date
+  orderTotalAmount: number
+  orderSubTotal: number
 }
 
 export function SplitOrderDialog({
@@ -44,6 +46,8 @@ export function SplitOrderDialog({
   orderNumber,
   items,
   currentDeliveryDate,
+  orderTotalAmount,
+  orderSubTotal,
 }: SplitOrderDialogProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -72,11 +76,20 @@ export function SplitOrderDialog({
   const selectedItems = items.filter(item => selectedItemIds.includes(item.id))
   const remainingItems = items.filter(item => !selectedItemIds.includes(item.id))
 
+  // Calculate proportional split of complete order costs (not just item totals)
   const calculateTotal = (itemList: OrderItem[]) => {
+    // Calculate item totals (fabric + accessories only)
     const itemsTotal = itemList.reduce((sum, item) => sum + item.totalPrice, 0)
-    const subTotal = itemsTotal
+    const allItemsTotal = items.reduce((sum, item) => sum + item.totalPrice, 0)
+
+    // Calculate proportion based on fabric + accessories cost
+    const proportion = allItemsTotal > 0 ? itemsTotal / allItemsTotal : 0
+
+    // Proportionally distribute the complete order subtotal (includes stitching, premiums, etc.)
+    const subTotal = orderSubTotal * proportion
     const gstAmount = subTotal * 0.12
     const total = subTotal + gstAmount
+
     return { subTotal, gstAmount, total }
   }
 
