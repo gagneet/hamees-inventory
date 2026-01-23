@@ -46,7 +46,7 @@ export function AssignTailorDialog({
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [tailors, setTailors] = useState<Tailor[]>([])
-  const [selectedTailorId, setSelectedTailorId] = useState<string>(currentTailorId || '')
+  const [selectedTailorId, setSelectedTailorId] = useState<string>(currentTailorId || 'UNASSIGNED')
 
   // Fetch list of tailors
   useEffect(() => {
@@ -76,7 +76,7 @@ export function AssignTailorDialog({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          assignedTailorId: selectedTailorId || null,
+          assignedTailorId: selectedTailorId === 'UNASSIGNED' ? null : selectedTailorId,
         }),
       })
 
@@ -130,7 +130,7 @@ export function AssignTailorDialog({
                 <SelectValue placeholder="Select a tailor..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">
+                <SelectItem value="UNASSIGNED">
                   <span className="text-slate-500">Unassigned</span>
                 </SelectItem>
                 {tailors.map((tailor) => (
@@ -162,7 +162,7 @@ export function AssignTailorDialog({
           <Button
             type="button"
             onClick={handleAssign}
-            disabled={loading || selectedTailorId === currentTailorId}
+            disabled={loading || (selectedTailorId === currentTailorId || (!currentTailorId && selectedTailorId === 'UNASSIGNED'))}
           >
             {loading ? 'Assigning...' : 'Assign Tailor'}
           </Button>
