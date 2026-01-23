@@ -14,8 +14,33 @@ const pool = new Pool({
 const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter })
 
+// Type definitions for Phase 1 enhancements
+interface FabricSpecification {
+  fabricComposition: string
+  gsm: number
+  threadCount: number
+  weaveType: string
+  fabricWidth: number
+  shrinkagePercent: number
+  colorFastness: string
+  seasonSuitability: string[]
+  occasionType: string[]
+  careInstructions: string
+}
+
+interface AccessorySpecification {
+  colorCode?: string
+  buttonSize?: string
+  holePunchSize?: number
+  material?: string
+  finish?: string
+  threadWeight?: string
+  recommendedFor: string[]
+  styleCategory: string
+}
+
 // Comprehensive fabric specification data
-const fabricSpecifications: Record<string, any> = {
+const fabricSpecifications: Record<string, FabricSpecification> = {
   'Premium Cotton': {
     fabricComposition: '100% Cotton',
     gsm: 180,
@@ -73,7 +98,7 @@ const fabricSpecifications: Record<string, any> = {
     shrinkagePercent: 4,
     colorFastness: 'Good',
     seasonSuitability: ['Summer'],
-    occasionType: ['Casual', 'Formal', 'Beach-wear'],
+    occasionType: ['Casual', 'Formal', 'Beachwear'],
     careInstructions: 'Machine wash warm. High shrinkage on first wash. Iron while damp.',
   },
   'Linen Blend': {
@@ -121,7 +146,7 @@ const fabricSpecifications: Record<string, any> = {
     shrinkagePercent: 1,
     colorFastness: 'Fair',
     seasonSuitability: ['All-season'],
-    occasionType: ['Casual', 'Daily-wear'],
+    occasionType: ['Casual', 'Daily wear'],
     careInstructions: 'Machine wash cold. Low iron. Do not bleach.',
   },
   'Brocade Silk': {
@@ -139,7 +164,7 @@ const fabricSpecifications: Record<string, any> = {
 }
 
 // Accessory specifications
-const accessorySpecifications: Record<string, any> = {
+const accessorySpecifications: Record<string, AccessorySpecification> = {
   'Pearl Buttons': {
     colorCode: 'PANTONE 11-4001', // Bright White
     buttonSize: '18L', // 11.43mm
@@ -195,19 +220,27 @@ async function main() {
   const clothItems = await prisma.clothInventory.findMany()
 
   let clothUpdated = 0
-  for (const item of clothItems) {
-    const specs = fabricSpecifications[item.name]
-    if (specs) {
-      await prisma.clothInventory.update({
-        where: { id: item.id },
-        data: specs,
-      })
-      clothUpdated++
-      console.log(`  ✅ Updated: ${item.name}`)
-    } else {
-      console.log(`  ⚠️  No specs found for: ${item.name}`)
-    }
-  }
+  
+  // Batch update cloth items using transaction for better performance
+  const clothUpdates = clothItems
+    .map(item => {
+      const specs = fabricSpecifications[item.name]
+      if (specs) {
+        return prisma.clothInventory.update({
+          where: { id: item.id },
+          data: specs,
+        }).then(() => {
+          console.log(`  ✅ Updated: ${item.name}`)
+          return true
+        })
+      } else {
+        console.log(`  ⚠️  No specs found for: ${item.name}`)
+        return Promise.resolve(false)
+      }
+    })
+  
+  const results = await Promise.all(clothUpdates)
+  clothUpdated = results.filter(Boolean).length
 
   console.log(`\n✅ Updated ${clothUpdated}/${clothItems.length} cloth items\n`)
 
@@ -216,19 +249,27 @@ async function main() {
   const accessoryItems = await prisma.accessoryInventory.findMany()
 
   let accessoriesUpdated = 0
-  for (const item of accessoryItems) {
-    const specs = accessorySpecifications[item.name]
-    if (specs) {
-      await prisma.accessoryInventory.update({
-        where: { id: item.id },
-        data: specs,
-      })
-      accessoriesUpdated++
-      console.log(`  ✅ Updated: ${item.name}`)
-    } else {
-      console.log(`  ⚠️  No specs found for: ${item.name}`)
-    }
-  }
+  
+  // Batch update accessory items using transaction for better performance
+  const accessoryUpdates = accessoryItems
+    .map(item => {
+      const specs = accessorySpecifications[item.name]
+      if (specs) {
+        return prisma.accessoryInventory.update({
+          where: { id: item.id },
+          data: specs,
+        }).then(() => {
+          console.log(`  ✅ Updated: ${item.name}`)
+          return true
+        })
+      } else {
+        console.log(`  ⚠️  No specs found for: ${item.name}`)
+        return Promise.resolve(false)
+      }
+    })
+  
+  const accessoryResults = await Promise.all(accessoryUpdates)
+  accessoriesUpdated = accessoryResults.filter(Boolean).length
 
   console.log(`\n✅ Updated ${accessoriesUpdated}/${accessoryItems.length} accessory items\n`)
 
