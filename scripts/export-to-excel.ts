@@ -135,6 +135,19 @@ async function exportToExcel() {
           location: i.location || '',
           notes: i.notes || '',
           active: i.active,
+          // Phase 1 enhancements (v0.23.0)
+          fabricComposition: i.fabricComposition || '',
+          gsm: i.gsm || '',
+          threadCount: i.threadCount || '',
+          weaveType: i.weaveType || '',
+          fabricWidth: i.fabricWidth || '',
+          shrinkagePercent: i.shrinkagePercent || '',
+          colorFastness: i.colorFastness || '',
+          seasonSuitability: i.seasonSuitability?.join(', ') || '',
+          occasionType: i.occasionType?.join(', ') || '',
+          careInstructions: i.careInstructions || '',
+          swatchImage: i.swatchImage || '',
+          textureImage: i.textureImage || '',
           createdAt: i.createdAt.toISOString(),
           updatedAt: i.updatedAt.toISOString()
         }))
@@ -159,10 +172,23 @@ async function exportToExcel() {
         { key: 'location', header: 'Location', width: 20 },
         { key: 'notes', header: 'Notes', width: 40 },
         { key: 'active', header: 'Active', width: 10 },
+        // Phase 1 enhancements (v0.23.0)
+        { key: 'fabricComposition', header: 'Fabric Composition', width: 30 },
+        { key: 'gsm', header: 'GSM', width: 10 },
+        { key: 'threadCount', header: 'Thread Count', width: 12 },
+        { key: 'weaveType', header: 'Weave Type', width: 15 },
+        { key: 'fabricWidth', header: 'Fabric Width (inches)', width: 15 },
+        { key: 'shrinkagePercent', header: 'Shrinkage %', width: 12 },
+        { key: 'colorFastness', header: 'Color Fastness', width: 15 },
+        { key: 'seasonSuitability', header: 'Season Suitability', width: 25 },
+        { key: 'occasionType', header: 'Occasion Type', width: 30 },
+        { key: 'careInstructions', header: 'Care Instructions', width: 50 },
+        { key: 'swatchImage', header: 'Swatch Image URL', width: 40 },
+        { key: 'textureImage', header: 'Texture Image URL', width: 40 },
         { key: 'createdAt', header: 'Created At', width: 20 },
         { key: 'updatedAt', header: 'Updated At', width: 20 }
       ],
-      notes: 'Types: Cotton, Silk, Linen, Wool, etc. | Patterns: Plain, Striped, Checkered | Quality: Premium, Standard, Economy'
+      notes: 'Types: Cotton, Silk, Linen, Wool | Weave: Plain, Twill, Satin, Jacquard | Seasons: Summer, Winter, Monsoon, All-season | Occasions: Casual, Formal, Wedding, Business, Festival'
     },
 
     // 4. Accessory Inventory (depends on Supplier)
@@ -185,6 +211,17 @@ async function exportToExcel() {
           supplier: i.supplier || '',
           supplierId: i.supplierId || '',
           active: i.active,
+          // Phase 1 enhancements (v0.23.0)
+          colorCode: i.colorCode || '',
+          threadWeight: i.threadWeight || '',
+          buttonSize: i.buttonSize || '',
+          holePunchSize: i.holePunchSize || '',
+          material: i.material || '',
+          finish: i.finish || '',
+          recommendedFor: i.recommendedFor?.join(', ') || '',
+          styleCategory: i.styleCategory || '',
+          productImage: i.productImage || '',
+          closeUpImage: i.closeUpImage || '',
           createdAt: i.createdAt.toISOString(),
           updatedAt: i.updatedAt.toISOString()
         }))
@@ -201,10 +238,21 @@ async function exportToExcel() {
         { key: 'supplier', header: 'Supplier Name', width: 25 },
         { key: 'supplierId', header: 'Supplier ID (FK)', width: 30 },
         { key: 'active', header: 'Active', width: 10 },
+        // Phase 1 enhancements (v0.23.0)
+        { key: 'colorCode', header: 'Color Code (Pantone)', width: 20 },
+        { key: 'threadWeight', header: 'Thread Weight', width: 15 },
+        { key: 'buttonSize', header: 'Button Size (Ligne)', width: 15 },
+        { key: 'holePunchSize', header: 'Hole Punch Size', width: 15 },
+        { key: 'material', header: 'Material', width: 15 },
+        { key: 'finish', header: 'Finish', width: 15 },
+        { key: 'recommendedFor', header: 'Recommended For', width: 30 },
+        { key: 'styleCategory', header: 'Style Category', width: 15 },
+        { key: 'productImage', header: 'Product Image URL', width: 40 },
+        { key: 'closeUpImage', header: 'Close-Up Image URL', width: 40 },
         { key: 'createdAt', header: 'Created At', width: 20 },
         { key: 'updatedAt', header: 'Updated At', width: 20 }
       ],
-      notes: 'Types: Button, Thread, Zipper, etc. SKU format: ACC-{TYPE}-{TIMESTAMP}'
+      notes: 'Types: Button, Thread, Zipper | Button Sizes: 14L, 18L, 20L, 24L | Thread Weights: 40wt, 50wt, 60wt | Materials: Shell, Brass, Resin | Finish: Matte, Polished, Antique'
     },
 
     // 5. Customers (no dependencies)

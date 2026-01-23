@@ -34,6 +34,7 @@ export function BarcodeScannerImproved({ onScanSuccess, onClose }: BarcodeScanne
   const streamRef = useRef<MediaStream | null>(null)
   const animationFrameRef = useRef<number | null>(null)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const isActiveRef = useRef<boolean>(false) // For detection loop control
 
   // Check for native Barcode Detection API support
   useEffect(() => {
@@ -57,6 +58,8 @@ export function BarcodeScannerImproved({ onScanSuccess, onClose }: BarcodeScanne
   }, [])
 
   const stopCamera = useCallback(() => {
+    isActiveRef.current = false // Stop detection loop
+
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current)
       animationFrameRef.current = null
@@ -83,12 +86,13 @@ export function BarcodeScannerImproved({ onScanSuccess, onClose }: BarcodeScanne
     try {
       setError(null)
       setIsScanning(true)
+      isActiveRef.current = true // Start detection loop
 
       // Set timeout to prevent infinite hanging
       timeoutRef.current = setTimeout(() => {
         stopCamera()
         setError('Camera initialization timed out. Please try manual entry or refresh the page.')
-      }, 10000) // 10 second timeout
+      }, 15000) // 15 second timeout (increased from 10)
 
       // Request camera access with mobile-friendly constraints
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -113,26 +117,35 @@ export function BarcodeScannerImproved({ onScanSuccess, onClose }: BarcodeScanne
         // @ts-ignore - BarcodeDetector is experimental
         const barcodeDetector = new BarcodeDetector({
           formats: [
-            'qr_code',
-            'ean_13',
-            'ean_8',
-            'upc_a',
-            'upc_e',
-            'code_128',
-            'code_39',
-            'code_93',
-            'codabar'
+            'qr_code',        // QR codes
+            'ean_13',         // European Article Number (13 digits)
+            'ean_8',          // European Article Number (8 digits)
+            'upc_a',          // Universal Product Code (12 digits)
+            'upc_e',          // UPC-E (6 digits)
+            'code_128',       // Code 128 (variable length)
+            'code_39',        // Code 39 (variable length)
+            'code_93',        // Code 93 (variable length)
+            'codabar',        // Codabar (variable length)
+            'itf',            // Interleaved 2 of 5
+            'aztec',          // Aztec code
+            'data_matrix',    // Data Matrix
+            'pdf417'          // PDF417
           ]
         })
 
         const detectBarcode = async () => {
-          if (!videoRef.current || !isScanning) return
+          // Use ref instead of state to avoid stale closure
+          if (!videoRef.current || !isActiveRef.current) return
 
           try {
             const barcodes = await barcodeDetector.detect(videoRef.current)
 
             if (barcodes.length > 0) {
               const barcode = barcodes[0].rawValue
+              console.log('Barcode detected:', barcode, 'Format:', barcodes[0].format)
+
+              // Stop camera before callback
+              isActiveRef.current = false
               stopCamera()
               onScanSuccess(barcode)
               return
@@ -141,10 +154,13 @@ export function BarcodeScannerImproved({ onScanSuccess, onClose }: BarcodeScanne
             console.error('Detection error:', err)
           }
 
-          // Continue scanning
-          animationFrameRef.current = requestAnimationFrame(detectBarcode)
+          // Continue scanning only if still active
+          if (isActiveRef.current) {
+            animationFrameRef.current = requestAnimationFrame(detectBarcode)
+          }
         }
 
+        // Start detection loop
         detectBarcode()
       }
     } catch (err: any) {

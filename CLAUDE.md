@@ -10,6 +10,128 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Inventory Management Phase 1 Enhancements (v0.23.0)
+
+**What's New:**
+- **Enhanced Fabric Specifications** - Complete technical details (GSM, composition, weave type, thread count)
+- **Season & Occasion Tags** - Filter fabrics by suitability (Summer/Winter/Monsoon, Wedding/Formal/Casual)
+- **Care Instructions** - Washing/cleaning guidelines for each fabric
+- **Accessory Details** - Button sizes (Ligne), thread weights, Pantone color codes, materials
+- **Visual Assets** - Support for fabric swatch and texture photos
+- **Enhanced Barcode Scanner** - Fixed detection loop, added 13 barcode formats
+- **Excel Export/Import** - All new fields included in bulk upload templates
+
+**Version:** v0.23.0
+**Date:** January 23, 2026
+**Status:** ✅ Production Ready
+
+**Key Features:**
+
+1. **Comprehensive Fabric Specifications (12 New Fields)**
+   - **fabricComposition**: Exact fiber breakdown (e.g., "70% Cotton, 30% Polyester")
+   - **gsm**: Grams per Square Meter - fabric weight (e.g., 180 GSM)
+   - **threadCount**: Threads per inch (e.g., 100 TPI)
+   - **weaveType**: Plain, Twill, Satin, Jacquard, Dobby
+   - **fabricWidth**: Width in inches (44", 58", 60")
+   - **shrinkagePercent**: Expected shrinkage (1-5%)
+   - **colorFastness**: Excellent, Good, Fair, Poor
+   - **seasonSuitability**: Array of seasons (Summer, Winter, Monsoon, All-season)
+   - **occasionType**: Array of occasions (Casual, Formal, Wedding, Business, Festival, Party)
+   - **careInstructions**: Complete washing/cleaning guidelines
+   - **swatchImage**: URL to primary fabric photo
+   - **textureImage**: URL to close-up texture photo
+
+2. **Enhanced Accessory Details (10 New Fields)**
+   - **colorCode**: Pantone/DMC color codes (e.g., "PANTONE 19-4028")
+   - **threadWeight**: Thread gauge (40wt, 50wt, 60wt)
+   - **buttonSize**: Ligne sizing standard (14L, 18L, 20L, 24L)
+   - **holePunchSize**: Number of holes (2, 4)
+   - **material**: Shell, Brass, Resin, Horn, Plastic, Wood
+   - **finish**: Matte, Polished, Antique, Brushed
+   - **recommendedFor**: Array of garment types (Suit, Shirt, Trouser, Blazer)
+   - **styleCategory**: Formal, Casual, Designer, Traditional
+   - **productImage**: URL to product photo
+   - **closeUpImage**: URL to detail photo
+
+3. **Barcode Scanner Improvements**
+   - **Fixed detection loop** using ref-based cancellation instead of state
+   - **Expanded format support**: 13 barcode types (QR, EAN-13, EAN-8, UPC-A, UPC-E, Code 128/39/93, Codabar, ITF, Aztec, Data Matrix, PDF417)
+   - **Increased timeout**: 15 seconds (from 10) for camera initialization
+   - **Console logging**: Shows detected barcode and format type for debugging
+   - **Ref-based active state**: Prevents stale closure issues in detection loop
+
+4. **Database Migration** (`prisma/migrations/manual_phase_1_enhancements.sql`)
+   - All 22 new fields added via raw SQL migration
+   - PostgreSQL array support for seasonSuitability, occasionType, recommendedFor
+   - All existing 10 cloth items and 6 accessory items updated with comprehensive data
+
+5. **Seed Data Enhanced**
+   - **Premium Cotton**: 100% Cotton, 180 GSM, Plain weave, Summer/All-season, Casual/Formal
+   - **Pure Silk**: 100% Silk, 90 GSM, Excellent color fastness, Wedding/Festival
+   - **Wool Premium**: 100% Merino Wool, 280 GSM, Twill weave, Winter, Dry clean only
+   - **Pearl Buttons**: 18L size, 4-hole, Shell material, Polished finish, PANTONE 11-4001
+   - **Polyester Thread**: 40wt, suitable for all garments, PANTONE 11-0601
+
+**Excel Export/Import Updated:**
+- ClothInventory sheet: 33 columns (12 new Phase 1 fields)
+- AccessoryInventory sheet: 23 columns (10 new Phase 1 fields)
+- Notes row includes valid values for new fields
+- Arrays exported as comma-separated strings
+
+**Database Verification:**
+```sql
+-- Verify cloth updates
+SELECT name, fabricComposition, gsm, weaveType
+FROM "ClothInventory"
+WHERE fabricComposition IS NOT NULL;
+-- Result: All 10 items have complete specifications
+
+-- Verify accessory updates
+SELECT name, buttonSize, threadWeight, material
+FROM "AccessoryInventory"
+WHERE colorCode IS NOT NULL OR material IS NOT NULL;
+-- Result: All 6 items have enhanced details
+```
+
+**Testing:**
+```bash
+# Test barcode scanner
+1. Navigate to /inventory
+2. Click "Scan Barcode" → Manual mode
+3. Enter SKU: CLT-COT-ABC-158925
+4. Expected: Item found, edit dialog opens with all Phase 1 fields
+5. Test camera mode with QR code/barcode
+6. Expected: Detection occurs, barcode value logged to console
+
+# Test Excel export
+pnpm tsx scripts/export-to-excel.ts
+# Expected: New file with all Phase 1 fields in ClothInventory and Accessories sheets
+```
+
+**Business Impact:**
+- ✅ Better fabric selection based on season and occasion
+- ✅ Accurate care instructions on invoices
+- ✅ Professional accessory recommendations
+- ✅ Industry-standard specifications for supplier communication
+- ✅ Visual fabric catalog ready for photo uploads
+- ✅ Complete bulk import/export with all details
+
+**Files Added:**
+- `docs/INVENTORY_ENHANCEMENTS_2026.md` - Complete enhancement documentation (5000+ lines)
+- `prisma/migrations/manual_phase_1_enhancements.sql` - Schema migration
+- `prisma/migrations/manual_phase_1_data_update.sql` - Data population
+- `scripts/update-inventory-with-phase1-data.ts` - Data update script
+
+**Files Modified:**
+- `prisma/schema.prisma` - 22 new fields across 2 models
+- `components/barcode-scanner-improved.tsx` - Fixed detection loop
+- `scripts/export-to-excel.ts` - Added all Phase 1 fields
+- `CLAUDE.md` - This documentation
+
+**Deployment:** ✅ Live at https://hamees.gagneet.com
+
+---
+
 ### ✅ Premium Pricing System with Workmanship Add-ons (v0.22.0)
 
 **What's New:**
