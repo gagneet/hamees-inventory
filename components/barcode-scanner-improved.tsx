@@ -142,7 +142,9 @@ export function BarcodeScannerImproved({ onScanSuccess, onClose }: BarcodeScanne
 
             if (barcodes.length > 0) {
               const barcode = barcodes[0].rawValue
-              console.log('Barcode detected:', barcode, 'Format:', barcodes[0].format)
+              if (process.env.NODE_ENV === 'development') {
+                console.log('Barcode detected:', barcode, 'Format:', barcodes[0].format)
+              }
 
               // Stop camera before callback
               isActiveRef.current = false
