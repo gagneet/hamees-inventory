@@ -10,6 +10,85 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Tailor Assignment Permission Fix & Price Display Clarification (v0.24.1)
+
+**What's New:**
+- **Fixed TAILOR Role Assignment** - TAILOR users can now assign tailors to order items
+- **Price Display Clarification** - Added "(Fabric + Accessories)" label to order item pricing
+- **Permission Enhancement** - Assigning tailors now allowed for both `update_order` and `update_order_status` permissions
+
+**Version:** v0.24.1
+**Date:** January 23, 2026
+**Status:** ✅ Production Ready
+
+**Issues Fixed:**
+
+1. **403 Forbidden Error When Assigning Tailor (TAILOR Role)**
+   - **Problem**: TAILOR role users received "Forbidden" error when trying to assign a tailor to order items
+   - **Root Cause**: API endpoint `/api/orders/[id]/items/[itemId]` only checked for `update_order` permission, but TAILOR role only has `update_order_status`
+   - **Solution**: Updated permission check to allow **either** `update_order` OR `update_order_status` permissions
+   - **Reasoning**: Assigning a tailor is a workflow operation that should be allowed for users who can manage order status
+   - **Now Works For**: OWNER, ADMIN, SALES_MANAGER (had `update_order`) + **TAILOR** (has `update_order_status`)
+
+2. **Confusing Price Display (₹1,500 Per Unit)**
+   - **Problem**: Order item price showed ₹1,500/unit without context, causing confusion
+   - **Root Cause**: `pricePerUnit` contains only fabric + accessories cost, NOT stitching charges
+   - **Solution**: Added clarifying label "(Fabric + Accessories)" below per-unit price
+   - **Display Now Shows**:
+     ```
+     ₹1,500.00              ← Total Price
+     ₹1,500.00/unit         ← Price per unit
+     (Fabric + Accessories) ← NEW LABEL (gray italic)
+     ```
+
+**Understanding Order Pricing Structure:**
+
+**Order Item Level:**
+- Fabric cost = meters × price per meter
+- Accessories cost = quantity × price per unit (buttons, thread, zippers)
+- **Item Price = Fabric + Accessories** ← This is what pricePerUnit shows
+
+**Order Level:**
+- Subtotal = Sum of all item prices
+- **Stitching Cost** = Based on garment type and tier (BASIC/PREMIUM/LUXURY)
+  - Shirt: ₹2,000 - ₹4,000
+  - Trouser: ₹2,500 - ₹5,000
+  - Suit: ₹10,000 - ₹20,000+
+- Workmanship Premiums (optional): Hand stitching, Full canvas, Rush order, etc.
+- GST (12%): CGST 6% + SGST 6%
+- **Total = Subtotal + Stitching + Premiums + GST**
+
+**Files Modified:**
+- `app/api/orders/[id]/items/[itemId]/route.ts` - Enhanced permission check (lines 25-32)
+- `app/(dashboard)/orders/[id]/page.tsx` - Added price clarification label (lines 291-293)
+
+**Testing:**
+```bash
+# Test TAILOR role assignment (was failing, now works)
+1. Login as tailor@hameesattire.com / admin123
+2. Navigate to any order with items
+3. Click "Assign Tailor" button
+4. Select tailor and click "Assign Tailor"
+5. Expected: ✅ Success (no 403 error)
+
+# Verify price display clarification
+1. View any order detail page
+2. Check order item pricing section
+3. Expected: See "(Fabric + Accessories)" label below per-unit price
+```
+
+**Permission Matrix After Fix:**
+
+| Action | Permission Required | Roles Allowed |
+|--------|-------------------|---------------|
+| Assign Tailor to Order Item | `update_order` OR `update_order_status` | OWNER, ADMIN, SALES_MANAGER, **TAILOR** |
+| Edit Order Item (garment/fabric) | `update_order` | OWNER, ADMIN, SALES_MANAGER |
+| View Pricing | NOT `TAILOR` role | OWNER, ADMIN, SALES_MANAGER, INVENTORY_MANAGER |
+
+**Deployment:** ✅ Live at https://hamees.gagneet.com
+
+---
+
 ### ✅ Inventory Edit with History & Audit Tracking (v0.24.0)
 
 **What's New:**

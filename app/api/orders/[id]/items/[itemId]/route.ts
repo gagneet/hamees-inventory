@@ -22,8 +22,12 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Check if user has permission to update orders
-    if (!hasPermission(session.user.role as any, 'update_order')) {
+    // Check if user has permission to update orders OR update order status
+    // (assigning tailor is a workflow operation allowed for order status managers)
+    const canUpdate = hasPermission(session.user.role as any, 'update_order') ||
+                      hasPermission(session.user.role as any, 'update_order_status')
+
+    if (!canUpdate) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

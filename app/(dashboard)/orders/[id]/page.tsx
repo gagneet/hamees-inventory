@@ -288,6 +288,9 @@ export default async function OrderDetailPage({
                               <p className="text-xs text-slate-500">
                                 {formatCurrency(item.pricePerUnit)}/unit
                               </p>
+                              <p className="text-xs text-slate-400 italic">
+                                (Fabric + Accessories)
+                              </p>
                             </div>
                           )}
                           <div className="flex items-center gap-2">
