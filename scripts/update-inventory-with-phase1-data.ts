@@ -163,18 +163,6 @@ const fabricSpecifications: Record<string, FabricSpecification> = {
   },
 }
 
-// Type definition for accessory specifications
-interface AccessorySpecification {
-  colorCode?: string
-  buttonSize?: string
-  holePunchSize?: number
-  material?: string
-  finish?: string
-  threadWeight?: string
-  recommendedFor: string[]
-  styleCategory: string
-}
-
 // Accessory specifications
 const accessorySpecifications: Record<string, AccessorySpecification> = {
   'Pearl Buttons': {
@@ -232,63 +220,89 @@ async function main() {
   const clothItems = await prisma.clothInventory.findMany()
 
   let clothUpdated = 0
+  let clothFailed = 0
   
-  // Batch update cloth items using transaction for better performance
+  // Batch update cloth items with error handling
   const clothUpdates = clothItems
-    .map(item => {
+    .map(async item => {
       const specs = fabricSpecifications[item.name]
       if (specs) {
-        return prisma.clothInventory.update({
-          where: { id: item.id },
-          data: specs,
-        }).then(() => {
+        try {
+          await prisma.clothInventory.update({
+            where: { id: item.id },
+            data: specs,
+          })
           console.log(`  ✅ Updated: ${item.name}`)
-          return true
-        })
+          return { success: true, item: item.name }
+        } catch (error) {
+          console.error(`  ❌ Failed to update ${item.name}:`, error)
+          return { success: false, item: item.name, error }
+        }
       } else {
         console.log(`  ⚠️  No specs found for: ${item.name}`)
-        return Promise.resolve(false)
+        return { success: false, item: item.name, error: 'No specs found' }
       }
     })
   
   const results = await Promise.all(clothUpdates)
-  clothUpdated = results.filter(Boolean).length
+  clothUpdated = results.filter(r => r.success).length
+  clothFailed = results.filter(r => !r.success).length
 
-  console.log(`\n✅ Updated ${clothUpdated}/${clothItems.length} cloth items\n`)
+  console.log(`\n✅ Updated ${clothUpdated}/${clothItems.length} cloth items`)
+  if (clothFailed > 0) {
+    console.log(`⚠️  Failed: ${clothFailed} items`)
+  }
+  console.log()
 
   // Update Accessory Inventory
   console.log('🔘 Updating accessory inventory with specifications...')
   const accessoryItems = await prisma.accessoryInventory.findMany()
 
   let accessoriesUpdated = 0
+  let accessoriesFailed = 0
   
-  // Batch update accessory items using transaction for better performance
+  // Batch update accessory items with error handling
   const accessoryUpdates = accessoryItems
-    .map(item => {
+    .map(async item => {
       const specs = accessorySpecifications[item.name]
       if (specs) {
-        return prisma.accessoryInventory.update({
-          where: { id: item.id },
-          data: specs,
-        }).then(() => {
+        try {
+          await prisma.accessoryInventory.update({
+            where: { id: item.id },
+            data: specs,
+          })
           console.log(`  ✅ Updated: ${item.name}`)
-          return true
-        })
+          return { success: true, item: item.name }
+        } catch (error) {
+          console.error(`  ❌ Failed to update ${item.name}:`, error)
+          return { success: false, item: item.name, error }
+        }
       } else {
         console.log(`  ⚠️  No specs found for: ${item.name}`)
-        return Promise.resolve(false)
+        return { success: false, item: item.name, error: 'No specs found' }
       }
     })
   
   const accessoryResults = await Promise.all(accessoryUpdates)
-  accessoriesUpdated = accessoryResults.filter(Boolean).length
+  accessoriesUpdated = accessoryResults.filter(r => r.success).length
+  accessoriesFailed = accessoryResults.filter(r => !r.success).length
 
-  console.log(`\n✅ Updated ${accessoriesUpdated}/${accessoryItems.length} accessory items\n`)
+  console.log(`\n✅ Updated ${accessoriesUpdated}/${accessoryItems.length} accessory items`)
+  if (accessoriesFailed > 0) {
+    console.log(`⚠️  Failed: ${accessoriesFailed} items`)
+  }
+  console.log()
 
   // Summary
   console.log('📊 Update Summary:')
   console.log(`  - Cloth items updated: ${clothUpdated}/${clothItems.length}`)
+  if (clothFailed > 0) {
+    console.log(`  - Cloth items failed: ${clothFailed}`)
+  }
   console.log(`  - Accessory items updated: ${accessoriesUpdated}/${accessoryItems.length}`)
+  if (accessoriesFailed > 0) {
+    console.log(`  - Accessory items failed: ${accessoriesFailed}`)
+  }
 
   // Verify updates
   console.log('\n🔍 Verifying updates...')
