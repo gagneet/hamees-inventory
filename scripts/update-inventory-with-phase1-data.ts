@@ -163,6 +163,18 @@ const fabricSpecifications: Record<string, FabricSpecification> = {
   },
 }
 
+// Type definition for accessory specifications
+interface AccessorySpecification {
+  colorCode?: string
+  buttonSize?: string
+  holePunchSize?: number
+  material?: string
+  finish?: string
+  threadWeight?: string
+  recommendedFor: string[]
+  styleCategory: string
+}
+
 // Accessory specifications
 const accessorySpecifications: Record<string, AccessorySpecification> = {
   'Pearl Buttons': {
