@@ -74,7 +74,7 @@ export function OrderItemEdit({
       const response = await fetch('/api/garment-patterns')
       if (response.ok) {
         const data = await response.json()
-        setGarmentPatterns(data)
+        setGarmentPatterns(data.patterns || [])
       }
     } catch (error) {
       console.error('Error loading garment patterns:', error)
