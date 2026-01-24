@@ -1248,12 +1248,12 @@ export async function GET(request: Request) {
     // Accessory low/critical stock
     const accessoryLowStockCount = allAccessoryItems.filter((item: any) => {
       const available = item.currentStock - item.reserved
-      return available > item.minimumStockMeters && available <= item.minimumStockMeters * 1.25
+      return available > item.minimumStockUnits && available <= item.minimumStockUnits * 1.25
     }).length
 
     const accessoryCriticalStockCount = allAccessoryItems.filter((item: any) => {
       const available = item.currentStock - item.reserved
-      return available <= item.minimumStockMeters
+      return available <= item.minimumStockUnits
     }).length
 
     // Calculate total value and total meters from all cloth inventory items
