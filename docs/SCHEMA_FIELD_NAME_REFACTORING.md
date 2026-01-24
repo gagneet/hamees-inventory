@@ -232,6 +232,13 @@ const stockItems = clothItems.map(item => ({
     - `app/api/inventory/cloth/route.ts` - POST schema (line 17) and create handler (line 138)
     - `app/api/inventory/cloth/[id]/route.ts` - PATCH schema (line 20)
 
+- [x] **Fixed:** Split order field names in item creation
+  - **Issue:** Order splitting would fail with runtime error
+  - **Cause:** Used old field names `quantity`/`wastage` instead of `quantityOrdered`/`wastageMeters`
+  - **Fix:** Updated 2 fields in `app/api/orders/[id]/split/route.ts`:
+    - Line 202: `quantity` → `quantityOrdered`
+    - Line 206: `wastage` → `wastageMeters`
+
 ## Deployment Steps
 
 1. **Backup Production Database**
