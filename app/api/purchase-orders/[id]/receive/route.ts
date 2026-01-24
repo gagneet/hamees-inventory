@@ -92,8 +92,8 @@ export async function POST(
                 clothInventoryId: item.clothInventoryId,
                 userId: session.user.id,
                 type: StockMovementType.PURCHASE,
-                quantity: item.receivedQuantity,
-                balanceAfter: newStock,
+                quantityMeters: item.receivedQuantity,
+                balanceAfterMeters: newStock,
                 notes: `Purchase Order ${purchaseOrder.poNumber} received`,
               },
             })
@@ -124,14 +124,14 @@ export async function POST(
         const poItem = purchaseOrder.items.find((i: POItem) => i.id === item.id)
         if (!poItem) return false
         const totalReceived = poItem.receivedQuantity + item.receivedQuantity
-        return totalReceived >= poItem.quantity
+        return totalReceived >= poItem.orderedQuantity
       })
 
       const anyPartiallyReceived = items.some((item) => {
         const poItem = purchaseOrder.items.find((i: POItem) => i.id === item.id)
         if (!poItem) return false
         const totalReceived = poItem.receivedQuantity + item.receivedQuantity
-        return totalReceived > 0 && totalReceived < poItem.quantity
+        return totalReceived > 0 && totalReceived < poItem.orderedQuantity
       })
 
       // Calculate new payment amounts (ADD instead of REPLACE)
