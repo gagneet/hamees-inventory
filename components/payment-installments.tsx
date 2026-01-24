@@ -16,7 +16,7 @@ import { formatCurrency } from '@/lib/utils'
 interface PaymentInstallment {
   id: string
   installmentNumber: number
-  amount: number
+  installmentAmount: number
   dueDate: string
   paidDate: string | null
   paidAmount: number
@@ -124,7 +124,7 @@ export function PaymentInstallments({ orderId, balanceAmount }: PaymentInstallme
   }
 
   const totalPaid = installments.reduce((sum, inst) => sum + inst.paidAmount, 0)
-  const totalDue = installments.reduce((sum, inst) => sum + inst.amount, 0)
+  const totalDue = installments.reduce((sum, inst) => sum + inst.installmentAmount, 0)
   const overdueCount = installments.filter(inst => inst.status === 'OVERDUE').length
 
   return (
@@ -167,7 +167,7 @@ export function PaymentInstallments({ orderId, balanceAmount }: PaymentInstallme
                     </div>
                   </TableCell>
                   <TableCell className="text-right font-semibold">
-                    {formatCurrency(installment.amount)}
+                    {formatCurrency(installment.installmentAmount)}
                   </TableCell>
                   <TableCell className="text-right">
                     {installment.paidAmount > 0 ? (
@@ -195,7 +195,7 @@ export function PaymentInstallments({ orderId, balanceAmount }: PaymentInstallme
                             variant="outline"
                             onClick={() => {
                               setRecordingPayment(installment.id)
-                              setPaymentAmount((installment.amount - installment.paidAmount).toString())
+                              setPaymentAmount((installment.installmentAmount - installment.paidAmount).toString())
                             }}
                           >
                             Record Payment
@@ -205,7 +205,7 @@ export function PaymentInstallments({ orderId, balanceAmount }: PaymentInstallme
                           <DialogHeader>
                             <DialogTitle>Record Payment - Installment #{installment.installmentNumber}</DialogTitle>
                             <DialogDescription>
-                              Due: {formatCurrency(installment.amount)} | Already Paid: {formatCurrency(installment.paidAmount)}
+                              Due: {formatCurrency(installment.installmentAmount)} | Already Paid: {formatCurrency(installment.paidAmount)}
                             </DialogDescription>
                           </DialogHeader>
                           <div className="space-y-4">

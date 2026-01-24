@@ -10,6 +10,80 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Payment Installments Display Fix (v0.26.4)
+
+**What's New:**
+- **Fixed NaN Display in Payment Installments** - Installment amounts now display correctly
+- **Interface Field Name Correction** - Aligned component interface with database schema
+
+**Version:** v0.26.4
+**Date:** January 24, 2026
+**Status:** ✅ Production Ready
+
+**Issue Fixed:**
+
+1. **NaN Display in Payment Installments Table**
+   - **Problem**: Payment Installments showed "₹NaN" for installment amounts
+   - **Symptoms**:
+     - Summary showed "Paid: ₹9,000.00 of ₹NaN"
+     - Table "Amount" column displayed "₹NaN" for all installments
+     - Only "Paid" column showed correct amounts
+   - **Root Cause**: Interface field name mismatch
+     - Database field: `installmentAmount` (PaymentInstallment schema)
+     - Component interface: `amount` (incorrect)
+     - API returned `installmentAmount`, component looked for `amount` → undefined → NaN
+   - **Solution**: Updated component interface and all references from `amount` to `installmentAmount`
+   - **Result**: All installment amounts now display correctly
+
+**Technical Details:**
+
+```typescript
+// Before (components/payment-installments.tsx)
+interface PaymentInstallment {
+  amount: number  // ❌ Wrong - field doesn't exist in database
+}
+const totalDue = installments.reduce((sum, inst) => sum + inst.amount, 0)  // ❌ Returns NaN
+
+// After (components/payment-installments.tsx)
+interface PaymentInstallment {
+  installmentAmount: number  // ✅ Correct - matches database schema
+}
+const totalDue = installments.reduce((sum, inst) => sum + inst.installmentAmount, 0)  // ✅ Works
+```
+
+**Changes Made:**
+1. Updated `PaymentInstallment` interface: `amount` → `installmentAmount`
+2. Updated 4 component references:
+   - Line 127: Total due calculation in summary
+   - Line 170: Amount display in table
+   - Line 198: Payment amount pre-fill calculation
+   - Line 208: Dialog description showing due amount
+
+**Files Modified:**
+- `components/payment-installments.tsx` - Fixed interface and all references to installmentAmount
+
+**Testing:**
+```bash
+# Test Payment Installments Display
+1. Login as owner@hameesattire.com / admin123
+2. Open any order with payment installments
+3. Scroll to "Payment Installments" section
+4. Verify:
+   - ✅ Summary shows "Paid: ₹X of ₹Y" (both values visible)
+   - ✅ Table "Amount" column shows correct amounts
+   - ✅ "Record Payment" dialog shows correct due amount
+```
+
+**Business Impact:**
+- ✅ Payment installments now display correctly
+- ✅ Staff can see accurate installment amounts
+- ✅ No confusion about payment schedules
+- ✅ Better financial tracking visibility
+
+**Documentation:** This section in CLAUDE.md
+
+---
+
 ### ✅ Payment System Bug Fixes (v0.26.3)
 
 **What's New:**
