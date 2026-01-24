@@ -1,8 +1,9 @@
-# Database Schema Field Name Refactoring (v0.26.0)
+# Database Schema Field Name Refactoring (v0.26.1)
 
 **Date:** January 24, 2026
-**Status:** ✅ Completed
+**Status:** ✅ Completed (Includes Post-Deployment Bug Fixes)
 **Build Status:** ✅ Clean (Zero TypeScript Errors)
+**Runtime Status:** ✅ All Runtime Errors Fixed
 
 ## Overview
 
@@ -200,6 +201,28 @@ const stockItems = clothItems.map(item => ({
 - [x] Order item creation uses quantityOrdered
 - [x] Wastage calculations use wastageMeters
 
+### Post-Deployment Bug Fixes (v0.26.1)
+
+- [x] **Fixed:** OrderItemEdit garmentPatterns API response handling
+  - **Issue:** Runtime error "garmentPatterns.map is not a function"
+  - **Cause:** API returns `{ patterns }` but component expected array directly
+  - **Fix:** Updated to use `data.patterns || []`
+
+- [x] **Fixed:** Balance calculation missing paid installments
+  - **Issue:** Discount application showed incorrect balance after partial payments
+  - **Cause:** Formula only subtracted advance and discount, not paid installments
+  - **Fix:** Added sum of paid installments to balance calculation
+
+- [x] **Fixed:** AccessoryStockMovement field names in order status updates
+  - **Issue:** Runtime errors when delivering/cancelling orders with accessories
+  - **Cause:** Used old field names `quantity`/`balanceAfter` instead of `quantityUnits`/`balanceAfterUnits`
+  - **Fix:** Updated 2 locations in `app/api/orders/[id]/status/route.ts` (lines 153-154, 241-242)
+
+- [x] **Fixed:** Dashboard stats using wrong field for accessories
+  - **Issue:** Accessory low/critical stock calculations would fail
+  - **Cause:** Used `minimumStockMeters` instead of `minimumStockUnits` for accessories
+  - **Fix:** Updated 2 locations in `app/api/dashboard/enhanced-stats/route.ts` (lines 1251, 1256)
+
 ## Deployment Steps
 
 1. **Backup Production Database**
@@ -292,6 +315,13 @@ If issues occur:
 - [ ] Documentation updated with new field names
 
 ## Version History
+
+- **v0.26.1** (January 24, 2026) - Post-deployment bug fixes
+  - Fixed OrderItemEdit garmentPatterns API response handling
+  - Fixed balance calculation to include paid installments
+  - Fixed AccessoryStockMovement field names (2 locations)
+  - Fixed dashboard stats accessory filtering (2 locations)
+  - All runtime errors resolved
 
 - **v0.26.0** (January 24, 2026) - Complete field name refactoring
   - Renamed 8 field types across 8 models
