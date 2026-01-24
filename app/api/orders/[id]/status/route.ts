@@ -150,8 +150,8 @@ export async function PATCH(
               orderId: order.id,
               userId: session.user.id,
               type: StockMovementType.ORDER_USED,
-              quantity: -quantityReserved, // Negative for consumption
-              balanceAfter: movement.accessoryInventory!.currentStock - quantityReserved,
+              quantityUnits: -quantityReserved, // Negative for consumption
+              balanceAfterUnits: movement.accessoryInventory!.currentStock - quantityReserved,
               notes: `Order ${order.orderNumber} delivered - accessories consumed`,
             },
           })
@@ -238,8 +238,8 @@ export async function PATCH(
               orderId: order.id,
               userId: session.user.id,
               type: StockMovementType.ORDER_CANCELLED,
-              quantity: quantityReserved, // Positive for release
-              balanceAfter: movement.accessoryInventory!.currentStock,
+              quantityUnits: quantityReserved, // Positive for release
+              balanceAfterUnits: movement.accessoryInventory!.currentStock,
               notes: `Order ${order.orderNumber} cancelled - accessories released`,
             },
           })
