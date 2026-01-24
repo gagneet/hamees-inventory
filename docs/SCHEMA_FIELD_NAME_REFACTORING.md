@@ -223,6 +223,15 @@ const stockItems = clothItems.map(item => ({
   - **Cause:** Used `minimumStockMeters` instead of `minimumStockUnits` for accessories
   - **Fix:** Updated 2 locations in `app/api/dashboard/enhanced-stats/route.ts` (lines 1251, 1256)
 
+- [x] **Fixed:** Zod schemas using old field names in inventory APIs
+  - **Issue:** Creating/updating inventory items would fail validation
+  - **Cause:** Zod schemas still used `minimum` instead of `minimumStockMeters`/`minimumStockUnits`
+  - **Fix:** Updated 4 files:
+    - `app/api/inventory/accessories/route.ts` - POST schema (line 13) and create handler (line 114)
+    - `app/api/inventory/accessories/[id]/route.ts` - PATCH schema (line 13)
+    - `app/api/inventory/cloth/route.ts` - POST schema (line 17) and create handler (line 138)
+    - `app/api/inventory/cloth/[id]/route.ts` - PATCH schema (line 20)
+
 ## Deployment Steps
 
 1. **Backup Production Database**
