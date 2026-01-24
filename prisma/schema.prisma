@@ -129,27 +129,27 @@ model User {
 }
 
 model ClothInventory {
-  id            String    @id @default(cuid())
-  sku           String    @unique
-  name          String
-  brand         String
-  color         String
-  colorHex      String    // For UI display
-  pattern       String    // Plain, Striped, Checkered, etc.
-  quality       String    // Premium, Standard, Economy
-  type          String    // Cotton, Silk, Linen, etc.
-  pricePerMeter Float
-  currentStock  Float     // in meters
-  totalPurchased Float    @default(0) // Track total ever purchased
-  reserved      Float     @default(0) // Reserved for orders
-  minimum       Float     // Minimum stock level
-  supplier      String
-  supplierId    String?
-  location      String?   // Storage location
-  notes         String?
-  active        Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                  String    @id @default(cuid())
+  sku                 String    @unique
+  name                String
+  brand               String
+  color               String
+  colorHex            String    // For UI display
+  pattern             String    // Plain, Striped, Checkered, etc.
+  quality             String    // Premium, Standard, Economy
+  type                String    // Cotton, Silk, Linen, etc.
+  pricePerMeter       Float
+  currentStock        Float     // in meters
+  totalPurchased      Float     @default(0) // Track total ever purchased
+  reserved            Float     @default(0) // Reserved for orders (in meters)
+  minimumStockMeters  Float     // Minimum stock level in meters (for reorder alerts)
+  supplier            String
+  supplierId          String?
+  location            String?   // Storage location
+  notes               String?
+  active              Boolean   @default(true)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
   // ====== PHASE 1 ENHANCEMENTS (v0.23.0) ======
   // Fabric Technical Specifications
@@ -182,20 +182,20 @@ model ClothInventory {
 }
 
 model AccessoryInventory {
-  id            String    @id @default(cuid())
-  sku           String    @unique
-  name          String
-  type          String    // Button, Thread, Zipper, etc.
-  color         String?
-  currentStock  Int
-  reserved      Int       @default(0) // Reserved for orders
-  minimum       Int
-  pricePerUnit  Float
-  supplier      String?
-  supplierId    String?
-  active        Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                 String    @id @default(cuid())
+  sku                String    @unique
+  name               String
+  type               String    // Button, Thread, Zipper, etc.
+  color              String?
+  currentStock       Int
+  reserved           Int       @default(0) // Reserved for orders (in units)
+  minimumStockUnits  Int       // Minimum stock level in units (for reorder alerts)
+  pricePerUnit       Float
+  supplier           String?
+  supplierId         String?
+  active             Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   // ====== PHASE 1 ENHANCEMENTS (v0.23.0) ======
   // Thread-Specific Fields
@@ -332,10 +332,10 @@ model GarmentPattern {
 }
 
 model GarmentAccessory {
-  id              String    @id @default(cuid())
-  garmentPatternId String
-  accessoryId     String
-  quantity        Int       // How many units needed per garment
+  id                  String    @id @default(cuid())
+  garmentPatternId    String
+  accessoryId         String
+  quantityPerGarment  Int       // How many units needed per garment (e.g., 10 buttons per shirt)
 
   // Relations
   garmentPattern  GarmentPattern    @relation(fields: [garmentPatternId], references: [id], onDelete: Cascade)
@@ -474,24 +474,24 @@ enum InstallmentStatus {
 }
 
 model PaymentInstallment {
-  id                String            @id @default(cuid())
-  orderId           String
-  order             Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  id                  String            @id @default(cuid())
+  orderId             String
+  order               Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
-  installmentNumber Int               // 1, 2, 3, etc.
-  amount            Float             // Expected installment amount
-  dueDate           DateTime
-  paidDate          DateTime?
-  paidAmount        Float             @default(0)
+  installmentNumber   Int               // 1, 2, 3, etc.
+  installmentAmount   Float             // Expected installment payment amount
+  dueDate             DateTime
+  paidDate            DateTime?
+  paidAmount          Float             @default(0)  // Actual amount paid for this installment
 
-  paymentMode       PaymentMode?
-  transactionRef    String?           // Transaction ID or cheque number
+  paymentMode         PaymentMode?
+  transactionRef      String?           // Transaction ID or cheque number
 
-  status            InstallmentStatus @default(PENDING)
-  notes             String?
+  status              InstallmentStatus @default(PENDING)
+  notes               String?
 
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 
   @@index([orderId])
   @@index([dueDate])
@@ -507,13 +507,13 @@ model OrderItem {
   measurementId     String?   // Which measurement was used for this item
   assignedTailorId  String?   // Which tailor is assigned to this item
 
-  quantity          Int       @default(1)
+  quantityOrdered   Int       @default(1)  // Number of garments ordered by customer
   bodyType          BodyType  @default(REGULAR)
 
-  // Material calculations
+  // Material calculations (fabric usage)
   estimatedMeters   Float     // Calculated based on pattern and body type
   actualMetersUsed  Float?    // Recorded after cutting
-  wastage           Float?    // Actual - Estimated
+  wastageMeters     Float?    // Fabric wastage: Actual - Estimated (in meters)
 
   pricePerUnit      Float
   totalPrice        Float
@@ -536,22 +536,22 @@ model OrderItem {
 }
 
 model StockMovement {
-  id              String            @id @default(cuid())
-  clothInventoryId String
-  orderId         String?
-  userId          String
+  id                  String            @id @default(cuid())
+  clothInventoryId    String
+  orderId             String?
+  userId              String
 
-  type            StockMovementType
-  quantity        Float             // Positive for additions, negative for reductions
-  balanceAfter    Float             // Stock balance after this movement
+  type                StockMovementType
+  quantityMeters      Float             // Fabric quantity moved in meters (positive for additions, negative for reductions)
+  balanceAfterMeters  Float             // Stock balance after this movement in meters
 
-  notes           String?
-  createdAt       DateTime          @default(now())
+  notes               String?
+  createdAt           DateTime          @default(now())
 
   // Relations
-  clothInventory  ClothInventory    @relation(fields: [clothInventoryId], references: [id])
-  order           Order?            @relation(fields: [orderId], references: [id])
-  user            User              @relation(fields: [userId], references: [id])
+  clothInventory      ClothInventory    @relation(fields: [clothInventoryId], references: [id])
+  order               Order?            @relation(fields: [orderId], references: [id])
+  user                User              @relation(fields: [userId], references: [id])
 
   @@index([clothInventoryId])
   @@index([orderId])
@@ -565,8 +565,8 @@ model AccessoryStockMovement {
   userId                String
 
   type                  StockMovementType
-  quantity              Int                   // Positive for additions, negative for reductions
-  balanceAfter          Int                   // Stock balance after this movement
+  quantityUnits         Int                   // Accessory quantity moved in units (positive for additions, negative for reductions)
+  balanceAfterUnits     Int                   // Stock balance after this movement in units
 
   notes                 String?
   createdAt             DateTime              @default(now())
@@ -674,11 +674,11 @@ model POItem {
   purchaseOrderId   String
   itemName          String
   itemType          String    // CLOTH, ACCESSORY
-  quantity          Float
+  orderedQuantity   Float     // Quantity ordered from supplier (in meters for cloth, units for accessories)
   unit              String    // meters, pieces
   pricePerUnit      Float
   totalPrice        Float
-  receivedQuantity  Float     @default(0)
+  receivedQuantity  Float     @default(0)  // Quantity actually received
   createdAt         DateTime  @default(now())
 
   // Relations
