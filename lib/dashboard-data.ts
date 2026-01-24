@@ -101,20 +101,20 @@ export async function getDashboardData(
     select: {
       currentStock: true,
       reserved: true,
-      minimum: true,
+      minimumStockMeters: true,
       pricePerMeter: true,
     },
   })
 
   const clothLowStock = clothInventory.filter((item: any) => {
     const available = item.currentStock - item.reserved
-    const threshold = item.minimum * 1.1
-    return available < threshold && available > item.minimum
+    const threshold = item.minimumStockMeters * 1.1
+    return available < threshold && available > item.minimumStockMeters
   }).length
 
   const clothCriticalStock = clothInventory.filter((item: any) => {
     const available = item.currentStock - item.reserved
-    return available <= item.minimum
+    return available <= item.minimumStockMeters
   }).length
 
   const totalClothWorth = clothInventory.reduce(
@@ -125,18 +125,18 @@ export async function getDashboardData(
   const accessoryInventory = await prisma.accessoryInventory.findMany({
     select: {
       currentStock: true,
-      minimum: true,
+      minimumStockUnits: true,
       pricePerUnit: true,
     },
   })
 
   const accessoryLowStock = accessoryInventory.filter((item: any) => {
-    const threshold = item.minimum * 1.1
-    return item.currentStock < threshold && item.currentStock > item.minimum
+    const threshold = item.minimumStockUnits * 1.1
+    return item.currentStock < threshold && item.currentStock > item.minimumStockUnits
   }).length
 
   const accessoryCriticalStock = accessoryInventory.filter(
-    (item: any) => item.currentStock <= item.minimum
+    (item: any) => item.currentStock <= item.minimumStockUnits
   ).length
 
   const totalAccessoryWorth = accessoryInventory.reduce(
@@ -557,7 +557,7 @@ export async function getDashboardData(
           name: true,
           currentStock: true,
           reserved: true,
-          minimum: true,
+          minimumStockMeters: true,
           pricePerMeter: true,
         },
       })
@@ -575,7 +575,7 @@ export async function getDashboardData(
         availableStock,
         usageRate,
         daysRemaining: Math.round(daysOfStockRemaining),
-        isLowStock: availableStock < cloth.minimum,
+        isLowStock: availableStock < cloth.minimumStockMeters,
         needsReorder: daysOfStockRemaining < 30,
       }
     })
