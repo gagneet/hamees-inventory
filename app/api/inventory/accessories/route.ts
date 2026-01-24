@@ -10,7 +10,7 @@ const accessoryInventorySchema = z.object({
   color: z.string().nullish(),
   currentStock: z.number().nullish(),
   pricePerUnit: z.number().nullish(),
-  minimum: z.number().nullish(),
+  minimumStockUnits: z.number().nullish(),
   supplierId: z.string().nullish(),
 })
 
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
         ...(data.color && { color: data.color }),
         currentStock: data.currentStock || 0,
         pricePerUnit: data.pricePerUnit || 0,
-        minimumStockUnits: data.minimum || 0,
+        minimumStockUnits: data.minimumStockUnits || 0,
         ...(data.supplierId && { supplierId: data.supplierId }),
       },
       include: {
