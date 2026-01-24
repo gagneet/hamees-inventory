@@ -399,7 +399,37 @@ async function main() {
     },
   })
 
-  console.log('✅ Sample orders created')
+  // Reserve accessories for the order (v0.25.0)
+  const shirtAccessories = await prisma.garmentAccessory.findMany({
+    where: { garmentPatternId: shirtPattern.id },
+    include: { accessory: true },
+  })
+
+  for (const ga of shirtAccessories) {
+    const quantityNeeded = ga.quantityPerGarment * 1 // 1 shirt in order
+
+    await prisma.accessoryInventory.update({
+      where: { id: ga.accessoryId },
+      data: { reserved: { increment: quantityNeeded } },
+    })
+
+    await prisma.accessoryStockMovement.create({
+      data: {
+        accessoryInventoryId: ga.accessoryId,
+        orderId: order1.id,
+        userId: owner.id,
+        type: StockMovementType.ORDER_RESERVED,
+        quantity: -quantityNeeded, // Negative for reservation
+        balanceAfter: (await prisma.accessoryInventory.findUnique({
+          where: { id: ga.accessoryId },
+          select: { currentStock: true },
+        }))!.currentStock,
+        notes: `Order ${order1.orderNumber} created - accessories reserved`,
+      },
+    })
+  }
+
+  console.log('✅ Sample orders created with accessory reservations')
 
   // 8. Create Settings
   console.log('⚙️  Creating settings...')

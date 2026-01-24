@@ -514,10 +514,52 @@ async function main() {
       // Reserve stock for active orders (not delivered or cancelled)
       const isActiveOrder = status !== OrderStatus.DELIVERED && status !== OrderStatus.CANCELLED as OrderStatus
       if (isActiveOrder) {
+        // Reserve cloth
         for (const itemData of itemsData) {
           await prisma.clothInventory.update({
             where: { id: itemData.clothInventoryId },
             data: { reserved: { increment: itemData.estimatedMeters } },
+          })
+        }
+
+        // Reserve accessories (v0.25.0)
+        const accessoryReservations = new Map<string, number>()
+
+        for (const itemData of itemsData) {
+          // Fetch accessories for this garment pattern
+          const garmentAccessories = await prisma.garmentAccessory.findMany({
+            where: { garmentPatternId: itemData.garmentPatternId },
+            include: { accessory: true },
+          })
+
+          // Calculate quantities needed
+          for (const ga of garmentAccessories) {
+            const quantityNeeded = ga.quantityPerGarment * itemData.quantity
+            const currentReserved = accessoryReservations.get(ga.accessoryId) || 0
+            accessoryReservations.set(ga.accessoryId, currentReserved + quantityNeeded)
+          }
+        }
+
+        // Reserve accessories and create stock movements
+        for (const [accessoryId, totalQuantity] of accessoryReservations.entries()) {
+          await prisma.accessoryInventory.update({
+            where: { id: accessoryId },
+            data: { reserved: { increment: totalQuantity } },
+          })
+
+          await prisma.accessoryStockMovement.create({
+            data: {
+              accessoryInventoryId: accessoryId,
+              orderId: order.id,
+              userId: order.userId,
+              type: StockMovementType.ORDER_RESERVED,
+              quantity: -totalQuantity, // Negative for reservation
+              balanceAfter: (await prisma.accessoryInventory.findUnique({
+                where: { id: accessoryId },
+                select: { currentStock: true },
+              }))!.currentStock,
+              notes: `Order ${order.orderNumber} created - accessories reserved`,
+            },
           })
         }
       }
