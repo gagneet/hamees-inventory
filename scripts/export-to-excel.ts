@@ -129,7 +129,7 @@ async function exportToExcel() {
           currentStock: i.currentStock,
           totalPurchased: i.totalPurchased,
           reserved: i.reserved,
-          minimum: i.minimum,
+          minimum: i.minimumStockMeters,
           supplier: i.supplier,
           supplierId: i.supplierId || '',
           location: i.location || '',
@@ -207,7 +207,7 @@ async function exportToExcel() {
           color: i.color || '',
           currentStock: i.currentStock,
           reserved: i.reserved, // v0.25.0 - Reserved for pending orders
-          minimum: i.minimum,
+          minimum: i.minimumStockUnits,
           pricePerUnit: i.pricePerUnit,
           supplier: i.supplier || '',
           supplierId: i.supplierId || '',
@@ -363,7 +363,7 @@ async function exportToExcel() {
           accessoryId: i.accessoryId,
           accessoryName: i.accessory.name,
           accessoryType: i.accessory.type,
-          quantity: i.quantity
+          quantity: i.quantityPerGarment
         }))
       },
       columns: [
@@ -535,11 +535,11 @@ async function exportToExcel() {
           clothInventoryId: i.clothInventoryId,
           measurementId: i.measurementId || '',
           assignedTailorId: i.assignedTailorId || '',
-          quantity: i.quantity,
+          quantity: i.quantityOrdered,
           bodyType: i.bodyType,
           estimatedMeters: i.estimatedMeters,
           actualMetersUsed: i.actualMetersUsed || '',
-          wastage: i.wastage || '',
+          wastage: i.wastageMeters || '',
           pricePerUnit: i.pricePerUnit,
           totalPrice: i.totalPrice,
           notes: i.notes || '',
@@ -643,7 +643,7 @@ async function exportToExcel() {
           purchaseOrderId: i.purchaseOrderId,
           itemName: i.itemName,
           itemType: i.itemType,
-          quantity: i.quantity,
+          quantity: i.orderedQuantity,
           unit: i.unit,
           pricePerUnit: i.pricePerUnit,
           totalPrice: i.totalPrice,
@@ -678,7 +678,7 @@ async function exportToExcel() {
           id: i.id,
           orderId: i.orderId,
           installmentNumber: i.installmentNumber,
-          amount: i.amount,
+          amount: i.installmentAmount,
           dueDate: i.dueDate.toISOString().split('T')[0],
           paidDate: i.paidDate ? i.paidDate.toISOString().split('T')[0] : '',
           paidAmount: i.paidAmount,
@@ -792,8 +792,8 @@ async function exportToExcel() {
           orderId: m.orderId || '',
           userId: m.userId,
           type: m.type,
-          quantity: m.quantity,
-          balanceAfter: m.balanceAfter,
+          quantity: m.quantityMeters,
+          balanceAfter: m.balanceAfterMeters,
           notes: m.notes || '',
           createdAt: m.createdAt.toISOString()
         }))
