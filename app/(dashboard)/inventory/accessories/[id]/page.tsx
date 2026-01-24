@@ -54,8 +54,8 @@ export default async function AccessoryDetailPage({
 
   const getStockStatus = () => {
     if (accessory.currentStock <= 0) return { label: 'Out of Stock', variant: 'destructive' as const }
-    if (accessory.currentStock < accessory.minimum * 0.5) return { label: 'Critical', variant: 'destructive' as const }
-    if (accessory.currentStock < accessory.minimum) return { label: 'Low Stock', variant: 'default' as const }
+    if (accessory.currentStock < accessory.minimumStockUnits * 0.5) return { label: 'Critical', variant: 'destructive' as const }
+    if (accessory.currentStock < accessory.minimumStockUnits) return { label: 'Low Stock', variant: 'default' as const }
     return { label: 'In Stock', variant: 'default' as const }
   }
 
@@ -263,12 +263,12 @@ export default async function AccessoryDetailPage({
                     <span className="text-sm text-slate-500">Status</span>
                     <Badge variant={status.variant}>{status.label}</Badge>
                   </div>
-                  {accessory.currentStock < accessory.minimum && (
+                  {accessory.currentStock < accessory.minimumStockUnits && (
                     <Link
                       href={`/purchase-orders/new?itemName=${encodeURIComponent(
                         accessory.name
                       )}&itemType=ACCESSORY&quantity=${
-                        Math.max(accessory.minimum * 2 - accessory.currentStock, accessory.minimum)
+                        Math.max(accessory.minimumStockUnits * 2 - accessory.currentStock, accessory.minimumStockUnits)
                       }&pricePerUnit=${accessory.pricePerUnit}&unit=pieces&color=${encodeURIComponent(
                         accessory.color || ''
                       )}&type=${encodeURIComponent(accessory.type)}`}
@@ -287,7 +287,7 @@ export default async function AccessoryDetailPage({
                   </div>
                   <div className="flex justify-between pt-2 border-t">
                     <span className="text-slate-600">Minimum:</span>
-                    <span className="font-semibold">{accessory.minimum} units</span>
+                    <span className="font-semibold">{accessory.minimumStockUnits} units</span>
                   </div>
                 </div>
               </CardContent>
