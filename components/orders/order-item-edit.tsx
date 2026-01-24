@@ -19,7 +19,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Edit } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Edit, AlertTriangle } from 'lucide-react'
 
 interface OrderItemEditProps {
   orderId: string
@@ -28,6 +29,8 @@ interface OrderItemEditProps {
   currentClothInventoryId: string
   currentGarmentName: string
   currentClothName: string
+  currentPrice: number
+  currentPricePerUnit: number
 }
 
 interface GarmentPattern {
@@ -42,6 +45,9 @@ interface ClothInventory {
   color: string
   sku: string
   brand: string
+  pricePerMeter: number
+  currentStock: number
+  reserved: number
 }
 
 export function OrderItemEdit({
@@ -51,6 +57,8 @@ export function OrderItemEdit({
   currentClothInventoryId,
   currentGarmentName,
   currentClothName,
+  currentPrice,
+  currentPricePerUnit,
 }: OrderItemEditProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -60,6 +68,7 @@ export function OrderItemEdit({
 
   const [selectedGarmentId, setSelectedGarmentId] = useState(currentGarmentPatternId)
   const [selectedClothId, setSelectedClothId] = useState(currentClothInventoryId)
+  const [estimatedNewPrice, setEstimatedNewPrice] = useState<number | null>(null)
 
   // Load garment patterns and cloth inventory when dialog opens
   useEffect(() => {
@@ -86,19 +95,37 @@ export function OrderItemEdit({
       const response = await fetch('/api/inventory/cloth')
       if (response.ok) {
         const data = await response.json()
-        setClothInventory(data.items || data)
+        // Handle both paginated and non-paginated responses
+        const items = data.items || data
+        setClothInventory(Array.isArray(items) ? items : [])
       }
     } catch (error) {
       console.error('Error loading cloth inventory:', error)
     }
   }
 
+  // Calculate estimated new price when fabric changes
+  useEffect(() => {
+    if (selectedClothId !== currentClothInventoryId) {
+      const selectedCloth = clothInventory.find(c => c.id === selectedClothId)
+      if (selectedCloth) {
+        // Estimated price will be calculated on server side with accurate accessories
+        // This is just a preview based on fabric cost difference
+        const currentCloth = clothInventory.find(c => c.id === currentClothInventoryId)
+        if (currentCloth) {
+          const priceDifference = selectedCloth.pricePerMeter - currentCloth.pricePerMeter
+          const estimatedMeters = currentPricePerUnit / currentCloth.pricePerMeter // rough estimate
+          setEstimatedNewPrice(currentPrice + (priceDifference * estimatedMeters))
+        }
+      }
+    } else {
+      setEstimatedNewPrice(null)
+    }
+  }, [selectedClothId, currentClothInventoryId, clothInventory, currentPrice, currentPricePerUnit])
+
   const handleSave = async () => {
-    // Check if anything changed
-    if (
-      selectedGarmentId === currentGarmentPatternId &&
-      selectedClothId === currentClothInventoryId
-    ) {
+    // Check if anything changed (only cloth can change now)
+    if (selectedClothId === currentClothInventoryId) {
       alert('No changes made')
       return
     }
@@ -109,7 +136,6 @@ export function OrderItemEdit({
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          garmentPatternId: selectedGarmentId,
           clothInventoryId: selectedClothId,
         }),
       })
@@ -119,7 +145,8 @@ export function OrderItemEdit({
         throw new Error(errorData.error || 'Failed to update order item')
       }
 
-      alert('Order item updated successfully!')
+      const result = await response.json()
+      alert(`Order item updated successfully!\n\nOld Price: ₹${currentPrice.toFixed(2)}\nNew Price: ₹${result.updatedOrderItem.totalPrice.toFixed(2)}\n\nOrder total has been recalculated.`)
       setOpen(false)
       router.refresh()
     } catch (error) {
@@ -142,27 +169,27 @@ export function OrderItemEdit({
         <DialogHeader>
           <DialogTitle>Edit Order Item</DialogTitle>
           <DialogDescription>
-            Change the garment type or fabric for this order item
+            Change the fabric for this order item. Garment type cannot be changed.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
+          {/* Alert about garment type being locked */}
+          <div className="bg-amber-50 border border-amber-200 rounded-md p-3 flex gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+            <div className="text-xs text-amber-800">
+              <strong>Note:</strong> Garment type cannot be changed as it affects measurements, accessories, and customer records. Only fabric can be updated.
+            </div>
+          </div>
+
           <div>
-            <Label htmlFor="garmentPattern">Garment Type</Label>
-            <Select value={selectedGarmentId} onValueChange={setSelectedGarmentId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select garment type" />
-              </SelectTrigger>
-              <SelectContent>
-                {garmentPatterns.map((pattern) => (
-                  <SelectItem key={pattern.id} value={pattern.id}>
-                    {pattern.name}
-                    {pattern.description && ` - ${pattern.description}`}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="garmentPattern">Garment Type (Read-only)</Label>
+            <Input
+              value={currentGarmentName}
+              disabled
+              className="bg-slate-100 cursor-not-allowed"
+            />
             <p className="text-xs text-slate-500 mt-1">
-              Current: {currentGarmentName}
+              Garment type is locked to prevent data inconsistencies
             </p>
           </div>
 
@@ -175,7 +202,7 @@ export function OrderItemEdit({
               <SelectContent>
                 {clothInventory.map((cloth) => (
                   <SelectItem key={cloth.id} value={cloth.id}>
-                    {cloth.name} - {cloth.color} ({cloth.brand})
+                    {cloth.name} - {cloth.color} ({cloth.brand}) - ₹{cloth.pricePerMeter.toFixed(2)}/m
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -184,6 +211,20 @@ export function OrderItemEdit({
               Current: {currentClothName}
             </p>
           </div>
+
+          {/* Price preview */}
+          {estimatedNewPrice !== null && (
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+              <div className="text-sm font-medium text-blue-900 mb-1">Price Estimate</div>
+              <div className="text-xs text-blue-700 space-y-1">
+                <div>Current Item Price: <span className="font-semibold">₹{currentPrice.toFixed(2)}</span></div>
+                <div>Estimated New Price: <span className="font-semibold">₹{estimatedNewPrice.toFixed(2)}</span></div>
+                <div className="text-blue-600 italic mt-2">
+                  Note: Actual price will be calculated server-side including accessories and updated order total.
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-end gap-2 pt-4">
             <Button

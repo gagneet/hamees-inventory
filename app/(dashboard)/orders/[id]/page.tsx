@@ -364,6 +364,8 @@ export default async function OrderDetailPage({
                               currentClothInventoryId={item.clothInventory.id}
                               currentGarmentName={item.garmentPattern.name}
                               currentClothName={`${item.clothInventory.name} (${item.clothInventory.color})`}
+                              currentPrice={item.totalPrice}
+                              currentPricePerUnit={item.pricePerUnit}
                             />
                           </div>
                         </div>
