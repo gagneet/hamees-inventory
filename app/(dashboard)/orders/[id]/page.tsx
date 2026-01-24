@@ -127,7 +127,7 @@ async function getOrderDetails(id: string) {
           select: {
             id: true,
             installmentNumber: true,
-            amount: true,
+            installmentAmount: true,
             paidDate: true,
             paidAmount: true,
             status: true,
@@ -297,7 +297,7 @@ export default async function OrderDetailPage({
                             <OrderItemDetailDialog
                               orderItem={{
                                 id: item.id,
-                                quantity: item.quantity,
+                                quantity: item.quantityOrdered,
                                 estimatedMeters: item.estimatedMeters,
                                 actualMetersUsed: item.actualMetersUsed || undefined,
                                 bodyType: item.bodyType,
@@ -371,7 +371,7 @@ export default async function OrderDetailPage({
                       <div className="grid grid-cols-3 gap-4 text-sm">
                         <div>
                           <p className="text-slate-500">Quantity</p>
-                          <p className="font-medium text-slate-900">{item.quantity}</p>
+                          <p className="font-medium text-slate-900">{item.quantityOrdered}</p>
                         </div>
                         <div>
                           <p className="text-slate-500">Estimated Fabric</p>
@@ -679,7 +679,7 @@ export default async function OrderDetailPage({
                       name: item.clothInventory.name,
                       color: item.clothInventory.color
                     },
-                    quantity: item.quantity,
+                    quantityOrdered: item.quantityOrdered,
                     estimatedMeters: item.estimatedMeters,
                     totalPrice: item.totalPrice
                   }))}

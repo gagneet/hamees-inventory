@@ -37,7 +37,7 @@ type GarmentPattern = {
   luxuryStitchingCharge: number
   accessories?: Array<{
     id: string
-    quantity: number
+    quantityPerGarment: number
     accessory: {
       id: string
       name: string
@@ -78,7 +78,7 @@ type OrderItemAccessory = {
 type OrderItem = {
   garmentPatternId: string
   clothInventoryId: string
-  quantity: number
+  quantityOrdered: number
   bodyType: 'SLIM' | 'REGULAR' | 'LARGE' | 'XL'
   accessories: OrderItemAccessory[]
 }
@@ -217,7 +217,7 @@ function NewOrderForm() {
     setItems([...items, {
       garmentPatternId: '',
       clothInventoryId: '',
-      quantity: 1,
+      quantityOrdered: 1,
       bodyType: 'REGULAR',
       accessories: [],
     }])
@@ -234,7 +234,7 @@ function NewOrderForm() {
       const pattern = garmentPatterns.find(p => p.id === value)
       const defaultAccessories = pattern?.accessories?.map(ga => ({
         accessoryId: ga.accessory.id,
-        quantity: ga.quantity,
+        quantity: ga.quantityPerGarment,
       })) || []
       newItems[index] = { ...newItems[index], [field]: value, accessories: defaultAccessories }
     } else {
@@ -305,7 +305,7 @@ function NewOrderForm() {
         if (item.bodyType === 'LARGE') adjustment = pattern.largeAdjustment
         if (item.bodyType === 'XL') adjustment = pattern.xlAdjustment
 
-        const meters = (pattern.baseMeters + adjustment) * item.quantity
+        const meters = (pattern.baseMeters + adjustment) * item.quantityOrdered
         fabricCost += parseFloat((meters * cloth.pricePerMeter).toFixed(2))
 
         // Accessories cost
@@ -313,7 +313,7 @@ function NewOrderForm() {
           for (const itemAcc of item.accessories) {
             const accessory = accessories.find(a => a.id === itemAcc.accessoryId)
             if (accessory) {
-              const accessoryTotal = itemAcc.quantity * item.quantity * accessory.pricePerUnit
+              const accessoryTotal = itemAcc.quantity * item.quantityOrdered * accessory.pricePerUnit
               accessoriesCost += parseFloat(accessoryTotal.toFixed(2))
             }
           }
@@ -326,7 +326,7 @@ function NewOrderForm() {
         } else if (stitchingTier === 'LUXURY') {
           tierCharge = pattern.luxuryStitchingCharge
         }
-        stitchingCost += tierCharge * item.quantity
+        stitchingCost += tierCharge * item.quantityOrdered
       }
     }
 
@@ -781,7 +781,7 @@ function NewOrderForm() {
                                         className="w-16 px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                                       />
                                       <span className="text-xs text-slate-600">
-                                        × {item.quantity} = {itemAcc.quantity * item.quantity}
+                                        × {item.quantityOrdered} = {itemAcc.quantity * item.quantityOrdered}
                                       </span>
                                       <Button
                                         variant="ghost"
@@ -829,10 +829,10 @@ function NewOrderForm() {
                           inputMode="numeric"
                           pattern="[0-9]*"
                           min="1"
-                          value={item.quantity}
+                          value={item.quantityOrdered}
                           onChange={(e) => {
                             const val = e.target.value.replace(/[^0-9]/g, '')
-                            updateItem(index, 'quantity', parseInt(val) || 1)
+                            updateItem(index, 'quantityOrdered', parseInt(val) || 1)
                           }}
                           className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
