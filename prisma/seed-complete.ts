@@ -216,7 +216,7 @@ async function main() {
         currentStock: cloth.stock,
         totalPurchased: cloth.stock,
         reserved: 0,
-        minimum: cloth.minimum,
+        minimumStockMeters: cloth.minimum,
         supplier: suppliers[randomInt(0, 1)].name,
         supplierId: suppliers[randomInt(0, 1)].id,
         location: `Rack ${cloth.rack}`,
@@ -230,22 +230,22 @@ async function main() {
   console.log('🔘 Creating accessory inventory...')
   const accessories = await Promise.all([
     prisma.accessoryInventory.create({
-      data: { sku: 'ACC-BUT-001', name: 'Pearl Buttons', type: 'Button', color: 'White', currentStock: 5000, minimum: 500, pricePerUnit: 2.5, supplier: suppliers[2].name, supplierId: suppliers[2].id },
+      data: { sku: 'ACC-BUT-001', name: 'Pearl Buttons', type: 'Button', color: 'White', currentStock: 5000, minimumStockUnits: 500, pricePerUnit: 2.5, supplier: suppliers[2].name, supplierId: suppliers[2].id },
     }),
     prisma.accessoryInventory.create({
-      data: { sku: 'ACC-BUT-002', name: 'Metal Buttons', type: 'Button', color: 'Gold', currentStock: 3000, minimum: 300, pricePerUnit: 5.0, supplier: suppliers[2].name, supplierId: suppliers[2].id },
+      data: { sku: 'ACC-BUT-002', name: 'Metal Buttons', type: 'Button', color: 'Gold', currentStock: 3000, minimumStockUnits: 300, pricePerUnit: 5.0, supplier: suppliers[2].name, supplierId: suppliers[2].id },
     }),
     prisma.accessoryInventory.create({
-      data: { sku: 'ACC-BUT-003', name: 'Black Buttons', type: 'Button', color: 'Black', currentStock: 4000, minimum: 400, pricePerUnit: 3.0, supplier: suppliers[2].name, supplierId: suppliers[2].id },
+      data: { sku: 'ACC-BUT-003', name: 'Black Buttons', type: 'Button', color: 'Black', currentStock: 4000, minimumStockUnits: 400, pricePerUnit: 3.0, supplier: suppliers[2].name, supplierId: suppliers[2].id },
     }),
     prisma.accessoryInventory.create({
-      data: { sku: 'ACC-THR-001', name: 'Polyester Thread', type: 'Thread', color: 'White', currentStock: 2000, minimum: 200, pricePerUnit: 15.0, supplier: suppliers[2].name, supplierId: suppliers[2].id },
+      data: { sku: 'ACC-THR-001', name: 'Polyester Thread', type: 'Thread', color: 'White', currentStock: 2000, minimumStockUnits: 200, pricePerUnit: 15.0, supplier: suppliers[2].name, supplierId: suppliers[2].id },
     }),
     prisma.accessoryInventory.create({
-      data: { sku: 'ACC-THR-002', name: 'Cotton Thread', type: 'Thread', color: 'Black', currentStock: 1800, minimum: 180, pricePerUnit: 18.0, supplier: suppliers[2].name, supplierId: suppliers[2].id },
+      data: { sku: 'ACC-THR-002', name: 'Cotton Thread', type: 'Thread', color: 'Black', currentStock: 1800, minimumStockUnits: 180, pricePerUnit: 18.0, supplier: suppliers[2].name, supplierId: suppliers[2].id },
     }),
     prisma.accessoryInventory.create({
-      data: { sku: 'ACC-ZIP-001', name: 'Metal Zipper', type: 'Zipper', color: 'Silver', currentStock: 1200, minimum: 120, pricePerUnit: 25.0, supplier: suppliers[2].name, supplierId: suppliers[2].id },
+      data: { sku: 'ACC-ZIP-001', name: 'Metal Zipper', type: 'Zipper', color: 'Silver', currentStock: 1200, minimumStockUnits: 120, pricePerUnit: 25.0, supplier: suppliers[2].name, supplierId: suppliers[2].id },
     }),
   ])
   console.log(`✅ Created ${accessories.length} accessory items\n`)
@@ -314,15 +314,15 @@ async function main() {
   // Link accessories to garment patterns
   await prisma.garmentAccessory.createMany({
     data: [
-      { garmentPatternId: garmentPatterns[0].id, accessoryId: accessories[0].id, quantity: 8 }, // Shirt - Pearl Buttons
-      { garmentPatternId: garmentPatterns[0].id, accessoryId: accessories[3].id, quantity: 1 }, // Shirt - Thread
-      { garmentPatternId: garmentPatterns[1].id, accessoryId: accessories[2].id, quantity: 1 }, // Trouser - Black Buttons
-      { garmentPatternId: garmentPatterns[1].id, accessoryId: accessories[4].id, quantity: 1 }, // Trouser - Thread
-      { garmentPatternId: garmentPatterns[1].id, accessoryId: accessories[5].id, quantity: 1 }, // Trouser - Zipper
-      { garmentPatternId: garmentPatterns[2].id, accessoryId: accessories[1].id, quantity: 6 }, // Suit - Metal Buttons
-      { garmentPatternId: garmentPatterns[2].id, accessoryId: accessories[3].id, quantity: 2 }, // Suit - Thread
-      { garmentPatternId: garmentPatterns[3].id, accessoryId: accessories[1].id, quantity: 10 }, // Sherwani - Metal Buttons
-      { garmentPatternId: garmentPatterns[3].id, accessoryId: accessories[3].id, quantity: 2 }, // Sherwani - Thread
+      { garmentPatternId: garmentPatterns[0].id, accessoryId: accessories[0].id, quantityPerGarment: 8 }, // Shirt - Pearl Buttons
+      { garmentPatternId: garmentPatterns[0].id, accessoryId: accessories[3].id, quantityPerGarment: 1 }, // Shirt - Thread
+      { garmentPatternId: garmentPatterns[1].id, accessoryId: accessories[2].id, quantityPerGarment: 1 }, // Trouser - Black Buttons
+      { garmentPatternId: garmentPatterns[1].id, accessoryId: accessories[4].id, quantityPerGarment: 1 }, // Trouser - Thread
+      { garmentPatternId: garmentPatterns[1].id, accessoryId: accessories[5].id, quantityPerGarment: 1 }, // Trouser - Zipper
+      { garmentPatternId: garmentPatterns[2].id, accessoryId: accessories[1].id, quantityPerGarment: 6 }, // Suit - Metal Buttons
+      { garmentPatternId: garmentPatterns[2].id, accessoryId: accessories[3].id, quantityPerGarment: 2 }, // Suit - Thread
+      { garmentPatternId: garmentPatterns[3].id, accessoryId: accessories[1].id, quantityPerGarment: 10 }, // Sherwani - Metal Buttons
+      { garmentPatternId: garmentPatterns[3].id, accessoryId: accessories[3].id, quantityPerGarment: 2 }, // Sherwani - Thread
     ],
   })
   console.log(`✅ Created ${garmentPatterns.length} garment patterns with accessories\n`)
@@ -553,8 +553,8 @@ async function main() {
               orderId: order.id,
               userId: order.userId,
               type: StockMovementType.ORDER_RESERVED,
-              quantity: -totalQuantity, // Negative for reservation
-              balanceAfter: (await prisma.accessoryInventory.findUnique({
+              quantityUnits: -totalQuantity, // Negative for reservation
+              balanceAfterUnits: (await prisma.accessoryInventory.findUnique({
                 where: { id: accessoryId },
                 select: { currentStock: true },
               }))!.currentStock,

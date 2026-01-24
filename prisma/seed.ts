@@ -115,7 +115,7 @@ async function main() {
       currentStock: 45,
       totalPurchased: 120,
       reserved: 8,
-      minimum: 15,
+      minimumStockMeters: 15,
       supplier: supplier1.name,
       supplierId: supplier1.id,
       location: 'Rack A-1',
@@ -137,7 +137,7 @@ async function main() {
       currentStock: 18,
       totalPurchased: 120,
       reserved: 5,
-      minimum: 20,
+      minimumStockMeters: 20,
       supplier: supplier1.name,
       supplierId: supplier1.id,
       location: 'Rack B-1',
@@ -159,7 +159,7 @@ async function main() {
       currentStock: 65,
       totalPurchased: 120,
       reserved: 12,
-      minimum: 25,
+      minimumStockMeters: 25,
       supplier: supplier2.name,
       supplierId: supplier2.id,
       location: 'Rack A-2',
@@ -181,7 +181,7 @@ async function main() {
       currentStock: 38,
       totalPurchased: 120,
       reserved: 6,
-      minimum: 20,
+      minimumStockMeters: 20,
       supplier: supplier2.name,
       supplierId: supplier2.id,
       location: 'Rack C-1',
@@ -200,7 +200,7 @@ async function main() {
       type: 'Button',
       color: 'White',
       currentStock: 500,
-      minimum: 100,
+      minimumStockUnits: 100,
       pricePerUnit: 2,
       supplier: supplier1.name,
       supplierId: supplier1.id,
@@ -214,7 +214,7 @@ async function main() {
       type: 'Thread',
       color: 'White',
       currentStock: 200,
-      minimum: 50,
+      minimumStockUnits: 50,
       pricePerUnit: 15,
       supplier: supplier1.name,
       supplierId: supplier1.id,
@@ -228,7 +228,7 @@ async function main() {
       type: 'Zipper',
       color: 'Black',
       currentStock: 80,
-      minimum: 20,
+      minimumStockUnits: 20,
       pricePerUnit: 25,
       supplier: supplier2.name,
       supplierId: supplier2.id,
@@ -290,16 +290,16 @@ async function main() {
   // Link accessories to patterns
   await prisma.garmentAccessory.createMany({
     data: [
-      { garmentPatternId: shirtPattern.id, accessoryId: button1.id, quantity: 10 },
-      { garmentPatternId: shirtPattern.id, accessoryId: thread1.id, quantity: 1 },
-      { garmentPatternId: trouserPattern.id, accessoryId: button1.id, quantity: 2 },
-      { garmentPatternId: trouserPattern.id, accessoryId: thread1.id, quantity: 1 },
-      { garmentPatternId: trouserPattern.id, accessoryId: zipper1.id, quantity: 1 },
-      { garmentPatternId: suitPattern.id, accessoryId: button1.id, quantity: 15 },
-      { garmentPatternId: suitPattern.id, accessoryId: thread1.id, quantity: 2 },
-      { garmentPatternId: suitPattern.id, accessoryId: zipper1.id, quantity: 1 },
-      { garmentPatternId: sherwaniPattern.id, accessoryId: button1.id, quantity: 12 },
-      { garmentPatternId: sherwaniPattern.id, accessoryId: thread1.id, quantity: 2 },
+      { garmentPatternId: shirtPattern.id, accessoryId: button1.id, quantityPerGarment: 10 },
+      { garmentPatternId: shirtPattern.id, accessoryId: thread1.id, quantityPerGarment: 1 },
+      { garmentPatternId: trouserPattern.id, accessoryId: button1.id, quantityPerGarment: 2 },
+      { garmentPatternId: trouserPattern.id, accessoryId: thread1.id, quantityPerGarment: 1 },
+      { garmentPatternId: trouserPattern.id, accessoryId: zipper1.id, quantityPerGarment: 1 },
+      { garmentPatternId: suitPattern.id, accessoryId: button1.id, quantityPerGarment: 15 },
+      { garmentPatternId: suitPattern.id, accessoryId: thread1.id, quantityPerGarment: 2 },
+      { garmentPatternId: suitPattern.id, accessoryId: zipper1.id, quantityPerGarment: 1 },
+      { garmentPatternId: sherwaniPattern.id, accessoryId: button1.id, quantityPerGarment: 12 },
+      { garmentPatternId: sherwaniPattern.id, accessoryId: thread1.id, quantityPerGarment: 2 },
     ],
   })
 
@@ -375,7 +375,7 @@ async function main() {
           {
             garmentPatternId: shirtPattern.id,
             clothInventoryId: cloth1.id,
-            quantity: 1,
+            quantityOrdered: 1,
             bodyType: BodyType.REGULAR,
             estimatedMeters: estimatedMetersShirt,
             pricePerUnit: orderTotal,
@@ -393,8 +393,8 @@ async function main() {
       orderId: order1.id,
       userId: owner.id,
       type: StockMovementType.ORDER_RESERVED,
-      quantity: -estimatedMetersShirt,
-      balanceAfter: cloth1.currentStock - estimatedMetersShirt,
+      quantityMeters: -estimatedMetersShirt,
+      balanceAfterMeters: cloth1.currentStock - estimatedMetersShirt,
       notes: `Reserved for order ${order1.orderNumber}`,
     },
   })
@@ -419,8 +419,8 @@ async function main() {
         orderId: order1.id,
         userId: owner.id,
         type: StockMovementType.ORDER_RESERVED,
-        quantity: -quantityNeeded, // Negative for reservation
-        balanceAfter: (await prisma.accessoryInventory.findUnique({
+        quantityUnits: -quantityNeeded, // Negative for reservation
+        balanceAfterUnits: (await prisma.accessoryInventory.findUnique({
           where: { id: ga.accessoryId },
           select: { currentStock: true },
         }))!.currentStock,
@@ -484,7 +484,7 @@ async function main() {
       type: 'LOW_STOCK',
       severity: 'MEDIUM',
       title: 'Low Stock Alert - Cloth',
-      message: `${cloth2.name} is running low. Current: ${cloth2.currentStock}m, Minimum: ${cloth2.minimum}m`,
+      message: `${cloth2.name} is running low. Current: ${cloth2.currentStock}m, Minimum: ${cloth2.minimumStockMeters}m`,
       relatedId: cloth2.id,
       relatedType: 'ClothInventory',
     },
@@ -492,17 +492,17 @@ async function main() {
 
   // Check for low stock accessories and create alerts
   const allAccessories = await prisma.accessoryInventory.findMany()
-  const lowStockAccessories = allAccessories.filter(item => item.currentStock < item.minimum)
+  const lowStockAccessories = allAccessories.filter(item => item.currentStock < item.minimumStockUnits)
 
   for (const item of lowStockAccessories) {
-    const severity = item.currentStock < (item.minimum * 0.5) ? 'HIGH' : 'MEDIUM'
+    const severity = item.currentStock < (item.minimumStockUnits * 0.5) ? 'HIGH' : 'MEDIUM'
 
     await prisma.alert.create({
       data: {
         type: severity === 'HIGH' ? 'CRITICAL_STOCK' : 'LOW_STOCK',
         severity,
         title: `${severity === 'HIGH' ? 'Critical' : 'Low'} Stock Alert - Accessory`,
-        message: `${item.name} is running ${severity === 'HIGH' ? 'critically' : ''} low. Available: ${item.currentStock} pcs, Minimum: ${item.minimum} pcs`,
+        message: `${item.name} is running ${severity === 'HIGH' ? 'critically' : ''} low. Available: ${item.currentStock} pcs, Minimum: ${item.minimumStockUnits} pcs`,
         relatedId: item.id,
         relatedType: 'AccessoryInventory',
       },
