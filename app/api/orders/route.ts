@@ -359,7 +359,7 @@ export async function POST(request: Request) {
       // Add pattern's default accessories
       if (pattern.accessories && pattern.accessories.length > 0) {
         for (const garmentAcc of pattern.accessories) {
-          const totalNeeded = garmentAcc.quantity * item.quantity
+          const totalNeeded = garmentAcc.quantityPerGarment * item.quantity
           requiredAccessories.set(garmentAcc.accessoryId, totalNeeded)
         }
       }
@@ -422,7 +422,7 @@ export async function POST(request: Request) {
       orderItems.push({
         garmentPatternId: item.garmentPatternId,
         clothInventoryId: item.clothInventoryId,
-        quantity: item.quantity,
+        quantityOrdered: item.quantity,
         bodyType: item.bodyType,
         estimatedMeters,
         pricePerUnit: itemTotal / item.quantity,
@@ -615,8 +615,8 @@ export async function POST(request: Request) {
             orderId: newOrder.id,
             userId: session.user.id,
             type: StockMovementType.ORDER_RESERVED,
-            quantity: -item.estimatedMeters,
-            balanceAfter: item.clothInventory!.currentStock - item.estimatedMeters,
+            quantityMeters: -item.estimatedMeters,
+            balanceAfterMeters: item.clothInventory!.currentStock - item.estimatedMeters,
             notes: `Reserved for order ${newOrder.orderNumber}`,
           },
         })
@@ -653,8 +653,8 @@ export async function POST(request: Request) {
             orderId: newOrder.id,
             userId: session.user.id,
             type: StockMovementType.ORDER_RESERVED,
-            quantity: -totalQuantity,
-            balanceAfter: accessory.currentStock - totalQuantity,
+            quantityUnits: -totalQuantity,
+            balanceAfterUnits: accessory.currentStock - totalQuantity,
             notes: `Reserved for order ${newOrder.orderNumber}`,
           },
         })
@@ -666,7 +666,7 @@ export async function POST(request: Request) {
           data: {
             orderId: newOrder.id,
             installmentNumber: 1,
-            amount: validatedData.advancePaid,
+            installmentAmount: validatedData.advancePaid,
             dueDate: new Date(), // Advance is paid immediately
             paidDate: new Date(), // Mark as paid
             paidAmount: validatedData.advancePaid,
