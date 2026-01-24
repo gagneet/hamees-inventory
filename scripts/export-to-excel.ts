@@ -206,6 +206,7 @@ async function exportToExcel() {
           type: i.type,
           color: i.color || '',
           currentStock: i.currentStock,
+          reserved: i.reserved, // v0.25.0 - Reserved for pending orders
           minimum: i.minimum,
           pricePerUnit: i.pricePerUnit,
           supplier: i.supplier || '',
@@ -233,6 +234,7 @@ async function exportToExcel() {
         { key: 'type', header: 'Type', width: 20 },
         { key: 'color', header: 'Color', width: 15 },
         { key: 'currentStock', header: 'Current Stock', width: 12 },
+        { key: 'reserved', header: 'Reserved (Orders)', width: 12 },
         { key: 'minimum', header: 'Minimum', width: 12 },
         { key: 'pricePerUnit', header: 'Price/Unit', width: 12 },
         { key: 'supplier', header: 'Supplier Name', width: 25 },
@@ -252,7 +254,7 @@ async function exportToExcel() {
         { key: 'createdAt', header: 'Created At', width: 20 },
         { key: 'updatedAt', header: 'Updated At', width: 20 }
       ],
-      notes: 'Types: Button, Thread, Zipper | Button Sizes: 14L, 18L, 20L, 24L | Thread Weights: 40wt, 50wt, 60wt | Materials: Shell, Brass, Resin | Finish: Matte, Polished, Antique'
+      notes: 'Types: Button, Thread, Zipper | Reserved = accessories reserved for pending orders (auto-calculated) | Button Sizes: 14L, 18L, 20L, 24L | Thread Weights: 40wt, 50wt, 60wt | Materials: Shell, Brass, Resin | Finish: Matte, Polished, Antique'
     },
 
     // 5. Customers (no dependencies)
