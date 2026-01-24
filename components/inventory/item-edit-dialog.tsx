@@ -24,7 +24,7 @@ interface ClothItem {
   pricePerMeter: number
   currentStock: number
   reserved: number
-  minimum: number
+  minimumStockMeters: number
   supplier: string
   location?: string
   supplierRel?: { name: string; id: string }
@@ -38,7 +38,7 @@ interface AccessoryItem {
   color?: string
   currentStock: number
   pricePerUnit: number
-  minimum: number
+  minimumStockUnits: number
   supplier: string
   supplierRel?: { name: string; id: string }
 }
@@ -120,7 +120,7 @@ export function ItemEditDialog({ isOpen, onClose, itemType, item, userRole }: It
   if (itemType === 'cloth') {
     const clothItem = item as ClothItem
     const available = clothItem.currentStock - clothItem.reserved
-    const status = getStockStatus(clothItem.currentStock, clothItem.reserved, clothItem.minimum)
+    const status = getStockStatus(clothItem.currentStock, clothItem.reserved, clothItem.minimumStockMeters)
 
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
@@ -268,8 +268,8 @@ export function ItemEditDialog({ isOpen, onClose, itemType, item, userRole }: It
                   id="edit-minimum"
                   type="number"
                   step="0.01"
-                  value={formData.minimum}
-                  onChange={(e) => handleFieldChange('minimum', parseFloat(e.target.value))}
+                  value={(formData as ClothItem).minimumStockMeters}
+                  onChange={(e) => handleFieldChange('minimumStockMeters', parseFloat(e.target.value))}
                   required
                 />
               </div>
@@ -331,7 +331,7 @@ export function ItemEditDialog({ isOpen, onClose, itemType, item, userRole }: It
 
   // Accessory Edit Form
   const accessoryItem = item as AccessoryItem
-  const accStatus = getStockStatus(accessoryItem.currentStock, 0, accessoryItem.minimum)
+  const accStatus = getStockStatus(accessoryItem.currentStock, 0, accessoryItem.minimumStockUnits)
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -360,7 +360,7 @@ export function ItemEditDialog({ isOpen, onClose, itemType, item, userRole }: It
               </div>
               <div>
                 <p className="text-slate-600">Minimum Stock</p>
-                <p className="font-semibold">{accessoryItem.minimum} units</p>
+                <p className="font-semibold">{accessoryItem.minimumStockUnits} units</p>
               </div>
             </div>
           </DialogDescription>
@@ -427,8 +427,8 @@ export function ItemEditDialog({ isOpen, onClose, itemType, item, userRole }: It
                 id="edit-acc-minimum"
                 type="number"
                 step="1"
-                value={formData.minimum}
-                onChange={(e) => handleFieldChange('minimum', parseInt(e.target.value))}
+                value={(formData as AccessoryItem).minimumStockUnits}
+                onChange={(e) => handleFieldChange('minimumStockUnits', parseInt(e.target.value))}
                 required
               />
             </div>

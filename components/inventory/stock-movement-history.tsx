@@ -9,8 +9,8 @@ import { Clock, User, Package, ArrowUp, ArrowDown } from 'lucide-react'
 interface StockMovement {
   id: string
   type: string
-  quantity: number
-  balanceAfter: number
+  quantityMeters: number
+  balanceAfterMeters: number
   notes: string | null
   createdAt: string
   user: {
@@ -134,19 +134,19 @@ export function StockMovementHistory({ clothId }: StockMovementHistoryProps) {
               <div className="text-right space-y-1">
                 <div
                   className={`flex items-center gap-1 text-lg font-bold ${
-                    movement.quantity >= 0 ? 'text-green-600' : 'text-red-600'
+                    movement.quantityMeters >= 0 ? 'text-green-600' : 'text-red-600'
                   }`}
                 >
-                  {movement.quantity >= 0 ? (
+                  {movement.quantityMeters >= 0 ? (
                     <ArrowUp className="h-5 w-5" />
                   ) : (
                     <ArrowDown className="h-5 w-5" />
                   )}
-                  {movement.quantity >= 0 ? '+' : ''}
-                  {movement.quantity.toFixed(2)}m
+                  {movement.quantityMeters >= 0 ? '+' : ''}
+                  {movement.quantityMeters.toFixed(2)}m
                 </div>
                 <div className="text-sm text-slate-500">
-                  Balance: <span className="font-semibold">{movement.balanceAfter.toFixed(2)}m</span>
+                  Balance: <span className="font-semibold">{movement.balanceAfterMeters.toFixed(2)}m</span>
                 </div>
               </div>
             </div>
