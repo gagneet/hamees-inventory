@@ -273,6 +273,7 @@ export async function POST(request: Request) {
     let accessoriesCost = 0
     let stitchingCost = 0
     const orderItems: any[] = []
+    const accessoryReservations: Array<{ accessoryId: string; quantity: number }> = []
 
     // Extract unique IDs to fetch all required data in parallel (avoid N+1 queries)
     const patternIds = [...new Set(validatedData.items.map((item: any) => item.garmentPatternId))]
@@ -296,6 +297,13 @@ export async function POST(request: Request) {
       }),
       prisma.garmentPattern.findMany({
         where: { id: { in: patternIds } },
+        include: {
+          accessories: {
+            include: {
+              accessory: true,
+            },
+          },
+        },
       }),
       prisma.clothInventory.findMany({
         where: { id: { in: clothIds } },
@@ -332,7 +340,7 @@ export async function POST(request: Request) {
 
       const estimatedMeters = (pattern.baseMeters + adjustment) * item.quantity
 
-      // Check stock availability
+      // Check cloth stock availability
       const available = cloth.currentStock - cloth.reserved
       if (available < estimatedMeters) {
         return NextResponse.json(
@@ -345,16 +353,51 @@ export async function POST(request: Request) {
       const itemFabricCost = estimatedMeters * cloth.pricePerMeter
       fabricCost += itemFabricCost
 
-      // Calculate accessories cost using lookup map
-      let itemAccessoriesCost = 0
+      // Get accessories for this garment pattern (from GarmentAccessory) and merge with user-provided accessories
+      const requiredAccessories = new Map<string, number>()
+
+      // Add pattern's default accessories
+      if (pattern.accessories && pattern.accessories.length > 0) {
+        for (const garmentAcc of pattern.accessories) {
+          const totalNeeded = garmentAcc.quantity * item.quantity
+          requiredAccessories.set(garmentAcc.accessoryId, totalNeeded)
+        }
+      }
+
+      // Merge/override with user-provided accessories
       if (item.accessories && item.accessories.length > 0) {
         for (const acc of item.accessories) {
-          const accessory = accessoryMap.get(acc.accessoryId) as any
-          if (accessory) {
-            const accessoryTotal = acc.quantity * item.quantity * accessory.pricePerUnit
-            itemAccessoriesCost += accessoryTotal
-          }
+          const totalNeeded = acc.quantity * item.quantity
+          requiredAccessories.set(acc.accessoryId, totalNeeded)
         }
+      }
+
+      // Check accessory stock availability and calculate cost
+      let itemAccessoriesCost = 0
+      for (const [accessoryId, quantityNeeded] of requiredAccessories.entries()) {
+        const accessory = accessoryMap.get(accessoryId) as any
+        if (!accessory) {
+          return NextResponse.json(
+            { error: `Accessory not found: ${accessoryId}` },
+            { status: 400 }
+          )
+        }
+
+        const accessoryAvailable = accessory.currentStock - accessory.reserved
+        if (accessoryAvailable < quantityNeeded) {
+          return NextResponse.json(
+            { error: `Insufficient stock for ${accessory.name}. Available: ${accessoryAvailable}, Required: ${quantityNeeded}` },
+            { status: 400 }
+          )
+        }
+
+        itemAccessoriesCost += quantityNeeded * accessory.pricePerUnit
+
+        // Add to reservation list
+        accessoryReservations.push({
+          accessoryId,
+          quantity: quantityNeeded,
+        })
       }
       accessoriesCost += itemAccessoriesCost
 
@@ -574,6 +617,44 @@ export async function POST(request: Request) {
             type: StockMovementType.ORDER_RESERVED,
             quantity: -item.estimatedMeters,
             balanceAfter: item.clothInventory!.currentStock - item.estimatedMeters,
+            notes: `Reserved for order ${newOrder.orderNumber}`,
+          },
+        })
+      }
+
+      // Reserve accessories for the order
+      const accessoryReservationMap = new Map<string, number>()
+      for (const reservation of accessoryReservations) {
+        const current = accessoryReservationMap.get(reservation.accessoryId) || 0
+        accessoryReservationMap.set(reservation.accessoryId, current + reservation.quantity)
+      }
+
+      for (const [accessoryId, totalQuantity] of accessoryReservationMap.entries()) {
+        // Get current stock for balance calculation
+        const accessory = await tx.accessoryInventory.findUnique({
+          where: { id: accessoryId },
+        })
+        if (!accessory) continue
+
+        // Update reserved stock
+        await tx.accessoryInventory.update({
+          where: { id: accessoryId },
+          data: {
+            reserved: {
+              increment: totalQuantity,
+            },
+          },
+        })
+
+        // Create accessory stock movement
+        await tx.accessoryStockMovement.create({
+          data: {
+            accessoryInventoryId: accessoryId,
+            orderId: newOrder.id,
+            userId: session.user.id,
+            type: StockMovementType.ORDER_RESERVED,
+            quantity: -totalQuantity,
+            balanceAfter: accessory.currentStock - totalQuantity,
             notes: `Reserved for order ${newOrder.orderNumber}`,
           },
         })

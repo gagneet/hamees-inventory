@@ -119,6 +119,7 @@ model User {
   // Relations
   orders        Order[]
   stockMovements StockMovement[]
+  accessoryStockMovements AccessoryStockMovement[]
   orderHistory  OrderHistory[]
   measurements  Measurement[]
   uploadHistory UploadHistory[]
@@ -187,6 +188,7 @@ model AccessoryInventory {
   type          String    // Button, Thread, Zipper, etc.
   color         String?
   currentStock  Int
+  reserved      Int       @default(0) // Reserved for orders
   minimum       Int
   pricePerUnit  Float
   supplier      String?
@@ -217,6 +219,7 @@ model AccessoryInventory {
   // Relations
   garmentAccessories GarmentAccessory[]
   supplierRel   Supplier? @relation(fields: [supplierId], references: [id])
+  stockMovements AccessoryStockMovement[]
 
   @@index([active])
   @@index([sku])
@@ -431,6 +434,7 @@ model Order {
   measurement     Measurement? @relation(fields: [measurementId], references: [id])
   items           OrderItem[]
   stockMovements  StockMovement[]
+  accessoryStockMovements AccessoryStockMovement[]
   history         OrderHistory[]
   installments    PaymentInstallment[]
   whatsappMessages WhatsAppMessage[]
@@ -550,6 +554,29 @@ model StockMovement {
   user            User              @relation(fields: [userId], references: [id])
 
   @@index([clothInventoryId])
+  @@index([orderId])
+  @@index([createdAt])
+}
+
+model AccessoryStockMovement {
+  id                    String                @id @default(cuid())
+  accessoryInventoryId  String
+  orderId               String?
+  userId                String
+
+  type                  StockMovementType
+  quantity              Int                   // Positive for additions, negative for reductions
+  balanceAfter          Int                   // Stock balance after this movement
+
+  notes                 String?
+  createdAt             DateTime              @default(now())
+
+  // Relations
+  accessoryInventory    AccessoryInventory    @relation(fields: [accessoryInventoryId], references: [id])
+  order                 Order?                @relation(fields: [orderId], references: [id])
+  user                  User                  @relation(fields: [userId], references: [id])
+
+  @@index([accessoryInventoryId])
   @@index([orderId])
   @@index([createdAt])
 }

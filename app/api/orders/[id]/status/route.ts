@@ -31,6 +31,23 @@ export async function PATCH(
         items: {
           include: {
             clothInventory: true,
+            garmentPattern: {
+              include: {
+                accessories: {
+                  include: {
+                    accessory: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        accessoryStockMovements: {
+          where: {
+            type: StockMovementType.ORDER_RESERVED,
+          },
+          include: {
+            accessoryInventory: true,
           },
         },
       },
@@ -109,6 +126,37 @@ export async function PATCH(
           ...stockMovementCreates,
         ])
 
+        // Consume reserved accessories (convert reserved → used)
+        for (const movement of order.accessoryStockMovements) {
+          const quantityReserved = Math.abs(movement.quantity) // Movement is negative for reservation
+
+          // Update accessory inventory: decrement both currentStock and reserved
+          await tx.accessoryInventory.update({
+            where: { id: movement.accessoryInventoryId },
+            data: {
+              currentStock: {
+                decrement: quantityReserved,
+              },
+              reserved: {
+                decrement: quantityReserved,
+              },
+            },
+          })
+
+          // Create ORDER_USED movement
+          await tx.accessoryStockMovement.create({
+            data: {
+              accessoryInventoryId: movement.accessoryInventoryId,
+              orderId: order.id,
+              userId: session.user.id,
+              type: StockMovementType.ORDER_USED,
+              quantity: -quantityReserved, // Negative for consumption
+              balanceAfter: movement.accessoryInventory!.currentStock - quantityReserved,
+              notes: `Order ${order.orderNumber} delivered - accessories consumed`,
+            },
+          })
+        }
+
         // Update order status and set completedDate
         await tx.order.update({
           where: { id },
@@ -168,6 +216,34 @@ export async function PATCH(
           ...clothInventoryUpdates,
           ...stockMovementCreates,
         ])
+
+        // Release reserved accessories
+        for (const movement of order.accessoryStockMovements) {
+          const quantityReserved = Math.abs(movement.quantity) // Movement is negative for reservation
+
+          // Update accessory inventory: only decrement reserved (stock remains)
+          await tx.accessoryInventory.update({
+            where: { id: movement.accessoryInventoryId },
+            data: {
+              reserved: {
+                decrement: quantityReserved,
+              },
+            },
+          })
+
+          // Create ORDER_CANCELLED movement
+          await tx.accessoryStockMovement.create({
+            data: {
+              accessoryInventoryId: movement.accessoryInventoryId,
+              orderId: order.id,
+              userId: session.user.id,
+              type: StockMovementType.ORDER_CANCELLED,
+              quantity: quantityReserved, // Positive for release
+              balanceAfter: movement.accessoryInventory!.currentStock,
+              notes: `Order ${order.orderNumber} cancelled - accessories released`,
+            },
+          })
+        }
 
         // Update order status
         await tx.order.update({

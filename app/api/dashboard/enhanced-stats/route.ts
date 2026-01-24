@@ -1207,7 +1207,7 @@ export async function GET(request: Request) {
       }),
     ])
 
-    // Fetch all items to calculate inventory stats, low stock, and critical stock
+    // Fetch all cloth items to calculate inventory stats, low stock, and critical stock
     // (Prisma doesn't support field-to-field comparison in where clause)
     const allInventoryItems = await prisma.clothInventory.findMany({
       select: {
@@ -1216,6 +1216,19 @@ export async function GET(request: Request) {
         reserved: true,
         minimum: true,
         pricePerMeter: true,
+      },
+    })
+
+    // Fetch all accessory items for accessory stats
+    const allAccessoryItems = await prisma.accessoryInventory.findMany({
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        currentStock: true,
+        reserved: true,
+        minimum: true,
+        pricePerUnit: true,
       },
     })
 
@@ -1232,13 +1245,38 @@ export async function GET(request: Request) {
       return available <= item.minimum
     }).length
 
-    // Calculate total value and total meters from all inventory items
+    // Accessory low/critical stock
+    const accessoryLowStockCount = allAccessoryItems.filter((item: any) => {
+      const available = item.currentStock - item.reserved
+      return available > item.minimum && available <= item.minimum * 1.25
+    }).length
+
+    const accessoryCriticalStockCount = allAccessoryItems.filter((item: any) => {
+      const available = item.currentStock - item.reserved
+      return available <= item.minimum
+    }).length
+
+    // Calculate total value and total meters from all cloth inventory items
     const totalInventoryValue = allInventoryItems.reduce(
       (sum: number, item: any) => sum + (item.currentStock * item.pricePerMeter),
       0
     )
     const totalInventoryMeters = allInventoryItems.reduce(
       (sum: number, item: any) => sum + item.currentStock,
+      0
+    )
+
+    // Calculate total accessory value and units
+    const totalAccessoryValue = allAccessoryItems.reduce(
+      (sum: number, item: any) => sum + (item.currentStock * item.pricePerUnit),
+      0
+    )
+    const totalAccessoryUnits = allAccessoryItems.reduce(
+      (sum: number, item: any) => sum + item.currentStock,
+      0
+    )
+    const totalAccessoryReserved = allAccessoryItems.reduce(
+      (sum: number, item: any) => sum + item.reserved,
       0
     )
 
@@ -1282,6 +1320,14 @@ export async function GET(request: Request) {
         criticalStock: criticalStockCount,
         totalValue: Math.round(totalInventoryValue * 100) / 100,
         totalMeters: Math.round(totalInventoryMeters * 100) / 100,
+        accessories: {
+          totalItems: allAccessoryItems.length,
+          totalUnits: totalAccessoryUnits,
+          totalReserved: totalAccessoryReserved,
+          totalValue: Math.round(totalAccessoryValue * 100) / 100,
+          lowStock: accessoryLowStockCount,
+          criticalStock: accessoryCriticalStockCount,
+        },
       },
     }
 
