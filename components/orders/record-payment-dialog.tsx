@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Wallet, CreditCard, Smartphone, Banknote, Building2 } from 'lucide-react'
 import {
@@ -43,6 +43,16 @@ export function RecordPaymentDialog({
   const [paymentMode, setPaymentMode] = useState('CASH')
   const [transactionRef, setTransactionRef] = useState('')
   const [notes, setNotes] = useState('')
+
+  // Reset form whenever dialog opens or balanceAmount changes
+  useEffect(() => {
+    if (open) {
+      setAmount(balanceAmount.toString())
+      setPaymentMode('CASH')
+      setTransactionRef('')
+      setNotes('')
+    }
+  }, [open, balanceAmount])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

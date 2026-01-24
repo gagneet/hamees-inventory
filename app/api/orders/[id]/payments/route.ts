@@ -4,6 +4,8 @@ import { prisma } from '@/lib/db'
 import { z } from 'zod'
 import { requireAnyPermission } from '@/lib/api-permissions'
 
+type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
+
 const recordPaymentSchema = z.object({
   amount: z.number().positive(),
   paymentMode: z.enum(['CASH', 'UPI', 'CARD', 'BANK_TRANSFER', 'CHEQUE']),
@@ -91,13 +93,15 @@ export async function POST(
     // order balance fails to update, leading to financial discrepancies and data corruption.
     // All three operations (create installment, update balance, create history) must succeed
     // together or fail together to maintain data consistency.
-    const result = await prisma.$transaction(async (tx: any) => {
+    const result = await prisma.$transaction(async (tx: TransactionClient) => {
+      const paymentAmount = parseFloat(validatedData.amount.toFixed(2))
+
       const installment = await tx.paymentInstallment.create({
         data: {
           orderId: order.id,
           installmentNumber: nextInstallmentNumber,
-          amount: parseFloat(validatedData.amount.toFixed(2)),
-          paidAmount: parseFloat(validatedData.amount.toFixed(2)),
+          installmentAmount: paymentAmount, // Expected amount for this installment
+          paidAmount: paymentAmount, // Actual amount paid
           dueDate: now,
           paidDate: now,
           status: 'PAID',

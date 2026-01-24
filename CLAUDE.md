@@ -10,6 +10,93 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Payment System Bug Fixes (v0.26.3)
+
+**What's New:**
+- **Fixed 500 Error on Payment Recording** - Missing `installmentAmount` field now properly set
+- **Fixed Stale Balance Display** - Payment dialog now shows updated balance after discounts/payments
+- **Type Safety Improvements** - Transaction callbacks now use proper `TransactionClient` type
+
+**Version:** v0.26.3
+**Date:** January 24, 2026
+**Status:** ✅ Production Ready
+
+**Issues Fixed:**
+
+1. **500 Error When Recording Payment**
+   - **Problem**: Payment API crashed with "Argument `installmentAmount` is missing" error
+   - **Root Cause**: PaymentInstallment schema requires `installmentAmount` field, but API only set `paidAmount`
+   - **Solution**: Added `installmentAmount: paymentAmount` to match schema requirements
+   - **Result**: Payment recording now succeeds without errors
+
+2. **Stale Balance in Record Payment Dialog**
+   - **Problem**: After applying discount or making partial payment, reopening dialog still showed old balance
+   - **Root Cause**: Dialog used initial prop value, didn't refresh when prop changed
+   - **Solution**: Added `useEffect` hook to reset form fields whenever dialog opens or balance changes
+   - **Result**: Dialog always shows current balance when opened
+
+3. **TypeScript Type Safety**
+   - **Problem**: Transaction callbacks used `tx: any` type, bypassing TypeScript safety
+   - **Root Cause**: Missing type definition for Prisma transaction client
+   - **Solution**: Added `type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]`
+   - **Result**: Full TypeScript type checking on transaction operations
+
+**Technical Details:**
+
+```typescript
+// Payment API Fix (app/api/orders/[id]/payments/route.ts)
+const installment = await tx.paymentInstallment.create({
+  data: {
+    installmentAmount: paymentAmount,  // ← Added (required field)
+    paidAmount: paymentAmount,
+    // ... other fields
+  },
+})
+
+// Dialog Balance Fix (components/orders/record-payment-dialog.tsx)
+useEffect(() => {
+  if (open) {
+    setAmount(balanceAmount.toString())  // ← Reset to current balance
+    setPaymentMode('CASH')
+    setTransactionRef('')
+    setNotes('')
+  }
+}, [open, balanceAmount])  // ← Watch both open state and balance changes
+```
+
+**Files Modified:**
+- `app/api/orders/[id]/payments/route.ts` - Added missing field and proper typing
+- `components/orders/record-payment-dialog.tsx` - Added effect to reset form on open
+
+**Testing:**
+```bash
+# Test Payment Recording
+1. Login as owner@hameesattire.com / admin123
+2. Open any order with balance > 0
+3. Click "Record Payment"
+4. Enter amount and payment mode
+5. Click "Record Payment" → Should succeed with no errors
+
+# Test Balance Refresh
+1. Open order with balance > 0 (e.g., ₹10,000)
+2. Click "Apply Discount" → Give ₹2,000 discount
+3. Reopen "Record Payment" dialog
+4. Verify balance shows ₹8,000 (not ₹10,000)
+5. Record partial payment of ₹3,000
+6. Reopen "Record Payment" dialog again
+7. Verify balance shows ₹5,000 (not ₹8,000 or ₹10,000)
+```
+
+**Business Impact:**
+- ✅ Payment recording now works reliably without errors
+- ✅ Staff always see accurate current balance when making payments
+- ✅ Prevents confusion from stale balance amounts
+- ✅ Better user experience with consistent data display
+
+**Documentation:** Complete technical details in this section
+
+---
+
 ### ✅ Order Item Edit Improvements & Price Recalculation (v0.26.2)
 
 **What's New:**
