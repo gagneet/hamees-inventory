@@ -52,7 +52,7 @@ interface PurchaseOrder {
     id: string
     itemName: string
     itemType: string
-    quantity: number
+    orderedQuantity: number
     receivedQuantity: number
     unit: string
     pricePerUnit: number
@@ -262,7 +262,7 @@ export default function PurchaseOrdersPage() {
                     <div className="flex flex-wrap gap-2">
                       {po.items.map((item) => (
                         <Badge key={item.id} variant="outline">
-                          {item.itemType === 'CLOTH' ? '🧵' : '📌'} {item.itemName} ({item.quantity} {item.unit})
+                          {item.itemType === 'CLOTH' ? '🧵' : '📌'} {item.itemName} ({item.orderedQuantity} {item.unit})
                         </Badge>
                       ))}
                     </div>

@@ -64,7 +64,7 @@ interface PurchaseOrder {
     id: string
     itemName: string
     itemType: string
-    quantity: number
+    orderedQuantity: number
     receivedQuantity: number
     unit: string
     pricePerUnit: number
@@ -368,7 +368,7 @@ export default function PurchaseOrderDetailPage({
                           <div>
                             <Label className="text-slate-700">Ordered Quantity</Label>
                             <p className="text-sm text-slate-900">
-                              {item.quantity} {item.unit}
+                              {item.orderedQuantity} {item.unit}
                             </p>
                           </div>
                           <div>
@@ -383,7 +383,7 @@ export default function PurchaseOrderDetailPage({
                               type="number"
                               step="0.01"
                               min="0"
-                              max={item.quantity - item.receivedQuantity}
+                              max={item.orderedQuantity - item.receivedQuantity}
                               value={receiveItem?.receivedQuantity || 0}
                               onChange={(e) =>
                                 updateReceiveItem(
@@ -595,11 +595,11 @@ export default function PurchaseOrderDetailPage({
                   <tr key={item.id} className="border-b">
                     <td className="py-3 font-medium">{item.itemName}</td>
                     <td className="py-3">{item.itemType}</td>
-                    <td className="py-3 text-right">{item.quantity}</td>
+                    <td className="py-3 text-right">{item.orderedQuantity}</td>
                     <td className="py-3 text-right">
                       <span
                         className={
-                          item.receivedQuantity >= item.quantity
+                          item.receivedQuantity >= item.orderedQuantity
                             ? 'text-green-600 font-semibold'
                             : item.receivedQuantity > 0
                             ? 'text-blue-600'

@@ -43,7 +43,7 @@ interface Supplier {
 interface POItem {
   itemName: string
   itemType: 'CLOTH' | 'ACCESSORY'
-  quantity: number
+  orderedQuantity: number
   unit: string
   pricePerUnit: number
 }
@@ -64,7 +64,7 @@ function NewPurchaseOrderContent() {
     {
       itemName: searchParams.get('itemName') || '',
       itemType: (searchParams.get('itemType') as 'CLOTH' | 'ACCESSORY') || 'CLOTH',
-      quantity: parseFloat(searchParams.get('quantity') || '0') || 0,
+      orderedQuantity: parseFloat(searchParams.get('quantity') || '0') || 0,
       unit: searchParams.get('unit') || 'meters',
       pricePerUnit: parseFloat(searchParams.get('pricePerUnit') || '0') || 0,
     },
@@ -90,7 +90,7 @@ function NewPurchaseOrderContent() {
       {
         itemName: '',
         itemType: 'CLOTH',
-        quantity: 0,
+        orderedQuantity: 0,
         unit: 'meters',
         pricePerUnit: 0,
       },
@@ -110,7 +110,7 @@ function NewPurchaseOrderContent() {
   }
 
   const calculateTotal = () => {
-    return items.reduce((sum, item) => sum + item.quantity * item.pricePerUnit, 0)
+    return items.reduce((sum, item) => sum + item.orderedQuantity * item.pricePerUnit, 0)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -123,7 +123,7 @@ function NewPurchaseOrderContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          items: items.filter((item) => item.itemName && item.quantity > 0),
+          items: items.filter((item) => item.itemName && item.orderedQuantity > 0),
         }),
       })
 
@@ -276,9 +276,9 @@ function NewPurchaseOrderContent() {
                     <Label>Quantity *</Label>
                     <Input
                       type="number"
-                      value={item.quantity || ''}
+                      value={item.orderedQuantity || ''}
                       onChange={(e) =>
-                        updateItem(index, 'quantity', parseFloat(e.target.value) || 0)
+                        updateItem(index, 'orderedQuantity', parseFloat(e.target.value) || 0)
                       }
                       step="0.01"
                       min="0"
@@ -320,7 +320,7 @@ function NewPurchaseOrderContent() {
                   <div className="grid gap-2">
                     <Label>Total Price</Label>
                     <div className="p-2 bg-slate-100 rounded-md font-semibold">
-                      {formatCurrency(item.quantity * item.pricePerUnit)}
+                      {formatCurrency(item.orderedQuantity * item.pricePerUnit)}
                     </div>
                   </div>
                 </div>
