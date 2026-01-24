@@ -10,6 +10,105 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Order Item Edit Improvements & Price Recalculation (v0.26.2)
+
+**What's New:**
+- **Locked Garment Type Field** - Prevents breaking changes to measurements and customer records
+- **Complete Price Recalculation** - Automatic price updates when fabric changes
+- **Enhanced User Experience** - Price preview, fabric pricing in dropdown, success confirmations
+- **Order Total Updates** - Automatic GST and total amount recalculation
+- **Stock Reservation Management** - Automatic updates when fabric changes
+
+**Version:** v0.26.2
+**Date:** January 24, 2026
+**Status:** ✅ Production Ready
+
+**Issues Fixed:**
+
+1. **Empty Garment Type Dropdown**
+   - **Problem**: Dropdown appeared empty when clicking "Edit Order"
+   - **Solution**: Fixed API response handling with robust array validation
+   - **Result**: Dropdown now populates correctly with all garment patterns
+
+2. **Garment Type Field Now Locked**
+   - **Problem**: Changing garment type breaks customer measurements, accessories, and order history
+   - **Solution**: Made garment type field read-only (disabled input, not dropdown)
+   - **Display**: Shows warning alert explaining why it cannot be changed
+   - **Benefit**: Prevents data corruption in Customer and Order records
+
+3. **Complete Price Recalculation System**
+   - **Problem**: Fabric changes didn't update order item price or total order amount
+   - **Solution**: 3-tier recalculation system:
+     - **Tier 1**: Order item price (new fabric cost + existing accessories cost)
+     - **Tier 2**: Order totals (subtotal, GST, total amount, balance)
+     - **Tier 3**: Stock reservations (release old, reserve new)
+
+**Price Recalculation Details:**
+
+When fabric is changed:
+```typescript
+// Order Item Recalculation
+newFabricCost = estimatedMeters × newPricePerMeter × quantity
+existingAccessoriesCost = oldTotalPrice - oldFabricCost
+newTotalPrice = newFabricCost + existingAccessoriesCost
+newPricePerUnit = newTotalPrice / quantity
+
+// Order Totals Recalculation
+newSubTotal = sum of all order item prices
+newGstAmount = newSubTotal × 12%
+newCgst = newGstAmount / 2  // 6%
+newSgst = newGstAmount / 2  // 6%
+newTotalAmount = newSubTotal + newGstAmount
+newBalanceAmount = newTotalAmount - advancePaid - discount
+```
+
+**What Gets Updated:**
+1. ✅ Order Item `totalPrice` - New fabric cost + existing accessories cost
+2. ✅ Order Item `pricePerUnit` - New total price / quantity
+3. ✅ Order `subTotal` - Sum of all order items
+4. ✅ Order `gstAmount` - 12% GST on new subtotal
+5. ✅ Order `cgst` - 6% Central GST
+6. ✅ Order `sgst` - 6% State GST
+7. ✅ Order `totalAmount` - Subtotal + GST
+8. ✅ Order `balanceAmount` - Total - Advance - Discount
+9. ✅ Order `taxableAmount` - Base for GST calculation
+10. ✅ Stock `reserved` - Old fabric released, new fabric reserved
+
+**Enhanced User Experience:**
+- **Price Preview**: Shows estimated new price before saving
+- **Fabric Pricing**: Each fabric shows price per meter in dropdown
+- **Success Confirmation**: Displays old vs new price comparison
+- **Warning Alert**: Clear explanation why garment type is locked
+- **Audit Trail**: Complete history of all price changes
+
+**Files Modified:**
+- `components/orders/order-item-edit.tsx` - Enhanced UI with price preview and locked garment field
+- `app/api/orders/[id]/items/[itemId]/route.ts` - Complete price recalculation logic
+- `app/(dashboard)/orders/[id]/page.tsx` - Added price props to edit component
+- `docs/ORDER_ITEM_EDIT_IMPROVEMENTS.md` - Complete technical documentation
+
+**Testing:**
+```bash
+# Test Edit Dialog
+1. Login as owner@hameesattire.com / admin123
+2. Open order: https://hamees.gagneet.com/orders/cmkpeyoep00mqyiuxsoessw8e
+3. Click "Edit Item" button
+4. Verify: ✅ Garment type locked, fabric dropdown populated
+5. Select new fabric → See price preview
+6. Save changes → Verify price updated and order total recalculated
+```
+
+**Business Impact:**
+- ✅ Prevents accidental data corruption in customer records
+- ✅ Accurate pricing when fabrics are substituted
+- ✅ Automatic GST compliance (12% on new subtotal)
+- ✅ Complete audit trail for financial reconciliation
+- ✅ Better user experience with price transparency
+
+**Documentation:** See `docs/ORDER_ITEM_EDIT_IMPROVEMENTS.md` for complete technical details
+
+---
+
 ### ✅ Accessory Usage Tracking & Stock Reservation System (v0.25.0)
 
 **What's New:**
