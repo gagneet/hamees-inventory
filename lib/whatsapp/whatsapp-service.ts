@@ -163,7 +163,7 @@ export class WhatsAppService {
     if (!order) throw new Error('Order not found')
 
     const itemsList = order.items
-      .map((item) => `- ${item.garmentPattern.name} (${item.quantity})`)
+      .map((item) => `- ${item.garmentPattern.name} (${item.quantityOrdered})`)
       .join('\n')
 
     await this.sendTemplateMessage({
@@ -263,7 +263,7 @@ export class WhatsAppService {
       variables: {
         item_name: cloth.name,
         available_stock: `${available.toFixed(2)}m`,
-        minimum_stock: `${cloth.minimum.toFixed(2)}m`,
+        minimum_stock: `${cloth.minimumStockMeters.toFixed(2)}m`,
       },
       type: 'CUSTOM',
     })

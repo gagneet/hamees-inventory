@@ -19,7 +19,7 @@ export async function generateStockAlerts() {
         type: true,
         currentStock: true,
         reserved: true,
-        minimum: true,
+        minimumStockMeters: true,
         sku: true,
       },
     })
@@ -32,7 +32,7 @@ export async function generateStockAlerts() {
         name: true,
         type: true,
         currentStock: true,
-        minimum: true,
+        minimumStockUnits: true,
         sku: true,
       },
     })
@@ -62,7 +62,7 @@ export async function generateStockAlerts() {
 
       // IMPORTANT: Must match dashboard and low-stock API calculations
       // Critical stock: Available <= minimum (at or below threshold)
-      if (available <= item.minimum) {
+      if (available <= item.minimumStockMeters) {
         if (!existingAlert || existingAlert.type !== AlertType.CRITICAL_STOCK) {
           // Delete any existing low stock alert since this is now critical
           if (existingAlert) {
@@ -75,7 +75,7 @@ export async function generateStockAlerts() {
               type: AlertType.CRITICAL_STOCK,
               severity: AlertSeverity.CRITICAL,
               title: `Critical Stock Alert: ${item.name}`,
-              message: `${item.name} (${item.brand} ${item.color}) is at or below minimum threshold. Available: ${available.toFixed(2)}m, Minimum: ${item.minimum}m`,
+              message: `${item.name} (${item.brand} ${item.color}) is at or below minimum threshold. Available: ${available.toFixed(2)}m, Minimum: ${item.minimumStockMeters}m`,
               relatedId: item.id,
               relatedType: 'cloth',
             },
@@ -84,7 +84,7 @@ export async function generateStockAlerts() {
         }
       }
       // Low stock: Available > minimum AND Available <= (minimum × 1.25) [warning zone]
-      else if (available > item.minimum && available <= item.minimum * 1.25) {
+      else if (available > item.minimumStockMeters && available <= item.minimumStockMeters * 1.25) {
         if (!existingAlert) {
           // Create low stock alert
           await prisma.alert.create({
@@ -92,7 +92,7 @@ export async function generateStockAlerts() {
               type: AlertType.LOW_STOCK,
               severity: AlertSeverity.MEDIUM,
               title: `Low Stock Warning: ${item.name}`,
-              message: `${item.name} (${item.brand} ${item.color}) is in warning zone. Available: ${available.toFixed(2)}m, Minimum: ${item.minimum}m`,
+              message: `${item.name} (${item.brand} ${item.color}) is in warning zone. Available: ${available.toFixed(2)}m, Minimum: ${item.minimumStockMeters}m`,
               relatedId: item.id,
               relatedType: 'cloth',
             },
@@ -129,7 +129,7 @@ export async function generateStockAlerts() {
 
       // IMPORTANT: Must match dashboard and low-stock API calculations
       // Critical stock: Available <= minimum (at or below threshold)
-      if (available <= item.minimum) {
+      if (available <= item.minimumStockUnits) {
         if (!existingAlert || existingAlert.type !== AlertType.CRITICAL_STOCK) {
           // Delete any existing low stock alert since this is now critical
           if (existingAlert) {
@@ -142,7 +142,7 @@ export async function generateStockAlerts() {
               type: AlertType.CRITICAL_STOCK,
               severity: AlertSeverity.CRITICAL,
               title: `Critical Stock Alert: ${item.name}`,
-              message: `${item.name} (${item.type}) is at or below minimum threshold. Available: ${available} units, Minimum: ${item.minimum} units`,
+              message: `${item.name} (${item.type}) is at or below minimum threshold. Available: ${available} units, Minimum: ${item.minimumStockUnits} units`,
               relatedId: item.id,
               relatedType: 'accessory',
             },
@@ -151,7 +151,7 @@ export async function generateStockAlerts() {
         }
       }
       // Low stock: Available > minimum AND Available <= (minimum × 1.25) [warning zone]
-      else if (available > item.minimum && available <= item.minimum * 1.25) {
+      else if (available > item.minimumStockUnits && available <= item.minimumStockUnits * 1.25) {
         if (!existingAlert) {
           // Create low stock alert
           await prisma.alert.create({
@@ -159,7 +159,7 @@ export async function generateStockAlerts() {
               type: AlertType.LOW_STOCK,
               severity: AlertSeverity.MEDIUM,
               title: `Low Stock Warning: ${item.name}`,
-              message: `${item.name} (${item.type}) is in warning zone. Available: ${available} units, Minimum: ${item.minimum} units`,
+              message: `${item.name} (${item.type}) is in warning zone. Available: ${available} units, Minimum: ${item.minimumStockUnits} units`,
               relatedId: item.id,
               relatedType: 'accessory',
             },

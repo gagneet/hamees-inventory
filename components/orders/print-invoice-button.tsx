@@ -26,7 +26,7 @@ interface InvoiceOrder {
       color: string
       type: string
     }
-    quantity: number
+    quantityOrdered: number
     estimatedMeters: number
     pricePerUnit: number
     totalPrice: number
@@ -319,7 +319,7 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
             <td class="text-center">${index + 1}</td>
             <td><strong>${item.garmentPattern.name}</strong></td>
             <td>${item.clothInventory.type} - ${item.clothInventory.name} (${item.clothInventory.color})</td>
-            <td class="text-center">${item.quantity}</td>
+            <td class="text-center">${item.quantityOrdered}</td>
             <td class="text-right">${item.estimatedMeters.toFixed(2)}</td>
             <td class="text-right">${formatCurrency(item.pricePerUnit)}</td>
             <td class="text-right"><strong>${formatCurrency(item.totalPrice)}</strong></td>

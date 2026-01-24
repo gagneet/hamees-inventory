@@ -128,7 +128,7 @@ export async function PATCH(
 
         // Consume reserved accessories (convert reserved → used)
         for (const movement of order.accessoryStockMovements) {
-          const quantityReserved = Math.abs(movement.quantity) // Movement is negative for reservation
+          const quantityReserved = Math.abs(movement.quantityUnits) // Movement is negative for reservation
 
           // Update accessory inventory: decrement both currentStock and reserved
           await tx.accessoryInventory.update({
@@ -150,8 +150,8 @@ export async function PATCH(
               orderId: order.id,
               userId: session.user.id,
               type: StockMovementType.ORDER_USED,
-              quantity: -quantityReserved, // Negative for consumption
-              balanceAfter: movement.accessoryInventory!.currentStock - quantityReserved,
+              quantityUnits: -quantityReserved, // Negative for consumption
+              balanceAfterUnits: movement.accessoryInventory!.currentStock - quantityReserved,
               notes: `Order ${order.orderNumber} delivered - accessories consumed`,
             },
           })
@@ -219,7 +219,7 @@ export async function PATCH(
 
         // Release reserved accessories
         for (const movement of order.accessoryStockMovements) {
-          const quantityReserved = Math.abs(movement.quantity) // Movement is negative for reservation
+          const quantityReserved = Math.abs(movement.quantityUnits) // Movement is negative for reservation
 
           // Update accessory inventory: only decrement reserved (stock remains)
           await tx.accessoryInventory.update({
@@ -238,8 +238,8 @@ export async function PATCH(
               orderId: order.id,
               userId: session.user.id,
               type: StockMovementType.ORDER_CANCELLED,
-              quantity: quantityReserved, // Positive for release
-              balanceAfter: movement.accessoryInventory!.currentStock,
+              quantityUnits: quantityReserved, // Positive for release
+              balanceAfterUnits: movement.accessoryInventory!.currentStock,
               notes: `Order ${order.orderNumber} cancelled - accessories released`,
             },
           })

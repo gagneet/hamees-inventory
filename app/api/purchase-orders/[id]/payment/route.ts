@@ -59,7 +59,7 @@ export async function POST(
       where: { purchaseOrderId: id },
     })
 
-    const allItemsReceived = items.every((item: any) => item.receivedQuantity >= item.quantity)
+    const allItemsReceived = items.every((item: any) => item.receivedQuantity >= item.quantityOrdered)
 
     // Determine new status
     let newStatus = purchaseOrder.status

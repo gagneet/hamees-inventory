@@ -109,17 +109,17 @@ export async function getDashboardStats(): Promise<DashboardStats | null> {
         pricePerMeter: true,
         currentStock: true,
         reserved: true,
-        minimum: true,
+        minimumStockMeters: true,
       },
     })
 
     const lowStockItems = clothInventory.filter(
-      (item: { currentStock: number; reserved: number; minimum: number }) => item.currentStock - item.reserved < item.minimum
+      (item: { currentStock: number; reserved: number; minimumStockMeters: number }) => item.currentStock - item.reserved < item.minimumStockMeters
     ).length
 
     const criticalStockItems = clothInventory.filter(
-      (item: { currentStock: number; reserved: number; minimum: number }) =>
-        item.minimum > 0 && (item.currentStock - item.reserved) / item.minimum <= 0.5
+      (item: { currentStock: number; reserved: number; minimumStockMeters: number }) =>
+        item.minimumStockMeters > 0 && (item.currentStock - item.reserved) / item.minimumStockMeters <= 0.5
     ).length
 
     const totalInventoryWorth = clothInventory.reduce(

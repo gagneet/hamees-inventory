@@ -66,7 +66,7 @@ interface ClothInventoryItem {
   pricePerMeter: number
   currentStock: number
   reserved: number
-  minimum: number
+  minimumStockMeters: number
   supplier: string
   location?: string
   supplierRel?: { name: string; id: string }
@@ -79,8 +79,9 @@ interface AccessoryInventoryItem {
   name: string
   color?: string
   currentStock: number
+  reserved: number
   pricePerUnit: number
-  minimum: number
+  minimumStockUnits: number
   supplier: string
   supplierRel?: { name: string; id: string }
 }
@@ -177,14 +178,14 @@ export default function InventoryPageClient() {
             const clothItem = item as ClothInventoryItem
             const available = clothItem.currentStock - clothItem.reserved
             if (available <= 0) return 0 // Out of Stock
-            if (available <= clothItem.minimum) return 1 // Critical
-            if (available > clothItem.minimum && available <= clothItem.minimum * 1.25) return 2 // Low Stock
+            if (available <= clothItem.minimumStockMeters) return 1 // Critical
+            if (available > clothItem.minimumStockMeters && available <= clothItem.minimumStockMeters * 1.25) return 2 // Low Stock
             return 3 // In Stock
           } else {
             const accItem = item as AccessoryInventoryItem
             if (accItem.currentStock <= 0) return 0
-            if (accItem.currentStock <= accItem.minimum) return 1
-            if (accItem.currentStock > accItem.minimum && accItem.currentStock <= accItem.minimum * 1.25) return 2
+            if (accItem.currentStock <= accItem.minimumStockUnits) return 1
+            if (accItem.currentStock > accItem.minimumStockUnits && accItem.currentStock <= accItem.minimumStockUnits * 1.25) return 2
             return 3
           }
         }
@@ -822,7 +823,7 @@ export default function InventoryPageClient() {
                     <TableBody>
                       {sortData(clothInventory, clothSortField, clothSortDirection, 'cloth').map((item) => {
                         const available = item.currentStock - item.reserved
-                        const status = getStockStatus(item.currentStock, item.reserved, item.minimum)
+                        const status = getStockStatus(item.currentStock, item.reserved, item.minimumStockMeters)
                         return (
                           <TableRow
                             key={item.id}
@@ -858,8 +859,8 @@ export default function InventoryPageClient() {
                                   size="sm"
                                   variant="ghost"
                                   onClick={() => handleReorder(item.id, item.name)}
-                                  disabled={available > item.minimum}
-                                  title={available > item.minimum ? "Stock is sufficient" : "Reorder this item"}
+                                  disabled={available > item.minimumStockMeters}
+                                  title={available > item.minimumStockMeters ? "Stock is sufficient" : "Reorder this item"}
                                 >
                                   <ShoppingCart className="h-4 w-4" />
                                 </Button>
@@ -999,7 +1000,7 @@ export default function InventoryPageClient() {
                     <TableBody>
                       {sortData(accessoryInventory, accessorySortField, accessorySortDirection, 'accessory').map((item) => {
                         const available = item.currentStock - (item.reserved || 0)
-                        const status = getStockStatus(item.currentStock, item.reserved || 0, item.minimum)
+                        const status = getStockStatus(item.currentStock, item.reserved || 0, item.minimumStockUnits)
                         return (
                           <TableRow
                             key={item.id}
@@ -1017,7 +1018,7 @@ export default function InventoryPageClient() {
                                 <span className="text-xs text-slate-500"> ({item.reserved} reserved)</span>
                               )}
                             </TableCell>
-                            <TableCell>{item.minimum}</TableCell>
+                            <TableCell>{item.minimumStockUnits}</TableCell>
                             {!isTailor && <TableCell>{formatCurrency(item.pricePerUnit)}</TableCell>}
                             <TableCell>
                               <Badge variant={status.variant}>{status.label}</Badge>
@@ -1028,8 +1029,8 @@ export default function InventoryPageClient() {
                                   size="sm"
                                   variant="ghost"
                                   onClick={() => handleReorder(item.id, item.name)}
-                                  disabled={available > item.minimum}
-                                  title={available > item.minimum ? "Stock is sufficient" : "Reorder this item"}
+                                  disabled={available > item.minimumStockUnits}
+                                  title={available > item.minimumStockUnits ? "Stock is sufficient" : "Reorder this item"}
                                 >
                                   <ShoppingCart className="h-4 w-4" />
                                 </Button>

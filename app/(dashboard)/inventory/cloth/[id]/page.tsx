@@ -91,8 +91,8 @@ export default async function ClothDetailPage({
 
   const getStockStatus = () => {
     if (available <= 0) return { label: 'Out of Stock', variant: 'destructive' as const }
-    if (available < cloth.minimum * 0.5) return { label: 'Critical', variant: 'destructive' as const }
-    if (available < cloth.minimum) return { label: 'Low Stock', variant: 'default' as const }
+    if (available < cloth.minimumStockMeters * 0.5) return { label: 'Critical', variant: 'destructive' as const }
+    if (available < cloth.minimumStockMeters) return { label: 'Low Stock', variant: 'default' as const }
     return { label: 'In Stock', variant: 'default' as const }
   }
 
@@ -351,7 +351,7 @@ export default async function ClothDetailPage({
                                 {item.garmentPattern.name}
                               </span>
                               <span className="text-slate-600">
-                                Qty: {item.quantity}
+                                Qty: {item.quantityOrdered}
                               </span>
                               <span className="text-slate-600">
                                 {item.actualMetersUsed || item.estimatedMeters}m used
@@ -383,12 +383,12 @@ export default async function ClothDetailPage({
                     <span className="text-sm text-slate-500">Status</span>
                     <Badge variant={status.variant}>{status.label}</Badge>
                   </div>
-                  {available < cloth.minimum && (
+                  {available < cloth.minimumStockMeters && (
                     <Link
                       href={`/purchase-orders/new?itemName=${encodeURIComponent(
                         cloth.name
                       )}&supplierId=${cloth.supplierId || ''}&itemType=CLOTH&quantity=${
-                        Math.max(cloth.minimum * 2 - cloth.currentStock, cloth.minimum)
+                        Math.max(cloth.minimumStockMeters * 2 - cloth.currentStock, cloth.minimumStockMeters)
                       }&pricePerUnit=${cloth.pricePerMeter}&unit=meters&color=${encodeURIComponent(
                         cloth.color
                       )}&brand=${encodeURIComponent(cloth.brand)}&type=${encodeURIComponent(
@@ -417,7 +417,7 @@ export default async function ClothDetailPage({
                   </div>
                   <div className="flex justify-between pt-2 border-t">
                     <span className="text-slate-600">Minimum:</span>
-                    <span className="font-semibold">{cloth.minimum.toFixed(2)}m</span>
+                    <span className="font-semibold">{cloth.minimumStockMeters.toFixed(2)}m</span>
                   </div>
                 </div>
               </CardContent>

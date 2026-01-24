@@ -14,7 +14,7 @@ const clothInventorySchema = z.object({
   quality: z.string().nullish(),
   pricePerMeter: z.number().nullish(),
   currentStock: z.number().nullish(),
-  minimum: z.number().nullish(),
+  minimumStockMeters: z.number().nullish(),
   supplier: z.string().nullish(),
   supplierId: z.string().nullish(),
   location: z.string().nullish(),
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     // Low stock filter
     if (lowStock) {
       where.OR = [
-        { currentStock: { lte: prisma.clothInventory.fields.minimum } },
+        { currentStock: { lte: prisma.clothInventory.fields.minimumStockMeters } },
       ]
     }
 
@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
           currentStock: data.currentStock || 0,
           reserved: 0,
           totalPurchased: data.currentStock || 0,
-          minimum: data.minimum || 0,
+          minimumStockMeters: data.minimumStockMeters || 0,
           supplier: data.supplier || 'Unknown',
           ...(data.supplierId && { supplierId: data.supplierId }),
           ...(data.location && { location: data.location }),

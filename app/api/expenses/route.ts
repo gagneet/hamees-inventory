@@ -185,7 +185,7 @@ export async function GET(request: Request) {
     )
 
     const purchaseCosts = inventoryPurchases.reduce(
-      (sum: number, purchase: InventoryPurchase) => sum + (purchase.quantity * (purchase.clothInventory?.pricePerMeter || 0)),
+      (sum: number, purchase: InventoryPurchase) => sum + (purchase.quantityMeters * (purchase.clothInventory?.pricePerMeter || 0)),
       0
     )
 
@@ -233,7 +233,7 @@ export async function GET(request: Request) {
         fabricName: item.clothInventory?.name || 'Unknown',
         fabricType: item.clothInventory?.type || 'Unknown',
         metersUsed: item.actualMetersUsed || item.estimatedMeters,
-        wastage: item.wastage,
+        wastage: item.wastageMeters,
       })),
     }))
 
@@ -241,9 +241,9 @@ export async function GET(request: Request) {
       id: purchase.id,
       fabricName: purchase.clothInventory?.name || 'Unknown',
       fabricType: purchase.clothInventory?.type || 'Unknown',
-      quantity: purchase.quantity,
+      quantity: purchase.quantityMeters,
       pricePerMeter: purchase.clothInventory?.pricePerMeter || 0,
-      totalCost: purchase.quantity * (purchase.clothInventory?.pricePerMeter || 0),
+      totalCost: purchase.quantityMeters * (purchase.clothInventory?.pricePerMeter || 0),
       purchasedBy: purchase.user?.name || 'Unknown',
       createdAt: purchase.createdAt,
       notes: purchase.notes,

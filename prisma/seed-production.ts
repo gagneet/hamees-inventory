@@ -62,7 +62,7 @@ async function main() {
         supplier: 'ABC Fabrics',
         currentStock: cloth.stock,
         reserved: 0,
-        minimum: 20,
+        minimumStockMeters: 20,
         pricePerMeter: cloth.price,
         totalPurchased: cloth.stock,
         sku: `CLT-${cloth.type}-PF-${Date.now() + Math.random()}`,
@@ -102,7 +102,7 @@ async function main() {
         color: null,
         supplier: 'Quality Accessories',
         currentStock: accessory.stock,
-        minimum: 50,
+        minimumStockUnits: 50,
         pricePerUnit: accessory.price,
       },
     })
@@ -173,7 +173,7 @@ async function main() {
           create: [{
             itemName: cloth.name,
             itemType: 'CLOTH',
-            quantity,
+            orderedQuantity: quantity,
             unit: 'meters',
             pricePerUnit: pricePerMeter,
             totalPrice,

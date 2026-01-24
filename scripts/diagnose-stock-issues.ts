@@ -16,7 +16,7 @@ async function diagnoseStockIssues() {
       color: true,
       currentStock: true,
       reserved: true,
-      minimum: true,
+      minimumStockMeters: true,
     },
   })
 
@@ -27,17 +27,17 @@ async function diagnoseStockIssues() {
 
   clothItems.forEach((item) => {
     const available = item.currentStock - item.reserved
-    const threshold = item.minimum * 1.1
+    const threshold = item.minimumStockMeters * 1.1
 
     const status =
-      available <= item.minimum ? 'CRITICAL' :
-      available < threshold && available > item.minimum ? 'LOW' :
+      available <= item.minimumStockMeters ? 'CRITICAL' :
+      available < threshold && available > item.minimumStockMeters ? 'LOW' :
       'HEALTHY'
 
     if (status !== 'HEALTHY') {
       console.log(`${item.name} (${item.brand} ${item.color})`)
       console.log(`  Current: ${item.currentStock.toFixed(2)}m | Reserved: ${item.reserved.toFixed(2)}m | Available: ${available.toFixed(2)}m`)
-      console.log(`  Minimum: ${item.minimum.toFixed(2)}m | Threshold (1.1×): ${threshold.toFixed(2)}m`)
+      console.log(`  Minimum: ${item.minimumStockMeters.toFixed(2)}m | Threshold (1.1×): ${threshold.toFixed(2)}m`)
       console.log(`  Status: ${status}`)
       console.log('')
 

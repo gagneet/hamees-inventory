@@ -162,7 +162,7 @@ async function main() {
         currentStock: 45,
         totalPurchased: 180,
         reserved: 8,
-        minimum: 15,
+        minimumStockMeters: 15,
         supplier: supplier1.name,
         supplierId: supplier1.id,
         location: 'Rack A-1',
@@ -183,7 +183,7 @@ async function main() {
         currentStock: 18,
         totalPurchased: 150,
         reserved: 5,
-        minimum: 20,
+        minimumStockMeters: 20,
         supplier: supplier1.name,
         supplierId: supplier1.id,
         location: 'Rack B-1',
@@ -204,7 +204,7 @@ async function main() {
         currentStock: 65,
         totalPurchased: 200,
         reserved: 12,
-        minimum: 25,
+        minimumStockMeters: 25,
         supplier: supplier2.name,
         supplierId: supplier2.id,
         location: 'Rack A-2',
@@ -225,7 +225,7 @@ async function main() {
         currentStock: 38,
         totalPurchased: 150,
         reserved: 6,
-        minimum: 20,
+        minimumStockMeters: 20,
         supplier: supplier2.name,
         supplierId: supplier2.id,
         location: 'Rack C-1',
@@ -246,7 +246,7 @@ async function main() {
         currentStock: 52,
         totalPurchased: 120,
         reserved: 10,
-        minimum: 15,
+        minimumStockMeters: 15,
         supplier: supplier1.name,
         supplierId: supplier1.id,
         location: 'Rack D-1',
@@ -267,7 +267,7 @@ async function main() {
         currentStock: 40,
         totalPurchased: 140,
         reserved: 7,
-        minimum: 18,
+        minimumStockMeters: 18,
         supplier: supplier1.name,
         supplierId: supplier1.id,
         location: 'Rack A-3',
@@ -287,7 +287,7 @@ async function main() {
       type: 'Button',
       color: 'White',
       currentStock: 500,
-      minimum: 100,
+      minimumStockUnits: 100,
       pricePerUnit: 2,
       supplier: supplier1.name,
       supplierId: supplier1.id,
@@ -301,7 +301,7 @@ async function main() {
       type: 'Thread',
       color: 'White',
       currentStock: 200,
-      minimum: 50,
+      minimumStockUnits: 50,
       pricePerUnit: 15,
       supplier: supplier1.name,
       supplierId: supplier1.id,
@@ -315,7 +315,7 @@ async function main() {
       type: 'Zipper',
       color: 'Black',
       currentStock: 80,
-      minimum: 20,
+      minimumStockUnits: 20,
       pricePerUnit: 25,
       supplier: supplier2.name,
       supplierId: supplier2.id,
@@ -377,16 +377,16 @@ async function main() {
   // Link accessories to patterns
   await prisma.garmentAccessory.createMany({
     data: [
-      { garmentPatternId: shirtPattern.id, accessoryId: button1.id, quantity: 10 },
-      { garmentPatternId: shirtPattern.id, accessoryId: thread1.id, quantity: 1 },
-      { garmentPatternId: trouserPattern.id, accessoryId: button1.id, quantity: 2 },
-      { garmentPatternId: trouserPattern.id, accessoryId: thread1.id, quantity: 1 },
-      { garmentPatternId: trouserPattern.id, accessoryId: zipper1.id, quantity: 1 },
-      { garmentPatternId: suitPattern.id, accessoryId: button1.id, quantity: 15 },
-      { garmentPatternId: suitPattern.id, accessoryId: thread1.id, quantity: 2 },
-      { garmentPatternId: suitPattern.id, accessoryId: zipper1.id, quantity: 1 },
-      { garmentPatternId: sherwaniPattern.id, accessoryId: button1.id, quantity: 12 },
-      { garmentPatternId: sherwaniPattern.id, accessoryId: thread1.id, quantity: 2 },
+      { garmentPatternId: shirtPattern.id, accessoryId: button1.id, quantityPerGarment: 10 },
+      { garmentPatternId: shirtPattern.id, accessoryId: thread1.id, quantityPerGarment: 1 },
+      { garmentPatternId: trouserPattern.id, accessoryId: button1.id, quantityPerGarment: 2 },
+      { garmentPatternId: trouserPattern.id, accessoryId: thread1.id, quantityPerGarment: 1 },
+      { garmentPatternId: trouserPattern.id, accessoryId: zipper1.id, quantityPerGarment: 1 },
+      { garmentPatternId: suitPattern.id, accessoryId: button1.id, quantityPerGarment: 15 },
+      { garmentPatternId: suitPattern.id, accessoryId: thread1.id, quantityPerGarment: 2 },
+      { garmentPatternId: suitPattern.id, accessoryId: zipper1.id, quantityPerGarment: 1 },
+      { garmentPatternId: sherwaniPattern.id, accessoryId: button1.id, quantityPerGarment: 12 },
+      { garmentPatternId: sherwaniPattern.id, accessoryId: thread1.id, quantityPerGarment: 2 },
     ],
   })
 
@@ -519,11 +519,11 @@ async function main() {
               {
                 garmentPatternId: pattern.id,
                 clothInventoryId: cloth.id,
-                quantity: 1,
+                quantityOrdered: 1,
                 bodyType,
                 estimatedMeters,
                 actualMetersUsed: status === OrderStatus.DELIVERED ? estimatedMeters + 0.1 : null,
-                wastage: status === OrderStatus.DELIVERED ? 0.1 : null,
+                wastageMeters: status === OrderStatus.DELIVERED ? 0.1 : null,
                 pricePerUnit: itemTotal,
                 totalPrice: itemTotal,
               },
@@ -540,8 +540,8 @@ async function main() {
             orderId: order.id,
             userId: owner.id,
             type: status === OrderStatus.DELIVERED ? StockMovementType.ORDER_USED : StockMovementType.ORDER_RESERVED,
-            quantity: -estimatedMeters,
-            balanceAfter: cloth.currentStock - estimatedMeters,
+            quantityMeters: -estimatedMeters,
+            balanceAfterMeters: cloth.currentStock - estimatedMeters,
             notes: `${status === OrderStatus.DELIVERED ? 'Used' : 'Reserved'} for order ${order.orderNumber}`,
             createdAt: orderDate,
           },
@@ -572,18 +572,18 @@ async function main() {
   console.log('🔔 Creating alerts...')
 
   // Check for low stock cloth items and create alerts
-  const lowStockCloth = clothItems.filter(item => (item.currentStock - item.reserved) < item.minimum)
+  const lowStockCloth = clothItems.filter(item => (item.currentStock - item.reserved) < item.minimumStockMeters)
 
   for (const item of lowStockCloth) {
     const available = item.currentStock - item.reserved
-    const severity = available < (item.minimum * 0.5) ? 'HIGH' : 'MEDIUM'
+    const severity = available < (item.minimumStockMeters * 0.5) ? 'HIGH' : 'MEDIUM'
 
     await prisma.alert.create({
       data: {
         type: severity === 'HIGH' ? 'CRITICAL_STOCK' : 'LOW_STOCK',
         severity,
         title: `${severity === 'HIGH' ? 'Critical' : 'Low'} Stock Alert - Cloth`,
-        message: `${item.name} is running ${severity === 'HIGH' ? 'critically' : ''} low. Available: ${available}m, Minimum: ${item.minimum}m`,
+        message: `${item.name} is running ${severity === 'HIGH' ? 'critically' : ''} low. Available: ${available}m, Minimum: ${item.minimumStockMeters}m`,
         relatedId: item.id,
         relatedType: 'ClothInventory',
       },
@@ -592,17 +592,17 @@ async function main() {
 
   // Check for low stock accessory items and create alerts
   const allAccessories = await prisma.accessoryInventory.findMany()
-  const lowStockAccessories = allAccessories.filter(item => item.currentStock < item.minimum)
+  const lowStockAccessories = allAccessories.filter(item => item.currentStock < item.minimumStockUnits)
 
   for (const item of lowStockAccessories) {
-    const severity = item.currentStock < (item.minimum * 0.5) ? 'HIGH' : 'MEDIUM'
+    const severity = item.currentStock < (item.minimumStockUnits * 0.5) ? 'HIGH' : 'MEDIUM'
 
     await prisma.alert.create({
       data: {
         type: severity === 'HIGH' ? 'CRITICAL_STOCK' : 'LOW_STOCK',
         severity,
         title: `${severity === 'HIGH' ? 'Critical' : 'Low'} Stock Alert - Accessory`,
-        message: `${item.name} is running ${severity === 'HIGH' ? 'critically' : ''} low. Available: ${item.currentStock} pcs, Minimum: ${item.minimum} pcs`,
+        message: `${item.name} is running ${severity === 'HIGH' ? 'critically' : ''} low. Available: ${item.currentStock} pcs, Minimum: ${item.minimumStockUnits} pcs`,
         relatedId: item.id,
         relatedType: 'AccessoryInventory',
       },

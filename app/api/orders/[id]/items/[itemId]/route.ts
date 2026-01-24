@@ -118,7 +118,7 @@ export async function PATCH(
 
     // If quantity is changing
     if (validatedData.quantity !== undefined) {
-      updateData.quantity = validatedData.quantity
+      updateData.quantityOrdered = validatedData.quantity
     }
 
     // If notes are changing
@@ -171,13 +171,13 @@ export async function PATCH(
             where: { id: oldClothInventoryId },
             data: {
               reserved: {
-                decrement: existingItem.estimatedMeters * existingItem.quantity,
+                decrement: existingItem.estimatedMeters * existingItem.quantityOrdered,
               },
             },
           })
 
           // Add reservation to new cloth
-          const metersToReserve = (updateData.estimatedMeters || existingItem.estimatedMeters) * (updateData.quantity || existingItem.quantity)
+          const metersToReserve = (updateData.estimatedMeters || existingItem.estimatedMeters) * (updateData.quantityOrdered || existingItem.quantityOrdered)
 
           await tx.clothInventory.update({
             where: { id: validatedData.clothInventoryId! },
@@ -192,8 +192,8 @@ export async function PATCH(
           await tx.stockMovement.create({
             data: {
               type: 'ORDER_CANCELLED',
-              quantity: -(existingItem.estimatedMeters * existingItem.quantity),
-              balanceAfter: oldCloth.currentStock,
+              quantityMeters: -(existingItem.estimatedMeters * existingItem.quantityOrdered),
+              balanceAfterMeters: oldCloth.currentStock,
               clothInventoryId: oldClothInventoryId,
               orderId: orderId,
               userId: session.user.id,
@@ -203,8 +203,8 @@ export async function PATCH(
           await tx.stockMovement.create({
             data: {
               type: 'ORDER_RESERVED',
-              quantity: metersToReserve,
-              balanceAfter: newCloth.currentStock - metersToReserve,
+              quantityMeters: metersToReserve,
+              balanceAfterMeters: newCloth.currentStock - metersToReserve,
               clothInventoryId: validatedData.clothInventoryId!,
               orderId: orderId,
               userId: session.user.id,

@@ -77,7 +77,7 @@ export async function GET(request: Request) {
           },
           status: 'PAID',
         },
-        _sum: { amount: true },
+        _sum: { installmentAmount: true },
       }),
     ])
 
@@ -92,7 +92,7 @@ export async function GET(request: Request) {
         outstandingPayments: outstandingPayments._sum.balanceAmount || 0,
         outstandingCount: outstandingPayments._count,
         inventoryValue: totalInventoryValue,
-        cashReceived: paymentsReceived._sum.amount || 0,
+        cashReceived: paymentsReceived._sum.installmentAmount || 0,
       },
       financialData,
       yearToDate: {

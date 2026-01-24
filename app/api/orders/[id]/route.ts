@@ -111,8 +111,21 @@ export async function PATCH(
     // Calculate new balance if advance or discount changed
     const advancePaid = data.advancePaid ?? order.advancePaid
     const discount = data.discount ?? order.discount
+
+    // Get sum of all paid installments
+    const paidInstallments = await prisma.paymentInstallment.aggregate({
+      where: {
+        orderId: id,
+        status: 'PAID',
+      },
+      _sum: {
+        paidAmount: true,
+      },
+    })
+    const totalPaidInstallments = paidInstallments._sum.paidAmount || 0
+
     // Round to 2 decimal places to avoid floating-point precision errors
-    const balanceAmount = parseFloat((order.totalAmount - advancePaid - discount).toFixed(2))
+    const balanceAmount = parseFloat((order.totalAmount - advancePaid - discount - totalPaidInstallments).toFixed(2))
 
     // Update order and create history in a transaction
     // @ts-ignore

@@ -154,7 +154,7 @@ export async function POST(
       installments.push({
         orderId: order.id,
         installmentNumber: i + 1,
-        amount: parseFloat(amount.toFixed(2)),
+        installmentAmount: parseFloat(amount.toFixed(2)),
         dueDate,
         status: 'PENDING' as const,
       })

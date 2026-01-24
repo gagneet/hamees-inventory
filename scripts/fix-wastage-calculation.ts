@@ -34,7 +34,7 @@ async function fixWastageCalculation() {
         id: true,
         estimatedMeters: true,
         actualMetersUsed: true,
-        wastage: true,
+        wastageMeters: true,
         order: {
           select: {
             orderNumber: true,
@@ -48,7 +48,7 @@ async function fixWastageCalculation() {
     // Filter items that need fixing (where wastage should be recalculated)
     const itemsNeedingFix = itemsToFix.filter((item) => {
       const expectedWastage = (item.actualMetersUsed || 0) - item.estimatedMeters
-      const currentWastage = item.wastage || 0
+      const currentWastage = item.wastageMeters || 0
       // Fix if there's a difference (allowing for small floating point errors)
       return Math.abs(expectedWastage - currentWastage) > 0.001
     })
@@ -66,7 +66,7 @@ async function fixWastageCalculation() {
       const expectedWastage = (item.actualMetersUsed || 0) - item.estimatedMeters
       console.log(
         `  Order ${item.order.orderNumber}: Est=${item.estimatedMeters}m, Actual=${item.actualMetersUsed}m, ` +
-        `Current Wastage=${item.wastage || 0}m → Should be ${expectedWastage.toFixed(2)}m`
+        `Current Wastage=${item.wastageMeters || 0}m → Should be ${expectedWastage.toFixed(2)}m`
       )
     })
 
@@ -81,7 +81,7 @@ async function fixWastageCalculation() {
       await prisma.orderItem.update({
         where: { id: item.id },
         data: {
-          wastage: correctWastage,
+          wastageMeters: correctWastage,
         },
       })
 

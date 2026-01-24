@@ -10,7 +10,7 @@ const updateAccessorySchema = z.object({
   color: z.string().nullish(),
   currentStock: z.number().int().optional(),
   pricePerUnit: z.number().optional(),
-  minimum: z.number().int().optional(),
+  minimumStockUnits: z.number().int().optional(),
   notes: z.string().nullish(),
   // Phase 1 Enhancement Fields
   colorCode: z.string().nullish(),
