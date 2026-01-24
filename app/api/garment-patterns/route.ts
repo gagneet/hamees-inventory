@@ -13,7 +13,7 @@ const garmentPatternSchema = z.object({
   xlAdjustment: z.number().default(0.5),
   accessories: z.array(z.object({
     accessoryId: z.string(),
-    quantity: z.number().positive(),
+    quantityPerGarment: z.number().positive(),
   })).default([]),
 })
 
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
         accessories: {
           create: data.accessories.map(acc => ({
             accessoryId: acc.accessoryId,
-            quantity: acc.quantity,
+            quantityPerGarment: acc.quantityPerGarment,
           })),
         },
       },

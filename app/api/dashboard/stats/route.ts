@@ -35,7 +35,7 @@ export async function GET() {
       select: {
         currentStock: true,
         reserved: true,
-        minimum: true,
+        minimumStockMeters: true,
         pricePerMeter: true,
       },
     })
@@ -45,15 +45,15 @@ export async function GET() {
     const clothLowStock = clothInventory.filter(
       (item: typeof clothInventory[0]) => {
         const available = item.currentStock - item.reserved
-        const threshold = item.minimum * 1.1
-        return available < threshold && available > item.minimum
+        const threshold = item.minimumStockMeters * 1.1
+        return available < threshold && available > item.minimumStockMeters
       }
     ).length
 
     const clothCriticalStock = clothInventory.filter(
       (item: typeof clothInventory[0]) => {
         const available = item.currentStock - item.reserved
-        return available <= item.minimum
+        return available <= item.minimumStockMeters
       }
     ).length
 
@@ -66,20 +66,20 @@ export async function GET() {
     const accessoryInventory = await prisma.accessoryInventory.findMany({
       select: {
         currentStock: true,
-        minimum: true,
+        minimumStockUnits: true,
         pricePerUnit: true,
       },
     })
 
     const accessoryLowStock = accessoryInventory.filter(
       (item: typeof accessoryInventory[0]) => {
-        const threshold = item.minimum * 1.1
-        return item.currentStock < threshold && item.currentStock > item.minimum
+        const threshold = item.minimumStockUnits * 1.1
+        return item.currentStock < threshold && item.currentStock > item.minimumStockUnits
       }
     ).length
 
     const accessoryCriticalStock = accessoryInventory.filter(
-      (item: typeof accessoryInventory[0]) => item.currentStock <= item.minimum
+      (item: typeof accessoryInventory[0]) => item.currentStock <= item.minimumStockUnits
     ).length
 
     const totalAccessoryWorth = accessoryInventory.reduce(

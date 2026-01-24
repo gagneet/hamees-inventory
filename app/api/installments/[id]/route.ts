@@ -90,7 +90,7 @@ export async function PATCH(
       } else {
         newStatus = 'PENDING'
       }
-    } else if (validatedData.paidAmount >= existingInstallment.amount) {
+    } else if (validatedData.paidAmount >= existingInstallment.installmentAmount) {
       newStatus = 'PAID'
     } else {
       newStatus = 'PARTIAL'

@@ -268,7 +268,7 @@ export async function GET(request: Request) {
             name: true,
             currentStock: true,
             reserved: true,
-            minimum: true,
+            minimumStockMeters: true,
             pricePerMeter: true,
           },
         })
@@ -286,7 +286,7 @@ export async function GET(request: Request) {
           availableStock,
           usageRate,
           daysRemaining: Math.round(daysOfStockRemaining),
-          isLowStock: availableStock < cloth.minimum,
+          isLowStock: availableStock < cloth.minimumStockMeters,
           needsReorder: daysOfStockRemaining < 30,
         }
       })
@@ -353,7 +353,7 @@ export async function GET(request: Request) {
           items: {
             select: {
               id: true,
-              quantity: true,
+              quantityOrdered: true,
               garmentPattern: {
                 select: {
                   name: true,
@@ -391,7 +391,7 @@ export async function GET(request: Request) {
           items: {
             select: {
               id: true,
-              quantity: true,
+              quantityOrdered: true,
               garmentPattern: {
                 select: {
                   name: true,
@@ -431,7 +431,7 @@ export async function GET(request: Request) {
           items: {
             select: {
               id: true,
-              quantity: true,
+              quantityOrdered: true,
               garmentPattern: {
                 select: {
                   name: true,
@@ -473,7 +473,7 @@ export async function GET(request: Request) {
           items: {
             select: {
               id: true,
-              quantity: true,
+              quantityOrdered: true,
               garmentPattern: {
                 select: {
                   name: true,
@@ -857,7 +857,7 @@ export async function GET(request: Request) {
           type: 'ORDER_USED',
         },
         select: {
-          quantity: true,
+          quantityMeters: true,
         },
       }),
     ])
@@ -947,7 +947,7 @@ export async function GET(request: Request) {
     const newCustomers = allCustomers.length - returningCustomers
 
     // Stock turnover ratio calculation (stockMovements already fetched above)
-    const fabricUsed = stockMovements.reduce((sum: number, m: StockMovement) => sum + Math.abs(m.quantity), 0)
+    const fabricUsed = stockMovements.reduce((sum: number, m: any) => sum + Math.abs(m.quantityMeters), 0)
     const totalFabricValue = await prisma.clothInventory.aggregate({
       _sum: {
         currentStock: true,
@@ -982,7 +982,7 @@ export async function GET(request: Request) {
           id: true,
           estimatedMeters: true,
           actualMetersUsed: true,
-          wastage: true,
+          wastageMeters: true,
           clothInventory: {
             select: {
               name: true,
@@ -1016,7 +1016,7 @@ export async function GET(request: Request) {
           id: true,
           estimatedMeters: true,
           actualMetersUsed: true,
-          wastage: true,
+          wastageMeters: true,
           clothInventory: {
             select: {
               pricePerMeter: true,
@@ -1214,7 +1214,7 @@ export async function GET(request: Request) {
         id: true,
         currentStock: true,
         reserved: true,
-        minimum: true,
+        minimumStockMeters: true,
         pricePerMeter: true,
       },
     })
@@ -1227,7 +1227,7 @@ export async function GET(request: Request) {
         type: true,
         currentStock: true,
         reserved: true,
-        minimum: true,
+        minimumStockUnits: true,
         pricePerUnit: true,
       },
     })
@@ -1236,24 +1236,24 @@ export async function GET(request: Request) {
     // Low Stock: Available > minimum AND Available <= (minimum × 1.25) [warning zone: threshold+0.01 to threshold+25%]
     const lowStockCount = allInventoryItems.filter((item: any) => {
       const available = item.currentStock - item.reserved
-      return available > item.minimum && available <= item.minimum * 1.25
+      return available > item.minimumStockMeters && available <= item.minimumStockMeters * 1.25
     }).length
 
     // Critical Stock: Available <= minimum [at or below threshold]
     const criticalStockCount = allInventoryItems.filter((item: any) => {
       const available = item.currentStock - item.reserved
-      return available <= item.minimum
+      return available <= item.minimumStockMeters
     }).length
 
     // Accessory low/critical stock
     const accessoryLowStockCount = allAccessoryItems.filter((item: any) => {
       const available = item.currentStock - item.reserved
-      return available > item.minimum && available <= item.minimum * 1.25
+      return available > item.minimumStockMeters && available <= item.minimumStockMeters * 1.25
     }).length
 
     const accessoryCriticalStockCount = allAccessoryItems.filter((item: any) => {
       const available = item.currentStock - item.reserved
-      return available <= item.minimum
+      return available <= item.minimumStockMeters
     }).length
 
     // Calculate total value and total meters from all cloth inventory items
