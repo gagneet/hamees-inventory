@@ -96,11 +96,18 @@ export async function POST(
     const result = await prisma.$transaction(async (tx: TransactionClient) => {
       const paymentAmount = parseFloat(validatedData.amount.toFixed(2))
 
+      // installmentAmount represents the outstanding balance at the time of payment
+      // For first payment: show total order amount (customer's total commitment)
+      // For subsequent payments: show remaining balance at that point
+      const installmentAmount = nextInstallmentNumber === 1
+        ? order.totalAmount  // First payment: show full order amount
+        : order.balanceAmount // Subsequent payments: show current balance
+
       const installment = await tx.paymentInstallment.create({
         data: {
           orderId: order.id,
           installmentNumber: nextInstallmentNumber,
-          installmentAmount: paymentAmount, // Expected amount for this installment
+          installmentAmount: parseFloat(installmentAmount.toFixed(2)), // Outstanding balance at this point
           paidAmount: paymentAmount, // Actual amount paid
           dueDate: now,
           paidDate: now,

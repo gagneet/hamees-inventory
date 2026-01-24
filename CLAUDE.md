@@ -10,6 +10,90 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Payment Installments Logic Enhancement (v0.26.5)
+
+**What's New:**
+- **Fixed Installment Amount Logic** - "Balance Due" column now shows outstanding balance at time of payment
+- **Improved Column Labels** - Renamed "Amount" to "Balance Due" for clarity
+- **Corrected Order Creation** - First installment shows total order amount (customer's commitment)
+- **Fixed Payment Recording** - Subsequent installments show remaining balance at that point
+
+**Version:** v0.26.5
+**Date:** January 24, 2026
+**Status:** ✅ Production Ready
+
+**Issue Fixed:**
+
+1. **Installment Amount Shows Wrong Value**
+   - **Problem**: "Amount" column showed payment made instead of balance due
+   - **Expected Behavior**:
+     - Installment #1: Show total order amount (₹10,000)
+     - Installment #2: Show remaining balance after #1 (₹5,000)
+     - Installment #3: Show remaining balance after #2 (₹2,000)
+   - **Previous Behavior**:
+     - All installments showed the payment amount made (confusing)
+   - **Solution**: Changed logic to track outstanding balance at each payment
+
+**Technical Implementation:**
+
+```typescript
+// Order Creation (app/api/orders/route.ts:669)
+// Before: installmentAmount: validatedData.advancePaid
+// After:
+installmentAmount: totalAmount  // Show total order amount for first payment
+
+// Payment Recording (app/api/orders/[id]/payments/route.ts:102-104)
+const installmentAmount = nextInstallmentNumber === 1
+  ? order.totalAmount          // First payment: show total commitment
+  : order.balanceAmount        // Subsequent: show remaining balance
+```
+
+**Database Migration:**
+```sql
+-- Fixed 20 first installments to show total order amount
+UPDATE "PaymentInstallment" pi
+SET "installmentAmount" = o."totalAmount"
+FROM "Order" o
+WHERE pi."orderId" = o.id AND pi."installmentNumber" = 1;
+```
+
+**Component Updates:**
+- Column header: "Amount" → "Balance Due"
+- Dialog description: "Due" → "Balance Due"
+- Clearer intent: Shows what customer owes, not what was paid
+
+**Example Display:**
+```
+Order: ₹10,000 total, ₹4,000 advance
+
+Payment Installments
+3 installments | Paid: ₹10,000 of ₹10,000
+
+#  Due Date     Balance Due  Paid      Status
+1  Jan 20, 2026 ₹10,000      ₹4,000    Paid
+2  Jan 23, 2026 ₹6,000       ₹3,000    Paid
+3  Jan 25, 2026 ₹3,000       ₹3,000    Paid
+```
+
+**Files Modified:**
+- `app/api/orders/route.ts` - Fixed order creation installment logic
+- `app/api/orders/[id]/payments/route.ts` - Fixed payment recording logic
+- `components/payment-installments.tsx` - Updated column labels
+
+**Files Added:**
+- `scripts/fix-installment-amounts.ts` - TypeScript migration script
+- `scripts/fix-installments.sql` - SQL migration for existing data
+
+**Business Impact:**
+- ✅ Clear visibility of outstanding balance at each payment
+- ✅ First installment shows customer's total commitment
+- ✅ Subsequent installments show remaining balance
+- ✅ Better financial tracking and payment history
+
+**Documentation:** This section in CLAUDE.md
+
+---
+
 ### ✅ Payment Installments Display Fix (v0.26.4)
 
 **What's New:**

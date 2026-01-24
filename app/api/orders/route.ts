@@ -666,10 +666,10 @@ export async function POST(request: Request) {
           data: {
             orderId: newOrder.id,
             installmentNumber: 1,
-            installmentAmount: validatedData.advancePaid,
+            installmentAmount: totalAmount, // Show total order amount (customer's commitment)
             dueDate: new Date(), // Advance is paid immediately
             paidDate: new Date(), // Mark as paid
-            paidAmount: validatedData.advancePaid,
+            paidAmount: validatedData.advancePaid, // Actual advance paid
             paymentMode: 'CASH', // Default to cash, can be made configurable
             status: 'PAID',
             notes: 'Advance payment on order creation',

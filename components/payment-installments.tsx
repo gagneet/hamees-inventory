@@ -150,7 +150,7 @@ export function PaymentInstallments({ orderId, balanceAmount }: PaymentInstallme
               <TableRow>
                 <TableHead>#</TableHead>
                 <TableHead>Due Date</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
+                <TableHead className="text-right">Balance Due</TableHead>
                 <TableHead className="text-right">Paid</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
@@ -205,7 +205,7 @@ export function PaymentInstallments({ orderId, balanceAmount }: PaymentInstallme
                           <DialogHeader>
                             <DialogTitle>Record Payment - Installment #{installment.installmentNumber}</DialogTitle>
                             <DialogDescription>
-                              Due: {formatCurrency(installment.installmentAmount)} | Already Paid: {formatCurrency(installment.paidAmount)}
+                              Balance Due: {formatCurrency(installment.installmentAmount)} | Already Paid: {formatCurrency(installment.paidAmount)}
                             </DialogDescription>
                           </DialogHeader>
                           <div className="space-y-4">
