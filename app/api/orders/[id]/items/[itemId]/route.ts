@@ -71,9 +71,13 @@ export async function PATCH(
     let oldClothInventoryId = existingItem.clothInventoryId
     let oldGarmentPatternId = existingItem.garmentPatternId
     let newEstimatedMeters = existingItem.estimatedMeters
+    let newClothInventory: any = null
+    let needsPriceRecalculation = false
 
     // If garment pattern is changing, recalculate fabric requirement
     if (validatedData.garmentPatternId && validatedData.garmentPatternId !== existingItem.garmentPatternId) {
+      // IMPORTANT: Garment pattern changes are now disabled in UI
+      // This code is kept for backwards compatibility but should not be used
       const newGarmentPattern = await prisma.garmentPattern.findUnique({
         where: { id: validatedData.garmentPatternId },
       })
@@ -97,15 +101,16 @@ export async function PATCH(
       updateData.garmentPatternId = validatedData.garmentPatternId
       updateData.estimatedMeters = newEstimatedMeters
       garmentChanged = true
+      needsPriceRecalculation = true
     }
 
-    // If cloth inventory is changing, validate it exists
+    // If cloth inventory is changing, validate it exists and recalculate pricing
     if (validatedData.clothInventoryId && validatedData.clothInventoryId !== existingItem.clothInventoryId) {
-      const newCloth = await prisma.clothInventory.findUnique({
+      newClothInventory = await prisma.clothInventory.findUnique({
         where: { id: validatedData.clothInventoryId },
       })
 
-      if (!newCloth) {
+      if (!newClothInventory) {
         return NextResponse.json(
           { error: 'Invalid cloth inventory' },
           { status: 400 }
@@ -114,6 +119,21 @@ export async function PATCH(
 
       updateData.clothInventoryId = validatedData.clothInventoryId
       fabricChanged = true
+      needsPriceRecalculation = true
+
+      // Calculate new fabric cost
+      const newFabricCost = newEstimatedMeters * newClothInventory.pricePerMeter * existingItem.quantityOrdered
+
+      // Keep accessories cost the same (unless garment changed)
+      // For fabric-only changes, we reuse the existing accessories
+      const existingAccessoriesCost = existingItem.totalPrice - (existingItem.estimatedMeters * existingItem.clothInventory.pricePerMeter * existingItem.quantityOrdered)
+
+      // Calculate new total price for this order item
+      const newTotalPrice = newFabricCost + existingAccessoriesCost
+      const newPricePerUnit = newTotalPrice / existingItem.quantityOrdered
+
+      updateData.totalPrice = parseFloat(newTotalPrice.toFixed(2))
+      updateData.pricePerUnit = parseFloat(newPricePerUnit.toFixed(2))
     }
 
     // If quantity is changing
@@ -230,6 +250,50 @@ export async function PATCH(
         },
       })
 
+      // Recalculate order totals if price changed
+      if (needsPriceRecalculation) {
+        // Get all order items to recalculate total
+        const allOrderItems = await tx.orderItem.findMany({
+          where: { orderId: orderId },
+        })
+
+        // Calculate new subtotal (sum of all item prices)
+        const newSubTotal = allOrderItems.reduce((sum: number, item: any) => sum + item.totalPrice, 0)
+
+        // Get current order to preserve stitching charges, premiums, etc.
+        const currentOrder = await tx.order.findUnique({
+          where: { id: orderId },
+        })
+
+        if (currentOrder) {
+          // Recalculate GST (12% on subtotal)
+          const gstRate = 12
+          const newGstAmount = (newSubTotal * gstRate) / 100
+          const newCgst = newGstAmount / 2
+          const newSgst = newGstAmount / 2
+
+          // Calculate new total (subtotal + GST)
+          const newTotalAmount = newSubTotal + newGstAmount
+
+          // Recalculate balance (total - advancePaid - discount)
+          const newBalanceAmount = newTotalAmount - currentOrder.advancePaid - currentOrder.discount
+
+          // Update order with new calculated values
+          await tx.order.update({
+            where: { id: orderId },
+            data: {
+              subTotal: parseFloat(newSubTotal.toFixed(2)),
+              gstAmount: parseFloat(newGstAmount.toFixed(2)),
+              cgst: parseFloat(newCgst.toFixed(2)),
+              sgst: parseFloat(newSgst.toFixed(2)),
+              totalAmount: parseFloat(newTotalAmount.toFixed(2)),
+              balanceAmount: parseFloat(newBalanceAmount.toFixed(2)),
+              taxableAmount: parseFloat(newSubTotal.toFixed(2)),
+            },
+          })
+        }
+      }
+
       // Create order history entry
       const changeDescription = []
       if (garmentChanged) {
@@ -239,6 +303,9 @@ export async function PATCH(
         changeDescription.push(
           `Fabric changed from ${existingItem.clothInventory.name} (${existingItem.clothInventory.color}) to ${updated.clothInventory.name} (${updated.clothInventory.color})`
         )
+      }
+      if (needsPriceRecalculation) {
+        changeDescription.push(`Order item price updated from ₹${existingItem.totalPrice.toFixed(2)} to ₹${updated.totalPrice.toFixed(2)}`)
       }
 
       if (changeDescription.length > 0) {
@@ -255,7 +322,24 @@ export async function PATCH(
       return updated
     })
 
-    return NextResponse.json(updatedItem)
+    // Fetch updated order with all items to return complete info
+    const updatedOrder = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        items: {
+          include: {
+            garmentPattern: true,
+            clothInventory: true,
+          },
+        },
+      },
+    })
+
+    return NextResponse.json({
+      updatedOrderItem: updatedItem,
+      updatedOrder: updatedOrder,
+      message: 'Order item updated successfully. Order totals have been recalculated.',
+    })
   } catch (error) {
     console.error('Error updating order item:', error)
 
