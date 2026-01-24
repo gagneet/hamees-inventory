@@ -17,7 +17,7 @@ const updateClothSchema = z.object({
   quality: z.string().optional(),
   pricePerMeter: z.number().optional(),
   currentStock: z.number().optional(),
-  minimum: z.number().optional(),
+  minimumStockMeters: z.number().optional(),
   location: z.string().nullish(),
   notes: z.string().nullish(),
   // Phase 1 Enhancement Fields
