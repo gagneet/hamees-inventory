@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     // Low stock filter
     if (lowStock) {
       where.OR = [
-        { currentStock: { lte: prisma.clothInventory.fields.minimum } },
+        { currentStock: { lte: prisma.clothInventory.fields.minimumStockMeters } },
       ]
     }
 

@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
 
     // Low stock filter
     if (lowStock) {
-      where.currentStock = { lte: prisma.accessoryInventory.fields.minimum }
+      where.currentStock = { lte: prisma.accessoryInventory.fields.minimumStockUnits }
     }
 
     // Type filter
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
         ...(data.color && { color: data.color }),
         currentStock: data.currentStock || 0,
         pricePerUnit: data.pricePerUnit || 0,
-        minimum: data.minimum || 0,
+        minimumStockUnits: data.minimum || 0,
         ...(data.supplierId && { supplierId: data.supplierId }),
       },
       include: {

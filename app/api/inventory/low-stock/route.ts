@@ -15,7 +15,7 @@ async function getClothInventory() {
       brand: true,
       currentStock: true,
       reserved: true,
-      minimum: true,
+      minimumStockMeters: true,
       pricePerMeter: true,
     },
   })
@@ -29,7 +29,7 @@ async function getAccessoryInventory() {
       type: true,
       supplier: true,
       currentStock: true,
-      minimum: true,
+      minimumStockUnits: true,
       pricePerUnit: true,
     },
   })
@@ -63,23 +63,23 @@ export async function GET(request: Request) {
       lowStockCloth = clothInventory.filter(
         (item: ClothInventoryItem) => {
           const available = item.currentStock - item.reserved
-          return available <= item.minimum
+          return available <= item.minimumStockMeters
         }
       )
       lowStockAccessories = accessoryInventory.filter(
-        (item: AccessoryInventoryItem) => item.currentStock <= item.minimum
+        (item: AccessoryInventoryItem) => item.currentStock <= item.minimumStockUnits
       )
     } else {
       // Low: Above minimum but within 25% warning zone
       lowStockCloth = clothInventory.filter(
         (item: ClothInventoryItem) => {
           const available = item.currentStock - item.reserved
-          return available > item.minimum && available <= item.minimum * 1.25
+          return available > item.minimumStockMeters && available <= item.minimumStockMeters * 1.25
         }
       )
       lowStockAccessories = accessoryInventory.filter(
         (item: AccessoryInventoryItem) =>
-          item.currentStock > item.minimum && item.currentStock <= item.minimum * 1.25
+          item.currentStock > item.minimumStockUnits && item.currentStock <= item.minimumStockUnits * 1.25
       )
     }
 
@@ -94,7 +94,7 @@ export async function GET(request: Request) {
       currentStock: item.currentStock,
       available: item.currentStock - item.reserved,
       reserved: item.reserved,
-      minimum: item.minimum,
+      minimum: item.minimumStockMeters,
       unit: 'meters',
       pricePerUnit: item.pricePerMeter,
       value: item.currentStock * item.pricePerMeter,
@@ -111,7 +111,7 @@ export async function GET(request: Request) {
       currentStock: item.currentStock,
       available: item.currentStock,
       reserved: 0,
-      minimum: item.minimum,
+      minimum: item.minimumStockUnits,
       unit: 'pieces',
       pricePerUnit: item.pricePerUnit,
       value: item.currentStock * item.pricePerUnit,

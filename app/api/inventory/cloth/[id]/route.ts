@@ -136,8 +136,8 @@ export async function PATCH(
             clothInventoryId: id,
             userId: session.user.id,
             type: 'ADJUSTMENT',
-            quantity: quantityChange,
-            balanceAfter: updateData.currentStock,
+            quantityMeters: quantityChange,
+            balanceAfterMeters: updateData.currentStock,
             notes: _auditNote || `Stock adjusted from ${existingItem.currentStock}m to ${updateData.currentStock}m`,
           },
         })
