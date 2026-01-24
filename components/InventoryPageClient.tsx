@@ -960,7 +960,7 @@ export default function InventoryPageClient() {
                           onClick={() => handleSort('currentStock', 'accessory')}
                         >
                           <div className="flex items-center gap-1">
-                            Stock
+                            Available
                             <ArrowUpDown className={`h-3 w-3 ${accessorySortField === 'currentStock' ? 'text-blue-600' : 'text-slate-400'}`} />
                           </div>
                         </TableHead>
@@ -998,7 +998,8 @@ export default function InventoryPageClient() {
                     </TableHeader>
                     <TableBody>
                       {sortData(accessoryInventory, accessorySortField, accessorySortDirection, 'accessory').map((item) => {
-                        const status = getStockStatus(item.currentStock, 0, item.minimum)
+                        const available = item.currentStock - (item.reserved || 0)
+                        const status = getStockStatus(item.currentStock, item.reserved || 0, item.minimum)
                         return (
                           <TableRow
                             key={item.id}
@@ -1010,7 +1011,12 @@ export default function InventoryPageClient() {
                             </TableCell>
                             <TableCell className="font-medium">{item.name}</TableCell>
                             <TableCell>{item.color || '-'}</TableCell>
-                            <TableCell>{item.currentStock}</TableCell>
+                            <TableCell>
+                              {available}
+                              {item.reserved && item.reserved > 0 && (
+                                <span className="text-xs text-slate-500"> ({item.reserved} reserved)</span>
+                              )}
+                            </TableCell>
                             <TableCell>{item.minimum}</TableCell>
                             {!isTailor && <TableCell>{formatCurrency(item.pricePerUnit)}</TableCell>}
                             <TableCell>
@@ -1022,8 +1028,8 @@ export default function InventoryPageClient() {
                                   size="sm"
                                   variant="ghost"
                                   onClick={() => handleReorder(item.id, item.name)}
-                                  disabled={item.currentStock > item.minimum}
-                                  title={item.currentStock > item.minimum ? "Stock is sufficient" : "Reorder this item"}
+                                  disabled={available > item.minimum}
+                                  title={available > item.minimum ? "Stock is sufficient" : "Reorder this item"}
                                 >
                                   <ShoppingCart className="h-4 w-4" />
                                 </Button>
