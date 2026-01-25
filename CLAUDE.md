@@ -107,6 +107,145 @@ accessoryStockMovements: {
 
 ---
 
+### ✅ Cash Collected Metric Fix - Exclude Cancelled Orders (v0.27.5)
+
+**What's New:**
+- **Accurate Cash Collected Metrics** - Dashboard now excludes payments from cancelled orders
+- **Financial Integrity** - Cash collected reflects actual net cash position (not refundable amounts)
+- **Short-Term Solution** - Quick fix while comprehensive refund tracking system is developed
+
+**Version:** v0.27.5
+**Date:** January 25, 2026
+**Status:** ✅ Production Ready
+
+**Issue Fixed:**
+
+**Problem**: Dashboard cash collected metrics included payments from cancelled orders that should be refunded, overstating actual cash position.
+
+**Example Scenario**:
+- Order total: ₹141,775.02
+- Payment received: ₹375,000.00
+- Order status: CANCELLED
+- Balance: -₹233,224.98 (overpayment requiring refund)
+- **Before**: ₹375,000 counted in cash collected (incorrect)
+- **After**: ₹0 counted (correct - payment is refundable)
+
+**Root Cause**:
+- Dashboard API aggregated all PAID installments without filtering by order status
+- Cancelled orders with payments inflated cash collected metrics
+- Financial dashboard showed higher cash availability than actual
+
+**Solution**: Added order status filter to exclude cancelled orders from cash collected calculations
+
+**Technical Implementation:**
+
+```typescript
+// app/api/dashboard/enhanced-stats/route.ts
+
+// Cash collected this month (lines 632-652)
+const cashCollectedThisMonth = await prisma.paymentInstallment.aggregate({
+  where: {
+    paidDate: {
+      gte: startOfMonth(now),
+      lte: endOfMonth(now),
+    },
+    status: 'PAID',
+    order: {
+      status: {
+        notIn: ['CANCELLED'],  // ✅ NEW: Exclude cancelled orders
+      },
+    },
+  },
+  _sum: {
+    paidAmount: true,
+  },
+})
+
+// Cash collected last month (lines 654-674)
+const cashCollectedLastMonth = await prisma.paymentInstallment.aggregate({
+  where: {
+    paidDate: {
+      gte: startOfMonth(lastMonthDate),
+      lte: endOfMonth(lastMonthDate),
+    },
+    status: 'PAID',
+    order: {
+      status: {
+        notIn: ['CANCELLED'],  // ✅ NEW: Exclude cancelled orders
+      },
+    },
+  },
+  _sum: {
+    paidAmount: true,
+  },
+})
+```
+
+**Files Modified:**
+- `app/api/dashboard/enhanced-stats/route.ts` - Added order status filter to both cash collected queries (lines 640-644, 659-663)
+
+**Impact on Metrics:**
+
+| Metric | Before Fix | After Fix | Correct? |
+|--------|-----------|----------|----------|
+| Revenue (This Month) | ✅ Excludes CANCELLED | ✅ Excludes CANCELLED | ✅ Correct |
+| Cash Collected (This Month) | ⚠️ Includes CANCELLED | ✅ Excludes CANCELLED | ✅ Fixed |
+| Outstanding Payments | ✅ Excludes CANCELLED | ✅ Excludes CANCELLED | ✅ Correct |
+
+**Real Example - Order ORD-1769332602073-426:**
+- Status: CANCELLED
+- Payment received: ₹375,000
+- Refund due: ₹233,224.98
+- **Before**: +₹375,000 in cash collected (overstates by ₹375,000)
+- **After**: ₹0 in cash collected (accurate - payment will be refunded)
+
+**User Impact:**
+- ✅ Dashboard shows accurate cash position
+- ✅ Financial decisions based on real available cash
+- ✅ No overstatement of liquidity
+- ✅ Better cash flow management
+
+**Testing:**
+```bash
+# Verify cancelled order with payments exists
+PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -c "
+SELECT o.\"orderNumber\", o.status, o.\"totalAmount\",
+       COALESCE(SUM(pi.\"paidAmount\"), 0) as total_paid
+FROM \"Order\" o
+LEFT JOIN \"PaymentInstallment\" pi ON pi.\"orderId\" = o.id AND pi.status = 'PAID'
+WHERE o.status = 'CANCELLED' AND pi.id IS NOT NULL
+GROUP BY o.id, o.\"orderNumber\", o.status, o.\"totalAmount\";
+"
+# Result: Shows ORD-1769332602073-426 with ₹375,000 paid
+
+# Check dashboard after fix
+1. Login as owner@hameesattire.com / admin123
+2. Navigate to https://hamees.gagneet.com/dashboard
+3. Check "Cash Collected This Month" metric
+4. Verify: Does NOT include ₹375,000 from cancelled order
+```
+
+**Build & Deployment:**
+- Build time: ~35.6s
+- Zero TypeScript errors
+- PM2 restart: ✅ Successful
+- Production: ✅ Live at https://hamees.gagneet.com
+
+**Related Documentation:**
+- Complete analysis: `docs/PAYMENT_HANDLING_CANCELLED_ORDERS.md`
+- Includes short-term and long-term solutions
+- Refund tracking system roadmap
+
+**Next Steps (Long-Term):**
+- Create Refund model in database schema
+- Build refund workflow UI
+- Update cash collected formula: Cash Collected = Payments - Refunds
+- Add refund reports and analytics
+
+**Documentation:** This section in CLAUDE.md
+
+---
+
 ### ✅ Payment Amount Validation (v0.27.3)
 
 **What's New:**

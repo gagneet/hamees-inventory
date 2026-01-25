@@ -637,6 +637,11 @@ export async function GET(request: Request) {
             lte: endOfMonth(now),
           },
           status: 'PAID',
+          order: {
+            status: {
+              notIn: ['CANCELLED'],
+            },
+          },
         },
         _sum: {
           paidAmount: true,
@@ -651,6 +656,11 @@ export async function GET(request: Request) {
             lte: endOfMonth(subMonths(now, 1)),
           },
           status: 'PAID',
+          order: {
+            status: {
+              notIn: ['CANCELLED'],
+            },
+          },
         },
         _sum: {
           paidAmount: true,
