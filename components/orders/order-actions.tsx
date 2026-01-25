@@ -33,6 +33,7 @@ interface OrderActionsProps {
   notes: string | null
   priority: string
   totalAmount: number
+  balanceAmount: number
   userRole: string
   isDelivered?: boolean
 }
@@ -58,6 +59,7 @@ export function OrderActions({
   notes,
   priority,
   totalAmount,
+  balanceAmount,
   userRole,
   isDelivered = false,
 }: OrderActionsProps) {
@@ -79,9 +81,8 @@ export function OrderActions({
   })
 
   // Discount form - auto-populate with current balance amount
-  const currentBalance = totalAmount - advancePaid - discount
   const [discountData, setDiscountData] = useState({
-    discount: currentBalance.toFixed(2),
+    discount: balanceAmount.toFixed(2),
     discountReason: discountReason || '',
   })
 
@@ -336,7 +337,7 @@ export function OrderActions({
             <div className="space-y-4 py-4">
               <div className="bg-blue-50 p-3 rounded-lg text-sm">
                 <p className="text-blue-900">
-                  <strong>Current Balance:</strong> ₹{(totalAmount - advancePaid - discount).toFixed(2)}
+                  <strong>Current Balance:</strong> ₹{balanceAmount.toFixed(2)}
                 </p>
                 <p className="text-blue-700 text-xs mt-1">
                   Total: ₹{totalAmount.toFixed(2)} | Advance: ₹{advancePaid.toFixed(2)} | Current Discount: ₹{discount.toFixed(2)}
@@ -357,7 +358,7 @@ export function OrderActions({
                   className="text-red-600 font-bold text-lg"
                 />
                 <p className="text-xs text-slate-500 mt-1">
-                  New Balance: ₹{(totalAmount - advancePaid - parseFloat(discountData.discount || '0')).toFixed(2)}
+                  New Balance: ₹{(balanceAmount - (parseFloat(discountData.discount || '0') - discount)).toFixed(2)}
                 </p>
               </div>
               <div>

@@ -666,6 +666,7 @@ export default async function OrderDetailPage({
                 notes={order.notes}
                 priority={order.priority}
                 totalAmount={order.totalAmount}
+                balanceAmount={order.balanceAmount}
                 userRole={session.user.role}
                 isDelivered={order.status === 'DELIVERED'}
               />

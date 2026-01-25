@@ -10,6 +10,113 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Apply Discount Balance Calculation Fix (v0.27.1)
+
+**What's New:**
+- **Fixed Discount Dialog Balance** - Apply Discount now correctly shows balance after payment installments
+- **Accurate Pre-filled Amount** - Discount field auto-populates with actual remaining balance
+- **Correct New Balance Preview** - Shows accurate balance after applying discount
+
+**Version:** v0.27.1
+**Date:** January 25, 2026
+**Status:** ✅ Production Ready
+
+**Issue Fixed:**
+
+1. **Apply Discount Dialog Showing Incorrect Balance**
+   - **Problem**: After recording a payment installment, Apply Discount dialog still showed the full original balance
+   - **Example**: Order total ₹1,33,969.81, payment of ₹82,000 recorded, but dialog showed balance as ₹1,33,969.81 instead of ₹50,000
+   - **Root Cause**: Dialog component recalculated balance as `totalAmount - advancePaid - discount`, completely ignoring payment installments
+   - **Solution**: Pass the correctly calculated `balanceAmount` from order (which includes installments) to the component
+   - **Result**: Dialog now shows correct balance including all payments and installments
+
+**Technical Details:**
+
+**Before (Incorrect Calculation):**
+```typescript
+// components/orders/order-actions.tsx
+const currentBalance = totalAmount - advancePaid - discount
+// ❌ Missing: payment installments
+
+// Result: ₹1,33,969.81 - ₹0 - ₹0 = ₹1,33,969.81 (wrong!)
+```
+
+**After (Correct Balance):**
+```typescript
+// app/(dashboard)/orders/[id]/page.tsx
+<OrderActions
+  balanceAmount={order.balanceAmount}  // ✅ Correctly calculated in API
+  // ... other props
+/>
+
+// components/orders/order-actions.tsx
+const [discountData, setDiscountData] = useState({
+  discount: balanceAmount.toFixed(2),  // ✅ Uses pre-calculated balance
+  discountReason: discountReason || '',
+})
+
+// Dialog display
+<p><strong>Current Balance:</strong> ₹{balanceAmount.toFixed(2)}</p>
+
+// New balance preview
+<p>New Balance: ₹{(balanceAmount - (parseFloat(discountData.discount || '0') - discount)).toFixed(2)}</p>
+```
+
+**Balance Calculation (API - Already Correct):**
+```typescript
+// app/api/orders/[id]/route.ts (lines 116-128)
+const paidInstallments = await prisma.paymentInstallment.aggregate({
+  where: {
+    orderId: id,
+    status: 'PAID',
+  },
+  _sum: {
+    paidAmount: true,
+  },
+})
+const totalPaidInstallments = paidInstallments._sum.paidAmount || 0
+
+// Correct formula
+const balanceAmount = parseFloat(
+  (order.totalAmount - advancePaid - discount - totalPaidInstallments).toFixed(2)
+)
+```
+
+**Files Modified:**
+- `app/(dashboard)/orders/[id]/page.tsx` - Added `balanceAmount` prop to OrderActions (line 669)
+- `components/orders/order-actions.tsx` - Updated interface, used `balanceAmount` instead of recalculating (lines 36, 62, 85, 340, 361)
+
+**User Impact:**
+- ✅ Discount dialog shows correct balance after payment installments
+- ✅ Pre-filled discount amount matches actual remaining balance
+- ✅ New balance preview accurately reflects final amount after discount
+- ✅ No more confusion when applying discounts after recording payments
+
+**Testing:**
+```bash
+# Test Apply Discount After Payment
+1. Open order (e.g., https://hamees.gagneet.com/orders/cmktfz3510000lzuxauptffpm)
+2. Total: ₹1,33,969.81
+3. Record Payment of ₹82,000 via installment
+4. Balance should now be ₹51,969.81
+5. Click "Apply Discount"
+6. Verify "Current Balance" shows ₹51,969.81 (not ₹1,33,969.81)
+7. Verify discount field pre-filled with ₹51,969.81
+8. Apply discount of ₹1,969.81
+9. Verify "New Balance" shows ₹50,000.00
+10. Save and verify final balance is ₹50,000.00
+```
+
+**Build & Deployment:**
+- Build time: 34.6s
+- Zero TypeScript errors
+- PM2 restart: ✅ Successful
+- Production: ✅ Live at https://hamees.gagneet.com
+
+**Documentation:** This section in CLAUDE.md
+
+---
+
 ### ✅ Decimal Precision & Delivered Order UI Improvements (v0.27.0)
 
 **What's New:**
