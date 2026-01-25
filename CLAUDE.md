@@ -10,6 +10,135 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Payment Amount Validation (v0.27.3)
+
+**What's New:**
+- **Payment Cannot Exceed Balance** - All payment inputs validate that amount ≤ balance due
+- **Advance Payment Validation** - Order creation prevents advance > total amount
+- **Order Update Validation** - Prevents advance + discount > total amount
+- **Comprehensive Coverage** - Validation applied to all payment entry points
+
+**Version:** v0.27.3
+**Date:** January 25, 2026
+**Status:** ✅ Production Ready
+
+**Issue Fixed:**
+
+**Problem**: Users could enter payment amounts exceeding the balance or total order amount, leading to negative balances and accounting discrepancies.
+
+**Solution**: Implemented comprehensive validation at all payment entry points:
+
+1. **Order Creation (Frontend)**
+   - **Location**: `app/(dashboard)/orders/new/page.tsx`
+   - **HTML5 Validation**: Input field has `max={total}` attribute
+   - **JavaScript Validation**: onChange handler prevents values > total
+   - **User Feedback**: Shows alert and auto-corrects to max amount
+   - **Helper Text**: Displays "Maximum: ₹X,XXX.XX" below input
+
+2. **Order Creation (Backend API)**
+   - **Location**: `app/api/orders/route.ts`
+   - **Validation**: Checks `advancePaid <= totalAmount` before creating order
+   - **Error Response**: Returns 400 with descriptive message showing both amounts
+   - **Example**: `"Advance payment (₹1,50,000.00) cannot exceed total order amount (₹1,41,775.02)"`
+
+3. **Order Update (Backend API)**
+   - **Location**: `app/api/orders/[id]/route.ts`
+   - **Validation**: Checks `advancePaid + discount <= totalAmount` before updating
+   - **Error Response**: Returns 400 with all three amounts in error message
+   - **Example**: `"Advance payment (₹80,000.00) plus discount (₹70,000.00) cannot exceed total order amount (₹1,41,775.02)"`
+
+4. **Payment Recording (Already Implemented)**
+   - **Location**: `app/api/orders/[id]/payments/route.ts`
+   - **Validation**: Checks `paymentAmount <= balanceAmount`
+   - **Frontend**: `components/orders/record-payment-dialog.tsx` also validates
+   - **HTML5**: Input has `max={balanceAmount}` attribute
+
+**Technical Implementation:**
+
+```typescript
+// Order Creation API (app/api/orders/route.ts)
+if (validatedData.advancePaid > totalAmount) {
+  return NextResponse.json(
+    {
+      error: `Advance payment (₹${validatedData.advancePaid.toFixed(2)}) cannot exceed total order amount (₹${totalAmount.toFixed(2)})`
+    },
+    { status: 400 }
+  )
+}
+
+// Order Update API (app/api/orders/[id]/route.ts)
+if (advancePaid + discount > order.totalAmount) {
+  return NextResponse.json(
+    {
+      error: `Advance payment (₹${advancePaid.toFixed(2)}) plus discount (₹${discount.toFixed(2)}) cannot exceed total order amount (₹${order.totalAmount.toFixed(2)})`
+    },
+    { status: 400 }
+  )
+}
+
+// Order Creation Form (app/(dashboard)/orders/new/page.tsx)
+<input
+  type="number"
+  min="0"
+  max={total}
+  step="0.01"
+  value={advancePaid}
+  onChange={(e) => {
+    const value = parseFloat(e.target.value) || 0
+    if (value > total) {
+      alert(`Advance payment cannot exceed total order amount of ₹${total.toFixed(2)}`)
+      setAdvancePaid(total)
+    } else {
+      setAdvancePaid(value)
+    }
+  }}
+/>
+<p className="text-xs text-slate-500 mt-1">
+  Maximum: ₹{total.toFixed(2)}
+</p>
+```
+
+**Files Modified:**
+- `app/api/orders/route.ts` - Added advance payment validation (line 509-517)
+- `app/api/orders/[id]/route.ts` - Added advance + discount validation (line 115-123)
+- `app/(dashboard)/orders/new/page.tsx` - Added max attribute and onChange validation (line 921-938)
+
+**User Impact:**
+- ✅ Prevents negative balance scenarios
+- ✅ Clear error messages with exact amounts
+- ✅ Auto-correction in UI prevents user confusion
+- ✅ Consistent validation across all payment entry points
+- ✅ Better accounting integrity and financial accuracy
+
+**Testing:**
+```bash
+# Test Order Creation Validation
+1. Create new order with total ₹1,41,775.02
+2. Try to enter advance payment of ₹1,41,775.03
+3. Verify: UI shows alert and corrects to ₹1,41,775.02
+4. Verify: API returns 400 error if validation bypassed
+
+# Test Order Update Validation
+1. Open order with total ₹1,00,000.00
+2. Try to set advance ₹60,000 + discount ₹50,000
+3. Verify: API returns 400 error (total = ₹1,10,000 > ₹1,00,000)
+
+# Test Payment Recording (Already Working)
+1. Open order with balance ₹50,000.00
+2. Try to record payment of ₹50,000.01
+3. Verify: Both UI and API prevent overpayment
+```
+
+**Build & Deployment:**
+- Build time: ~35s
+- Zero TypeScript errors
+- PM2 restart: ✅ Successful
+- Production: ✅ Live at https://hamees.gagneet.com
+
+**Documentation:** This section in CLAUDE.md
+
+---
+
 ### ✅ Order Quantity Fix & Simplified UI (v0.27.2)
 
 **What's New:**

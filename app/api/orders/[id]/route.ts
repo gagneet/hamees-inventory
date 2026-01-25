@@ -112,6 +112,16 @@ export async function PATCH(
     const advancePaid = data.advancePaid ?? order.advancePaid
     const discount = data.discount ?? order.discount
 
+    // Validate that advance + discount doesn't exceed total amount
+    if (advancePaid + discount > order.totalAmount) {
+      return NextResponse.json(
+        {
+          error: `Advance payment (₹${advancePaid.toFixed(2)}) plus discount (₹${discount.toFixed(2)}) cannot exceed total order amount (₹${order.totalAmount.toFixed(2)})`
+        },
+        { status: 400 }
+      )
+    }
+
     // Get sum of all paid installments
     const paidInstallments = await prisma.paymentInstallment.aggregate({
       where: {

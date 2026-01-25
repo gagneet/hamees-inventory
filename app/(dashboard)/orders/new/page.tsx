@@ -918,12 +918,24 @@ function NewOrderForm() {
                     <input
                       type="number"
                       min="0"
+                      max={total}
                       step="0.01"
                       value={advancePaid}
-                      onChange={(e) => setAdvancePaid(parseFloat(e.target.value) || 0)}
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value) || 0
+                        if (value > total) {
+                          alert(`Advance payment cannot exceed total order amount of ₹${total.toFixed(2)}`)
+                          setAdvancePaid(total)
+                        } else {
+                          setAdvancePaid(value)
+                        }
+                      }}
                       className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="0.00"
                     />
+                    <p className="text-xs text-slate-500 mt-1">
+                      Maximum: ₹{total.toFixed(2)}
+                    </p>
                   </div>
 
                   <div>

@@ -506,6 +506,16 @@ export async function POST(request: Request) {
     const taxableAmount = subTotal
     const totalAmount = parseFloat((subTotal + gstAmount).toFixed(2))
 
+    // Validate advance payment doesn't exceed total amount
+    if (validatedData.advancePaid > totalAmount) {
+      return NextResponse.json(
+        {
+          error: `Advance payment (₹${validatedData.advancePaid.toFixed(2)}) cannot exceed total order amount (₹${totalAmount.toFixed(2)})`
+        },
+        { status: 400 }
+      )
+    }
+
     // Round to 2 decimal places to avoid floating-point precision errors
     const balanceAmount = parseFloat((totalAmount - validatedData.advancePaid).toFixed(2))
 
