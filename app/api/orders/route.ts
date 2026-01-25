@@ -47,7 +47,7 @@ const orderSchema = z.object({
     z.object({
       garmentPatternId: z.string().min(1),
       clothInventoryId: z.string().min(1),
-      quantity: z.number().int().positive().default(1),
+      quantityOrdered: z.number().int().positive().default(1), // Changed from 'quantity' to match frontend
       bodyType: z.nativeEnum(BodyType).default(BodyType.REGULAR),
       assignedTailorId: z.string().nullish(), // Optional tailor assignment
       accessories: z.array(
@@ -338,7 +338,7 @@ export async function POST(request: Request) {
       if (item.bodyType === BodyType.LARGE) adjustment = pattern.largeAdjustment
       if (item.bodyType === BodyType.XL) adjustment = pattern.xlAdjustment
 
-      const estimatedMeters = (pattern.baseMeters + adjustment) * item.quantity
+      const estimatedMeters = (pattern.baseMeters + adjustment) * item.quantityOrdered
 
       // Check cloth stock availability
       const available = cloth.currentStock - cloth.reserved
@@ -359,7 +359,7 @@ export async function POST(request: Request) {
       // Add pattern's default accessories
       if (pattern.accessories && pattern.accessories.length > 0) {
         for (const garmentAcc of pattern.accessories) {
-          const totalNeeded = garmentAcc.quantityPerGarment * item.quantity
+          const totalNeeded = garmentAcc.quantityPerGarment * item.quantityOrdered
           requiredAccessories.set(garmentAcc.accessoryId, totalNeeded)
         }
       }
@@ -367,7 +367,7 @@ export async function POST(request: Request) {
       // Merge/override with user-provided accessories
       if (item.accessories && item.accessories.length > 0) {
         for (const acc of item.accessories) {
-          const totalNeeded = acc.quantity * item.quantity
+          const totalNeeded = acc.quantity * item.quantityOrdered
           requiredAccessories.set(acc.accessoryId, totalNeeded)
         }
       }
@@ -408,7 +408,7 @@ export async function POST(request: Request) {
       } else if (validatedData.stitchingTier === StitchingTier.LUXURY) {
         tierCharge = pattern.luxuryStitchingCharge
       }
-      stitchingCost += tierCharge * item.quantity
+      stitchingCost += tierCharge * item.quantityOrdered
 
       // Find matching measurement for this garment type
       const garmentTypeName = pattern.name.replace(/^(Men's|Women's|Kids)\s+/i, '').trim()
@@ -422,10 +422,10 @@ export async function POST(request: Request) {
       orderItems.push({
         garmentPatternId: item.garmentPatternId,
         clothInventoryId: item.clothInventoryId,
-        quantityOrdered: item.quantity,
+        quantityOrdered: item.quantityOrdered,
         bodyType: item.bodyType,
         estimatedMeters,
-        pricePerUnit: itemTotal / item.quantity,
+        pricePerUnit: itemTotal / item.quantityOrdered,
         totalPrice: itemTotal,
         measurementId: matchingMeasurement?.id,
         assignedTailorId: item.assignedTailorId || undefined,
