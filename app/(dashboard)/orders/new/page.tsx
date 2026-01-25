@@ -217,10 +217,23 @@ function NewOrderForm() {
     setItems([...items, {
       garmentPatternId: '',
       clothInventoryId: '',
-      quantityOrdered: 1,
+      quantityOrdered: 1, // Always 1 - use duplicate button for multiple identical items
       bodyType: 'REGULAR',
       accessories: [],
     }])
+  }
+
+  const duplicateItem = (index: number) => {
+    const itemToDuplicate = items[index]
+    // Create a deep copy of the item
+    const duplicatedItem = {
+      ...itemToDuplicate,
+      accessories: itemToDuplicate.accessories.map(acc => ({ ...acc })),
+    }
+    // Insert the duplicate right after the original
+    const newItems = [...items]
+    newItems.splice(index + 1, 0, duplicatedItem)
+    setItems(newItems)
   }
 
   const removeItem = (index: number) => {
@@ -308,12 +321,12 @@ function NewOrderForm() {
         const meters = (pattern.baseMeters + adjustment) * item.quantityOrdered
         fabricCost += parseFloat((meters * cloth.pricePerMeter).toFixed(2))
 
-        // Accessories cost
+        // Accessories cost (quantityOrdered is always 1, so just multiply by accessory quantity)
         if (item.accessories && item.accessories.length > 0) {
           for (const itemAcc of item.accessories) {
             const accessory = accessories.find(a => a.id === itemAcc.accessoryId)
             if (accessory) {
-              const accessoryTotal = itemAcc.quantity * item.quantityOrdered * accessory.pricePerUnit
+              const accessoryTotal = itemAcc.quantity * accessory.pricePerUnit
               accessoriesCost += parseFloat(accessoryTotal.toFixed(2))
             }
           }
@@ -781,7 +794,7 @@ function NewOrderForm() {
                                         className="w-16 px-2 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
                                       />
                                       <span className="text-xs text-slate-600">
-                                        × {item.quantityOrdered} = {itemAcc.quantity * item.quantityOrdered}
+                                        units
                                       </span>
                                       <Button
                                         variant="ghost"
@@ -824,18 +837,24 @@ function NewOrderForm() {
                         <label className="block text-sm font-medium text-slate-700 mb-2">
                           Quantity
                         </label>
-                        <input
-                          type="tel"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          min="1"
-                          value={item.quantityOrdered}
-                          onChange={(e) => {
-                            const val = e.target.value.replace(/[^0-9]/g, '')
-                            updateItem(index, 'quantityOrdered', parseInt(val) || 1)
-                          }}
-                          className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
+                        <div className="flex items-center gap-3">
+                          <div className="px-4 py-2 border-2 border-slate-300 rounded-lg bg-slate-50 text-slate-600 font-semibold">
+                            1 unit
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => duplicateItem(index)}
+                            className="flex items-center gap-2"
+                          >
+                            <Plus className="h-4 w-4" />
+                            Duplicate Item
+                          </Button>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1">
+                          Need multiple identical items? Click "Duplicate Item" to create separate entries.
+                        </p>
                       </div>
                     </div>
                   </div>

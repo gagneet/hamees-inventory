@@ -10,6 +10,126 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Order Quantity Fix & Simplified UI (v0.27.2)
+
+**What's New:**
+- **Fixed Quantity Field Mismatch** - API now correctly processes `quantityOrdered` from frontend
+- **Simplified Order Creation** - Each order item is always quantity 1
+- **Duplicate Item Feature** - Create multiple identical items as separate entries
+- **Better Workflow** - Each garment tracked individually through production pipeline
+
+**Version:** v0.27.2
+**Date:** January 25, 2026
+**Status:** ✅ Production Ready
+
+**Issue Fixed:**
+
+1. **API Field Name Mismatch**
+   - **Problem**: Frontend sent `quantityOrdered: 10`, but API expected `quantity` (defaulted to 1)
+   - **Example**: Order for 10 suits showed as 1 suit, calculated ₹1,41,775.02 instead of ₹14,17,750
+   - **Root Cause**: Zod schema used `quantity`, but frontend state used `quantityOrdered`
+   - **Solution**: Updated API schema to use `quantityOrdered` consistently
+   - **Result**: Orders now process with correct quantities and totals
+
+2. **Quantity Input Removed from UI**
+   - **Old Design**: Users could enter quantity 1-99 per item
+   - **New Design**: Each item is always quantity 1 (non-editable)
+   - **Reasoning**:
+     - Each garment is unique with individual measurements
+     - Separate tracking through cutting, stitching, finishing stages
+     - Better inventory control and quality assurance
+     - Clearer assignment to tailors (one garment = one task)
+
+3. **Duplicate Item Button**
+   - **Location**: Next to "Body Type" field on each item
+   - **Action**: Creates a complete copy of the current item (including accessories)
+   - **Use Case**: Customer orders 5 identical suits → Create 1 suit, click "Duplicate Item" 4 times
+   - **Benefit**: Each suit tracked separately with its own status and tailor assignment
+
+**Technical Details:**
+
+**API Changes (app/api/orders/route.ts):**
+```typescript
+// Before
+quantity: z.number().int().positive().default(1)
+const estimatedMeters = (pattern.baseMeters + adjustment) * item.quantity
+quantityOrdered: item.quantity  // ❌ Wrong field name
+
+// After
+quantityOrdered: z.number().int().positive().default(1)
+const estimatedMeters = (pattern.baseMeters + adjustment) * item.quantityOrdered
+quantityOrdered: item.quantityOrdered  // ✅ Correct
+```
+
+**Frontend Changes (app/(dashboard)/orders/new/page.tsx):**
+```typescript
+// Removed editable quantity input
+// Before
+<input type="number" value={item.quantityOrdered} onChange={...} />
+
+// After
+<div className="px-4 py-2 bg-slate-50 text-slate-600 font-semibold">
+  1 unit
+</div>
+<Button onClick={() => duplicateItem(index)}>
+  <Plus /> Duplicate Item
+</Button>
+
+// New duplicate function
+const duplicateItem = (index: number) => {
+  const duplicatedItem = {
+    ...items[index],
+    accessories: items[index].accessories.map(acc => ({ ...acc })),
+  }
+  const newItems = [...items]
+  newItems.splice(index + 1, 0, duplicatedItem)
+  setItems(newItems)
+}
+```
+
+**Accessory Calculation:**
+```typescript
+// Before (incorrect)
+const accessoryTotal = itemAcc.quantity * item.quantityOrdered * accessory.pricePerUnit
+
+// After (correct - quantityOrdered is always 1)
+const accessoryTotal = itemAcc.quantity * accessory.pricePerUnit
+```
+
+**Files Modified:**
+- `app/api/orders/route.ts` - Updated schema and all references from `quantity` to `quantityOrdered`
+- `app/(dashboard)/orders/new/page.tsx` - Removed quantity input, added duplicate button, fixed calculations
+
+**User Impact:**
+- ✅ Order totals now calculate correctly
+- ✅ Simpler order creation (no quantity field to manage)
+- ✅ Each garment tracked individually for better production control
+- ✅ Clearer workflow for tailors (1 task = 1 garment)
+- ✅ No more field name confusion between frontend and backend
+
+**Testing:**
+```bash
+# Test Order Creation with Duplicate Items
+1. Navigate to https://hamees.gagneet.com/orders/new
+2. Select customer and add 1 Suit item
+3. Note: Quantity shows "1 unit" (non-editable)
+4. Click "Duplicate Item" button 2 times
+5. Result: 3 separate suit items in the order
+6. Complete order creation
+7. Verify: Order total = (suit price × 3) + stitching + GST
+8. Verify: Each item shows quantity 1 in order details
+```
+
+**Build & Deployment:**
+- Build time: ~35s
+- Zero TypeScript errors
+- PM2 restart: ✅ Successful
+- Production: ✅ Live at https://hamees.gagneet.com
+
+**Documentation:** This section in CLAUDE.md
+
+---
+
 ### ✅ Apply Discount Balance Calculation Fix (v0.27.1)
 
 **What's New:**
