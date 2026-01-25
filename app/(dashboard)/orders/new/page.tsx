@@ -584,6 +584,79 @@ function NewOrderForm() {
           </div>
         </div>
 
+        {/* Sticky Order Summary Bar - Desktop (Top) / Mobile (Bottom) */}
+        {items.length > 0 && (
+          <>
+            {/* Desktop: Sticky Top Bar */}
+            <div className="hidden lg:block sticky top-0 z-40 mb-6">
+              <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg shadow-lg p-4 backdrop-blur-sm border border-blue-500">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-2">
+                      <Package className="h-5 w-5" />
+                      <span className="font-semibold">{items.length} {items.length === 1 ? 'Item' : 'Items'}</span>
+                    </div>
+                    {selectedCustomer && (
+                      <div className="flex items-center gap-2 text-blue-100">
+                        <User className="h-4 w-4" />
+                        <span className="text-sm">{selectedCustomer.name}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-8">
+                    <div className="text-right">
+                      <p className="text-xs text-blue-200 uppercase tracking-wide">Subtotal</p>
+                      <p className="text-lg font-bold">₹{subTotal.toLocaleString('en-IN', {minimumFractionDigits: 2})}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-blue-200 uppercase tracking-wide">GST (12%)</p>
+                      <p className="text-lg font-semibold">₹{gstAmount.toLocaleString('en-IN', {minimumFractionDigits: 2})}</p>
+                    </div>
+                    <div className="text-right border-l border-blue-400 pl-6">
+                      <p className="text-xs text-blue-200 uppercase tracking-wide">Total Amount</p>
+                      <p className="text-2xl font-bold">₹{total.toLocaleString('en-IN', {minimumFractionDigits: 2})}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile: Sticky Bottom Bar */}
+            <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 shadow-2xl">
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2 text-slate-600">
+                    <Package className="h-4 w-4" />
+                    <span className="text-sm font-medium">{items.length} {items.length === 1 ? 'Item' : 'Items'}</span>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-slate-500">Subtotal</p>
+                    <p className="text-sm font-semibold text-slate-900">₹{subTotal.toLocaleString('en-IN', {minimumFractionDigits: 2})}</p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-4 pt-2 border-t border-slate-200">
+                  <div>
+                    <p className="text-xs text-slate-500">Total Amount</p>
+                    <p className="text-xl font-bold text-blue-600">₹{total.toLocaleString('en-IN', {minimumFractionDigits: 2})}</p>
+                  </div>
+                  {step === 3 && (
+                    <Button
+                      onClick={handleSubmit}
+                      disabled={loading || !customerId || items.length === 0}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      {loading ? 'Creating...' : 'Create Order'}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile: Bottom padding to prevent content being hidden by sticky bar */}
+            <div className="lg:hidden h-32"></div>
+          </>
+        )}
+
         {/* Progress Steps */}
         <div className="mb-8">
           <div className="flex items-center justify-between">
