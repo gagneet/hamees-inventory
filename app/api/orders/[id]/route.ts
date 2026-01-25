@@ -122,7 +122,7 @@ export async function PATCH(
       )
     }
 
-    // Get sum of all paid installments
+    // Get sum of all paid installments (includes advance payment from order creation)
     const paidInstallments = await prisma.paymentInstallment.aggregate({
       where: {
         orderId: id,
@@ -134,8 +134,10 @@ export async function PATCH(
     })
     const totalPaidInstallments = paidInstallments._sum.paidAmount || 0
 
-    // Round to 2 decimal places to avoid floating-point precision errors
-    const balanceAmount = parseFloat((order.totalAmount - advancePaid - discount - totalPaidInstallments).toFixed(2))
+    // Balance = Total - Discount - All Paid Installments
+    // Note: advancePaid is already included in totalPaidInstallments (first installment)
+    // So we DON'T subtract it again to avoid double-counting
+    const balanceAmount = parseFloat((order.totalAmount - discount - totalPaidInstallments).toFixed(2))
 
     // Update order and create history in a transaction
     // @ts-ignore
