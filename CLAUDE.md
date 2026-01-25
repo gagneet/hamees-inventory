@@ -10,6 +10,90 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Balance Calculation Double-Counting Fix (v0.28.1)
+
+**What's New:**
+- **Fixed Critical Bug** - Balance Due was showing incorrect amounts due to double-counting advance payment
+- **Corrected Formula** - Removed duplicate subtraction of advance payment
+- **Database Fix** - Updated affected order ORD-1769338355430-738 from ₹24,999.87 to ₹100,000.00
+- **Impact** - All balance calculations, discounts, and payments now accurate
+
+**Version:** v0.28.1
+**Date:** January 25, 2026
+**Status:** ✅ Production Ready
+**Severity:** 🔴 Critical Bug Fix
+
+**Issue:**
+
+Order ORD-1769338355430-738 showed incorrect balance after applying discount:
+- Total Amount: ₹1,77,704.13
+- Advance Paid: ₹75,000.13
+- Discount: ₹2,704.00
+- **Wrong Balance:** ₹24,999.87 ❌
+- **Correct Balance:** ₹100,000.00 ✅
+
+**Root Cause:**
+
+Advance payment stored in TWO places:
+1. `order.advancePaid` field = ₹75,000.13
+2. First `PaymentInstallment.paidAmount` = ₹75,000.13
+
+Balance calculation was subtracting advance **twice**:
+```typescript
+// OLD (WRONG):
+balanceAmount = totalAmount - advancePaid - discount - totalPaidInstallments
+// ₹177,704.13 - ₹75,000.13 - ₹2,704.00 - ₹75,000.13 = ₹24,999.87
+//               ^^^^^^^^^^^                ^^^^^^^^^^^
+//               Counted once               Counted again! (Bug)
+```
+
+**Solution:**
+
+Remove `advancePaid` from formula (it's already in `totalPaidInstallments`):
+```typescript
+// NEW (CORRECT):
+balanceAmount = totalAmount - discount - totalPaidInstallments
+// ₹177,704.13 - ₹2,704.00 - ₹75,000.13 = ₹100,000.00 ✅
+```
+
+**Files Modified:**
+- `app/api/orders/[id]/route.ts` - Fixed balance calculation (line 140)
+
+**Database Fix:**
+```sql
+UPDATE "Order"
+SET "balanceAmount" = 100000.00
+WHERE "orderNumber" = 'ORD-1769338355430-738';
+```
+
+**Affected Functionality:**
+- ✅ Order Detail Page - Shows correct Balance Due
+- ✅ Apply Discount Feature - Calculates correct new balance
+- ✅ Payment Recording - Uses correct balance for validation
+- ✅ Arrears Detection - Correctly identifies outstanding balances
+- ✅ Financial Reports - All balance-based calculations accurate
+
+**Testing:**
+```bash
+# Verify Fixed Order
+1. Visit: https://hamees.gagneet.com/orders/cmktmdgjp0000muux6j3oqtu5
+2. Check "Payment Summary" section
+3. Expected: Balance Due = ₹100,000.00 ✅
+4. Try "Apply Discount" → Balance recalculates correctly
+5. Try "Record Payment" → Validation uses correct balance
+```
+
+**Build & Deployment:**
+- Build time: ~34s
+- Zero TypeScript errors
+- PM2 restart: ✅ Successful
+- Production: ✅ Live at https://hamees.gagneet.com
+- Database: ✅ Fixed order ORD-1769338355430-738
+
+**Documentation:** See `docs/BALANCE_CALCULATION_FIX.md` for complete analysis and migration scripts
+
+---
+
 ### ✅ Sticky Order Summary Bar - Real-Time Total Display (v0.28.0)
 
 **What's New:**
