@@ -44,7 +44,7 @@ export async function PATCH(
         },
         accessoryStockMovements: {
           where: {
-            type: StockMovementType.ORDER_RESERVED,
+            type: 'ORDER_RESERVED',
           },
           include: {
             accessoryInventory: true,
