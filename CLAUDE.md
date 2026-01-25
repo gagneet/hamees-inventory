@@ -10,6 +10,86 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Database Schema Sync & Garment Types UI Fix (v0.26.6)
+
+**What's New:**
+- **Fixed Database Schema Mismatch** - Synchronized GarmentAccessory column naming between schema and database
+- **Fixed Garment Types Display** - Garment types now show correctly in UI after database and component fixes
+- **Seed Script Working** - Database seed now runs successfully without errors
+- **UI Component Updates** - All TypeScript interfaces updated to match new schema field names
+
+**Version:** v0.26.6
+**Date:** January 25, 2026
+**Status:** ✅ Production Ready
+
+**Issues Fixed:**
+
+1. **Seed Script Failing with Column Error**
+   - **Problem**: `pnpm db:seed` failed with "The column `quantityPerGarment` does not exist"
+   - **Root Cause**: Database had column named `quantity`, but Prisma schema expected `quantityPerGarment`
+   - **Solution**: Renamed database column to match schema
+   - **Command Used**: `ALTER TABLE "GarmentAccessory" RENAME COLUMN quantity TO "quantityPerGarment"`
+   - **Result**: Seed script now completes successfully, creates 4 garment patterns with accessories
+
+2. **Garment Types Not Showing in UI**
+   - **Problem**: Garment types page was blank, no garment patterns displayed
+   - **Root Cause**: Running application had old Prisma client expecting old column name
+   - **Symptoms**: API errors "The column `(not available)` does not exist in the current database"
+   - **Solution**:
+     - Updated TypeScript interfaces in 2 UI components to use `quantityPerGarment`
+     - Rebuilt application with new Prisma client (`pnpm build`)
+     - Restarted PM2 process
+   - **Result**: All 4 garment patterns now display correctly with accessories
+
+3. **Prisma 7 Configuration**
+   - **Note**: Prisma 7 uses `prisma.config.ts` for datasource URL configuration
+   - **Schema**: Does NOT include `url` parameter in datasource block (uses config file instead)
+   - **Documentation**: Updated to reflect Prisma 7 best practices
+
+**Technical Details:**
+
+**Database Migration:**
+```sql
+-- Rename GarmentAccessory column to match schema
+ALTER TABLE "GarmentAccessory"
+RENAME COLUMN quantity TO "quantityPerGarment";
+```
+
+**Files Modified:**
+- `app/(dashboard)/garment-types/page.tsx` - Updated interface: `quantity` → `quantityPerGarment`
+- `app/(dashboard)/garment-types/[id]/page.tsx` - Updated interface: `quantity` → `quantityPerGarment`
+
+**Verification:**
+```bash
+# Check garment patterns exist
+PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql -U hamees_user -d tailor_inventory \
+  -c "SELECT id, name, baseMeters, active FROM \"GarmentPattern\";"
+# Result: 4 rows (Men's Shirt, Trouser, Suit, Sherwani)
+
+# Run seed successfully
+pnpm db:seed
+# Result: ✅ Created 4 garment patterns with accessories
+
+# Verify UI
+Visit: https://hamees.gagneet.com/garment-types
+# Result: All 4 garment types display with fabric requirements and accessories
+```
+
+**Business Impact:**
+- ✅ Seed script runs without errors for fresh database setups
+- ✅ Garment types page displays all patterns correctly
+- ✅ Order creation form shows garment type dropdown populated
+- ✅ Database and codebase fully synchronized
+
+**Deployment:**
+- Build time: 33.9s
+- PM2 restart: ✅ Successful
+- Application status: ✅ Online (port 3009)
+
+**Documentation:** This section in CLAUDE.md
+
+---
+
 ### ✅ Payment Installments Logic Enhancement (v0.26.5)
 
 **What's New:**

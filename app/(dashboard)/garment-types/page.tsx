@@ -33,7 +33,7 @@ interface GarmentPattern {
   xlAdjustment: number
   accessories: Array<{
     id: string
-    quantity: number
+    quantityPerGarment: number
     accessory: {
       id: string
       name: string
@@ -169,7 +169,7 @@ export default function GarmentTypesPage() {
                       <div className="flex flex-wrap gap-1">
                         {pattern.accessories.map((acc) => (
                           <Badge key={acc.id} variant="outline">
-                            {acc.accessory.name} (×{acc.quantity})
+                            {acc.accessory.name} (×{acc.quantityPerGarment})
                           </Badge>
                         ))}
                       </div>

@@ -36,7 +36,7 @@ interface GarmentPattern {
   updatedAt: string
   accessories: Array<{
     id: string
-    quantity: number
+    quantityPerGarment: number
     accessory: {
       id: string
       name: string
@@ -282,7 +282,7 @@ export default function GarmentTypeDetailPage({
                       </p>
                     </div>
                     <Badge variant="outline" className="text-base">
-                      ×{acc.quantity}
+                      ×{acc.quantityPerGarment}
                     </Badge>
                   </div>
                 ))}
