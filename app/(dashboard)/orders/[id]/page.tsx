@@ -691,7 +691,7 @@ export default async function OrderDetailPage({
                   orderSubTotal={order.subTotal}
                 />
               )}
-              {!isTailor && order.balanceAmount > 0.01 && order.status !== 'CANCELLED' && order.status !== 'DELIVERED' && (
+              {!isTailor && order.balanceAmount > 0.01 && order.status !== 'CANCELLED' && (
                 <RecordPaymentDialog
                   orderId={order.id}
                   orderNumber={order.orderNumber}

@@ -40,11 +40,14 @@ This is a comprehensive inventory and order management system built specifically
      - `components/orders/order-actions.tsx` - Added `isDelivered?: boolean` prop, disabled all 3 buttons
      - `app/(dashboard)/orders/[id]/page.tsx` - Passed `isDelivered={order.status === 'DELIVERED'}` prop
 
-3. **Record Payment Button Showing Inappropriately**
-   - **Problem**: "Record Payment" button visible even when order was delivered or balance was ≤ 0
-   - **Solution**: Enhanced visibility condition to check for DELIVERED status
-   - **Before**: `balanceAmount > 0.01 && status !== 'CANCELLED'`
-   - **After**: `balanceAmount > 0.01 && status !== 'CANCELLED' && status !== 'DELIVERED'`
+3. **Record Payment Button Visibility Logic**
+   - **Requirement**: Button should remain visible for DELIVERED orders if balance > 0 (to collect remaining payment)
+   - **Solution**: Button visible when balance > 0.01 AND status not CANCELLED
+   - **Condition**: `balanceAmount > 0.01 && status !== 'CANCELLED'`
+   - **Behavior**:
+     - Shows for DELIVERED orders with outstanding balance (allows post-delivery payment collection)
+     - Hides when balance ≤ 0.01 (payment complete)
+     - Hides for CANCELLED orders (no payment needed)
 
 4. **Inconsistent Decimal Places Across Application**
    - **Audited**: All numeric displays across entire application
