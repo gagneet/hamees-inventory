@@ -184,7 +184,7 @@ export function SplitOrderDialog({
                     <label htmlFor={item.id} className="flex-1 cursor-pointer">
                       <div className="font-medium">{item.garmentPattern.name}</div>
                       <div className="text-sm text-slate-600">
-                        {item.clothInventory.name} ({item.clothInventory.color}) • {item.estimatedMeters}m • Qty: {item.quantityOrdered}
+                        {item.clothInventory.name} ({item.clothInventory.color}) • {item.estimatedMeters.toFixed(2)}m • Qty: {item.quantityOrdered}
                       </div>
                       <div className="text-sm font-medium text-slate-900 mt-1">
                         {formatCurrency(item.totalPrice)}

@@ -34,6 +34,7 @@ interface OrderActionsProps {
   priority: string
   totalAmount: number
   userRole: string
+  isDelivered?: boolean
 }
 
 const statusOptions = [
@@ -58,6 +59,7 @@ export function OrderActions({
   priority,
   totalAmount,
   userRole,
+  isDelivered = false,
 }: OrderActionsProps) {
   const router = useRouter()
   const [statusDialogOpen, setStatusDialogOpen] = useState(false)
@@ -182,7 +184,7 @@ export function OrderActions({
       {/* Update Status Dialog */}
       <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
         <DialogTrigger asChild>
-          <Button variant="default">
+          <Button variant="default" disabled={isDelivered}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Update Status
           </Button>
@@ -229,7 +231,7 @@ export function OrderActions({
       {/* Edit Order Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogTrigger asChild>
-          <Button variant="outline">
+          <Button variant="outline" disabled={isDelivered}>
             <Edit className="mr-2 h-4 w-4" />
             Edit Order
           </Button>
@@ -319,7 +321,7 @@ export function OrderActions({
       {userRole === 'OWNER' && (
         <Dialog open={discountDialogOpen} onOpenChange={setDiscountDialogOpen}>
           <DialogTrigger asChild>
-            <Button variant="outline" className="bg-yellow-50 hover:bg-yellow-100">
+            <Button variant="outline" className="bg-yellow-50 hover:bg-yellow-100" disabled={isDelivered}>
               <Percent className="mr-2 h-4 w-4" />
               Apply Discount
             </Button>

@@ -10,6 +10,136 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Decimal Precision & Delivered Order UI Improvements (v0.27.0)
+
+**What's New:**
+- **Fixed Decimal Formatting** - All numeric values now display exactly 2 decimal places throughout application
+- **Disabled Actions for Delivered Orders** - Update Status, Edit Order, and Apply Discount buttons disabled when order is delivered
+- **Smart Record Payment Button** - Hides when order is delivered or balance is ≤ 0
+- **Consistent Number Display** - Fixed floating-point precision issues (e.g., 4.180000000000001m → 4.18m)
+
+**Version:** v0.27.0
+**Date:** January 25, 2026
+**Status:** ✅ Production Ready
+
+**Issues Fixed:**
+
+1. **Actual Meters Used Showing Excessive Decimals**
+   - **Problem**: `actualMetersUsed` displayed as "4.180000000000001m" (floating-point precision error)
+   - **Solution**: Applied `.toFixed(2)` to all meter displays
+   - **Locations Fixed**:
+     - Order detail page (`app/(dashboard)/orders/[id]/page.tsx`)
+     - Order item detail dialog (5 locations in `components/orders/order-item-detail-dialog.tsx`)
+     - Inventory cloth detail page (`app/(dashboard)/inventory/cloth/[id]/page.tsx`)
+     - Split order dialog (`components/orders/split-order-dialog.tsx`)
+
+2. **Action Buttons Enabled for Delivered Orders**
+   - **Problem**: Users could still click "Update Status", "Edit Order", and "Apply Discount" even after order was delivered
+   - **Solution**: Added `isDelivered` prop to disable all action buttons when order status is `DELIVERED`
+   - **Files Modified**:
+     - `components/orders/order-actions.tsx` - Added `isDelivered?: boolean` prop, disabled all 3 buttons
+     - `app/(dashboard)/orders/[id]/page.tsx` - Passed `isDelivered={order.status === 'DELIVERED'}` prop
+
+3. **Record Payment Button Showing Inappropriately**
+   - **Problem**: "Record Payment" button visible even when order was delivered or balance was ≤ 0
+   - **Solution**: Enhanced visibility condition to check for DELIVERED status
+   - **Before**: `balanceAmount > 0.01 && status !== 'CANCELLED'`
+   - **After**: `balanceAmount > 0.01 && status !== 'CANCELLED' && status !== 'DELIVERED'`
+
+4. **Inconsistent Decimal Places Across Application**
+   - **Audited**: All numeric displays across entire application
+   - **Fixed**: All meter values (`estimatedMeters`, `actualMetersUsed`, `currentStock`, `reserved`)
+   - **Already Correct**: Currency values (using `formatCurrency()`), dashboard metrics, efficiency percentages
+
+**Technical Details:**
+
+**Decimal Formatting Pattern:**
+```typescript
+// Before
+<p>{item.actualMetersUsed}m</p>           // Shows: 4.180000000000001m
+<p>{item.estimatedMeters}m</p>            // Shows: 3.5m
+
+// After
+<p>{item.actualMetersUsed.toFixed(2)}m</p>    // Shows: 4.18m
+<p>{item.estimatedMeters.toFixed(2)}m</p>     // Shows: 3.50m
+```
+
+**Button Disable Logic:**
+```typescript
+// OrderActions component
+interface OrderActionsProps {
+  // ... other props
+  isDelivered?: boolean  // NEW
+}
+
+// Usage
+<Button variant="default" disabled={isDelivered}>
+  <RefreshCw className="mr-2 h-4 w-4" />
+  Update Status
+</Button>
+
+<Button variant="outline" disabled={isDelivered}>
+  <Edit className="mr-2 h-4 w-4" />
+  Edit Order
+</Button>
+
+<Button variant="outline" className="bg-yellow-50" disabled={isDelivered}>
+  <Percent className="mr-2 h-4 w-4" />
+  Apply Discount
+</Button>
+```
+
+**Record Payment Visibility:**
+```typescript
+{!isTailor &&
+ order.balanceAmount > 0.01 &&
+ order.status !== 'CANCELLED' &&
+ order.status !== 'DELIVERED' &&  // NEW CONDITION
+ (
+  <RecordPaymentDialog ... />
+)}
+```
+
+**Files Modified:**
+- `app/(dashboard)/orders/[id]/page.tsx` - Fixed actualMetersUsed and estimatedMeters display, updated Record Payment visibility, passed isDelivered prop
+- `components/orders/order-actions.tsx` - Added isDelivered prop, disabled all 3 action buttons
+- `components/orders/order-item-detail-dialog.tsx` - Fixed 5 instances of meter displays
+- `app/(dashboard)/inventory/cloth/[id]/page.tsx` - Fixed meters display in order history
+- `components/orders/split-order-dialog.tsx` - Fixed estimatedMeters display
+
+**User Impact:**
+- ✅ Clean, professional number display (always 2 decimals)
+- ✅ Prevents accidental modifications to delivered orders
+- ✅ Clearer UI state - disabled buttons indicate completed orders
+- ✅ No more confusing payment options after order completion
+- ✅ Consistent numeric formatting throughout entire application
+
+**Testing:**
+```bash
+# Test Decimal Formatting
+1. View any order with actualMetersUsed
+2. Verify: Shows "4.18m" instead of "4.180000000000001m"
+3. Check order items, inventory pages, split dialogs
+4. Result: All meters show exactly 2 decimal places
+
+# Test Delivered Order Button States
+1. Open any order with status = DELIVERED
+2. Verify: "Update Status", "Edit Order", "Apply Discount" all disabled (grayed out)
+3. Verify: "Record Payment" button is hidden
+4. Open non-delivered order with balance > 0
+5. Verify: All buttons enabled and functional
+```
+
+**Build & Deployment:**
+- Build time: 33.6s
+- Zero TypeScript errors
+- PM2 restart: ✅ Successful
+- Production: ✅ Live at https://hamees.gagneet.com
+
+**Documentation:** This section in CLAUDE.md
+
+---
+
 ### ✅ Database Schema Sync & Garment Types UI Fix (v0.26.6)
 
 **What's New:**

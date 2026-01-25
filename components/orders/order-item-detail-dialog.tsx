@@ -597,12 +597,12 @@ useEffect(() => {
               <div className="grid grid-cols-2 gap-4 pt-2 border-t">
                 <div>
                   <p className="text-sm text-slate-500">Required</p>
-                  <p className="font-semibold">{orderItem.estimatedMeters}m</p>
+                  <p className="font-semibold">{orderItem.estimatedMeters.toFixed(2)}m</p>
                 </div>
                 {orderItem.actualMetersUsed && (
                   <div>
                     <p className="text-sm text-slate-500">Actually Used</p>
-                    <p className="font-semibold">{orderItem.actualMetersUsed}m</p>
+                    <p className="font-semibold">{orderItem.actualMetersUsed.toFixed(2)}m</p>
                   </div>
                 )}
               </div>
@@ -919,11 +919,11 @@ useEffect(() => {
               <div className="grid grid-cols-3 gap-4 text-sm">
                 <div>
                   <p className="text-slate-500 text-xs">Estimated</p>
-                  <p className="font-semibold text-lg">{orderItem.estimatedMeters}m</p>
+                  <p className="font-semibold text-lg">{orderItem.estimatedMeters.toFixed(2)}m</p>
                 </div>
                 <div>
                   <p className="text-slate-500 text-xs">Actual Used</p>
-                  <p className="font-semibold text-lg">{orderItem.actualMetersUsed}m</p>
+                  <p className="font-semibold text-lg">{orderItem.actualMetersUsed?.toFixed(2)}m</p>
                 </div>
                 <div>
                   <p className="text-slate-500 text-xs">Wastage</p>

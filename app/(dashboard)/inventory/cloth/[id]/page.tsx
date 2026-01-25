@@ -354,7 +354,7 @@ export default async function ClothDetailPage({
                                 Qty: {item.quantityOrdered}
                               </span>
                               <span className="text-slate-600">
-                                {item.actualMetersUsed || item.estimatedMeters}m used
+                                {(item.actualMetersUsed || item.estimatedMeters).toFixed(2)}m used
                               </span>
                             </div>
                             <span className="text-slate-500 text-xs">

@@ -377,12 +377,12 @@ export default async function OrderDetailPage({
                         </div>
                         <div>
                           <p className="text-slate-500">Estimated Fabric</p>
-                          <p className="font-medium text-slate-900">{item.estimatedMeters}m</p>
+                          <p className="font-medium text-slate-900">{item.estimatedMeters.toFixed(2)}m</p>
                         </div>
                         {item.actualMetersUsed && (
                           <div>
                             <p className="text-slate-500">Actual Used</p>
-                            <p className="font-medium text-slate-900">{item.actualMetersUsed}m</p>
+                            <p className="font-medium text-slate-900">{item.actualMetersUsed.toFixed(2)}m</p>
                           </div>
                         )}
                       </div>
@@ -667,6 +667,7 @@ export default async function OrderDetailPage({
                 priority={order.priority}
                 totalAmount={order.totalAmount}
                 userRole={session.user.role}
+                isDelivered={order.status === 'DELIVERED'}
               />
               {order.items.length > 1 && order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
                 <SplitOrderDialog
@@ -690,7 +691,7 @@ export default async function OrderDetailPage({
                   orderSubTotal={order.subTotal}
                 />
               )}
-              {!isTailor && order.balanceAmount > 0.01 && order.status !== 'CANCELLED' && (
+              {!isTailor && order.balanceAmount > 0.01 && order.status !== 'CANCELLED' && order.status !== 'DELIVERED' && (
                 <RecordPaymentDialog
                   orderId={order.id}
                   orderNumber={order.orderNumber}
