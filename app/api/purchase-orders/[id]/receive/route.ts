@@ -91,7 +91,7 @@ export async function POST(
               data: {
                 clothInventoryId: item.clothInventoryId,
                 userId: session.user.id,
-                type: StockMovementType.PURCHASE,
+                type: 'PURCHASE',
                 quantityMeters: item.receivedQuantity,
                 balanceAfterMeters: newStock,
                 notes: `Purchase Order ${purchaseOrder.poNumber} received`,
