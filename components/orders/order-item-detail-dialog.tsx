@@ -131,7 +131,7 @@ interface DesignUpload {
 
 interface GarmentAccessory {
   id: string
-  quantity: number
+  quantityPerGarment: number
   accessory: {
     id: string
     name: string
@@ -555,10 +555,10 @@ useEffect(() => {
                     </div>
                     <div className="text-right">
                       <p className="font-semibold">
-                        {acc.quantity * orderItem.quantity} {acc.accessory.type === 'Button' ? 'pcs' : 'units'}
+                        {acc.quantityPerGarment * orderItem.quantity} {acc.accessory.type === 'Button' ? 'pcs' : 'units'}
                       </p>
                       <p className={`text-xs ${
-                        acc.accessory.currentStock >= acc.quantity * orderItem.quantity
+                        acc.accessory.currentStock >= acc.quantityPerGarment * orderItem.quantity
                           ? 'text-green-600'
                           : 'text-red-600'
                       }`}>
