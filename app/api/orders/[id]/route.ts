@@ -124,11 +124,11 @@ export async function PATCH(
       )
     }
 
-    // Get sum of all paid installments (includes advance payment from order creation)
+    // Get sum of all paid amounts from installments (paidAmount represents actual money received)
+    // Note: We sum paidAmount regardless of status because paidAmount only contains money actually received
     const paidInstallments = await prisma.paymentInstallment.aggregate({
       where: {
         orderId: id,
-        status: 'PAID',
       },
       _sum: {
         paidAmount: true,

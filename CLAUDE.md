@@ -10,6 +10,116 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Payment Installment Balance Fix - PARTIAL Status Support (v0.28.2)
+
+**What's New:**
+- **Fixed Discount Application Bug** - Balance now correctly includes payment installments with PARTIAL status
+- **Comprehensive Payment Tracking** - All paid amounts counted regardless of installment status
+- **Accurate Balance Calculation** - Discount applications now show correct remaining balance
+
+**Version:** v0.28.2
+**Date:** January 26, 2026
+**Status:** ✅ Production Ready
+**Severity:** 🔴 Critical Bug Fix
+
+**Issue:**
+
+When applying discounts to orders, the balance calculation was ignoring payment installments with `PARTIAL` status, showing incorrect Balance Due amounts.
+
+**Example:**
+- Order ORD-1769340093159-602
+- Total Amount: ₹48,219.96
+- Payment Received: ₹45,628.98 (installment #1 with status PARTIAL)
+- Discount Applied: ₹878.93
+- **Wrong Balance:** ₹47,341.03 (ignoring the ₹45,628.98 payment)
+- **Correct Balance:** ₹1,712.05 ✅
+
+**Root Cause:**
+
+The order update API (when applying discounts) only counted installments with status `PAID`, but payment installments can have status `PARTIAL` when partially paid:
+
+```typescript
+// BEFORE (WRONG):
+const paidInstallments = await prisma.paymentInstallment.aggregate({
+  where: {
+    orderId: id,
+    status: 'PAID',  // ❌ Only counting PAID status
+  },
+  _sum: { paidAmount: true },
+})
+```
+
+This caused the `paidAmount` field (which contains actual money received) to be ignored for PARTIAL status installments.
+
+**Solution:**
+
+Count all `paidAmount` values regardless of status, since `paidAmount` only contains money actually received:
+
+```typescript
+// AFTER (CORRECT):
+const paidInstallments = await prisma.paymentInstallment.aggregate({
+  where: {
+    orderId: id,  // ✅ No status filter
+  },
+  _sum: { paidAmount: true },
+})
+const totalPaidInstallments = paidInstallments._sum.paidAmount || 0
+
+// Balance = Total - Discount - All Paid Installments
+balanceAmount = totalAmount - discount - totalPaidInstallments
+```
+
+**Technical Details:**
+
+- **Field Semantics**: `paidAmount` represents money actually received, so it should always be counted
+- **Status Field**: `status` indicates whether the installment is complete (PAID) or partial (PARTIAL), but doesn't affect how much was received
+- **Location**: `app/api/orders/[id]/route.ts` lines 127-142
+
+**Files Modified:**
+- `app/api/orders/[id]/route.ts` - Fixed payment aggregation query to remove status filter
+
+**User Impact:**
+- ✅ Discount applications now show correct balance
+- ✅ Payment tracking accurate for both PAID and PARTIAL installments
+- ✅ Financial reports reflect true outstanding balances
+- ✅ Arrears detection working correctly
+
+**Testing:**
+```bash
+# Test Discount Application with Partial Payments
+1. Login as owner@hameesattire.com / admin123
+2. Open order with PARTIAL payment installment
+3. Click "Apply Discount"
+4. Enter discount amount
+5. Verify: New balance = Total - Discount - All Payments (including PARTIAL)
+6. Verify: Payment Summary shows correct Balance Due
+
+# Verify Database Calculation
+PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -c "
+SELECT o.\"orderNumber\", o.\"totalAmount\", o.discount,
+       COALESCE(SUM(pi.\"paidAmount\"), 0) as total_paid,
+       (o.\"totalAmount\" - o.discount - COALESCE(SUM(pi.\"paidAmount\"), 0)) as calculated_balance,
+       o.\"balanceAmount\" as stored_balance
+FROM \"Order\" o
+LEFT JOIN \"PaymentInstallment\" pi ON pi.\"orderId\" = o.id
+WHERE o.\"orderNumber\" = 'ORD-1769340093159-602'
+GROUP BY o.id;
+"
+# Expected: calculated_balance = stored_balance
+```
+
+**Build & Deployment:**
+- Build time: ~35 seconds
+- Zero TypeScript errors
+- PM2 restart: ✅ Successful
+- Production: ✅ Live at https://hamees.gagneet.com
+
+**Related Issues:**
+- Complements v0.28.1 (Balance Calculation Double-Counting Fix)
+- Ensures complete payment tracking across all installment statuses
+
+---
+
 ### ✅ AccessoryStockMovement Database Schema Fix (v0.27.6)
 
 **What's New:**
