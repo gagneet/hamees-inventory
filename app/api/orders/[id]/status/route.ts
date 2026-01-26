@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
 import { whatsappService } from '@/lib/whatsapp/whatsapp-service'
 import { z } from 'zod'
-import { OrderStatus, StockMovementType } from '@/lib/types'
+import { OrderStatus } from '@/lib/types'
 
 const statusUpdateSchema = z.object({
   status: z.nativeEnum(OrderStatus),
@@ -19,6 +19,8 @@ export async function PATCH(
 ) {
   const { session, error } = await requireAnyPermission(['update_order_status'])
   if (error) return error
+ 
+  type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 
   try {
     const { id } = await params
@@ -68,10 +70,9 @@ export async function PATCH(
     // Handle status-specific logic
     if (status === OrderStatus.DELIVERED && order.status !== OrderStatus.DELIVERED) {
       // When order is delivered, convert reserved stock to used stock
-      // @ts-ignore
-      await prisma.$transaction(async (tx: any) => {
+      await prisma.$transaction(async (tx: TransactionClient) => {
         // Batch update order items - prepare all updates
-        const orderItemUpdates = order.items.map((item: any) => {
+        const orderItemUpdates = order.items.map((item) => {
           const metersUsed = actualMetersUsed || item.estimatedMeters
           // Auto-calculate wastage: if actualMetersUsed is provided, calculate difference
           // Otherwise use provided wastage value or default to 0
@@ -82,13 +83,13 @@ export async function PATCH(
             where: { id: item.id },
             data: {
               actualMetersUsed: metersUsed,
-              wastage: wastedMeters,
+              wastageMeters: wastedMeters,
             },
           })
         })
 
         // Batch update cloth inventory - prepare all updates
-        const clothInventoryUpdates = order.items.map((item: any) => {
+        const clothInventoryUpdates = order.items.map((item) => {
           const metersUsed = actualMetersUsed || item.estimatedMeters
           // Auto-calculate wastage: if actualMetersUsed is provided, calculate difference
           const wastedMeters = actualMetersUsed
@@ -108,7 +109,7 @@ export async function PATCH(
         })
 
         // Batch create stock movements - prepare all creates
-        const stockMovementCreates = order.items.map((item: any) => {
+        const stockMovementCreates = order.items.map((item) => {
           const metersUsed = actualMetersUsed || item.estimatedMeters
           // Auto-calculate wastage: if actualMetersUsed is provided, calculate difference
           const wastedMeters = actualMetersUsed
@@ -120,8 +121,8 @@ export async function PATCH(
               orderId: order.id,
               userId: session.user.id,
               type: 'ORDER_USED',
-              quantity: -(metersUsed + wastedMeters),
-              balanceAfter: item.clothInventory!.currentStock - (metersUsed + wastedMeters),
+              quantityMeters: -(metersUsed + wastedMeters),
+              balanceAfterMeters: item.clothInventory!.currentStock - (metersUsed + wastedMeters),
               notes: `Order ${order.orderNumber} delivered`,
             },
           })
@@ -190,10 +191,9 @@ export async function PATCH(
       })
     } else if (status === OrderStatus.CANCELLED && order.status !== OrderStatus.CANCELLED) {
       // When order is cancelled, release reserved stock
-        // @ts-ignore
-      await prisma.$transaction(async (tx: any) => {
+      await prisma.$transaction(async (tx: TransactionClient) => {
         // Batch update cloth inventory - prepare all updates
-        const clothInventoryUpdates = order.items.map((item: any) =>
+        const clothInventoryUpdates = order.items.map((item) =>
           tx.clothInventory.update({
             where: { id: item.clothInventoryId },
             data: {
@@ -205,15 +205,15 @@ export async function PATCH(
         )
 
         // Batch create stock movements - prepare all creates
-        const stockMovementCreates = order.items.map((item: any) =>
+        const stockMovementCreates = order.items.map((item) =>
           tx.stockMovement.create({
             data: {
               clothInventoryId: item.clothInventoryId,
               orderId: order.id,
               userId: session.user.id,
               type: 'ORDER_CANCELLED',
-              quantity: item.estimatedMeters,
-              balanceAfter: item.clothInventory!.currentStock,
+              quantityMeters: item.estimatedMeters,
+              balanceAfterMeters: item.clothInventory!.currentStock,
               notes: `Order ${order.orderNumber} cancelled - stock released`,
             },
           })
@@ -277,19 +277,18 @@ export async function PATCH(
       })
     } else {
       // Simple status update
-        // @ts-ignore
-      await prisma.$transaction(async (tx: any) => {
+      await prisma.$transaction(async (tx: TransactionClient) => {
         // If actualMetersUsed is provided, update all order items
         // This typically happens when status changes to CUTTING
         if (actualMetersUsed !== null && actualMetersUsed !== undefined) {
-          const orderItemUpdates = order.items.map((item: any) => {
+          const orderItemUpdates = order.items.map((item) => {
             // Auto-calculate wastage based on the difference
             const calculatedWastage = actualMetersUsed - item.estimatedMeters
             return tx.orderItem.update({
               where: { id: item.id },
               data: {
                 actualMetersUsed: actualMetersUsed,
-                wastage: calculatedWastage,
+                wastageMeters: calculatedWastage,
               },
             })
           })

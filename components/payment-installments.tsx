@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { Calendar, CreditCard, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -39,11 +39,7 @@ export function PaymentInstallments({ orderId, balanceAmount }: PaymentInstallme
   const [paymentMode, setPaymentMode] = useState('')
   const [transactionRef, setTransactionRef] = useState('')
 
-  useEffect(() => {
-    fetchInstallments()
-  }, [orderId])
-
-  const fetchInstallments = async () => {
+  const fetchInstallments = useCallback(async () => {
     try {
       const response = await fetch(`/api/orders/${orderId}/installments`)
       if (response.ok) {
@@ -55,7 +51,11 @@ export function PaymentInstallments({ orderId, balanceAmount }: PaymentInstallme
     } finally {
       setLoading(false)
     }
-  }
+  }, [orderId])
+
+  useEffect(() => {
+    fetchInstallments()
+  }, [fetchInstallments])
 
   const handleRecordPayment = async (installmentId: string) => {
     try {

@@ -37,7 +37,6 @@ interface SplitOrderDialogProps {
   orderNumber: string
   items: OrderItem[]
   currentDeliveryDate: Date
-  orderTotalAmount: number
   orderSubTotal: number
 }
 
@@ -46,7 +45,6 @@ export function SplitOrderDialog({
   orderNumber,
   items,
   currentDeliveryDate,
-  orderTotalAmount,
   orderSubTotal,
 }: SplitOrderDialogProps) {
   const router = useRouter()
@@ -135,8 +133,8 @@ export function SplitOrderDialog({
       if (confirm(`Order split successfully! New order: ${data.newOrder.orderNumber}\n\nWould you like to view the new order?`)) {
         router.push(`/orders/${data.newOrder.id}`)
       }
-    } catch (err: any) {
-      setError(err.message)
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to split order')
     } finally {
       setLoading(false)
     }

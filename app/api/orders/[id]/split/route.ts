@@ -3,6 +3,46 @@ import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
 import { z } from 'zod'
 import { generateOrderNumber } from '@/lib/utils'
+import { InstallmentStatus } from '@prisma/client'
+
+type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
+
+const roundCurrency = (value: number) => parseFloat(value.toFixed(2))
+
+const allocatePaidAmounts = (amounts: number[], ratio: number) => {
+  if (amounts.length === 0) {
+    return { split: [], remaining: [] }
+  }
+
+  const total = amounts.reduce((sum, amount) => sum + amount, 0)
+  const targetSplitTotal = roundCurrency(total * ratio)
+  const split = amounts.map((amount) => roundCurrency(amount * ratio))
+  const splitSum = roundCurrency(split.reduce((sum, amount) => sum + amount, 0))
+  const diff = roundCurrency(targetSplitTotal - splitSum)
+
+  if (split.length > 0 && Math.abs(diff) >= 0.01) {
+    split[split.length - 1] = roundCurrency(split[split.length - 1] + diff)
+  }
+
+  const remaining = amounts.map((amount, index) => roundCurrency(amount - split[index]))
+  return { split, remaining }
+}
+
+const getInstallmentStatus = (
+  paidAmount: number,
+  installmentAmount: number,
+  dueDate: Date,
+  currentStatus: string
+): InstallmentStatus => {
+  if (currentStatus === 'CANCELLED') return InstallmentStatus.CANCELLED
+
+  if (paidAmount <= 0) {
+    return dueDate < new Date() ? InstallmentStatus.OVERDUE : InstallmentStatus.PENDING
+  }
+
+  if (paidAmount >= installmentAmount) return InstallmentStatus.PAID
+  return InstallmentStatus.PARTIAL
+}
 
 const splitOrderSchema = z.object({
   itemIds: z.array(z.string()).min(1, 'At least one item must be selected'),
@@ -34,6 +74,11 @@ export async function POST(
             clothInventory: true,
           },
         },
+        installments: {
+          orderBy: {
+            installmentNumber: 'asc',
+          },
+        },
         customer: true,
       },
     })
@@ -59,7 +104,7 @@ export async function POST(
     }
 
     // Validate that all itemIds exist in the order
-    const itemsToSplit = originalOrder.items.filter((item: any) => itemIds.includes(item.id))
+    const itemsToSplit = originalOrder.items.filter((item) => itemIds.includes(item.id))
     if (itemsToSplit.length !== itemIds.length) {
       return NextResponse.json(
         { error: 'Some items not found in this order' },
@@ -77,9 +122,9 @@ export async function POST(
 
     // Calculate new totals - PROPORTIONAL SPLIT of ALL order costs
     // Item totals (fabric + accessories only)
-    const splitItemsTotal = itemsToSplit.reduce((sum: number, item: any) => sum + item.totalPrice, 0)
-    const remainingItems = originalOrder.items.filter((item: any) => !itemIds.includes(item.id))
-    const remainingItemsTotal = remainingItems.reduce((sum: number, item: any) => sum + item.totalPrice, 0)
+    const splitItemsTotal = itemsToSplit.reduce((sum, item) => sum + item.totalPrice, 0)
+    const remainingItems = originalOrder.items.filter((item) => !itemIds.includes(item.id))
+    const remainingItemsTotal = remainingItems.reduce((sum, item) => sum + item.totalPrice, 0)
     const originalItemsTotal = splitItemsTotal + remainingItemsTotal
 
     // Calculate proportions based on item totals (fabric + accessories)
@@ -131,13 +176,89 @@ export async function POST(
     const remainingGstAmount = parseFloat((remainingSubTotal * 0.12).toFixed(2))
     const remainingTotalAmount = parseFloat((remainingSubTotal + remainingGstAmount).toFixed(2))
 
-    // Calculate advance payment split (proportional to total amounts)
-    const advanceRatio = originalOrder.advancePaid / originalOrder.totalAmount
-    const splitAdvance = parseFloat((splitTotalAmount * advanceRatio).toFixed(2))
-    const remainingAdvance = parseFloat((originalOrder.advancePaid - splitAdvance).toFixed(2))
+    // IMPROVED ADVANCE PAYMENT DISTRIBUTION LOGIC
+    // Business Rule: Keep advance with original order unless it exceeds remaining total
+    const originalAdvance = originalOrder.advancePaid
+    let splitAdvance = 0
+    let remainingAdvance = 0
+
+    if (originalAdvance > 0) {
+      // Check if remaining order can accommodate full advance payment
+      if (remainingTotalAmount >= originalAdvance) {
+        // Original order keeps full advance (customer's original payment stays with their order)
+        remainingAdvance = originalAdvance
+        splitAdvance = 0
+      } else {
+        // Remaining order gets full amount, split order gets the excess
+        remainingAdvance = remainingTotalAmount
+        splitAdvance = roundCurrency(originalAdvance - remainingTotalAmount)
+      }
+
+      // Ensure proper rounding
+      remainingAdvance = roundCurrency(remainingAdvance)
+      splitAdvance = roundCurrency(splitAdvance)
+    }
+
+    // Handle additional installments (balance payments after advance)
+    const hasOtherPayments = originalOrder.installments.length > 1
+    let remainingPaidAmounts = [remainingAdvance]
+    let splitPaidAmounts = [splitAdvance]
+
+    if (hasOtherPayments) {
+      // Get all balance payments (installments after #1)
+      const otherPayments = originalOrder.installments
+        .slice(1)
+        .map((installment) => installment.paidAmount || 0)
+
+      // Split balance payments proportionally between orders
+      const { split: splitOther, remaining: remainingOther } =
+        allocatePaidAmounts(otherPayments, splitProportion)
+
+      // Combine advance with balance payments
+      remainingPaidAmounts = [remainingAdvance, ...remainingOther]
+      splitPaidAmounts = [splitAdvance, ...splitOther]
+    }
+
+    const splitPaidTotal = roundCurrency(splitPaidAmounts.reduce((sum, amount) => sum + amount, 0))
+    const remainingPaidTotal = roundCurrency(remainingPaidAmounts.reduce((sum, amount) => sum + amount, 0))
+
+    const discountRatio = originalOrder.totalAmount > 0 ? splitTotalAmount / originalOrder.totalAmount : 0
+    const splitDiscount = roundCurrency((originalOrder.discount || 0) * discountRatio)
+    const remainingDiscount = roundCurrency((originalOrder.discount || 0) - splitDiscount)
+
+    const buildInstallments = (totalAmount: number, paidAmountsForOrder: number[]) => {
+      let runningBalance = totalAmount
+
+      return originalOrder.installments.map((installment, index) => {
+        const paidAmount = roundCurrency(paidAmountsForOrder[index] || 0)
+        const installmentAmount = roundCurrency(Math.max(0, runningBalance))
+        runningBalance = roundCurrency(runningBalance - paidAmount)
+
+        const status = getInstallmentStatus(
+          paidAmount,
+          installmentAmount,
+          installment.dueDate,
+          installment.status
+        )
+        const hasPayment = paidAmount > 0
+
+        return {
+          id: installment.id,
+          installmentNumber: installment.installmentNumber,
+          installmentAmount,
+          dueDate: installment.dueDate,
+          paidDate: hasPayment ? installment.paidDate : null,
+          paidAmount,
+          paymentMode: hasPayment ? installment.paymentMode : null,
+          transactionRef: hasPayment ? installment.transactionRef : null,
+          status,
+          notes: installment.notes,
+        }
+      })
+    }
 
     // Start transaction
-    const result = await prisma.$transaction(async (tx: any) => {
+    const result = await prisma.$transaction(async (tx: TransactionClient) => {
       // Create new order with split items (with complete cost breakdown)
       const newOrder = await tx.order.create({
         data: {
@@ -183,8 +304,8 @@ export async function POST(
           igst: 0,
           taxableAmount: splitSubTotal,
           advancePaid: splitAdvance,
-          balanceAmount: parseFloat((splitTotalAmount - splitAdvance - (originalOrder.discount || 0) * (splitTotalAmount / originalOrder.totalAmount)).toFixed(2)),
-          discount: parseFloat(((originalOrder.discount || 0) * (splitTotalAmount / originalOrder.totalAmount)).toFixed(2)),
+          discount: splitDiscount,
+          balanceAmount: roundCurrency(splitTotalAmount - splitDiscount - splitPaidTotal),
           discountReason: originalOrder.discountReason,
           notes: notes || `Split from order ${originalOrder.orderNumber}`,
         },
@@ -213,6 +334,40 @@ export async function POST(
         // Delete original item
         await tx.orderItem.delete({
           where: { id: item.id },
+        })
+      }
+
+      // Build installments for both orders based on paid amounts
+      const hasInstallments = originalOrder.installments.length > 0
+      const updatedInstallments = hasInstallments
+        ? buildInstallments(remainingTotalAmount, remainingPaidAmounts)
+        : []
+      const newInstallments = hasInstallments
+        ? buildInstallments(splitTotalAmount, splitPaidAmounts).map((installment) => ({
+          ...installment,
+          orderId: newOrder.id,
+        }))
+        : []
+
+      if (newInstallments.length > 0) {
+        await tx.paymentInstallment.createMany({
+          data: newInstallments.map(({ id, ...data }) => data),
+        })
+      }
+
+      for (const installment of updatedInstallments) {
+        await tx.paymentInstallment.update({
+          where: { id: installment.id },
+          data: {
+            installmentAmount: installment.installmentAmount,
+            dueDate: installment.dueDate,
+            paidDate: installment.paidDate,
+            paidAmount: installment.paidAmount,
+            paymentMode: installment.paymentMode,
+            transactionRef: installment.transactionRef,
+            status: installment.status,
+            notes: installment.notes,
+          },
         })
       }
 
@@ -245,8 +400,8 @@ export async function POST(
           sgst: parseFloat((remainingGstAmount / 2).toFixed(2)),
           taxableAmount: remainingSubTotal,
           advancePaid: remainingAdvance,
-          balanceAmount: parseFloat((remainingTotalAmount - remainingAdvance - (originalOrder.discount || 0) * (remainingTotalAmount / originalOrder.totalAmount)).toFixed(2)),
-          discount: parseFloat(((originalOrder.discount || 0) * (remainingTotalAmount / originalOrder.totalAmount)).toFixed(2)),
+          discount: remainingDiscount,
+          balanceAmount: roundCurrency(remainingTotalAmount - remainingDiscount - remainingPaidTotal),
         },
       })
 
