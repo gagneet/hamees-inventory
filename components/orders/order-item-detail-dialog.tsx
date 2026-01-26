@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import {
   AlertDialog,
@@ -26,7 +26,6 @@ import {
   Upload,
   Download,
   Trash2,
-  Calendar,
   Clock,
   AlertCircle,
   TrendingUp,
@@ -172,13 +171,20 @@ export function OrderItemDetailDialog({ orderItem, onSave }: OrderItemDetailDial
   const [designToDelete, setDesignToDelete] = useState<string | null>(null)
   const [statusUpdateDialogOpen, setStatusUpdateDialogOpen] = useState(false)
 
-  const userRole = session?.user?.role as any
-  const canUpload = userRole && hasPermission(userRole, 'update_order')
-  const canDelete = userRole && hasPermission(userRole, 'delete_order')
-  const canUpdateStatus = userRole && hasPermission(userRole, 'update_order_status')
+  const userRole = session?.user?.role
+  const canUpload = !!userRole && hasPermission(userRole, 'update_order')
+  const canDelete = !!userRole && hasPermission(userRole, 'delete_order')
+  const canUpdateStatus = !!userRole && hasPermission(userRole, 'update_order_status')
 
   // State for Phase 2 features
-  const [customerOrders, setCustomerOrders] = useState<any[]>([])
+  const [customerOrders, setCustomerOrders] = useState<Array<{
+    id: string
+    orderNumber: string
+    createdAt: string
+    status: string
+    totalAmount: number
+    items?: Array<unknown>
+  }>>([])
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
   const [accessoryChecklist, setAccessoryChecklist] = useState<Record<string, boolean>>({})
   const [tailorNotes, setTailorNotes] = useState(orderItem.order.tailorNotes || '')
@@ -248,16 +254,7 @@ export function OrderItemDetailDialog({ orderItem, onSave }: OrderItemDetailDial
     }
   }
 
-  // Fetch designs, accessories, and customer history when dialog opens
-useEffect(() => {
-  if (isOpen) {
-    fetchDesigns()
-    fetchAccessories()
-    fetchCustomerOrders()
-  }
-}, [isOpen, orderItem.id])
-
-  const fetchDesigns = async () => {
+  const fetchDesigns = useCallback(async () => {
     try {
       const response = await fetch(`/api/design-uploads?orderItemId=${orderItem.id}`)
       if (response.ok) {
@@ -267,9 +264,9 @@ useEffect(() => {
     } catch (error) {
       console.error('Error fetching designs:', error)
     }
-  }
+  }, [orderItem.id])
 
-  const fetchAccessories = async () => {
+  const fetchAccessories = useCallback(async () => {
     try {
       const response = await fetch(`/api/garment-patterns/${orderItem.garmentPattern.id}/accessories`)
       if (response.ok) {
@@ -279,21 +276,30 @@ useEffect(() => {
     } catch (error) {
       console.error('Error fetching accessories:', error)
     }
-  }
+  }, [orderItem.garmentPattern.id])
 
-  const fetchCustomerOrders = async () => {
+  const fetchCustomerOrders = useCallback(async () => {
     try {
       const response = await fetch(`/api/orders?customerId=${orderItem.order.customer.id}&limit=5`)
       if (response.ok) {
         const data = await response.json()
         // Filter out current order
-        const otherOrders = data.orders?.filter((o: any) => o.id !== orderItem.order.id) || []
+        const otherOrders = (data.orders || []).filter((order: { id: string }) => order.id !== orderItem.order.id)
         setCustomerOrders(otherOrders.slice(0, 3)) // Show max 3 previous orders
       }
     } catch (error) {
       console.error('Error fetching customer orders:', error)
     }
-  }
+  }, [orderItem.order.customer.id, orderItem.order.id])
+
+  // Fetch designs, accessories, and customer history when dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      fetchDesigns()
+      fetchAccessories()
+      fetchCustomerOrders()
+    }
+  }, [isOpen, fetchDesigns, fetchAccessories, fetchCustomerOrders])
 
   const handleStatusUpdate = async () => {
     const nextStatus = getNextStatus()
@@ -462,7 +468,7 @@ useEffect(() => {
     }
   }
 
-  const handleDownloadDesign = (designId: string, fileName: string) => {
+  const handleDownloadDesign = (designId: string) => {
     window.open(`/api/design-uploads/${designId}`, '_blank')
   }
 
@@ -853,7 +859,7 @@ useEffect(() => {
             <Card className="p-4 bg-green-50 border-green-200">
               <div className="flex items-center gap-2 mb-3">
                 <Info className="h-5 w-5 text-green-700" />
-                <h3 className="font-semibold text-lg">Tailor's Work Notes</h3>
+                <h3 className="font-semibold text-lg">Tailor&apos;s Work Notes</h3>
                 <Badge variant="outline" className="ml-auto text-xs">
                   {orderHistory?.filter(h => h.changeType === 'TAILOR_NOTE_ADDED').length || 0} notes
                 </Badge>
@@ -962,10 +968,10 @@ useEffect(() => {
             <Card className="p-4 bg-indigo-50 border-indigo-200">
               <div className="flex items-center gap-2 mb-3">
                 <History className="h-5 w-5 text-indigo-700" />
-                <h3 className="font-semibold">Customer's Previous Orders</h3>
+                <h3 className="font-semibold">Customer&apos;s Previous Orders</h3>
               </div>
               <div className="space-y-2">
-                {customerOrders.map((prevOrder: any) => (
+                {customerOrders.map((prevOrder) => (
                   <div key={prevOrder.id} className="flex items-center justify-between p-2 bg-white rounded border border-indigo-200">
                     <div>
                       <p className="font-medium font-mono text-sm">{prevOrder.orderNumber}</p>
@@ -1075,7 +1081,7 @@ useEffect(() => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDownloadDesign(design.id, design.fileName)}
+                        onClick={() => handleDownloadDesign(design.id)}
                       >
                         <Download className="h-4 w-4" />
                       </Button>

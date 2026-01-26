@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
-import { hasPermission } from '@/lib/permissions'
+import { hasPermission, type UserRole } from '@/lib/permissions'
 import { z } from 'zod'
+
+type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 
 const updateOrderItemSchema = z.object({
   garmentPatternId: z.string().optional(),
@@ -24,8 +26,8 @@ export async function PATCH(
 
     // Check if user has permission to update orders OR update order status
     // (assigning tailor is a workflow operation allowed for order status managers)
-    const canUpdate = hasPermission(session.user.role as any, 'update_order') ||
-                      hasPermission(session.user.role as any, 'update_order_status')
+    const canUpdate = hasPermission(session.user.role as UserRole, 'update_order') ||
+                      hasPermission(session.user.role as UserRole, 'update_order_status')
 
     if (!canUpdate) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -65,13 +67,11 @@ export async function PATCH(
       )
     }
 
-    const updateData: any = {}
+    const updateData: Record<string, unknown> = {}
     let fabricChanged = false
     let garmentChanged = false
-    let oldClothInventoryId = existingItem.clothInventoryId
-    let oldGarmentPatternId = existingItem.garmentPatternId
+    const oldClothInventoryId = existingItem.clothInventoryId
     let newEstimatedMeters = existingItem.estimatedMeters
-    let newClothInventory: any = null
     let needsPriceRecalculation = false
 
     // If garment pattern is changing, recalculate fabric requirement
@@ -97,12 +97,14 @@ export async function PATCH(
         XL: newGarmentPattern.xlAdjustment,
       }
 
-      newEstimatedMeters = newGarmentPattern.baseMeters + (bodyTypeAdjustments as any)[existingItem.bodyType]
+      newEstimatedMeters = newGarmentPattern.baseMeters + bodyTypeAdjustments[existingItem.bodyType]
       updateData.garmentPatternId = validatedData.garmentPatternId
       updateData.estimatedMeters = newEstimatedMeters
       garmentChanged = true
       needsPriceRecalculation = true
     }
+
+    let newClothInventory: { pricePerMeter: number } | null = null
 
     // If cloth inventory is changing, validate it exists and recalculate pricing
     if (validatedData.clothInventoryId && validatedData.clothInventoryId !== existingItem.clothInventoryId) {
@@ -174,7 +176,7 @@ export async function PATCH(
     }
 
     // Update the order item using a transaction
-    const updatedItem = await prisma.$transaction(async (tx: any) => {
+    const updatedItem = await prisma.$transaction(async (tx: TransactionClient) => {
       // If fabric is changing, update stock reservations
       if (fabricChanged) {
         const oldCloth = await tx.clothInventory.findUnique({
@@ -197,7 +199,9 @@ export async function PATCH(
           })
 
           // Add reservation to new cloth
-          const metersToReserve = (updateData.estimatedMeters || existingItem.estimatedMeters) * (updateData.quantityOrdered || existingItem.quantityOrdered)
+          const estimatedMeters = (updateData.estimatedMeters as number | undefined) ?? existingItem.estimatedMeters
+          const quantityOrdered = (updateData.quantityOrdered as number | undefined) ?? existingItem.quantityOrdered
+          const metersToReserve = estimatedMeters * quantityOrdered
 
           await tx.clothInventory.update({
             where: { id: validatedData.clothInventoryId! },
@@ -258,7 +262,7 @@ export async function PATCH(
         })
 
         // Calculate new subtotal (sum of all item prices)
-        const newSubTotal = allOrderItems.reduce((sum: number, item: any) => sum + item.totalPrice, 0)
+        const newSubTotal = allOrderItems.reduce((sum, item) => sum + item.totalPrice, 0)
 
         // Get current order to preserve stitching charges, premiums, etc.
         const currentOrder = await tx.order.findUnique({
@@ -275,8 +279,18 @@ export async function PATCH(
           // Calculate new total (subtotal + GST)
           const newTotalAmount = newSubTotal + newGstAmount
 
-          // Recalculate balance (total - advancePaid - discount)
-          const newBalanceAmount = newTotalAmount - currentOrder.advancePaid - currentOrder.discount
+          // Recalculate balance using paid installments (advance is included there)
+          const paidInstallments = await tx.paymentInstallment.aggregate({
+            where: {
+              orderId: orderId,
+              status: 'PAID',
+            },
+            _sum: {
+              paidAmount: true,
+            },
+          })
+          const totalPaidInstallments = paidInstallments._sum.paidAmount || 0
+          const newBalanceAmount = newTotalAmount - currentOrder.discount - totalPaidInstallments
 
           // Update order with new calculated values
           await tx.order.update({

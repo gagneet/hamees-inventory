@@ -3,7 +3,7 @@ import { after } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
 import { z } from 'zod'
-import { OrderStatus, OrderPriority, BodyType, StockMovementType, StitchingTier } from '@/lib/types'
+import { OrderStatus, OrderPriority, BodyType, StitchingTier } from '@/lib/types'
 
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 
@@ -83,7 +83,7 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get('limit') || '10')
     const skip = (page - 1) * limit
 
-    const where: any = {}
+    const where: Record<string, any> = {}
 
     if (status) {
       where.status = status as OrderStatus
@@ -276,8 +276,8 @@ export async function POST(request: Request) {
     const accessoryReservations: Array<{ accessoryId: string; quantity: number }> = []
 
     // Extract unique IDs to fetch all required data in parallel (avoid N+1 queries)
-    const patternIds = [...new Set(validatedData.items.map((item: any) => item.garmentPatternId))]
-    const clothIds = [...new Set(validatedData.items.map((item: any) => item.clothInventoryId))]
+    const patternIds = [...new Set(validatedData.items.map((item) => item.garmentPatternId))]
+    const clothIds = [...new Set(validatedData.items.map((item) => item.clothInventoryId))]
     const accessoryIds = [...new Set(
       validatedData.items
         .flatMap(item => item.accessories || [])
@@ -316,14 +316,14 @@ export async function POST(request: Request) {
     ])
 
     // Create lookup maps for O(1) access
-    const patternMap = new Map(patterns.map((p: any) => [p.id, p]))
-    const clothMap = new Map(cloths.map((c: any) => [c.id, c]))
-    const accessoryMap = new Map(accessories.map((a: any) => [a.id, a]))
+    const patternMap = new Map(patterns.map((pattern) => [pattern.id, pattern]))
+    const clothMap = new Map(cloths.map((cloth) => [cloth.id, cloth]))
+    const accessoryMap = new Map(accessories.map((accessory) => [accessory.id, accessory]))
 
     for (const item of validatedData.items) {
       // Get pattern and cloth from lookup maps
-      const pattern = patternMap.get(item.garmentPatternId) as any
-      const cloth = clothMap.get(item.clothInventoryId) as any
+      const pattern = patternMap.get(item.garmentPatternId)
+      const cloth = clothMap.get(item.clothInventoryId)
 
       if (!pattern || !cloth) {
         return NextResponse.json(
@@ -375,7 +375,7 @@ export async function POST(request: Request) {
       // Check accessory stock availability and calculate cost
       let itemAccessoriesCost = 0
       for (const [accessoryId, quantityNeeded] of requiredAccessories.entries()) {
-        const accessory = accessoryMap.get(accessoryId) as any
+        const accessory = accessoryMap.get(accessoryId)
         if (!accessory) {
           return NextResponse.json(
             { error: `Accessory not found: ${accessoryId}` },
@@ -413,7 +413,7 @@ export async function POST(request: Request) {
       // Find matching measurement for this garment type
       const garmentTypeName = pattern.name.replace(/^(Men's|Women's|Kids)\s+/i, '').trim()
       const matchingMeasurement = customerMeasurements.find(
-        (m: any) => m.garmentType.toLowerCase() === garmentTypeName.toLowerCase()
+        (measurement) => measurement.garmentType.toLowerCase() === garmentTypeName.toLowerCase()
       )
 
       // Calculate item total

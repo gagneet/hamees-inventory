@@ -32,7 +32,7 @@ export default async function VisualMeasurementsPage({
   if (!session?.user) redirect('/')
 
   // Check permissions - TAILOR role or higher can use visual measurements
-  const canManageMeasurements = hasPermission(session.user.role as any, 'manage_measurements')
+  const canManageMeasurements = hasPermission(session.user.role, 'manage_measurements')
 
   if (!canManageMeasurements) {
     redirect('/dashboard')
@@ -45,12 +45,19 @@ export default async function VisualMeasurementsPage({
     redirect('/customers')
   }
 
+  // Serialize dates for client component
+  const serializedMeasurements = customer.measurements.map(m => ({
+    id: m.id,
+    garmentType: m.garmentType,
+    createdAt: m.createdAt.toISOString(),
+  }))
+
   return (
     <VisualMeasurementClient
       customerId={customer.id}
       customerName={customer.name}
       customerPhone={customer.phone}
-      existingMeasurements={customer.measurements}
+      existingMeasurements={serializedMeasurements}
       session={session}
     />
   )

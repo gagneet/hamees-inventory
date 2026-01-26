@@ -19,9 +19,35 @@ import DashboardLayout from '@/components/DashboardLayout'
 import { Pagination } from '@/components/ui/pagination'
 import { CustomerOrdersDialog } from '@/components/customers/customer-orders-dialog'
 
+interface CustomerSummary {
+  id: string
+  name: string
+  phone: string
+  email?: string | null
+  city?: string | null
+  measurements?: Array<{
+    id: string
+    createdAt: string
+  }>
+  orders?: Array<{
+    id: string
+    orderNumber: string
+    status: string
+    totalAmount: number
+    deliveryDate: Date
+    createdAt: Date
+    _count: {
+      items: number
+    }
+  }>
+  _count?: {
+    orders?: number
+  }
+}
+
 export default function CustomersPage() {
   const router = useRouter()
-  const [customers, setCustomers] = useState<any[]>([])
+  const [customers, setCustomers] = useState<CustomerSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -167,7 +193,7 @@ export default function CustomersPage() {
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {customers.map((customer: any) => (
+            {customers.map((customer) => (
               <Card
                 key={customer.id}
                 className="hover:shadow-lg transition-shadow cursor-pointer h-full"
@@ -214,7 +240,7 @@ export default function CustomersPage() {
                       </div>
                     )}
 
-                    {customer.orders && customer.orders.length > 0 && (
+                     {customer.orders && customer.orders.length > 0 && (
                       <div className="mt-4 pt-4 border-t border-slate-200 space-y-2">
                         <CustomerOrdersDialog
                           customerName={customer.name}
@@ -230,7 +256,7 @@ export default function CustomersPage() {
                                 <span>Orders Delivered</span>
                               </div>
                               <span className="font-semibold text-green-700">
-                                {customer.orders.filter((o: any) => o.status === 'DELIVERED').length}
+                                {customer.orders.filter((order) => order.status === 'DELIVERED').length}
                               </span>
                             </div>
                           }
@@ -249,7 +275,7 @@ export default function CustomersPage() {
                                 <span>Orders In Progress</span>
                               </div>
                               <span className="font-semibold text-blue-700">
-                                {customer.orders.filter((o: any) => o.status !== 'DELIVERED' && o.status !== 'CANCELLED').length}
+                                {customer.orders.filter((order) => order.status !== 'DELIVERED' && order.status !== 'CANCELLED').length}
                               </span>
                             </div>
                           }

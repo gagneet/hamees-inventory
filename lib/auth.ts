@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db'
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
 import { cache } from 'react'
+import { UserRole } from '@prisma/client'
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -67,7 +68,7 @@ const { handlers, signIn, signOut, auth: uncachedAuth } = NextAuth({
     async session({ session, token }) {
       if (token && session.user) {
         session.user.id = token.id as string
-        session.user.role = token.role as string
+        session.user.role = token.role as UserRole
       }
       return session
     },

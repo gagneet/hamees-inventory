@@ -3,6 +3,8 @@ import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
 import { z } from 'zod'
 
+type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
+
 const orderEditSchema = z.object({
   deliveryDate: z.string().datetime().optional(),
   advancePaid: z.number().nonnegative().optional(),
@@ -140,8 +142,7 @@ export async function PATCH(
     const balanceAmount = parseFloat((order.totalAmount - discount - totalPaidInstallments).toFixed(2))
 
     // Update order and create history in a transaction
-    // @ts-ignore
-    await prisma.$transaction(async (tx: any) => {
+    await prisma.$transaction(async (tx: TransactionClient) => {
       // Update the order
       await tx.order.update({
         where: { id },

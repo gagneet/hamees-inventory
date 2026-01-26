@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
-import { ShoppingBag, Plus, Filter, Calendar, User, Home, X, DollarSign } from 'lucide-react'
+import { ShoppingBag, Plus, Filter, Home, X, DollarSign } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -43,12 +43,32 @@ const statusLabels: Record<OrderStatus, string> = {
 }
 
 function OrdersContent() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const { data: session } = useSession()
-  const [orders, setOrders] = useState<any[]>([])
-  const [fabrics, setFabrics] = useState<any[]>([])
-  const [garmentPatterns, setGarmentPatterns] = useState<any[]>([])
+  const [orders, setOrders] = useState<Array<{
+    id: string
+    orderNumber: string
+    status: OrderStatus
+    priority: string
+    deliveryDate: string
+    createdAt: string
+    totalAmount: number
+    balanceAmount: number
+    customer: {
+      name: string
+      phone?: string | null
+    }
+    items: Array<{
+      garmentPattern: {
+        name: string
+      }
+      clothInventory: {
+        name: string
+        colorHex: string
+      }
+    }>
+  }>>([])
+  const [fabrics, setFabrics] = useState<Array<{ id: string; name: string; color?: string | null }>>([])
   const [loading, setLoading] = useState(true)
 
   // Check if user is a Tailor (hide pricing information)
@@ -99,18 +119,7 @@ function OrdersContent() {
     setIsOverdue(urlIsOverdue)
     setBalanceOutstanding(urlBalanceOutstanding)
     setCurrentPage(1) // Reset to first page when URL params change
-  }, [
-    searchParams.get('status'),
-    searchParams.get('search'),
-    searchParams.get('fabricId'),
-    searchParams.get('garmentPatternId'),
-    searchParams.get('minAmount'),
-    searchParams.get('maxAmount'),
-    searchParams.get('deliveryDateFrom'),
-    searchParams.get('deliveryDateTo'),
-    searchParams.get('isOverdue'),
-    searchParams.get('balanceAmount'),
-  ])
+  }, [searchParams])
 
   // Debounce search term
   useEffect(() => {
@@ -135,22 +144,6 @@ function OrdersContent() {
       }
     }
     fetchFabrics()
-  }, [])
-
-  // Fetch garment patterns for filter
-  useEffect(() => {
-    async function fetchGarmentPatterns() {
-      try {
-        const response = await fetch('/api/garment-patterns')
-        const data = await response.json()
-        if (data.patterns) {
-          setGarmentPatterns(data.patterns)
-        }
-      } catch (error) {
-        console.error('Error fetching garment patterns:', error)
-      }
-    }
-    fetchGarmentPatterns()
   }, [])
 
   // Fetch orders
@@ -461,7 +454,7 @@ function OrdersContent() {
           </Card>
         ) : (
           <div className="space-y-4">
-            {orders.map((order: any) => {
+            {orders.map((order) => {
               const statusStyle = statusColors[order.status as OrderStatus]
               const deliveryDate = new Date(order.deliveryDate)
               const today = new Date()
@@ -533,7 +526,7 @@ function OrdersContent() {
                       {/* Order Items Preview */}
                       <div className="mt-4 pt-4 border-t border-slate-200">
                         <div className="flex flex-wrap gap-2">
-                          {order.items.map((item: any, idx: number) => (
+                          {order.items.map((item, idx) => (
                             <div
                               key={idx}
                               className="flex items-center gap-2 px-3 py-1 bg-slate-50 rounded-lg text-xs"

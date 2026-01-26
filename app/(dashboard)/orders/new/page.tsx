@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useCallback, useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,7 +14,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
-import { Home, ArrowLeft, Plus, Trash2, AlertCircle, User, Package, Calendar, DollarSign } from 'lucide-react'
+import { Home, ArrowLeft, Plus, Trash2, AlertCircle, User, Package, DollarSign } from 'lucide-react'
 
 type Customer = {
   id: string
@@ -133,15 +133,7 @@ function NewOrderForm() {
   const [clothInventory, setClothInventory] = useState<ClothInventory[]>([])
   const [accessories, setAccessories] = useState<Accessory[]>([])
 
-  // Load initial data
-  useEffect(() => {
-    loadCustomers()
-    loadGarmentPatterns()
-    loadClothInventory()
-    loadAccessories()
-  }, [])
-
-  const loadCustomers = async () => {
+  const loadCustomers = useCallback(async () => {
     try {
       const res = await fetch('/api/customers', {
         credentials: 'include',
@@ -153,13 +145,13 @@ function NewOrderForm() {
         console.error('Failed to load customers:', await res.text())
         setCustomers([])
       }
-    } catch (err) {
-      console.error('Failed to load customers:', err)
+    } catch (error) {
+      console.error('Failed to load customers:', error)
       setCustomers([])
     }
-  }
+  }, [])
 
-  const loadGarmentPatterns = async () => {
+  const loadGarmentPatterns = useCallback(async () => {
     try {
       const res = await fetch('/api/garment-patterns', {
         credentials: 'include',
@@ -171,13 +163,13 @@ function NewOrderForm() {
         console.error('Failed to load garment patterns:', await res.text())
         setGarmentPatterns([])
       }
-    } catch (err) {
-      console.error('Failed to load garment patterns:', err)
+    } catch (error) {
+      console.error('Failed to load garment patterns:', error)
       setGarmentPatterns([])
     }
-  }
+  }, [])
 
-  const loadClothInventory = async () => {
+  const loadClothInventory = useCallback(async () => {
     try {
       const res = await fetch('/api/inventory/cloth', {
         credentials: 'include',
@@ -189,13 +181,13 @@ function NewOrderForm() {
         console.error('Failed to load cloth inventory:', await res.text())
         setClothInventory([])
       }
-    } catch (err) {
-      console.error('Failed to load cloth inventory:', err)
+    } catch (error) {
+      console.error('Failed to load cloth inventory:', error)
       setClothInventory([])
     }
-  }
+  }, [])
 
-  const loadAccessories = async () => {
+  const loadAccessories = useCallback(async () => {
     try {
       const res = await fetch('/api/inventory/accessories', {
         credentials: 'include',
@@ -207,11 +199,26 @@ function NewOrderForm() {
         console.error('Failed to load accessories:', await res.text())
         setAccessories([])
       }
-    } catch (err) {
-      console.error('Failed to load accessories:', err)
+    } catch (error) {
+      console.error('Failed to load accessories:', error)
       setAccessories([])
     }
-  }
+  }, [])
+
+  const loadInitialData = useCallback(async () => {
+    await Promise.all([
+      loadCustomers(),
+      loadGarmentPatterns(),
+      loadClothInventory(),
+      loadAccessories(),
+    ])
+  }, [loadCustomers, loadGarmentPatterns, loadClothInventory, loadAccessories])
+
+  useEffect(() => {
+    setTimeout(() => {
+      loadInitialData()
+    }, 0)
+  }, [loadInitialData])
 
   const addItem = () => {
     setItems([...items, {
@@ -240,7 +247,11 @@ function NewOrderForm() {
     setItems(items.filter((_, i) => i !== index))
   }
 
-  const updateItem = (index: number, field: keyof OrderItem, value: any) => {
+  const updateItem = (
+    index: number,
+    field: keyof OrderItem,
+    value: OrderItem['bodyType'] | string | number | OrderItemAccessory[]
+  ) => {
     const newItems = [...items]
     if (field === 'garmentPatternId' && value !== newItems[index].garmentPatternId) {
       // When garment pattern changes, initialize accessories from pattern
@@ -249,9 +260,18 @@ function NewOrderForm() {
         accessoryId: ga.accessory.id,
         quantity: ga.quantityPerGarment,
       })) || []
-      newItems[index] = { ...newItems[index], [field]: value, accessories: defaultAccessories }
+      // Type-safe update for garmentPatternId field
+      newItems[index] = {
+        ...newItems[index],
+        garmentPatternId: value as string,
+        accessories: defaultAccessories
+      }
     } else {
-      newItems[index] = { ...newItems[index], [field]: value }
+      // Type-safe update for other fields
+      newItems[index] = {
+        ...newItems[index],
+        [field]: value
+      } as OrderItem
     }
     setItems(newItems)
   }
@@ -346,7 +366,7 @@ function NewOrderForm() {
     // Apply manual overrides BEFORE calculating wastage
     const finalFabricCost = isFabricCostOverridden && fabricCostOverride != null ? fabricCostOverride : fabricCost
     const finalAccessoriesCost = isAccessoriesCostOverridden && accessoriesCostOverride != null ? accessoriesCostOverride : accessoriesCost
-    let finalStitchingCost = isStitchingCostOverridden && stitchingCostOverride != null ? stitchingCostOverride : stitchingCost
+    const finalStitchingCost = isStitchingCostOverridden && stitchingCostOverride != null ? stitchingCostOverride : stitchingCost
 
     // Apply fabric wastage (on final fabric cost, whether calculated or overridden)
     const fabricWastageAmount = parseFloat((finalFabricCost * (fabricWastagePercent / 100)).toFixed(2))
@@ -522,7 +542,7 @@ function NewOrderForm() {
 
       // Success - redirect to order detail
       router.push(`/orders/${data.order.id}`)
-    } catch (err) {
+    } catch {
       setError('An error occurred while creating the order')
       setLoading(false)
     }
@@ -896,7 +916,7 @@ function NewOrderForm() {
                         </label>
                         <select
                           value={item.bodyType}
-                          onChange={(e) => updateItem(index, 'bodyType', e.target.value as any)}
+                           onChange={(e) => updateItem(index, 'bodyType', e.target.value as OrderItem['bodyType'])}
                           className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="SLIM">Slim</option>
@@ -926,7 +946,7 @@ function NewOrderForm() {
                           </Button>
                         </div>
                         <p className="text-xs text-slate-500 mt-1">
-                          Need multiple identical items? Click "Duplicate Item" to create separate entries.
+                          Need multiple identical items? Click &quot;Duplicate Item&quot; to create separate entries.
                         </p>
                       </div>
                     </div>
