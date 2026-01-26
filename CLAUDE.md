@@ -10,6 +10,101 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ AccessoryStockMovement Database Schema Fix (v0.27.6)
+
+**What's New:**
+- **Fixed Order Status Update Error** - Resolved database type mismatch preventing status updates
+- **Database Schema Correction** - AccessoryStockMovement.type now uses proper enum type
+- **Prisma 7 Compatibility** - All enum queries now work correctly with PostgreSQL adapter
+
+**Version:** v0.27.6
+**Date:** January 26, 2026
+**Status:** ✅ Production Ready
+
+**Issue:**
+
+Users unable to update order status, receiving error:
+```
+Error [DriverAdapterError]: operator does not exist: text = "StockMovementType"
+```
+
+**Root Cause:**
+
+Database schema mismatch between two stock movement tables:
+- `StockMovement.type`: ✅ Correctly defined as `"StockMovementType"` enum
+- `AccessoryStockMovement.type`: ❌ Incorrectly defined as `text`
+
+When Prisma queried accessories with enum values, PostgreSQL couldn't compare text to enum, causing the query to fail.
+
+**Solution:**
+
+Altered database column to use correct enum type:
+```sql
+ALTER TABLE "AccessoryStockMovement"
+ALTER COLUMN type TYPE "StockMovementType"
+USING type::"StockMovementType";
+```
+
+**Technical Details:**
+
+The issue occurred in the order status update route when fetching accessory stock movements:
+```typescript
+// This query failed before the fix
+accessoryStockMovements: {
+  where: {
+    type: 'ORDER_RESERVED',  // String literal compared to text column
+  },
+}
+```
+
+After the fix, PostgreSQL correctly interprets the string literal as an enum value.
+
+**Files Modified:**
+- Database: `AccessoryStockMovement` table schema corrected
+- `app/api/orders/[id]/status/route.ts` - Added debug logging (lines 28-62)
+
+**User Impact:**
+- ✅ Order status updates now work without errors
+- ✅ All workflow transitions functional (NEW → MATERIAL_SELECTED → CUTTING → STITCHING → FINISHING → READY → DELIVERED)
+- ✅ Accessory stock movements tracked correctly
+- ✅ Order cancellations process properly
+
+**Verification:**
+```sql
+-- Verify column type is now correct
+\d "AccessoryStockMovement"
+-- Expected: type | "StockMovementType" | not null
+```
+
+**Testing:**
+```bash
+# Test Order Status Update
+1. Login as owner@hameesattire.com / admin123
+2. Navigate to any order (e.g., https://hamees.gagneet.com/orders/cmktmdgjp0000muux6j3oqtu5)
+3. Click "Update Status" button
+4. Select new status (e.g., MATERIAL_SELECTED)
+5. Click "Update Status"
+6. Verify: Success message, status changes correctly
+7. Check: No errors in PM2 logs
+
+# Test Quick Status Advance
+1. Open any order item detail dialog
+2. Click "Advance to MATERIAL_SELECTED" button
+3. Verify: Status updates successfully
+```
+
+**Build & Deployment:**
+- Database migration: ✅ Applied successfully
+- Zero TypeScript errors
+- PM2 restart: ✅ Successful
+- Production: ✅ Live at https://hamees.gagneet.com
+
+**Related Issues:**
+- Similar to v0.27.4 fix where StockMovement enum usage needed correction
+- This completes the Prisma 7 enum compatibility fixes across all tables
+
+---
+
 ### ✅ Balance Calculation Double-Counting Fix (v0.28.1)
 
 **What's New:**

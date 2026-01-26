@@ -25,6 +25,9 @@ export async function PATCH(
     const body = await request.json()
     const { status, actualMetersUsed, wastage, notes } = statusUpdateSchema.parse(body)
 
+    console.log('[Status Update] Fetching order:', id)
+    console.log('[Status Update] New status:', status)
+
     const order = await prisma.order.findUnique({
       where: { id },
       include: {
@@ -52,6 +55,11 @@ export async function PATCH(
         },
       },
     })
+
+    console.log('[Status Update] Order found:', order ? 'yes' : 'no')
+    if (order) {
+      console.log('[Status Update] Accessory movements count:', order.accessoryStockMovements?.length || 0)
+    }
 
     if (!order) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 })
