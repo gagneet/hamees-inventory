@@ -13,8 +13,8 @@ interface PreviewResult {
   invalidRecords: number
   duplicateCount: number
   relationErrorCount: number
-  validationErrors: Array<{ table: string; row: number; error: string; data: any }>
-  duplicates: Array<{ table: string; row: number; existing: any; new: any; conflicts: string[] }>
+  validationErrors: Array<{ table: string; row: number; error: string; data: Record<string, unknown> }>
+  duplicates: Array<{ table: string; row: number; existing: Record<string, unknown>; new: Record<string, unknown>; conflicts: string[] }>
   relationErrors: Array<{ table: string; row: number; error: string }>
   sheets: Array<{ name: string; table: string; rowCount: number; errorCount: number }>
 }
@@ -28,7 +28,7 @@ interface UploadResult {
   skippedCount: number
   summary: string
   successDetails: Array<{ table: string; id: string; row: number }>
-  failureDetails: Array<{ table: string; row: number; error: string; data: any }>
+  failureDetails: Array<{ table: string; row: number; error: string; data: Record<string, unknown> }>
 }
 
 export default function BulkUploadPage() {
@@ -77,9 +77,9 @@ export default function BulkUploadPage() {
 
       // Initialize duplicate actions to 'skip' by default
       const actions: Record<string, 'skip' | 'overwrite'> = {}
-      data.duplicates.forEach((dup: any) => {
-        actions[`${dup.table}:${dup.row}`] = 'skip'
-      })
+       data.duplicates.forEach((dup: PreviewResult['duplicates'][number]) => {
+         actions[`${dup.table}:${dup.row}`] = 'skip'
+       })
       setDuplicateActions(actions)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to preview upload')
@@ -133,7 +133,8 @@ export default function BulkUploadPage() {
       a.click()
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
-    } catch (err) {
+    } catch (error) {
+      console.error('Failed to download template:', error)
       setError('Failed to download template')
     }
   }

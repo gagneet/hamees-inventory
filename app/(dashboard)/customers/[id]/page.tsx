@@ -66,11 +66,50 @@ export default async function CustomerDetailPage({
   }
 
   // Check if user can manage measurements
-  const canManageMeasurements = hasPermission(session.user.role as any, 'manage_customers')
+  const canManageMeasurements = hasPermission(session.user.role, 'manage_customers')
+
+  // Serialize dates and normalize types for client component
+  const serializedCustomer = {
+    ...customer,
+    createdAt: customer.createdAt.toISOString(),
+    orders: customer.orders?.map(order => ({
+      ...order,
+      deliveryDate: order.deliveryDate.toISOString(),
+      createdAt: order.createdAt.toISOString(),
+    })),
+    measurements: customer.measurements?.map(measurement => ({
+      id: measurement.id,
+      garmentType: measurement.garmentType,
+      bodyType: measurement.bodyType,
+      neck: measurement.neck,
+      chest: measurement.chest,
+      waist: measurement.waist,
+      hip: measurement.hip,
+      shoulder: measurement.shoulder,
+      sleeveLength: measurement.sleeveLength,
+      shirtLength: measurement.shirtLength,
+      inseam: measurement.inseam,
+      outseam: measurement.outseam,
+      thigh: measurement.thigh,
+      knee: measurement.knee,
+      bottomOpening: measurement.bottomOpening,
+      jacketLength: measurement.jacketLength,
+      lapelWidth: measurement.lapelWidth,
+      additionalMeasurements: measurement.additionalMeasurements,
+      notes: measurement.notes,
+      isActive: measurement.isActive,
+      createdAt: measurement.createdAt.toISOString(),
+      createdBy: measurement.createdBy ? {
+        id: measurement.createdBy.id,
+        name: measurement.createdBy.name,
+        email: measurement.createdBy.email,
+      } : undefined,
+    })),
+  }
 
   return (
     <CustomerDetailClient
-      customer={customer}
+      customer={serializedCustomer}
       canManageMeasurements={canManageMeasurements}
       highlight={highlight}
     />

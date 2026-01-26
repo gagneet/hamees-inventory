@@ -63,32 +63,16 @@ export function OrderItemEdit({
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [garmentPatterns, setGarmentPatterns] = useState<GarmentPattern[]>([])
   const [clothInventory, setClothInventory] = useState<ClothInventory[]>([])
-
-  const [selectedGarmentId, setSelectedGarmentId] = useState(currentGarmentPatternId)
   const [selectedClothId, setSelectedClothId] = useState(currentClothInventoryId)
   const [estimatedNewPrice, setEstimatedNewPrice] = useState<number | null>(null)
 
-  // Load garment patterns and cloth inventory when dialog opens
+  // Load cloth inventory when dialog opens
   useEffect(() => {
     if (open) {
-      loadGarmentPatterns()
       loadClothInventory()
     }
   }, [open])
-
-  const loadGarmentPatterns = async () => {
-    try {
-      const response = await fetch('/api/garment-patterns')
-      if (response.ok) {
-        const data = await response.json()
-        setGarmentPatterns(data.patterns || [])
-      }
-    } catch (error) {
-      console.error('Error loading garment patterns:', error)
-    }
-  }
 
   const loadClothInventory = async () => {
     try {

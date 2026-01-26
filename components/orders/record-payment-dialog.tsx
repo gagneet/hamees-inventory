@@ -91,9 +91,9 @@ export function RecordPaymentDialog({
       setOpen(false)
       router.refresh()
       alert(`Payment of ${formatCurrency(paymentAmount)} recorded successfully!`)
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error recording payment:', error)
-      alert(error.message || 'Failed to record payment')
+      alert(error instanceof Error ? error.message : 'Failed to record payment')
     } finally {
       setLoading(false)
     }

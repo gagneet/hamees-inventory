@@ -135,7 +135,7 @@ export default function NewCustomerPage() {
                 Customer Information
               </CardTitle>
               <CardDescription>
-                Enter the customer's contact and address details
+                Enter the customer&apos;s contact and address details
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -151,7 +151,7 @@ export default function NewCustomerPage() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter customer's full name"
+                    placeholder="Enter customer&apos;s full name"
                     required
                   />
                 </div>

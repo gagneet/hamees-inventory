@@ -18,9 +18,18 @@ import { Home, ArrowLeft, User } from 'lucide-react'
 interface VisualMeasurementClientProps {
   customerId: string
   customerName: string
-  customerPhone: string
-  existingMeasurements: any[]
-  session: any
+  customerPhone?: string
+  existingMeasurements: Array<{
+    id: string
+    garmentType: string
+    createdAt: string
+  }>
+  session: {
+    user: {
+      name?: string | null
+      role: string
+    }
+  }
 }
 
 export function VisualMeasurementClient({
@@ -31,6 +40,7 @@ export function VisualMeasurementClient({
   session,
 }: VisualMeasurementClientProps) {
   const router = useRouter()
+  const displayPhone = customerPhone
 
   const handleSave = () => {
     // Refresh and redirect back to customer detail page
@@ -91,6 +101,7 @@ export function VisualMeasurementClient({
       <div className="mt-6 text-sm text-slate-500 flex items-center gap-2">
         <User className="h-4 w-4" />
         Logged in as {session.user.name} ({session.user.role})
+        {displayPhone && <span className="text-slate-400">• {displayPhone}</span>}
       </div>
     </DashboardLayout>
   )

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Home, Plus, Trash2 } from 'lucide-react'
@@ -72,14 +72,7 @@ export default function EditGarmentTypePage({
     params.then((p) => setResolvedParams(p))
   }, [params])
 
-  useEffect(() => {
-    if (resolvedParams) {
-      fetchAccessories()
-      fetchPattern()
-    }
-  }, [resolvedParams])
-
-  const fetchAccessories = async () => {
+  const fetchAccessories = useCallback(async () => {
     try {
       const response = await fetch('/api/inventory/accessories')
       const data = await response.json()
@@ -87,9 +80,9 @@ export default function EditGarmentTypePage({
     } catch (error) {
       console.error('Error fetching accessories:', error)
     }
-  }
+  }, [])
 
-  const fetchPattern = async () => {
+  const fetchPattern = useCallback(async () => {
     if (!resolvedParams) return
 
     setFetchingData(true)
@@ -109,7 +102,7 @@ export default function EditGarmentTypePage({
       })
 
       setSelectedAccessories(
-        pattern.accessories.map((acc: any) => ({
+        pattern.accessories.map((acc: { accessoryId: string; quantity: number }) => ({
           accessoryId: acc.accessoryId,
           quantity: acc.quantity,
         }))
@@ -120,7 +113,14 @@ export default function EditGarmentTypePage({
     } finally {
       setFetchingData(false)
     }
-  }
+  }, [resolvedParams])
+
+  useEffect(() => {
+    if (resolvedParams) {
+      fetchAccessories()
+      fetchPattern()
+    }
+  }, [resolvedParams, fetchAccessories, fetchPattern])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

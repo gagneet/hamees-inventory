@@ -87,7 +87,7 @@ export function EditMeasurementDialog({
     setIsSubmitting(true)
 
     try {
-      const payload: any = {
+      const payload: Record<string, string | number | null> = {
         bodyType: formData.bodyType,
         notes: formData.notes || null,
       }
@@ -99,7 +99,7 @@ export function EditMeasurementDialog({
         'bottomOpening', 'jacketLength', 'lapelWidth'
       ]
 
-      numericFields.forEach(field => {
+      numericFields.forEach((field) => {
         const value = formData[field as keyof typeof formData]
         if (value && value !== '') {
           payload[field] = parseFloat(value as string)

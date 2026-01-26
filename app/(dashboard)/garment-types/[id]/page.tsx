@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Home, Shirt, ArrowLeft, Pencil, Trash2 } from 'lucide-react'
@@ -61,13 +61,7 @@ export default function GarmentTypeDetailPage({
     params.then((p) => setResolvedParams(p))
   }, [params])
 
-  useEffect(() => {
-    if (resolvedParams) {
-      fetchPattern()
-    }
-  }, [resolvedParams])
-
-  const fetchPattern = async () => {
+  const fetchPattern = useCallback(async () => {
     if (!resolvedParams) return
 
     setLoading(true)
@@ -80,7 +74,13 @@ export default function GarmentTypeDetailPage({
     } finally {
       setLoading(false)
     }
-  }
+  }, [resolvedParams])
+
+  useEffect(() => {
+    if (resolvedParams) {
+      fetchPattern()
+    }
+  }, [resolvedParams, fetchPattern])
 
   const handleDelete = async () => {
     if (!resolvedParams || !pattern) return

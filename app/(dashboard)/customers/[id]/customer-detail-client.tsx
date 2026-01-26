@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -20,7 +20,60 @@ import { CustomerMeasurementsSection } from '@/components/customer-measurements-
 import { CustomerEditDialog } from '@/components/customer-edit-dialog'
 
 interface CustomerDetailClientProps {
-  customer: any
+  customer: {
+    id: string
+    name: string
+    createdAt: string
+    phone: string
+    email?: string | null
+    address?: string | null
+    city?: string | null
+    state?: string | null
+    pincode?: string | null
+    notes?: string | null
+    orders?: Array<{
+      id: string
+      orderNumber: string
+      status: string
+      deliveryDate: string
+      createdAt: string
+      totalAmount: number
+      balanceAmount: number
+      items: Array<{
+        garmentPattern: {
+          name: string
+        }
+      }>
+    }>
+    measurements?: Array<{
+      id: string
+      garmentType: string
+      bodyType?: string | null
+      neck?: number | null
+      chest?: number | null
+      waist?: number | null
+      hip?: number | null
+      shoulder?: number | null
+      sleeveLength?: number | null
+      shirtLength?: number | null
+      inseam?: number | null
+      outseam?: number | null
+      thigh?: number | null
+      knee?: number | null
+      bottomOpening?: number | null
+      jacketLength?: number | null
+      lapelWidth?: number | null
+      additionalMeasurements?: any
+      notes?: string | null
+      isActive: boolean
+      createdAt: string
+      createdBy?: {
+        id: string
+        name: string
+        email: string
+      }
+    }>
+  }
   canManageMeasurements: boolean
   highlight?: string
 }
@@ -174,7 +227,7 @@ export function CustomerDetailClient({
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {customer.orders.map((order: any) => {
+                  {customer.orders.map((order) => {
                     const statusStyle = statusColors[order.status as keyof typeof statusColors]
                     const deliveryDate = new Date(order.deliveryDate)
                     const isOverdue = deliveryDate < new Date() && order.status !== 'DELIVERED' && order.status !== 'CANCELLED'
@@ -216,7 +269,7 @@ export function CustomerDetailClient({
                             </div>
                           </div>
                           <div className="mt-3 pt-3 border-t flex flex-wrap gap-2">
-                            {order.items.slice(0, 3).map((item: any, idx: number) => (
+                            {order.items.slice(0, 3).map((item, idx) => (
                               <span
                                 key={idx}
                                 className="text-xs px-2 py-1 bg-slate-100 rounded text-slate-700"
@@ -245,7 +298,7 @@ export function CustomerDetailClient({
           {/* Measurements */}
           <CustomerMeasurementsSection
             customerId={customer.id}
-            measurements={customer.measurements as any}
+            measurements={customer.measurements || []}
             canManage={canManageMeasurements}
             highlight={highlight}
           />
@@ -269,7 +322,7 @@ export function CustomerDetailClient({
                     <p className="text-sm text-slate-500">Total Spent</p>
                     <p className="text-2xl font-bold text-slate-900">
                       {formatCurrency(
-                        customer.orders.reduce((sum: number, order: any) => sum + order.totalAmount, 0)
+                        customer.orders.reduce((sum, order) => sum + order.totalAmount, 0)
                       )}
                     </p>
                   </div>
@@ -277,7 +330,7 @@ export function CustomerDetailClient({
                     <p className="text-sm text-slate-500">Outstanding Balance</p>
                     <p className="text-2xl font-bold text-orange-600">
                       {formatCurrency(
-                        customer.orders.reduce((sum: number, order: any) => sum + order.balanceAmount, 0)
+                        customer.orders.reduce((sum, order) => sum + order.balanceAmount, 0)
                       )}
                     </p>
                   </div>

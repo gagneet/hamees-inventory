@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -23,6 +23,32 @@ import { AlertTriangle, Home, Package, ShoppingCart, X } from 'lucide-react'
 import DashboardLayout from '@/components/DashboardLayout'
 import { formatCurrency } from '@/lib/utils'
 
+interface AlertData {
+  id: string
+  title: string
+  message: string
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+  type: string
+  createdAt: string
+  relatedType: string | null
+  relatedId: string | null
+}
+
+interface RelatedItem {
+  id: string
+  name: string
+  type: string
+  currentStock: number
+  reserved: number
+  minimum: number
+  pricePerMeter: number
+  supplierRel?: {
+    id: string
+    name: string
+    phone: string
+  } | null
+}
+
 export default function AlertDetailPage({
   params,
 }: {
@@ -30,8 +56,8 @@ export default function AlertDetailPage({
 }) {
   const router = useRouter()
   const [alertId, setAlertId] = useState<string | null>(null)
-  const [alert, setAlert] = useState<any>(null)
-  const [relatedItem, setRelatedItem] = useState<any>(null)
+  const [alertData, setAlertData] = useState<AlertData | null>(null)
+  const [relatedItem, setRelatedItem] = useState<RelatedItem | null>(null)
   const [loading, setLoading] = useState(true)
   const [dismissing, setDismissing] = useState(false)
 
@@ -41,13 +67,7 @@ export default function AlertDetailPage({
     })
   }, [params])
 
-  useEffect(() => {
-    if (alertId) {
-      fetchAlertData()
-    }
-  }, [alertId])
-
-  const fetchAlertData = async () => {
+  const fetchAlertData = useCallback(async () => {
     if (!alertId) return
 
     try {
@@ -57,7 +77,7 @@ export default function AlertDetailPage({
         return
       }
       const data = await response.json()
-      setAlert(data.alert)
+      setAlertData(data.alert)
       setRelatedItem(data.relatedItem)
     } catch (error) {
       console.error('Error fetching alert:', error)
@@ -65,7 +85,13 @@ export default function AlertDetailPage({
     } finally {
       setLoading(false)
     }
-  }
+  }, [alertId, router])
+
+  useEffect(() => {
+    if (alertId) {
+      fetchAlertData()
+    }
+  }, [alertId, fetchAlertData])
 
   const handleDismiss = async () => {
     if (!alertId) return
@@ -89,7 +115,7 @@ export default function AlertDetailPage({
     }
   }
 
-  if (loading || !alert) {
+  if (loading || !alertData) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-96">
@@ -122,9 +148,9 @@ export default function AlertDetailPage({
     },
   }
 
-  const config = severityConfig[alert.severity as keyof typeof severityConfig]
+  const config = severityConfig[alertData.severity as keyof typeof severityConfig]
 
-  const isLowStock = alert.type === 'LOW_STOCK' || alert.type === 'CRITICAL_STOCK'
+  const isLowStock = alertData.type === 'LOW_STOCK' || alertData.type === 'CRITICAL_STOCK'
 
   return (
     <DashboardLayout>
@@ -171,17 +197,17 @@ export default function AlertDetailPage({
               <AlertTriangle className={`h-6 w-6 ${config.color}`} />
             </div>
             <div className="flex-1">
-              <CardTitle className="text-xl">{alert.title}</CardTitle>
+              <CardTitle className="text-xl">{alertData.title}</CardTitle>
               <CardDescription className="mt-1">
-                {alert.type.replace(/_/g, ' ')} - {alert.severity} severity
+                {alertData.type.replace(/_/g, ' ')} - {alertData.severity} severity
               </CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent>
-          <p className="text-slate-700 mb-4">{alert.message}</p>
+          <p className="text-slate-700 mb-4">{alertData.message}</p>
           <p className="text-sm text-slate-500">
-            Created: {new Date(alert.createdAt).toLocaleString('en-IN')}
+            Created: {new Date(alertData.createdAt).toLocaleString('en-IN')}
           </p>
         </CardContent>
       </Card>
