@@ -2,7 +2,7 @@ import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/db'
 import Link from 'next/link'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -13,7 +13,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
-import { Home, ArrowLeft, ShoppingBag, User, Calendar, Package, DollarSign, Phone, Mail, Ruler } from 'lucide-react'
+import { Home, ArrowLeft, ShoppingBag, User, Calendar, DollarSign, Phone, Mail, Ruler } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import DashboardLayout from '@/components/DashboardLayout'
 import { OrderActions } from '@/components/orders/order-actions'
@@ -196,10 +196,39 @@ export default async function OrderDetailPage({
   // Use 0.01 threshold (1 paisa) to avoid floating-point precision errors
   const isArrears = order.status === 'DELIVERED' && order.balanceAmount > 0.01
 
+  // Calculate total paid from installments and verify consistency
+  const totalPaidFromInstallments = order.installments
+    .filter((i: OrderInstallment) => i.status === 'PAID')
+    .reduce((sum: number, i: OrderInstallment) => sum + i.paidAmount, 0)
+
+  const advanceFromInstallment = order.installments
+    .find((i: OrderInstallment) => i.installmentNumber === 1)?.paidAmount || 0
+
+  // Log warning if advance payment mismatch detected
+  if (Math.abs(advanceFromInstallment - order.advancePaid) > 0.01) {
+    console.warn(
+      `⚠️ Order ${order.orderNumber}: Advance payment mismatch detected!\n` +
+      `  Order.advancePaid: ₹${order.advancePaid.toFixed(2)}\n` +
+      `  Installment #1 paidAmount: ₹${advanceFromInstallment.toFixed(2)}\n` +
+      `  Difference: ₹${Math.abs(advanceFromInstallment - order.advancePaid).toFixed(2)}`
+    )
+  }
+
   // Calculate total balance payments (all installments except #1 which is advance)
   const balancePayments = order.installments
     .filter((i: OrderInstallment) => i.installmentNumber > 1 && i.status === 'PAID')
     .reduce((sum: number, i: OrderInstallment) => sum + i.paidAmount, 0)
+
+  // Verify balance calculation matches expected formula
+  const expectedBalance = order.totalAmount - order.discount - totalPaidFromInstallments
+  if (Math.abs(expectedBalance - order.balanceAmount) > 0.01) {
+    console.warn(
+      `⚠️ Order ${order.orderNumber}: Balance calculation mismatch!\n` +
+      `  Expected: ₹${expectedBalance.toFixed(2)}\n` +
+      `  Actual: ₹${order.balanceAmount.toFixed(2)}\n` +
+      `  Difference: ₹${Math.abs(expectedBalance - order.balanceAmount).toFixed(2)}`
+    )
+  }
 
   return (
     <DashboardLayout>
@@ -688,7 +717,6 @@ export default async function OrderDetailPage({
                     totalPrice: item.totalPrice
                   }))}
                   currentDeliveryDate={order.deliveryDate}
-                  orderTotalAmount={order.totalAmount}
                   orderSubTotal={order.subTotal}
                 />
               )}
