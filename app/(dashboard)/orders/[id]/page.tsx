@@ -736,6 +736,7 @@ export default async function OrderDetailPage({
                     status: order.status,
                     customer: order.customer,
                     items: order.items,
+                    paymentInstallments: order.installments,
                     subTotal: order.subTotal,
                     gstRate: order.gstRate,
                     cgst: order.cgst,

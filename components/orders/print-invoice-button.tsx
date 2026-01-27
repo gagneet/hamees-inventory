@@ -31,6 +31,13 @@ interface InvoiceOrder {
     pricePerUnit: number
     totalPrice: number
   }>
+  paymentInstallments?: Array<{
+    installmentNumber: number
+    paidDate: Date | string | null
+    paidAmount: number
+    paymentMode: string | null
+    status: string
+  }>
   subTotal: number
   gstRate: number
   cgst: number
@@ -110,9 +117,23 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
   const perItemCGST = order.cgst / itemCount
   const perItemSGST = order.sgst / itemCount
   const perItemDiscount = order.discount / itemCount
-  const perItemAdvance = order.advancePaid / itemCount
   const perItemTotal = order.totalAmount / itemCount
-  const perItemBalance = order.balanceAmount / itemCount
+
+  // Calculate per-item advance payment
+  const perItemAdvance = order.advancePaid / itemCount
+
+  // Calculate total paid from all installments
+  const totalPaidFromInstallments = order.paymentInstallments?.reduce(
+    (sum, inst) => sum + inst.paidAmount,
+    0
+  ) || 0
+  const perItemTotalPaid = totalPaidFromInstallments / itemCount
+
+  // Calculate installments paid EXCLUDING advance (additional payments)
+  const perItemAdditionalInstallments = perItemTotalPaid - perItemAdvance
+
+  // Calculate final balance
+  const perItemBalance = perItemTotal - perItemAdvance - perItemDiscount - perItemAdditionalInstallments
 
   // Generate one page per order item
   const itemPages = order.items.map((item, index) => `
@@ -188,27 +209,69 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
             <div class="totals-label">Total GST:</div>
             <div class="totals-value">${formatCurrency(perItemGST)}</div>
           </div>
-          ${order.discount > 0 ? `
-          <div class="totals-row">
-            <div class="totals-label">Discount (Proportional):</div>
-            <div class="totals-value">-${formatCurrency(perItemDiscount)}</div>
-          </div>
-          ` : ''}
           <div class="totals-row bold">
             <div class="totals-label">Item Total:</div>
             <div class="totals-value">${formatCurrency(perItemTotal)}</div>
           </div>
+          ${perItemDiscount > 0 ? `
           <div class="totals-row">
-            <div class="totals-label">Advance Paid (Proportional):</div>
-            <div class="totals-value">${formatCurrency(perItemAdvance)}</div>
+            <div class="totals-label">Less: Discount</div>
+            <div class="totals-value">-${formatCurrency(perItemDiscount)}</div>
           </div>
-          <div class="totals-row bold">
-            <div class="totals-label">Balance Due (This Item):</div>
-            <div class="totals-value">${formatCurrency(perItemBalance)}</div>
+          ` : ''}
+          ${perItemAdvance > 0 ? `
+          <div class="totals-row">
+            <div class="totals-label">Less: Advance Paid</div>
+            <div class="totals-value">-${formatCurrency(perItemAdvance)}</div>
+          </div>
+          ` : ''}
+          ${perItemAdditionalInstallments > 0 ? `
+          <div class="totals-row">
+            <div class="totals-label">Less: Installments Paid</div>
+            <div class="totals-value">-${formatCurrency(perItemAdditionalInstallments)}</div>
+          </div>
+          ` : ''}
+          <div class="totals-row bold" style="background-color: ${perItemBalance > 0 ? '#fef3c7' : '#d1fae5'}; border: 2px solid ${perItemBalance > 0 ? '#f59e0b' : '#10b981'};">
+            <div class="totals-label" style="color: ${perItemBalance > 0 ? '#92400e' : '#065f46'};">Balance Due:</div>
+            <div class="totals-value" style="color: ${perItemBalance > 0 ? '#92400e' : '#065f46'};">${formatCurrency(perItemBalance)}</div>
           </div>
         </div>
 
         <div style="clear: both;"></div>
+
+        <!-- Payments Received Section -->
+        ${order.paymentInstallments && order.paymentInstallments.length > 0 ? `
+        <div class="payments-section">
+          <h3 style="font-size: 12px; font-weight: bold; margin: 15px 0 8px 0; border-bottom: 1px solid #ddd; padding-bottom: 4px;">Payments Received:</h3>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 10px;">
+            <thead>
+              <tr style="background-color: #f5f5f5;">
+                <th style="border: 1px solid #ddd; padding: 4px; text-align: left; font-size: 9px;">#</th>
+                <th style="border: 1px solid #ddd; padding: 4px; text-align: left; font-size: 9px;">Date</th>
+                <th style="border: 1px solid #ddd; padding: 4px; text-align: left; font-size: 9px;">Mode</th>
+                <th style="border: 1px solid #ddd; padding: 4px; text-align: right; font-size: 9px;">Full Amount</th>
+                <th style="border: 1px solid #ddd; padding: 4px; text-align: right; font-size: 9px;">This Item (${itemCount > 1 ? 'Proportional' : 'Full'})</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${order.paymentInstallments.map(inst => {
+                const perItemPayment = inst.paidAmount / itemCount
+                return `
+                <tr>
+                  <td style="border: 1px solid #ddd; padding: 4px; font-size: 9px;">${inst.installmentNumber}</td>
+                  <td style="border: 1px solid #ddd; padding: 4px; font-size: 9px;">${inst.paidDate ? format(new Date(inst.paidDate), 'dd MMM yyyy') : 'N/A'}</td>
+                  <td style="border: 1px solid #ddd; padding: 4px; font-size: 9px;">${inst.paymentMode || 'N/A'}</td>
+                  <td style="border: 1px solid #ddd; padding: 4px; text-align: right; font-size: 9px;">${formatCurrency(inst.paidAmount)}</td>
+                  <td style="border: 1px solid #ddd; padding: 4px; text-align: right; font-size: 9px; font-weight: bold;">${formatCurrency(perItemPayment)}</td>
+                </tr>
+                `
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+
+        <div style="clear: both; margin-bottom: 15px;"></div>
 
         ${itemCount > 1 ? `
         <div class="multi-item-notice">

@@ -16,6 +16,7 @@ This is a comprehensive inventory and order management system built specifically
 - **One Page Per Order Item** - Each garment gets its own dedicated invoice page
 - **A4 Size Compliance** - Proper page dimensions (210mm × 297mm) for standard printing
 - **Proportional Cost Distribution** - Multi-item orders show per-item GST, discount, and payment breakdown
+- **Complete Payment History** - Shows ALL payments (installments) with dates, modes, and amounts
 - **Enhanced Print Dialog Reliability** - Multi-layered timing strategy ensures content loads before printing
 - **Manual Print Fallback** - Prominent print button appears if auto-print fails
 - **Professional Layout** - Optimized fonts, spacing, and sections for clean A4 output
@@ -32,34 +33,57 @@ This is a comprehensive inventory and order management system built specifically
    - Page indicator: "Item 1 of 3" at top
    - Multi-item notice at bottom with total order summary
 
-2. **Proportional Financial Breakdown**
+2. **Itemized Deductions in Totals Section**
    ```
-   Example: 3-item order totaling ₹30,000
+   Example: 3-item order totaling ₹30,000, discount ₹1,200, advance ₹9,000, additional ₹6,000
 
    Page 1 (Shirt):
    - Item Subtotal: ₹10,000
    - CGST (6%): ₹600
    - SGST (6%): ₹600
    - Item Total: ₹11,200
-   - Advance (Proportional): ₹3,000
-   - Balance Due (This Item): ₹8,200
+   - Less: Discount: -₹400 (proportional discount)
+   - Less: Advance Paid: -₹3,000 (initial payment)
+   - Less: Installments Paid: -₹2,000 (additional payments)
+   - Balance Due: ₹5,800
    ```
+   - **Itemized Transparency**: Each payment component shown as separate line item
+   - Discount, Advance Paid, and Installments all displayed individually
+   - Balance calculation: Item Total - Discount - Advance - Installments
+   - Color-coded Balance: Amber for outstanding, Green for paid in full
 
-3. **A4 Page Constraints**
+3. **Complete Payment History Table**
+   - Dedicated "Payments Received" section below totals
+   - Table showing all installments with:
+     - Installment number (#1, #2, etc.)
+     - Payment date (formatted: DD MMM YYYY)
+     - Payment mode (Cash, UPI, Card, Bank Transfer, Cheque)
+     - Full payment amount (order total)
+     - Per-item amount (proportional for multi-item orders)
+   - Complete transaction audit trail visible on invoice
+   - Example:
+     ```
+     # | Date           | Mode  | Full Amount | This Item
+     1 | 15 Jan 2026    | Cash  | ₹30,000.00  | ₹10,000.00
+     2 | 20 Jan 2026    | UPI   | ₹15,000.00  | ₹5,000.00
+     ```
+
+4. **A4 Page Constraints**
    - Page dimensions: 210mm × 297mm (exact A4)
    - Page margins: 15mm all sides
-   - Font sizes: 10-11px (body), 22px (header)
+   - Font sizes: 9-11px (body), 22px (header)
    - Compact spacing to fit all content on single page
    - Page break enforcement between items
+   - Payment history table with small fonts (9px) to fit
 
-4. **Enhanced Print Reliability**
+5. **Enhanced Print Reliability**
    - **Strategy 1**: Wait for `window.load` event + 500ms delay
    - **Strategy 2**: Fallback timeout at 1000ms
    - Try-catch error handling with user feedback
    - Pop-up blocker detection and alerts
    - Manual print button with clear instructions
 
-5. **Print Media Queries**
+6. **Print Media Queries**
    ```css
    @media print {
      @page {
@@ -74,31 +98,44 @@ This is a comprehensive inventory and order management system built specifically
    ```
 
 **Files Modified:**
-- `components/orders/print-invoice-button.tsx` - Complete rewrite for per-item pages with A4 sizing
+- `components/orders/print-invoice-button.tsx` - Complete rewrite for per-item pages with A4 sizing and payment history
+- `app/(dashboard)/orders/[id]/page.tsx` - Added paymentInstallments data to PrintInvoiceButton props
 
 **User Impact:**
 - ✅ Each garment has dedicated invoice page for filing/tracking
 - ✅ Print dialog shows content properly on Windows/Android
 - ✅ Accurate per-item financial breakdown for accounting
+- ✅ **Itemized deductions: Discount, Advance Paid, and Installments shown separately**
+- ✅ **Complete transparency with each payment component as individual line item**
+- ✅ **Complete payment history table with all installments, dates, and payment modes**
+- ✅ **Clear balance calculation showing all deductions**
 - ✅ Professional A4 format fits standard business practices
 - ✅ Manual fallback ensures printing always works
 
 **Testing:**
 ```bash
-# Test Multi-Item Order Printing
+# Test Multi-Item Order Printing with Payment History
 1. Login as owner@hameesattire.com / admin123
-2. Open order with 2+ items (e.g., Shirt + Trouser)
+2. Open order with 2+ items and multiple payments (e.g., advance + installments)
 3. Click "Print Invoice" button
-4. Expected: Print preview shows 2 separate pages
+4. Expected: Print preview shows 2+ separate pages (one per item)
 5. Verify: Each page has correct item details
-6. Verify: Financial totals proportionally distributed
-7. Print or save as PDF
+6. Verify: Totals section shows itemized deductions:
+   - "Less: Discount" (if applicable)
+   - "Less: Advance Paid" (initial payment)
+   - "Less: Installments Paid" (additional payments)
+7. Verify: Each deduction shown as separate line item
+8. Verify: Payment history table shows all installments below totals
+9. Verify: Financial totals proportionally distributed
+10. Print or save as PDF
 
-# Test Single-Item Order
-1. Open order with 1 item
+# Test Single-Item Order with Payments
+1. Open order with 1 item and multiple payment installments
 2. Click "Print Invoice"
 3. Verify: Single page, no "Item X of Y" indicator
-4. Verify: Full order totals (not proportional)
+4. Verify: Totals section shows itemized deductions (discount, advance, installments)
+5. Verify: Payment table shows all installments with full amounts
+6. Verify: Balance Due = Item Total - Discount - Advance - Installments
 ```
 
 **Build & Deployment:**
