@@ -100,6 +100,9 @@ next-env.d.ts
 prisma/migrations/**
 !prisma/migrations/.gitkeep
 
+# uploads
+/uploads/
+
 # IDE
 .vscode/
 .idea/

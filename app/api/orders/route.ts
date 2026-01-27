@@ -670,22 +670,9 @@ export async function POST(request: Request) {
         })
       }
 
-      // Create payment installment for advance payment (if any)
-      if (validatedData.advancePaid > 0) {
-        await tx.paymentInstallment.create({
-          data: {
-            orderId: newOrder.id,
-            installmentNumber: 1,
-            installmentAmount: totalAmount, // Show total order amount (customer's commitment)
-            dueDate: new Date(), // Advance is paid immediately
-            paidDate: new Date(), // Mark as paid
-            paidAmount: validatedData.advancePaid, // Actual advance paid
-            paymentMode: 'CASH', // Default to cash, can be made configurable
-            status: 'PAID',
-            notes: 'Advance payment on order creation',
-          },
-        })
-      }
+      // Note: Advance payment is stored in Order.advancePaid field only
+      // Balance payments are recorded as PaymentInstallments via Record Payment feature
+      // This avoids double-counting and keeps advance separate from balance installments
 
       return newOrder
     })

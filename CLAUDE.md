@@ -10,6 +10,132 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Payment System Separation Fix - Single Source of Truth (v0.28.4)
+
+**What's New:**
+- **Fixed Balance Calculation** - Advance payment now always included in balance calculation
+- **Single Source of Truth** - Advance stored ONLY in Order.advancePaid, NOT as installment
+- **No Double-Counting** - Eliminated risk of counting advance payment twice
+- **Consistent Logic** - All payment calculations use same formula across application
+- **Database Fix** - Corrected balances for orders with missing installments
+
+**Version:** v0.28.4
+**Date:** January 27, 2026
+**Status:** ✅ Production Ready
+
+**Problem Solved:**
+
+Before this fix, the system had inconsistent advance payment storage:
+- **13 old orders**: Advance ONLY in `Order.advancePaid` (no installment) → Wrong balance
+- **11 new orders**: Advance in BOTH places (Order table + installment #1) → Double-counting risk
+- **Balance calculation**: Assumed advance was always in installments → Broke for old orders
+
+**Example Bug (ORD-2025-0002):**
+```
+Total Amount:    ₹14,631.68
+Advance Paid:    ₹6,876.89
+Discount:        ₹1,754.79
+Wrong Balance:   ₹12,876.89  ❌ (didn't subtract advance)
+Correct Balance: ₹6,000.00   ✅
+```
+
+**Solution Implemented:**
+
+**Decision: Store advance payment ONLY in `Order.advancePaid`, NOT as installment**
+
+**Why?**
+- ✅ Single source of truth (no duplication)
+- ✅ Clear semantics ("Advance Paid" vs "Balance Installments")
+- ✅ Simpler calculations (`Balance = Total - Advance - Discount - Installments`)
+- ✅ No risk of double-counting
+- ✅ Matches UI requirements (advance separate from installments)
+
+**Key Changes:**
+
+1. **Order Creation API** (`app/api/orders/route.ts`)
+   - Removed code that created installment #1 for advance payment
+   - Advance now stored ONLY in `Order.advancePaid` field
+   - Balance payments recorded via "Record Payment" feature start at installment #1
+
+2. **Balance Calculation** (`app/api/orders/[id]/route.ts`)
+   - **Before**: `Balance = Total - Discount - Installments` (missing advance!)
+   - **After**: `Balance = Total - Advance - Discount - Installments` ✅
+   - Now correctly accounts for advance in all scenarios
+
+3. **Database Fix**
+   - Fixed ORD-2025-0002: Balance corrected from ₹12,876.89 → ₹6,000.00
+   - Verified all 24 orders with advance payments now have correct balances
+
+**Payment Flow After Fix:**
+
+```
+Order Created with ₹5,000 advance on ₹20,000 order:
+  Order.advancePaid = ₹5,000
+  Order.balanceAmount = ₹15,000
+  PaymentInstallments = [] (empty)
+
+Record First Balance Payment (₹8,000):
+  Order.balanceAmount = ₹7,000
+  PaymentInstallments = [{ #1, paidAmount: ₹8,000 }]
+
+Record Second Balance Payment (₹7,000):
+  Order.balanceAmount = ₹0
+  PaymentInstallments = [{ #1: ₹8,000 }, { #2: ₹7,000 }]
+```
+
+**Display Logic:**
+
+**Payment Summary:**
+```
+Total Amount:    ₹20,000.00
+Advance Paid:    ₹5,000.00   ← Shown separately
+Balance Paid:    ₹15,000.00  ← Sum of installments
+Balance Due:     ₹0.00
+```
+
+**Payment Installments Component:**
+- Shows ONLY balance payments (NOT advance)
+- Advance remains separate in Payment Summary
+- No confusion or double-counting
+
+**Print Invoice:**
+```
+Item Total:               ₹20,000.00
+Less: Advance Paid        -₹5,000.00   ← Separate deduction
+Less: Additional Payments -₹15,000.00  ← Installments
+Balance Due:              ₹0.00
+```
+
+**Files Modified:**
+- `app/api/orders/route.ts` - Removed advance installment creation
+- `app/api/orders/[id]/route.ts` - Fixed balance calculation formula
+- `docs/PAYMENT_SYSTEM_SEPARATION_FIX.md` - Complete technical documentation
+
+**Database Verification:**
+```sql
+-- All orders now have correct balances
+✅ ORD-2025-0001: Balance = ₹0.01
+✅ ORD-2025-0002: Balance = ₹6,000.00 (FIXED)
+✅ ORD-2025-0003: Balance = ₹0.00
+```
+
+**User Impact:**
+- ✅ Correct balance calculations everywhere (order detail, invoices, reports)
+- ✅ No more payment confusion or errors
+- ✅ Clear separation between advance and balance payments
+- ✅ Accurate financial tracking for all orders
+- ✅ Future-proof: New orders won't have this issue
+
+**Build & Deployment:**
+- Build time: 33.7 seconds (clean build)
+- Zero TypeScript errors
+- PM2 restart: ✅ Successful
+- Production: ✅ Live at https://hamees.gagneet.com
+
+**Documentation:** See `docs/PAYMENT_SYSTEM_SEPARATION_FIX.md` for complete technical details
+
+---
+
 ### ✅ Print Invoice Enhancement - One Page Per Item with A4 Sizing (v0.28.3)
 
 **What's New:**
