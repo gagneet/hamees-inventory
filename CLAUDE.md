@@ -10,6 +10,142 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Apply Discount Enhancement - Amount OR Percentage Input (v0.28.5)
+
+**What's New:**
+- **Dual Input Modes** - Apply discounts using either amount (₹) or percentage (%)
+- **Bidirectional Conversion** - Real-time conversion between amount and percentage
+- **Toggle Interface** - Simple button toggle to switch between input modes
+- **Fixed 2 Decimal Places** - All calculations maintain exact precision
+- **Visual Feedback** - Active mode highlighted, equivalent value displayed
+
+**Version:** v0.28.5
+**Date:** January 27, 2026
+**Status:** ✅ Production Ready
+
+**Key Features:**
+
+1. **Toggle Buttons**
+   - "Amount (₹)" button - Enter discount in rupees
+   - "Percentage (%)" button - Enter discount as percentage
+   - Active mode highlighted in blue
+   - Switch modes anytime without losing context
+
+2. **Amount Mode**
+   - Enter discount: ₹5,000.00
+   - Shows below: = 7.85% of Total Amount
+   - Example: ₹5,000 on ₹63,700 order = 7.85%
+
+3. **Percentage Mode**
+   - Enter discount: 10.00%
+   - Shows below: = ₹6,370.00
+   - Example: 10% of ₹63,700 = ₹6,370.00
+
+4. **Real-Time Synchronization**
+   - Both values stay in sync automatically
+   - Change amount → percentage updates instantly
+   - Change percentage → amount updates instantly
+   - All calculations use exactly 2 decimal places
+
+**Technical Implementation:**
+
+```typescript
+// Amount → Percentage conversion
+const handleDiscountAmountChange = (value: string) => {
+  const amount = parseFloat(value) || 0
+  const percentage = (amount / totalAmount) * 100
+  setDiscountPercentage(percentage.toFixed(2))
+}
+
+// Percentage → Amount conversion
+const handleDiscountPercentageChange = (value: string) => {
+  const percentage = parseFloat(value) || 0
+  const amount = (percentage / 100) * totalAmount
+  setDiscountAmount(amount.toFixed(2))
+}
+```
+
+**User Interface:**
+
+```
+┌─────────────────────────────────────────────────┐
+│ Apply Discount                                  │
+├─────────────────────────────────────────────────┤
+│ Current Balance: ₹6,000.00                      │
+│ Total: ₹63,700 | Advance: ₹50,000 | Disc: ₹0   │
+│                                                 │
+│ ┌──────────────┐ ┌──────────────┐              │
+│ │ Amount (₹) ● │ │ Percentage % │              │
+│ └──────────────┘ └──────────────┘              │
+│                                                 │
+│ Discount Amount (₹)                            │
+│ ┌─────────────────────────────────────────┐    │
+│ │ 5000.00                                 │    │
+│ └─────────────────────────────────────────┘    │
+│ = 7.85% of Total Amount                        │
+│ New Balance: ₹1,000.00                         │
+│                                                 │
+│ Reason for Discount                            │
+│ ┌─────────────────────────────────────────┐    │
+│ │ Cash payment settled on delivery        │    │
+│ └─────────────────────────────────────────┘    │
+│                                                 │
+│              [Cancel]  [Apply Discount]        │
+└─────────────────────────────────────────────────┘
+```
+
+**Files Modified:**
+- `components/orders/order-actions.tsx` - Added dual input mode with bidirectional conversion
+
+**User Benefits:**
+- ✅ Flexible discount entry (amount or percentage)
+- ✅ Quick percentage-based discounts (10%, 15%, 20%)
+- ✅ Precise amount-based adjustments
+- ✅ See both representations simultaneously
+- ✅ Avoid manual calculations
+- ✅ Consistent 2-decimal precision
+
+**Use Cases:**
+
+**Quick Percentage Discounts:**
+1. Customer loyalty: 10% off
+2. Seasonal sale: 15% discount
+3. Bulk order: 20% reduction
+
+**Precise Amount Adjustments:**
+1. Clear specific balance: ₹6,000.00
+2. Write off small amount: ₹50.00
+3. Match external payment: ₹12,345.67
+
+**Testing:**
+```bash
+# Login as OWNER (only role with discount permission)
+Email: owner@hameesattire.com
+Password: admin123
+
+# Test workflow
+1. Open order with balance > 0
+2. Click "Apply Discount" button
+3. Default: Amount mode, pre-filled with balance
+4. Enter amount → See percentage below
+5. Click "Percentage %" button
+6. Enter percentage → See amount below
+7. Verify both values stay in sync
+8. Enter discount reason
+9. Click "Apply Discount"
+10. Verify new balance correct
+```
+
+**Build & Deployment:**
+- Build time: 34.4 seconds
+- Zero TypeScript errors
+- PM2 restart: ✅ Successful
+- Production: ✅ Live at https://hamees.gagneet.com
+
+**Documentation:** This section in CLAUDE.md
+
+---
+
 ### ✅ Payment System Separation Fix - Single Source of Truth (v0.28.4)
 
 **What's New:**

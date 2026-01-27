@@ -85,6 +85,32 @@ export function OrderActions({
     discount: balanceAmount.toFixed(2),
     discountReason: discountReason || '',
   })
+  const [discountMode, setDiscountMode] = useState<'amount' | 'percentage'>('amount')
+  const [discountPercentage, setDiscountPercentage] = useState(
+    totalAmount > 0 ? ((balanceAmount / totalAmount) * 100).toFixed(2) : '0.00'
+  )
+
+  // Handle discount amount change (updates percentage)
+  const handleDiscountAmountChange = (value: string) => {
+    const amount = parseFloat(value) || 0
+    setDiscountData({ ...discountData, discount: value })
+
+    // Calculate and update percentage
+    if (totalAmount > 0) {
+      const percentage = (amount / totalAmount) * 100
+      setDiscountPercentage(percentage.toFixed(2))
+    }
+  }
+
+  // Handle discount percentage change (updates amount)
+  const handleDiscountPercentageChange = (value: string) => {
+    const percentage = parseFloat(value) || 0
+    setDiscountPercentage(value)
+
+    // Calculate and update amount
+    const amount = (percentage / 100) * totalAmount
+    setDiscountData({ ...discountData, discount: amount.toFixed(2) })
+  }
 
   const handleStatusUpdate = async () => {
     if (newStatus === currentStatus) {
@@ -343,24 +369,75 @@ export function OrderActions({
                   Total: ₹{totalAmount.toFixed(2)} | Advance: ₹{advancePaid.toFixed(2)} | Current Discount: ₹{discount.toFixed(2)}
                 </p>
               </div>
-              <div>
-                <Label htmlFor="discount">Discount Amount (₹)</Label>
-                <Input
-                  id="discount"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  max={totalAmount}
-                  value={discountData.discount}
-                  onChange={(e) =>
-                    setDiscountData({ ...discountData, discount: e.target.value })
-                  }
-                  className="text-red-600 font-bold text-lg"
-                />
-                <p className="text-xs text-slate-500 mt-1">
-                  New Balance: ₹{(balanceAmount - (parseFloat(discountData.discount || '0') - discount)).toFixed(2)}
-                </p>
+
+              {/* Mode Toggle */}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={discountMode === 'amount' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setDiscountMode('amount')}
+                  className="flex-1"
+                >
+                  Amount (₹)
+                </Button>
+                <Button
+                  type="button"
+                  variant={discountMode === 'percentage' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setDiscountMode('percentage')}
+                  className="flex-1"
+                >
+                  Percentage (%)
+                </Button>
               </div>
+
+              {/* Amount Mode */}
+              {discountMode === 'amount' && (
+                <div>
+                  <Label htmlFor="discount">Discount Amount (₹)</Label>
+                  <Input
+                    id="discount"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max={totalAmount}
+                    value={discountData.discount}
+                    onChange={(e) => handleDiscountAmountChange(e.target.value)}
+                    className="text-red-600 font-bold text-lg"
+                  />
+                  <p className="text-xs text-slate-600 mt-1 font-medium">
+                    = {discountPercentage}% of Total Amount
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    New Balance: ₹{(balanceAmount - (parseFloat(discountData.discount || '0') - discount)).toFixed(2)}
+                  </p>
+                </div>
+              )}
+
+              {/* Percentage Mode */}
+              {discountMode === 'percentage' && (
+                <div>
+                  <Label htmlFor="discountPercent">Discount Percentage (%)</Label>
+                  <Input
+                    id="discountPercent"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={discountPercentage}
+                    onChange={(e) => handleDiscountPercentageChange(e.target.value)}
+                    className="text-red-600 font-bold text-lg"
+                  />
+                  <p className="text-xs text-slate-600 mt-1 font-medium">
+                    = ₹{parseFloat(discountData.discount || '0').toFixed(2)}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    New Balance: ₹{(balanceAmount - (parseFloat(discountData.discount || '0') - discount)).toFixed(2)}
+                  </p>
+                </div>
+              )}
+
               <div>
                 <Label htmlFor="discountReason">Reason for Discount</Label>
                 <Textarea
