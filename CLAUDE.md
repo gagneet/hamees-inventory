@@ -35,22 +35,36 @@ This is a comprehensive inventory and order management system built specifically
 
 2. **Itemized Deductions in Totals Section**
    ```
-   Example: 3-item order totaling ₹30,000, discount ₹1,200, advance ₹9,000, additional ₹6,000
+   Example: Order ORD-2025-0003 with 1 item totaling ₹15,355.20
 
-   Page 1 (Shirt):
-   - Item Subtotal: ₹10,000
-   - CGST (6%): ₹600
-   - SGST (6%): ₹600
-   - Item Total: ₹11,200
-   - Less: Discount: -₹400 (proportional discount)
-   - Less: Advance Paid: -₹3,000 (initial payment)
-   - Less: Installments Paid: -₹2,000 (additional payments)
-   - Balance Due: ₹5,800
+   Invoice Display:
+   - Item Subtotal: ₹13,710.00
+   - CGST (6%): ₹822.60
+   - SGST (6%): ₹822.60
+   - Total GST: ₹1,645.20
+   - Item Total: ₹15,355.20 (FIXED - includes GST)
+
+   Payments Made:
+   - Less: Discount: -₹0.00 (conditional - shown only if > 0)
+   - Less: Advance Paid: -₹5,374.32 (conditional - shown only if > 0)
+   - Less: Additional Payments: -₹9,980.88 (calculated backwards from balance)
+   - Balance Due: ₹0.00 (from database)
    ```
-   - **Itemized Transparency**: Each payment component shown as separate line item
-   - Discount, Advance Paid, and Installments all displayed individually
-   - Balance calculation: Item Total - Discount - Advance - Installments
-   - Color-coded Balance: Amber for outstanding, Green for paid in full
+
+   - **Payment Calculation Logic**:
+     - Uses database `balanceAmount` as source of truth
+     - Additional Payments = Item Total - Discount - Advance Paid - Balance Due
+     - This backwards calculation prevents double-counting in edge cases
+
+   - **Conditional Display**:
+     - Discount line: Only shown if `discount > 0`
+     - Advance Paid line: Only shown if `advancePaid > 0`
+     - Additional Payments line: Only shown if calculated amount > 0
+     - Balance Due: Always shown with color coding
+
+   - **Color Coding**:
+     - Amber background + orange border: Outstanding balance (amount > 0)
+     - Green background + green border: Fully paid (balance = 0)
 
 3. **Complete Payment History Table**
    - Dedicated "Payments Received" section below totals
@@ -105,37 +119,56 @@ This is a comprehensive inventory and order management system built specifically
 - ✅ Each garment has dedicated invoice page for filing/tracking
 - ✅ Print dialog shows content properly on Windows/Android
 - ✅ Accurate per-item financial breakdown for accounting
-- ✅ **Itemized deductions: Discount, Advance Paid, and Installments shown separately**
-- ✅ **Complete transparency with each payment component as individual line item**
+- ✅ **Itemized deductions: Discount, Advance Paid, and Additional Payments shown separately**
+- ✅ **Conditional display: Only shows payment lines when amounts > 0**
+- ✅ **Backwards calculation prevents double-counting edge cases**
 - ✅ **Complete payment history table with all installments, dates, and payment modes**
-- ✅ **Clear balance calculation showing all deductions**
+- ✅ **Balance Due uses database value (source of truth)**
 - ✅ Professional A4 format fits standard business practices
 - ✅ Manual fallback ensures printing always works
 
+**Technical Implementation:**
+```typescript
+// Payment calculation (backwards from balance)
+const perItemAdvance = order.advancePaid / itemCount
+const perItemBalance = order.balanceAmount / itemCount
+
+// Calculate additional payments backwards to prevent double-counting
+const perItemAdditionalPayments =
+  perItemTotal - perItemDiscount - perItemAdvance - perItemBalance
+
+// Conditional display
+${perItemDiscount > 0 ? 'Less: Discount' : ''}
+${perItemAdvance > 0 ? 'Less: Advance Paid' : ''}
+${perItemAdditionalPayments > 0 ? 'Less: Additional Payments' : ''}
+```
+
 **Testing:**
 ```bash
-# Test Multi-Item Order Printing with Payment History
+# Test Order with All Payment Components (ORD-2025-0003)
 1. Login as owner@hameesattire.com / admin123
-2. Open order with 2+ items and multiple payments (e.g., advance + installments)
+2. Open order ORD-2025-0003 (Total: ₹15,355.20)
 3. Click "Print Invoice" button
-4. Expected: Print preview shows 2+ separate pages (one per item)
-5. Verify: Each page has correct item details
-6. Verify: Totals section shows itemized deductions:
-   - "Less: Discount" (if applicable)
-   - "Less: Advance Paid" (initial payment)
-   - "Less: Installments Paid" (additional payments)
-7. Verify: Each deduction shown as separate line item
-8. Verify: Payment history table shows all installments below totals
-9. Verify: Financial totals proportionally distributed
-10. Print or save as PDF
+4. Verify totals section shows:
+   - Item Total: ₹15,355.20
+   - Less: Advance Paid: -₹5,374.32
+   - Less: Additional Payments: -₹9,980.88
+   - Balance Due: ₹0.00 (green background)
+5. Verify: Payment history table shows installment details
+6. Print or save as PDF
 
-# Test Single-Item Order with Payments
-1. Open order with 1 item and multiple payment installments
+# Test Order with Discount (ORD-1769340093159-602)
+1. Open order with discount applied
 2. Click "Print Invoice"
-3. Verify: Single page, no "Item X of Y" indicator
-4. Verify: Totals section shows itemized deductions (discount, advance, installments)
-5. Verify: Payment table shows all installments with full amounts
-6. Verify: Balance Due = Item Total - Discount - Advance - Installments
+3. Verify: "Less: Discount" line appears in totals
+4. Verify: Balance calculation accounts for discount
+5. Verify: All payment components display correctly
+
+# Test Conditional Display
+1. Open order with NO discount (discount = 0)
+2. Verify: "Less: Discount" line does NOT appear
+3. Open order with NO advance (advancePaid = 0)
+4. Verify: "Less: Advance Paid" line does NOT appear
 ```
 
 **Build & Deployment:**
@@ -148,8 +181,19 @@ This is a comprehensive inventory and order management system built specifically
 - Better organization for multi-item orders
 - Standard A4 format for filing/archiving
 - Clear per-item costing for customer transparency
+- Complete payment transparency with itemized deductions
+- Backwards calculation prevents double-counting issues
 - Professional presentation for high-value orders
 - Works reliably across all browsers and devices
+
+**Known Data Inconsistency (To Be Fixed):**
+During implementation, discovered that some legacy orders have advance payment recorded in BOTH:
+- `Order.advancePaid` field (e.g., ₹45,628.98)
+- First `PaymentInstallment.paidAmount` (same ₹45,628.98)
+
+This causes double-counting if both are displayed. The backwards calculation approach (using `balanceAmount` as source of truth) prevents this from affecting invoices, but the data should be cleaned up separately.
+
+**Future Fix:** Run data migration to identify and correct orders where advance is duplicated in installments table.
 
 ---
 
