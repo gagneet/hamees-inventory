@@ -119,21 +119,14 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
   const perItemDiscount = order.discount / itemCount
   const perItemTotal = order.totalAmount / itemCount
 
-  // Calculate per-item advance payment
+  // Calculate per-item payments
   const perItemAdvance = order.advancePaid / itemCount
+  const perItemBalance = order.balanceAmount / itemCount
 
-  // Calculate total paid from all installments
-  const totalPaidFromInstallments = order.paymentInstallments?.reduce(
-    (sum, inst) => sum + inst.paidAmount,
-    0
-  ) || 0
-  const perItemTotalPaid = totalPaidFromInstallments / itemCount
-
-  // Calculate installments paid EXCLUDING advance (additional payments)
-  const perItemAdditionalInstallments = perItemTotalPaid - perItemAdvance
-
-  // Calculate final balance
-  const perItemBalance = perItemTotal - perItemAdvance - perItemDiscount - perItemAdditionalInstallments
+  // Calculate additional payments (installments) based on the balance
+  // This avoids double-counting in cases where advance is recorded in installments
+  // Formula: Additional Payments = Total - Discount - Advance - Balance
+  const perItemAdditionalPayments = perItemTotal - perItemDiscount - perItemAdvance - perItemBalance
 
   // Generate one page per order item
   const itemPages = order.items.map((item, index) => `
@@ -225,10 +218,10 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
             <div class="totals-value">-${formatCurrency(perItemAdvance)}</div>
           </div>
           ` : ''}
-          ${perItemAdditionalInstallments > 0 ? `
+          ${perItemAdditionalPayments > 0 ? `
           <div class="totals-row">
-            <div class="totals-label">Less: Installments Paid</div>
-            <div class="totals-value">-${formatCurrency(perItemAdditionalInstallments)}</div>
+            <div class="totals-label">Less: Additional Payments</div>
+            <div class="totals-value">-${formatCurrency(perItemAdditionalPayments)}</div>
           </div>
           ` : ''}
           <div class="totals-row bold" style="background-color: ${perItemBalance > 0 ? '#fef3c7' : '#d1fae5'}; border: 2px solid ${perItemBalance > 0 ? '#f59e0b' : '#10b981'};">
