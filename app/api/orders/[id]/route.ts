@@ -125,11 +125,28 @@ export async function PATCH(
     }
 
     // Get sum of all paid amounts from installments (balance payments only)
-    // Note: Installments should only contain balance payments, NOT the advance payment
+    // Note: In the new system (v0.28.4+), installments should only contain balance payments, NOT the advance payment
+    // However, some legacy orders have the advance payment in BOTH places (advancePaid field + first installment)
     // We sum paidAmount regardless of status because paidAmount only contains money actually received
+
+    // First, check if the first installment equals the advance payment (legacy double-counting)
+    const firstInstallment = await prisma.paymentInstallment.findFirst({
+      where: {
+        orderId: id,
+        installmentNumber: 1,
+      },
+      select: {
+        paidAmount: true,
+      },
+    })
+
+    const isAdvanceInInstallments = firstInstallment && Math.abs(firstInstallment.paidAmount - advancePaid) < 0.01
+
+    // If advance is in installments, exclude it from the sum (only count installments #2 onwards)
     const paidInstallments = await prisma.paymentInstallment.aggregate({
       where: {
         orderId: id,
+        ...(isAdvanceInInstallments ? { installmentNumber: { gt: 1 } } : {}),
       },
       _sum: {
         paidAmount: true,
@@ -138,7 +155,8 @@ export async function PATCH(
     const totalPaidInstallments = paidInstallments._sum.paidAmount || 0
 
     // Balance = Total - Advance - Discount - Balance Installments
-    // Note: advancePaid is stored separately from installments (not duplicated)
+    // Note: advancePaid is stored separately from installments (not duplicated in new orders)
+    // For legacy orders with advance in both places, we only count it once via the WHERE clause above
     const balanceAmount = parseFloat((order.totalAmount - advancePaid - discount - totalPaidInstallments).toFixed(2))
 
     // Update order and create history in a transaction

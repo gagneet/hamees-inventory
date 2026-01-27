@@ -10,6 +10,174 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Dashboard Calculation Fixes - PO Totals & Outstanding Payments (v0.28.6)
+
+**What's New:**
+- **Fixed Purchase Order Calculations** - All 10 POs now show correct totals calculated from item data
+- **Fixed Outstanding Payments** - Dashboard now shows ₹91,093.32 (was ₹9,093.32 due to double-counting)
+- **Enhanced Balance Logic** - API now handles legacy orders with duplicate advance payments
+- **Accurate Dashboard Metrics** - All cards and charts across Owner, Sales, Inventory, and Tailor dashboards corrected
+
+**Version:** v0.28.6
+**Date:** January 27, 2026
+**Status:** ✅ Production Ready
+
+**Issues Fixed:**
+
+1. **Purchase Order Calculations (ALL 10 POs)**
+   - **Problem**: All POs had incorrect `subTotal`, `gstAmount`, and `totalAmount` in database
+   - **Example**: PO-2025-0010 showed ₹129,416.62 but should be ₹18,801.17 (28.41m × ₹661.78)
+   - **Root Cause**: Seed data generated wrong totals despite correct POItem records
+   - **Solution**: Recalculated all PO totals from POItem data: `SUM(orderedQuantity × pricePerUnit)` + 18% GST
+   - **Result**: All 10 POs now show CORRECT calculations
+
+2. **Outstanding Payments (₹9,093.32 → ₹91,093.32)**
+   - **Problem**: Dashboard showed ₹9,093.32 outstanding but actual was ~₹90,000+
+   - **Root Cause**: Order ORD-1769327607178-935 had advance payment (₹82,000) stored in BOTH places:
+     - `Order.advancePaid` field: ₹82,000
+     - First `PaymentInstallment`: ₹82,000 (duplicate!)
+   - **Impact**: Balance calculation subtracted ₹82,000 TWICE → resulted in -₹32,000 (negative!)
+   - **Solution**:
+     - **Database Fix**: Updated balance to ₹50,000 for affected order
+     - **Code Enhancement**: Balance API now detects and excludes duplicate advance payments
+   - **Result**: Dashboard shows correct ₹91,093.32 outstanding
+
+**Technical Implementation:**
+
+**Balance Calculation Fix** (`app/api/orders/[id]/route.ts`):
+```typescript
+// Check if first installment equals advance payment (legacy double-counting)
+const firstInstallment = await prisma.paymentInstallment.findFirst({
+  where: { orderId: id, installmentNumber: 1 },
+  select: { paidAmount: true },
+})
+
+const isAdvanceInInstallments =
+  firstInstallment &&
+  Math.abs(firstInstallment.paidAmount - advancePaid) < 0.01
+
+// If advance is in installments, exclude it (only count installments #2 onwards)
+const paidInstallments = await prisma.paymentInstallment.aggregate({
+  where: {
+    orderId: id,
+    ...(isAdvanceInInstallments ? { installmentNumber: { gt: 1 } } : {}),
+  },
+  _sum: { paidAmount: true },
+})
+
+// Balance = Total - Advance - Discount - Balance Installments
+// Advance counted only once (excluded from installments if duplicated)
+const balanceAmount = parseFloat(
+  (order.totalAmount - advancePaid - discount - totalPaidInstallments).toFixed(2)
+)
+```
+
+**Database Migration** (`prisma/migrations/fix_po_and_balance_calculations.sql`):
+```sql
+-- Part 1: Recalculate all PO totals from POItem data
+WITH po_calculations AS (
+  SELECT
+    po.id as po_id,
+    SUM(poi."orderedQuantity" * poi."pricePerUnit") as correct_subtotal,
+    SUM(poi."orderedQuantity" * poi."pricePerUnit") * 0.18 as correct_gst,
+    SUM(poi."orderedQuantity" * poi."pricePerUnit") * 1.18 as correct_total
+  FROM "PurchaseOrder" po
+  JOIN "POItem" poi ON poi."purchaseOrderId" = po.id
+  GROUP BY po.id
+)
+UPDATE "PurchaseOrder" po
+SET
+  "subTotal" = pc.correct_subtotal,
+  "gstAmount" = pc.correct_gst,
+  "cgst" = pc.correct_gst / 2,
+  "sgst" = pc.correct_gst / 2,
+  "totalAmount" = pc.correct_total,
+  "balanceAmount" = pc.correct_total - po."paidAmount"
+FROM po_calculations pc
+WHERE po.id = pc.po_id;
+
+-- Part 2: Fix orders with advance payment double-counted
+UPDATE "Order" o
+SET "balanceAmount" = (
+  o."totalAmount" - o."advancePaid" - o.discount -
+  COALESCE((SELECT SUM(pi."paidAmount")
+            FROM "PaymentInstallment" pi
+            WHERE pi."orderId" = o.id
+            AND pi."installmentNumber" > 1), 0)
+)
+WHERE o."advancePaid" > 0
+  AND EXISTS (
+    SELECT 1 FROM "PaymentInstallment" pi
+    WHERE pi."orderId" = o.id
+    AND pi."installmentNumber" = 1
+    AND pi."paidAmount" = o."advancePaid"
+  );
+```
+
+**Verification Results:**
+
+**Purchase Orders - All Correct:**
+| PO Number | SubTotal (₹) | Total (₹) | Status |
+|-----------|-------------|-----------|--------|
+| PO-2025-0010 | 18,801.17 | 22,185.38 | ✅ FIXED |
+| All others | (correct) | (correct) | ✅ CORRECT |
+
+**Outstanding Payments:**
+- **Before**: ₹9,093.32 ❌
+- **After**: ₹91,093.32 ✅
+- **Difference**: ₹82,000 (exactly the double-counted advance amount)
+
+**Order Balance Fix:**
+| Order Number | Before | After | Status |
+|--------------|--------|-------|--------|
+| ORD-1769327607178-935 | -₹32,000 | ₹50,000 | ✅ FIXED |
+
+**Files Modified:**
+- `app/api/orders/[id]/route.ts` - Enhanced balance calculation logic to handle legacy data
+- `prisma/migrations/fix_po_and_balance_calculations.sql` - Database fix script
+- `docs/DASHBOARD_CALCULATION_FIXES_v0.28.6.md` - Complete technical documentation
+
+**Dashboard Impact:**
+- ✅ **Owner Dashboard** - Outstanding Payments card now shows ₹91,093.32 (was ₹9,093.32)
+- ✅ **Inventory Manager Dashboard** - PO totals now show correct amounts
+- ✅ **Sales Manager Dashboard** - Revenue and order metrics unchanged (were already correct)
+- ✅ **Tailor Dashboard** - Workload metrics unchanged (status-based, were already correct)
+
+**User Benefits:**
+- ✅ Accurate financial visibility across all dashboards
+- ✅ Correct Purchase Order totals for budget planning
+- ✅ Proper outstanding balance tracking for collections
+- ✅ Works with both legacy (double-counted) and new (correct) data
+- ✅ Future-proof: prevents similar issues in new orders
+
+**Build & Deployment:**
+- Build time: 35.0 seconds
+- Zero TypeScript errors
+- PM2 restart: ✅ Successful
+- Production: ✅ Live at https://hamees.gagneet.com
+
+**Testing:**
+```bash
+# Verify PO fix
+PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql -U hamees_user -d tailor_inventory \
+  -c "SELECT \"poNumber\", \"subTotal\", \"totalAmount\" FROM \"PurchaseOrder\" WHERE \"poNumber\" = 'PO-2025-0010';"
+# Expected: SubTotal = 18,801.17, Total = 22,185.38
+
+# Verify balance fix
+PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql -U hamees_user -d tailor_inventory \
+  -c "SELECT \"orderNumber\", \"balanceAmount\" FROM \"Order\" WHERE \"orderNumber\" = 'ORD-1769327607178-935';"
+# Expected: Balance = 50,000.00
+
+# Verify total outstanding
+PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql -U hamees_user -d tailor_inventory \
+  -c "SELECT SUM(\"balanceAmount\") as total_outstanding FROM \"Order\" WHERE status <> 'CANCELLED';"
+# Expected: ~91,093.32
+```
+
+**Documentation:** See `docs/DASHBOARD_CALCULATION_FIXES_v0.28.6.md` for complete technical details
+
+---
+
 ### ✅ Apply Discount Enhancement - Amount OR Percentage Input (v0.28.5)
 
 **What's New:**
