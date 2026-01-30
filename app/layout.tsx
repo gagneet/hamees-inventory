@@ -33,15 +33,17 @@ export const metadata: Metadata = {
     title: "Hamees Attire - Bespoke Tailoring",
     description: "Premium wedding attire and bespoke tailoring in Amritsar",
   },
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-  },
   icons: {
     icon: "/favicon.svg",
     apple: "/apple-touch-icon.svg",
   },
+};
+
+// Viewport should be exported separately in Next.js 16+
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default function RootLayout({

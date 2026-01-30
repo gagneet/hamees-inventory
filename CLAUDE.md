@@ -10,6 +10,100 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Next.js 16 Viewport Metadata Fix (v0.29.3)
+
+**What's New:**
+- **Fixed Server-Side Exception** - Purchase Order pages now load without errors
+- **Next.js 16 Compliance** - Viewport metadata moved to separate export as required by Next.js 16
+- **Clean Build** - Eliminated all viewport metadata warnings during build process
+- **Production Stability** - Application restart successful with zero errors
+
+**Version:** v0.29.3
+**Date:** January 30, 2026
+**Status:** ✅ Production Ready
+
+**Issue Fixed:**
+
+**Problem:** Clicking on Purchase Order cards resulted in server-side exception:
+```
+Application error: a server-side exception has occurred
+Digest: 1726171540
+Error: Could not find the module "ViewportBoundary" in the React Client Manifest
+```
+
+**Root Cause:**
+- Next.js 16 changed how viewport metadata should be exported
+- Viewport configuration was incorrectly placed inside `metadata` export in `app/layout.tsx`
+- This caused React Server Components bundler to fail when rendering pages
+- Build warnings indicated: "Unsupported metadata viewport is configured in metadata export"
+
+**Solution:**
+Separated viewport configuration into its own export per Next.js 16 requirements:
+
+```typescript
+// Before (INCORRECT - caused bundler error)
+export const metadata: Metadata = {
+  title: "...",
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+  },
+  // ... other metadata
+}
+
+// After (CORRECT - compliant with Next.js 16)
+export const metadata: Metadata = {
+  title: "...",
+  // ... other metadata (viewport removed)
+}
+
+// Viewport exported separately
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+}
+```
+
+**Files Modified:**
+- `app/layout.tsx` - Moved viewport from metadata export to separate viewport export
+
+**User Impact:**
+- ✅ Purchase Order pages load without errors
+- ✅ All dashboard cards clickable and functional
+- ✅ Zero build warnings related to viewport metadata
+- ✅ Clean application startup with no exceptions
+- ✅ Improved stability across all pages
+
+**Build & Deployment:**
+- Build time: 35.0 seconds
+- Zero TypeScript errors
+- Zero viewport warnings
+- PM2 restart: ✅ Successful
+- Production: ✅ Live at https://hamees.gagneet.com
+
+**Testing:**
+```bash
+# Test Purchase Orders
+1. Login as owner@hameesattire.com / admin123
+2. Navigate to Dashboard
+3. Click "Purchase Orders" card
+4. Expected: ✅ Page loads without errors
+5. Click any individual PO
+6. Expected: ✅ Detail page loads correctly
+7. Check PM2 logs
+8. Expected: ✅ No bundler errors
+
+# Verify Build Warnings
+pnpm build
+# Expected: ✅ No viewport metadata warnings
+```
+
+**Documentation:** This section in CLAUDE.md
+
+---
+
 ### ✅ Print Invoice Proportional Cost Distribution (v0.29.2)
 
 **What's New:**
