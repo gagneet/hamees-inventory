@@ -122,26 +122,45 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
   const orderDate = format(new Date(order.orderDate), 'dd MMM yyyy')
   const deliveryDate = format(new Date(order.deliveryDate), 'dd MMM yyyy')
 
-  // Calculate per-item costs for multi-item orders
+  // Calculate per-item costs using proportional distribution (same as Split Order logic)
   const itemCount = order.items.length
-  const perItemSubtotal = order.subTotal / itemCount
-  const perItemGST = order.gstAmount / itemCount
-  const perItemCGST = order.cgst / itemCount
-  const perItemSGST = order.sgst / itemCount
-  const perItemDiscount = order.discount / itemCount
-  const perItemTotal = order.totalAmount / itemCount
 
-  // Calculate per-item payments
-  const perItemAdvance = order.advancePaid / itemCount
-  const perItemBalance = order.balanceAmount / itemCount
+  // Step 1: Calculate total of all items' fabric + accessories costs
+  const totalItemPrices = order.items.reduce((sum, item) => sum + item.totalPrice, 0)
 
-  // Calculate additional payments (installments) based on the balance
-  // This avoids double-counting in cases where advance is recorded in installments
-  // Formula: Additional Payments = Total - Discount - Advance - Balance
-  const perItemAdditionalPayments = perItemTotal - perItemDiscount - perItemAdvance - perItemBalance
+  // Step 2: Calculate order-level costs (stitching + premiums + fees + wastage)
+  const orderLevelCosts = order.subTotal - totalItemPrices
 
-  // Generate one page per order item
-  const itemPages = order.items.map((item, index) => `
+  // Generate one page per order item with proportional distribution
+  const itemPages = order.items.map((item, index) => {
+    // Step 3: Calculate this item's proportion
+    const itemProportion = item.totalPrice / totalItemPrices
+
+    // Step 4: Distribute order-level costs proportionally
+    const perItemOrderCosts = orderLevelCosts * itemProportion
+
+    // Step 5: Calculate item's subtotal (fabric + accessories + proportional order costs)
+    const perItemSubtotal = item.totalPrice + perItemOrderCosts
+
+    // Step 6: Calculate GST proportionally based on this item's subtotal
+    const perItemGST = perItemSubtotal * (order.gstRate / 100)
+    const perItemCGST = perItemGST / 2
+    const perItemSGST = perItemGST / 2
+
+    // Step 7: Calculate total with GST
+    const perItemTotal = perItemSubtotal + perItemGST
+
+    // Calculate per-item payments (proportional distribution)
+    const perItemDiscount = order.discount * itemProportion
+    const perItemAdvance = order.advancePaid * itemProportion
+    const perItemBalance = order.balanceAmount * itemProportion
+
+    // Calculate additional payments (installments) based on the balance
+    // This avoids double-counting in cases where advance is recorded in installments
+    // Formula: Additional Payments = Total - Discount - Advance - Balance
+    const perItemAdditionalPayments = perItemTotal - perItemDiscount - perItemAdvance - perItemBalance
+
+    return `
     <div class="invoice-page" ${index > 0 ? 'style="page-break-before: always;"' : ''}>
       <div class="invoice">
         <!-- Header -->
@@ -191,7 +210,7 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
               <td class="text-center">${item.quantityOrdered}</td>
               <td class="text-right">${item.estimatedMeters.toFixed(2)}</td>
               <td class="text-right">${formatCurrency(item.pricePerUnit)}</td>
-              <td class="text-right"><strong>${formatCurrency(item.totalPrice)}</strong></td>
+              <td class="text-right"><strong>${formatCurrency(perItemSubtotal)}</strong></td>
             </tr>
           </tbody>
         </table>
@@ -260,7 +279,7 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
             </thead>
             <tbody>
               ${order.paymentInstallments.map(inst => {
-                const perItemPayment = inst.paidAmount / itemCount
+                const perItemPayment = inst.paidAmount * itemProportion
                 return `
                 <tr>
                   <td style="border: 1px solid #ddd; padding: 4px; font-size: 9px;">${inst.installmentNumber}</td>
@@ -312,7 +331,8 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
         </div>
       </div>
     </div>
-  `).join('')
+  `
+  }).join('')
 
   return `
 <!DOCTYPE html>

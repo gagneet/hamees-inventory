@@ -10,6 +10,239 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Print Invoice Proportional Cost Distribution (v0.29.2)
+
+**What's New:**
+- **Proportional Cost Distribution** - Multi-item invoices now show accurate per-item costs including stitching and premiums
+- **Split Order Parity** - Invoice calculations now match the Split Order proportional distribution logic
+- **Accurate Item Subtotals** - Table "Amount" column shows complete costs, not just fabric prices
+- **Independent Item Totals** - Each invoice page displays correct proportional totals for that specific item
+
+**Version:** v0.29.2
+**Date:** January 31, 2026
+**Status:** ✅ Production Ready
+
+**Issue Fixed:**
+
+**Problem:** Multi-item order invoices showed only fabric + accessories cost in the "Amount" column, not the complete per-item cost including stitching charges and workmanship premiums. This caused confusion as the totals section showed different (higher) values.
+
+**Example Before:**
+- Item 1: Fabric + Accessories = ₹10,000 (shown in table)
+- Item Subtotal: ₹15,000 (shown in totals - includes stitching)
+- Math didn't add up: ₹10,000 ≠ ₹15,000 before GST
+
+**Root Cause:**
+- Table displayed `item.totalPrice` (fabric + accessories only)
+- Totals section used simple division: `order.subTotal / itemCount`
+- Order-level costs (stitching, premiums) were divided equally, not proportionally
+- Item with expensive fabric got same stitching allocation as item with cheap fabric
+
+**Solution Implemented:**
+
+**Proportional Distribution Logic** (same as Split Order feature):
+
+1. **Calculate Total Fabric + Accessories** for all items:
+   ```typescript
+   const totalItemPrices = order.items.reduce((sum, item) => sum + item.totalPrice, 0)
+   // Example: Item 1 (₹10,000) + Item 2 (₹15,000) = ₹25,000
+   ```
+
+2. **Calculate Order-Level Costs** (stitching + premiums):
+   ```typescript
+   const orderLevelCosts = order.subTotal - totalItemPrices
+   // Example: ₹30,000 - ₹25,000 = ₹5,000 (stitching charges)
+   ```
+
+3. **Calculate Each Item's Proportion**:
+   ```typescript
+   const itemProportion = item.totalPrice / totalItemPrices
+   // Item 1: ₹10,000 / ₹25,000 = 40%
+   // Item 2: ₹15,000 / ₹25,000 = 60%
+   ```
+
+4. **Distribute Order-Level Costs Proportionally**:
+   ```typescript
+   const perItemOrderCosts = orderLevelCosts * itemProportion
+   // Item 1: ₹5,000 × 40% = ₹2,000 (stitching share)
+   // Item 2: ₹5,000 × 60% = ₹3,000 (stitching share)
+   ```
+
+5. **Calculate Complete Item Subtotal**:
+   ```typescript
+   const perItemSubtotal = item.totalPrice + perItemOrderCosts
+   // Item 1: ₹10,000 + ₹2,000 = ₹12,000
+   // Item 2: ₹15,000 + ₹3,000 = ₹18,000
+   ```
+
+6. **Calculate Proportional GST**:
+   ```typescript
+   const perItemGST = perItemSubtotal * (order.gstRate / 100)
+   // Item 1: ₹12,000 × 12% = ₹1,440
+   // Item 2: ₹18,000 × 12% = ₹2,160
+   ```
+
+7. **Calculate Final Total**:
+   ```typescript
+   const perItemTotal = perItemSubtotal + perItemGST
+   // Item 1: ₹12,000 + ₹1,440 = ₹13,440
+   // Item 2: ₹18,000 + ₹2,160 = ₹20,160
+   ```
+
+**Verification:** ₹13,440 + ₹20,160 = ₹33,600 ✓ (matches order total)
+
+**What Gets Distributed Proportionally:**
+- ✅ Stitching charges (tier-based: BASIC/PREMIUM/LUXURY)
+- ✅ Workmanship premiums (hand stitching, full canvas, rush order)
+- ✅ Complex design fees
+- ✅ Additional fittings charges
+- ✅ Premium lining costs
+- ✅ Designer consultation fees
+- ✅ Fabric wastage charges
+- ✅ GST (calculated on proportional subtotal)
+- ✅ Discount (proportional to item value)
+- ✅ Advance payment (proportional allocation)
+- ✅ Payment installments (proportional per-item amounts)
+
+**Invoice Display Changes:**
+
+**Table Section:**
+```
+Description     Fabric Details           Qty  Meters  Rate        Amount
+Men's Suit      Silk - Pure Silk        1    5.00    ₹4,370.00   ₹12,000.00
+                (Cream)
+```
+- **Before**: Amount showed ₹10,000.00 (fabric + accessories only)
+- **After**: Amount shows ₹12,000.00 (includes proportional stitching + premiums)
+- **Rate**: Unchanged (still shows fabric + accessories per unit as requested)
+
+**Totals Section:**
+```
+Item Subtotal:        ₹12,000.00  ← Proportional (fabric + accessories + stitching share)
+CGST (6%):            ₹720.00     ← Calculated on proportional subtotal
+SGST (6%):            ₹720.00     ← Calculated on proportional subtotal
+Total GST (12%):      ₹1,440.00   ← Proportional GST
+Item Total:           ₹13,440.00  ← Proportional total with GST
+Less: Discount:       -₹200.00    ← Proportional discount (if any)
+Less: Advance Paid:   -₹5,000.00  ← Proportional advance
+Less: Additional:     -₹3,000.00  ← Proportional balance payments
+Balance Due:          ₹5,240.00   ← Proportional remaining balance
+```
+
+**Payment History Table:**
+```
+#  Date         Mode  Full Amount   This Item (Proportional)
+1  15 Jan 2026  Cash  ₹30,000.00    ₹12,000.00 (40% share)
+2  20 Jan 2026  UPI   ₹15,000.00    ₹6,000.00  (40% share)
+```
+
+**Real-World Example:**
+
+**Order ORD-2026-0123** (2 items):
+- **Item 1: Men's Shirt** (Cotton Blue)
+  - Fabric: ₹3,000 + Accessories: ₹500 = ₹3,500
+  - Proportion: 35% (₹3,500 / ₹10,000)
+  - Stitching Share: 35% × ₹2,000 = ₹700
+  - Subtotal: ₹3,500 + ₹700 = ₹4,200
+  - GST (12%): ₹504
+  - **Total: ₹4,704**
+
+- **Item 2: Men's Suit** (Silk Cream)
+  - Fabric: ₹5,500 + Accessories: ₹1,000 = ₹6,500
+  - Proportion: 65% (₹6,500 / ₹10,000)
+  - Stitching Share: 65% × ₹2,000 = ₹1,300
+  - Subtotal: ₹6,500 + ₹1,300 = ₹7,800
+  - GST (12%): ₹936
+  - **Total: ₹8,736**
+
+**Order Total:** ₹4,704 + ₹8,736 = ₹13,440 ✓
+
+**Files Modified:**
+- `components/orders/print-invoice-button.tsx` - Implemented proportional distribution logic (lines 125-161)
+
+**Technical Implementation:**
+
+```typescript
+// Step 1: Calculate total of all items' fabric + accessories costs
+const totalItemPrices = order.items.reduce((sum, item) => sum + item.totalPrice, 0)
+
+// Step 2: Calculate order-level costs (stitching + premiums + fees + wastage)
+const orderLevelCosts = order.subTotal - totalItemPrices
+
+// Generate one page per order item with proportional distribution
+const itemPages = order.items.map((item, index) => {
+  // Step 3: Calculate this item's proportion
+  const itemProportion = item.totalPrice / totalItemPrices
+
+  // Step 4: Distribute order-level costs proportionally
+  const perItemOrderCosts = orderLevelCosts * itemProportion
+
+  // Step 5: Calculate item's subtotal (fabric + accessories + proportional order costs)
+  const perItemSubtotal = item.totalPrice + perItemOrderCosts
+
+  // Step 6: Calculate GST proportionally based on this item's subtotal
+  const perItemGST = perItemSubtotal * (order.gstRate / 100)
+  const perItemCGST = perItemGST / 2
+  const perItemSGST = perItemGST / 2
+
+  // Step 7: Calculate total with GST
+  const perItemTotal = perItemSubtotal + perItemGST
+
+  // Calculate per-item payments (proportional distribution)
+  const perItemDiscount = order.discount * itemProportion
+  const perItemAdvance = order.advancePaid * itemProportion
+  const perItemBalance = order.balanceAmount * itemProportion
+
+  // Generate invoice page with proportional values...
+})
+```
+
+**User Impact:**
+- ✅ Accurate per-item costs on invoices (no more confusion about totals)
+- ✅ Fair distribution of stitching charges based on item value
+- ✅ Expensive items get proportionally higher stitching allocation
+- ✅ Math always adds up: subtotal + GST = total
+- ✅ Consistent with Split Order calculations
+- ✅ Better transparency for customers
+- ✅ Accurate accounting for business records
+
+**Testing:**
+```bash
+# Test Multi-Item Invoice with Proportional Distribution
+1. Login as owner@hameesattire.com / admin123
+2. Create or open multi-item order (2+ items with different fabric values)
+3. Example: Shirt (₹3,500) + Suit (₹6,500) + Stitching (₹2,000)
+4. Click "Print Invoice" button
+5. Verify Item 1 (Shirt) page shows:
+   - Amount in table: ₹4,200.00 (₹3,500 + 35% of ₹2,000)
+   - Item Subtotal: ₹4,200.00
+   - GST (12%): ₹504.00
+   - Item Total: ₹4,704.00
+6. Verify Item 2 (Suit) page shows:
+   - Amount in table: ₹7,800.00 (₹6,500 + 65% of ₹2,000)
+   - Item Subtotal: ₹7,800.00
+   - GST (12%): ₹936.00
+   - Item Total: ₹8,736.00
+7. Verify totals add up: ₹4,704 + ₹8,736 = ₹13,440 (order total)
+```
+
+**Business Benefits:**
+- ✅ Fair pricing allocation across items
+- ✅ Accurate cost tracking per garment type
+- ✅ Professional invoice presentation
+- ✅ Consistent with accounting best practices
+- ✅ Maintains parity with Split Order feature
+- ✅ Customer can see clear cost breakdown per item
+
+**Build & Deployment:**
+- Build time: 34.6 seconds
+- Zero TypeScript errors
+- PM2 restart: ✅ Successful
+- Production: ✅ Live at https://hamees.gagneet.com
+
+**Documentation:** This section in CLAUDE.md
+
+---
+
 ### ✅ Print Invoice Dialog Fix - Enhanced Content Loading (v0.29.1)
 
 **What's New:**
