@@ -64,30 +64,42 @@ export function PrintInvoiceButton({ order }: PrintInvoiceButtonProps) {
       printWindow.document.write(invoiceHTML)
       printWindow.document.close()
 
-      // Multi-layered approach to ensure content is ready before printing
+      // Ensure content is fully rendered before printing
       const triggerPrint = () => {
         try {
-          printWindow.focus()
-          printWindow.print()
+          // Double-check that body exists and content is ready
+          if (printWindow.document.body && printWindow.document.body.children.length > 0) {
+            console.log('Invoice content ready, opening print dialog')
+            printWindow.focus()
+            printWindow.print()
+          } else {
+            console.warn('Invoice content not ready, retrying...')
+            setTimeout(triggerPrint, 500)
+          }
         } catch (error) {
           console.error('Print error:', error)
-          // Fallback: show alert to user
           alert('Please use the browser print button (Ctrl+P or Cmd+P) to print the invoice.')
         }
       }
 
-      // Strategy 1: Wait for window load event (most reliable)
-      printWindow.addEventListener('load', () => {
-        // Additional delay to ensure CSS is applied and layout is complete
-        setTimeout(triggerPrint, 500)
-      }, { once: true })
+      // Wait for complete document load and rendering
+      if (printWindow.document.readyState === 'complete') {
+        // Document already loaded, wait for layout/paint to complete
+        setTimeout(triggerPrint, 1000)
+      } else {
+        // Wait for load event, then give extra time for rendering
+        printWindow.addEventListener('load', () => {
+          // Longer delay to ensure A4 pages, CSS, and layout are fully rendered
+          setTimeout(triggerPrint, 1500)
+        }, { once: true })
 
-      // Strategy 2: Fallback timeout in case load event doesn't fire
-      setTimeout(() => {
-        if (printWindow.document.readyState === 'complete') {
-          triggerPrint()
-        }
-      }, 1000)
+        // Safety fallback if load event doesn't fire
+        setTimeout(() => {
+          if (printWindow.document.readyState === 'complete') {
+            triggerPrint()
+          }
+        }, 3000)
+      }
     } else {
       alert('Pop-up blocked! Please allow pop-ups for this site to print invoices.')
     }
@@ -566,7 +578,14 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
   <script>
     // Ensure document is fully loaded and rendered
     document.addEventListener('DOMContentLoaded', function() {
-      console.log('Invoice document loaded');
+      console.log('Invoice document loaded and ready');
+    });
+
+    // Wait for images and fonts to be fully loaded
+    window.addEventListener('load', function() {
+      console.log('All resources (images, fonts, CSS) loaded');
+      // Mark as ready for printing
+      document.body.setAttribute('data-ready', 'true');
     });
 
     // Auto-close after printing
