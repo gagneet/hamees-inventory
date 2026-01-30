@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
+import DashboardLayout from '@/components/DashboardLayout'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -44,7 +45,7 @@ type User = {
 }
 
 export default function AdminSettingsPage() {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const userRole = session?.user?.role as UserRole
 
   const [users, setUsers] = useState<User[]>([])
@@ -63,9 +64,10 @@ export default function AdminSettingsPage() {
   const canManageUsers = userRole && hasPermission(userRole, 'manage_users')
 
   useEffect(() => {
+    if (status === 'loading') return
     if (!canManageUsers) return
     fetchUsers()
-  }, [canManageUsers])
+  }, [canManageUsers, status])
 
   const fetchUsers = async () => {
     try {
@@ -160,26 +162,39 @@ export default function AdminSettingsPage() {
     setShowEditDialog(true)
   }
 
+  if (status === 'loading') {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <p className="text-slate-500">Loading...</p>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
   if (!canManageUsers) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ShieldAlert className="h-5 w-5 text-red-500" />
-              Access Denied
-            </CardTitle>
-            <CardDescription>
-              You do not have permission to access this page. Only ADMIN users can manage system settings.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ShieldAlert className="h-5 w-5 text-red-500" />
+                Access Denied
+              </CardTitle>
+              <CardDescription>
+                You do not have permission to access this page. Only ADMIN users can manage system settings.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
+      </DashboardLayout>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <DashboardLayout>
+      <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Admin Settings</h1>
@@ -413,6 +428,7 @@ export default function AdminSettingsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </DashboardLayout>
   )
 }

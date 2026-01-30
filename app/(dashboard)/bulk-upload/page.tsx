@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import DashboardLayout from '@/components/DashboardLayout'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -147,8 +148,9 @@ export default function BulkUploadPage() {
   }
 
   return (
-    <div className="container mx-auto p-4 md:p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <DashboardLayout>
+      <div className="container mx-auto p-4 md:p-6 space-y-6">
+        <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Bulk Data Upload</h1>
           <p className="text-muted-foreground mt-1">
@@ -423,6 +425,7 @@ export default function BulkUploadPage() {
           </ol>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </DashboardLayout>
   )
 }

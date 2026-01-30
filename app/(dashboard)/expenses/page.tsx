@@ -11,6 +11,9 @@ import {
   Package,
   Receipt,
   Wallet,
+  Plus,
+  Edit2,
+  Trash2,
 } from 'lucide-react'
 import { DateRangePicker, type DateRangeWithLabel } from '@/components/date-range-picker'
 import { ExpensesFilter, type ExpenseFilters } from '@/components/expenses-filter'
@@ -25,6 +28,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -48,6 +52,19 @@ import {
 import DashboardLayout from '@/components/DashboardLayout'
 import { formatCurrency } from '@/lib/utils'
 import { format } from 'date-fns'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { useSession } from 'next-auth/react'
+import { hasPermission } from '@/lib/permissions'
 
 interface ExpensesData {
   dateRange: {
@@ -108,11 +125,34 @@ interface ExpensesData {
 }
 
 function ExpensesContent() {
+  const { data: session } = useSession()
+  const userRole = session?.user?.role
+  const canManageExpenses = userRole && hasPermission(userRole, 'manage_expenses')
+  const canDeleteExpenses = userRole && hasPermission(userRole, 'delete_expenses')
+
   const [dateRange, setDateRange] = useState<DateRangeWithLabel | undefined>(undefined)
   const [filters, setFilters] = useState<ExpenseFilters>({})
   const [data, setData] = useState<ExpensesData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const [showAddDialog, setShowAddDialog] = useState(false)
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [selectedExpense, setSelectedExpense] = useState<any>(null)
+  const [formData, setFormData] = useState({
+    category: 'MISCELLANEOUS',
+    description: '',
+    amount: '',
+    gstRate: '0',
+    expenseDate: new Date().toISOString().split('T')[0],
+    vendorName: '',
+    vendorGstin: '',
+    invoiceNumber: '',
+    paymentMode: 'CASH',
+    tdsAmount: '0',
+    tdsRate: '0',
+    notes: '',
+  })
 
   useEffect(() => {
     fetchData(dateRange, filters)
@@ -167,6 +207,116 @@ function ExpensesContent() {
     setFilters({})
   }
 
+  const handleAddExpense = async () => {
+    try {
+      const response = await fetch('/api/expenses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          amount: parseFloat(formData.amount),
+          gstRate: parseFloat(formData.gstRate),
+          tdsAmount: parseFloat(formData.tdsAmount),
+          tdsRate: parseFloat(formData.tdsRate),
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to create expense')
+      }
+
+      setShowAddDialog(false)
+      setFormData({
+        category: 'MISCELLANEOUS',
+        description: '',
+        amount: '',
+        gstRate: '0',
+        expenseDate: new Date().toISOString().split('T')[0],
+        vendorName: '',
+        vendorGstin: '',
+        invoiceNumber: '',
+        paymentMode: 'CASH',
+        tdsAmount: '0',
+        tdsRate: '0',
+        notes: '',
+      })
+      fetchData(dateRange, filters)
+    } catch (error) {
+      console.error('Error creating expense:', error)
+      alert(error instanceof Error ? error.message : 'Failed to create expense')
+    }
+  }
+
+  const handleEditExpense = async () => {
+    if (!selectedExpense) return
+
+    try {
+      const response = await fetch(`/api/expenses/${selectedExpense.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          amount: parseFloat(formData.amount),
+          gstRate: parseFloat(formData.gstRate),
+          tdsAmount: parseFloat(formData.tdsAmount),
+          tdsRate: parseFloat(formData.tdsRate),
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to update expense')
+      }
+
+      setShowEditDialog(false)
+      setSelectedExpense(null)
+      fetchData(dateRange, filters)
+    } catch (error) {
+      console.error('Error updating expense:', error)
+      alert(error instanceof Error ? error.message : 'Failed to update expense')
+    }
+  }
+
+  const handleDeleteExpense = async (expenseId: string) => {
+    if (!confirm('Are you sure you want to delete this expense?')) return
+
+    try {
+      const response = await fetch(`/api/expenses/${expenseId}`, {
+        method: 'DELETE',
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to delete expense')
+      }
+
+      fetchData(dateRange, filters)
+    } catch (error) {
+      console.error('Error deleting expense:', error)
+      alert(error instanceof Error ? error.message : 'Failed to delete expense')
+    }
+  }
+
+  const openEditDialog = (expense: any) => {
+    setSelectedExpense(expense)
+    setFormData({
+      category: expense.category,
+      description: expense.description,
+      amount: expense.amount.toString(),
+      gstRate: ((expense.gstAmount / expense.amount) * 100).toFixed(2),
+      expenseDate: format(new Date(expense.expenseDate), 'yyyy-MM-dd'),
+      vendorName: expense.vendorName || '',
+      vendorGstin: expense.vendorGstin || '',
+      invoiceNumber: expense.invoiceNumber || '',
+      paymentMode: expense.paymentMode,
+      tdsAmount: expense.tdsAmount?.toString() || '0',
+      tdsRate: expense.tdsRate?.toString() || '0',
+      notes: expense.notes || '',
+    })
+    setShowEditDialog(true)
+  }
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -208,6 +358,12 @@ function ExpensesContent() {
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
         <h1 className="text-lg font-semibold md:text-2xl">Expenses & Revenue</h1>
         <div className="flex gap-2">
+          {canManageExpenses && (
+            <Button onClick={() => setShowAddDialog(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Expense
+            </Button>
+          )}
           <ExpensesFilter
             filters={filters}
             onChange={handleFiltersChange}
@@ -660,6 +816,7 @@ function ExpensesContent() {
                     <TableHead className="text-right">Amount</TableHead>
                     <TableHead className="text-right">GST</TableHead>
                     <TableHead className="text-right">Total</TableHead>
+                    {(canManageExpenses || canDeleteExpenses) && <TableHead>Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -689,6 +846,30 @@ function ExpensesContent() {
                       <TableCell className="text-right font-semibold text-red-600">
                         {formatCurrency(expense.totalAmount)}
                       </TableCell>
+                      {(canManageExpenses || canDeleteExpenses) && (
+                        <TableCell>
+                          <div className="flex gap-2">
+                            {canManageExpenses && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openEditDialog(expense)}
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {canDeleteExpenses && (
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => handleDeleteExpense(expense.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -702,6 +883,353 @@ function ExpensesContent() {
           )}
         </CardContent>
       </Card>
+
+      {/* Add Expense Dialog */}
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-slate-900">Add New Expense</DialogTitle>
+            <DialogDescription>
+              Record a new business expense with GST and TDS details
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="category">Category *</Label>
+                <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="RENT">Rent</SelectItem>
+                    <SelectItem value="UTILITIES">Utilities</SelectItem>
+                    <SelectItem value="SALARIES">Salaries</SelectItem>
+                    <SelectItem value="TRANSPORT">Transport</SelectItem>
+                    <SelectItem value="MARKETING">Marketing</SelectItem>
+                    <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
+                    <SelectItem value="OFFICE_SUPPLIES">Office Supplies</SelectItem>
+                    <SelectItem value="PROFESSIONAL_FEES">Professional Fees</SelectItem>
+                    <SelectItem value="INSURANCE">Insurance</SelectItem>
+                    <SelectItem value="DEPRECIATION">Depreciation</SelectItem>
+                    <SelectItem value="BANK_CHARGES">Bank Charges</SelectItem>
+                    <SelectItem value="MISCELLANEOUS">Miscellaneous</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="expenseDate">Expense Date *</Label>
+                <Input
+                  id="expenseDate"
+                  type="date"
+                  value={formData.expenseDate}
+                  onChange={(e) => setFormData({ ...formData, expenseDate: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">Description *</Label>
+              <Input
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Brief description of the expense"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="amount">Amount (before GST) *</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  step="0.01"
+                  value={formData.amount}
+                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="gstRate">GST Rate (%)</Label>
+                <Input
+                  id="gstRate"
+                  type="number"
+                  step="0.01"
+                  value={formData.gstRate}
+                  onChange={(e) => setFormData({ ...formData, gstRate: e.target.value })}
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="vendorName">Vendor Name</Label>
+                <Input
+                  id="vendorName"
+                  value={formData.vendorName}
+                  onChange={(e) => setFormData({ ...formData, vendorName: e.target.value })}
+                  placeholder="Vendor or supplier name"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="vendorGstin">Vendor GSTIN</Label>
+                <Input
+                  id="vendorGstin"
+                  value={formData.vendorGstin}
+                  onChange={(e) => setFormData({ ...formData, vendorGstin: e.target.value })}
+                  placeholder="GST identification number"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="invoiceNumber">Invoice Number</Label>
+                <Input
+                  id="invoiceNumber"
+                  value={formData.invoiceNumber}
+                  onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })}
+                  placeholder="Invoice or bill number"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="paymentMode">Payment Mode *</Label>
+                <Select value={formData.paymentMode} onValueChange={(value) => setFormData({ ...formData, paymentMode: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="CASH">Cash</SelectItem>
+                    <SelectItem value="UPI">UPI</SelectItem>
+                    <SelectItem value="CARD">Card</SelectItem>
+                    <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                    <SelectItem value="CHEQUE">Cheque</SelectItem>
+                    <SelectItem value="NET_BANKING">Net Banking</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="tdsAmount">TDS Amount</Label>
+                <Input
+                  id="tdsAmount"
+                  type="number"
+                  step="0.01"
+                  value={formData.tdsAmount}
+                  onChange={(e) => setFormData({ ...formData, tdsAmount: e.target.value })}
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="tdsRate">TDS Rate (%)</Label>
+                <Input
+                  id="tdsRate"
+                  type="number"
+                  step="0.01"
+                  value={formData.tdsRate}
+                  onChange={(e) => setFormData({ ...formData, tdsRate: e.target.value })}
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes (Optional)</Label>
+              <Textarea
+                id="notes"
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                placeholder="Additional notes or remarks"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddExpense}>Create Expense</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Expense Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-slate-900">Edit Expense</DialogTitle>
+            <DialogDescription>
+              Update expense details and recalculate GST amounts
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-category">Category *</Label>
+                <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="RENT">Rent</SelectItem>
+                    <SelectItem value="UTILITIES">Utilities</SelectItem>
+                    <SelectItem value="SALARIES">Salaries</SelectItem>
+                    <SelectItem value="TRANSPORT">Transport</SelectItem>
+                    <SelectItem value="MARKETING">Marketing</SelectItem>
+                    <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
+                    <SelectItem value="OFFICE_SUPPLIES">Office Supplies</SelectItem>
+                    <SelectItem value="PROFESSIONAL_FEES">Professional Fees</SelectItem>
+                    <SelectItem value="INSURANCE">Insurance</SelectItem>
+                    <SelectItem value="DEPRECIATION">Depreciation</SelectItem>
+                    <SelectItem value="BANK_CHARGES">Bank Charges</SelectItem>
+                    <SelectItem value="MISCELLANEOUS">Miscellaneous</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-expenseDate">Expense Date *</Label>
+                <Input
+                  id="edit-expenseDate"
+                  type="date"
+                  value={formData.expenseDate}
+                  onChange={(e) => setFormData({ ...formData, expenseDate: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">Description *</Label>
+              <Input
+                id="edit-description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-amount">Amount (before GST) *</Label>
+                <Input
+                  id="edit-amount"
+                  type="number"
+                  step="0.01"
+                  value={formData.amount}
+                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-gstRate">GST Rate (%)</Label>
+                <Input
+                  id="edit-gstRate"
+                  type="number"
+                  step="0.01"
+                  value={formData.gstRate}
+                  onChange={(e) => setFormData({ ...formData, gstRate: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-vendorName">Vendor Name</Label>
+                <Input
+                  id="edit-vendorName"
+                  value={formData.vendorName}
+                  onChange={(e) => setFormData({ ...formData, vendorName: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-vendorGstin">Vendor GSTIN</Label>
+                <Input
+                  id="edit-vendorGstin"
+                  value={formData.vendorGstin}
+                  onChange={(e) => setFormData({ ...formData, vendorGstin: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-invoiceNumber">Invoice Number</Label>
+                <Input
+                  id="edit-invoiceNumber"
+                  value={formData.invoiceNumber}
+                  onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-paymentMode">Payment Mode *</Label>
+                <Select value={formData.paymentMode} onValueChange={(value) => setFormData({ ...formData, paymentMode: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="CASH">Cash</SelectItem>
+                    <SelectItem value="UPI">UPI</SelectItem>
+                    <SelectItem value="CARD">Card</SelectItem>
+                    <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                    <SelectItem value="CHEQUE">Cheque</SelectItem>
+                    <SelectItem value="NET_BANKING">Net Banking</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-tdsAmount">TDS Amount</Label>
+                <Input
+                  id="edit-tdsAmount"
+                  type="number"
+                  step="0.01"
+                  value={formData.tdsAmount}
+                  onChange={(e) => setFormData({ ...formData, tdsAmount: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-tdsRate">TDS Rate (%)</Label>
+                <Input
+                  id="edit-tdsRate"
+                  type="number"
+                  step="0.01"
+                  value={formData.tdsRate}
+                  onChange={(e) => setFormData({ ...formData, tdsRate: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-notes">Notes (Optional)</Label>
+              <Textarea
+                id="edit-notes"
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleEditExpense}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   )
 }

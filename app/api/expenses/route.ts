@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { startOfMonth, endOfMonth, parse } from 'date-fns'
+import { z } from 'zod'
+import { hasPermission } from '@/lib/permissions'
 
 type DeliveredOrder = Awaited<ReturnType<typeof getDeliveredOrders>>[number]
 type InventoryPurchase = Awaited<ReturnType<typeof getInventoryPurchases>>[number]
@@ -290,5 +292,78 @@ export async function GET(request: Request) {
       { error: 'Failed to fetch expenses data' },
       { status: 500 }
     )
+  }
+}
+
+// POST - Create new expense
+const createExpenseSchema = z.object({
+  category: z.enum(['RENT', 'UTILITIES', 'SALARIES', 'TRANSPORT', 'MARKETING', 'MAINTENANCE', 'OFFICE_SUPPLIES', 'PROFESSIONAL_FEES', 'INSURANCE', 'DEPRECIATION', 'BANK_CHARGES', 'MISCELLANEOUS']),
+  description: z.string().min(1, 'Description is required'),
+  amount: z.number().positive('Amount must be positive'),
+  gstRate: z.number().min(0).max(100).default(0),
+  expenseDate: z.string().optional(),
+  vendorName: z.string().optional(),
+  vendorGstin: z.string().optional(),
+  invoiceNumber: z.string().optional(),
+  paymentMode: z.enum(['CASH', 'UPI', 'CARD', 'BANK_TRANSFER', 'CHEQUE', 'NET_BANKING']).default('CASH'),
+  tdsAmount: z.number().min(0).default(0),
+  tdsRate: z.number().min(0).max(100).default(0),
+  notes: z.string().optional(),
+})
+
+export async function POST(request: Request) {
+  try {
+    const session = await auth()
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Check permissions
+    if (!hasPermission(session.user.role, 'manage_expenses')) {
+      return NextResponse.json({ error: 'Forbidden - Insufficient permissions' }, { status: 403 })
+    }
+
+    const body = await request.json()
+    const validatedData = createExpenseSchema.parse(body)
+
+    // Calculate GST and total
+    const gstAmount = (validatedData.amount * validatedData.gstRate) / 100
+    const totalAmount = validatedData.amount + gstAmount
+
+    const expense = await prisma.expense.create({
+      data: {
+        category: validatedData.category,
+        description: validatedData.description,
+        amount: validatedData.amount,
+        gstAmount,
+        gstRate: validatedData.gstRate,
+        totalAmount,
+        expenseDate: validatedData.expenseDate ? new Date(validatedData.expenseDate) : new Date(),
+        vendorName: validatedData.vendorName,
+        vendorGstin: validatedData.vendorGstin,
+        invoiceNumber: validatedData.invoiceNumber,
+        paymentMode: validatedData.paymentMode,
+        tdsAmount: validatedData.tdsAmount,
+        tdsRate: validatedData.tdsRate,
+        paidBy: session.user.id,
+        notes: validatedData.notes,
+        active: true,
+      },
+      include: {
+        paidByUser: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    })
+
+    return NextResponse.json({ expense }, { status: 201 })
+  } catch (error) {
+    console.error('Error creating expense:', error)
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Validation error', details: error.issues }, { status: 400 })
+    }
+    return NextResponse.json({ error: 'Failed to create expense' }, { status: 500 })
   }
 }

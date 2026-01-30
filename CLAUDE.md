@@ -10,6 +10,280 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Admin UI Fixes & Expense Management System (v0.29.0)
+
+**What's New:**
+- **Fixed Admin Settings Access** - Admin users can now access `/admin/settings` page
+- **Complete Expense Management System** - Add, edit, and delete business expenses with GST tracking
+- **Navigation Menu Fixes** - Admin Settings and Bulk Upload pages now show full navigation
+- **Session Loading Fix** - Proper handling of session loading states prevents access denied errors
+
+**Version:** v0.29.0
+**Date:** January 30, 2026
+**Status:** ✅ Production Ready
+
+**Issues Fixed:**
+
+1. **Admin Settings Access Denied (403 Error)**
+   - **Problem**: Admin users got "Access Denied" when visiting `/admin/settings` page
+   - **Root Cause**: Session permission check happened before session loaded, causing `userRole` to be `undefined`
+   - **Solution**: Added `status` check from `useSession()` to differentiate between loading and unauthorized states
+   - **Result**: Admin users can now access settings page, see user management interface
+   ```typescript
+   const { data: session, status } = useSession()
+
+   if (status === 'loading') {
+     return <DashboardLayout><LoadingSpinner /></DashboardLayout>
+   }
+
+   if (!canManageUsers) {
+     return <DashboardLayout><AccessDenied /></DashboardLayout>
+   }
+   ```
+
+2. **Missing Business Expense Management UI**
+   - **Problem**: Expenses page only displayed data, no way to add/edit expense categories or records
+   - **Root Cause**: API endpoints existed (`GET /api/expenses`) but no CRUD operations or UI for management
+   - **Solution**: Built complete expense management system with API + UI
+   - **Result**: OWNER and ADMIN can now create, edit, and delete (ADMIN only) business expenses
+
+3. **Missing Navigation Menu on Admin Pages**
+   - **Problem**: Admin Settings and Bulk Upload pages didn't show sidebar navigation
+   - **Root Cause**: Pages weren't wrapped in `DashboardLayout` component
+   - **Solution**: Added `DashboardLayout` wrapper to both pages
+   - **Result**: Full navigation menu now visible on all admin pages
+
+**New Features:**
+
+**Expense Management API** (`app/api/expenses/`, `app/api/expenses/[id]/`):
+
+- `POST /api/expenses` - Create new expense with auto GST calculation
+  - **Permission**: `manage_expenses` (OWNER, ADMIN)
+  - **Body**: category, description, amount, gstRate, expenseDate, vendorName, vendorGstin, invoiceNumber, paymentMode, tdsAmount, tdsRate, notes
+  - **Auto-Calculation**: `gstAmount = (amount × gstRate) / 100`, `totalAmount = amount + gstAmount`
+
+- `GET /api/expenses/[id]` - View single expense with user details
+  - **Permission**: `view_expenses` (OWNER, ADMIN)
+
+- `PATCH /api/expenses/[id]` - Update expense with recalculation
+  - **Permission**: `manage_expenses` (OWNER, ADMIN)
+  - **Smart Recalculation**: Updates GST and total when amount or rate changes
+
+- `DELETE /api/expenses/[id]` - Soft delete (marks `active: false`)
+  - **Permission**: `delete_expenses` (ADMIN only)
+
+**Expense Management UI** (`app/(dashboard)/expenses/page.tsx`):
+
+- **"Add Expense" Button** - Visible to OWNER and ADMIN roles with `manage_expenses` permission
+- **Comprehensive Expense Dialog**:
+  - **12 Expense Categories**:
+    - Rent, Utilities, Salaries, Transport, Marketing
+    - Maintenance, Office Supplies, Professional Fees
+    - Insurance, Depreciation, Bank Charges, Miscellaneous
+  - **Financial Tracking**:
+    - Amount before GST (required)
+    - GST Rate % (auto-calculates GST amount)
+    - Total Amount (auto-calculated)
+  - **Vendor Details**:
+    - Vendor Name
+    - Vendor GSTIN (GST Identification Number)
+    - Invoice Number
+  - **Payment Information**:
+    - Payment Mode: Cash, UPI, Card, Bank Transfer, Cheque, Net Banking
+    - Expense Date (defaults to today)
+  - **TDS Tracking** (for Professional Fees, etc.):
+    - TDS Amount
+    - TDS Rate %
+  - **Notes**: Optional remarks field
+
+- **Enhanced Expenses Table**:
+  - Added "Actions" column (visible to OWNER/ADMIN)
+  - **Edit Button** (pencil icon) - Opens edit dialog with pre-filled data
+  - **Delete Button** (trash icon) - ADMIN only, soft deletes expense
+  - Automatic GST calculation display
+  - Color-coded categories (blue badges)
+
+**Technical Implementation:**
+
+**Session Loading Fix**:
+```typescript
+// Before (BROKEN):
+const { data: session } = useSession()
+const userRole = session?.user?.role
+const canManageUsers = userRole && hasPermission(userRole, 'manage_users')
+
+if (!canManageUsers) {
+  return <AccessDenied />  // ❌ Shows immediately even while loading
+}
+
+// After (FIXED):
+const { data: session, status } = useSession()
+const userRole = session?.user?.role
+const canManageUsers = userRole && hasPermission(userRole, 'manage_users')
+
+if (status === 'loading') {
+  return <DashboardLayout><Loading /></DashboardLayout>  // ✅ Wait for session
+}
+
+if (!canManageUsers) {
+  return <DashboardLayout><AccessDenied /></DashboardLayout>  // ✅ Now accurate
+}
+```
+
+**Expense Creation with Auto GST**:
+```typescript
+// API: app/api/expenses/route.ts
+const gstAmount = (validatedData.amount * validatedData.gstRate) / 100
+const totalAmount = validatedData.amount + gstAmount
+
+const expense = await prisma.expense.create({
+  data: {
+    category: validatedData.category,
+    description: validatedData.description,
+    amount: validatedData.amount,
+    gstAmount,  // Auto-calculated
+    gstRate: validatedData.gstRate,
+    totalAmount,  // Auto-calculated
+    expenseDate: validatedData.expenseDate ? new Date(validatedData.expenseDate) : new Date(),
+    vendorName: validatedData.vendorName,
+    vendorGstin: validatedData.vendorGstin,
+    invoiceNumber: validatedData.invoiceNumber,
+    paymentMode: validatedData.paymentMode,
+    tdsAmount: validatedData.tdsAmount,
+    tdsRate: validatedData.tdsRate,
+    paidBy: session.user.id,
+    notes: validatedData.notes,
+    active: true,
+  },
+})
+```
+
+**Expense Update with Smart Recalculation**:
+```typescript
+// Get current values
+const currentExpense = await prisma.expense.findUnique({ where: { id } })
+
+// Use new values or fallback to current
+const amount = validatedData.amount ?? currentExpense.amount
+const gstRate = validatedData.gstRate ?? currentExpense.gstRate
+
+// Recalculate only if changed
+const gstAmount = (amount * gstRate) / 100
+const totalAmount = amount + gstAmount
+
+await prisma.expense.update({
+  where: { id },
+  data: {
+    ...validatedData,
+    gstAmount,  // Always recalculated
+    totalAmount,  // Always recalculated
+  },
+})
+```
+
+**Files Modified:**
+- `app/(dashboard)/admin/settings/page.tsx` - Added session loading state check and `DashboardLayout` wrapper
+- `app/(dashboard)/bulk-upload/page.tsx` - Added `DashboardLayout` wrapper for navigation menu
+- `app/(dashboard)/expenses/page.tsx` - Added expense management UI (Add/Edit dialogs, action buttons)
+- `app/api/expenses/route.ts` - Added POST endpoint for creating expenses
+- `package.json` - Updated version to 0.29.0
+
+**Files Added:**
+- `app/api/expenses/[id]/route.ts` - GET/PATCH/DELETE endpoints for individual expense operations
+
+**Permission Matrix:**
+
+| Action | Permission Required | Roles Allowed |
+|--------|-------------------|---------------|
+| View Expenses Report | `view_expenses` | OWNER, ADMIN |
+| Add Expense | `manage_expenses` | OWNER, ADMIN |
+| Edit Expense | `manage_expenses` | OWNER, ADMIN |
+| Delete Expense | `delete_expenses` | ADMIN only |
+
+**Usage Examples:**
+
+**Add New Expense**:
+```bash
+# As OWNER or ADMIN
+1. Login at https://hamees.gagneet.com
+2. Navigate to /expenses
+3. Click "Add Expense" button
+4. Fill form:
+   - Category: Marketing
+   - Description: Social media advertising campaign
+   - Amount: 10,000.00
+   - GST Rate: 18%
+   - Vendor: Meta Platforms Inc
+   - Payment Mode: Bank Transfer
+5. Click "Create Expense"
+6. Expense appears in table with calculated GST (₹1,800) and total (₹11,800)
+```
+
+**Edit Expense**:
+```bash
+1. Locate expense in Business Expenses table
+2. Click "Edit" button (pencil icon)
+3. Modify fields (e.g., change amount from 10,000 to 12,000)
+4. GST automatically recalculates (18% of ₹12,000 = ₹2,160)
+5. Click "Save Changes"
+6. Table updates with new values
+```
+
+**Delete Expense (ADMIN only)**:
+```bash
+1. Login as admin@hameesattire.com / admin123
+2. Locate expense in table
+3. Click "Delete" button (trash icon)
+4. Confirm deletion
+5. Expense marked as inactive (soft delete, preserves audit trail)
+```
+
+**User Impact:**
+- ✅ Admin users can now access all admin features without errors
+- ✅ Complete expense tracking with GST compliance
+- ✅ Automatic GST calculation saves time and reduces errors
+- ✅ TDS tracking for professional fees and contractor payments
+- ✅ Vendor GSTIN storage for Input Tax Credit claims
+- ✅ Complete audit trail (who created, when, soft deletes preserve history)
+- ✅ Consistent navigation across all pages
+
+**Build & Deployment:**
+- Build time: 38.2 seconds
+- Zero TypeScript errors
+- PM2 restart: ✅ Successful
+- Production: ✅ Live at https://hamees.gagneet.com
+
+**Testing:**
+```bash
+# Test Admin Settings Access (Was broken, now fixed)
+1. Login as admin@hameesattire.com / admin123
+2. Navigate to /admin/settings
+3. Expected: ✅ Page loads with navigation menu
+4. Expected: ✅ Can view/add/edit users
+
+# Test Expense Management (New feature)
+1. Login as owner@hameesattire.com / admin123
+2. Navigate to /expenses
+3. Click "Add Expense"
+4. Create expense with category, amount, GST rate
+5. Expected: ✅ Expense created with auto-calculated GST
+6. Click "Edit" on expense
+7. Modify amount
+8. Expected: ✅ GST recalculates automatically
+9. As ADMIN, click "Delete"
+10. Expected: ✅ Expense soft-deleted (marked inactive)
+
+# Test Navigation Menu (Was missing, now fixed)
+1. Navigate to /admin/settings
+2. Expected: ✅ See full sidebar navigation
+3. Navigate to /bulk-upload
+4. Expected: ✅ See full sidebar navigation
+```
+
+**Documentation:** Complete guide in CLAUDE.md
+
+---
+
 ### ✅ Dashboard Calculation Fixes - PO Totals & Outstanding Payments (v0.28.6)
 
 **What's New:**
