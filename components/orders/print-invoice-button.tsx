@@ -188,7 +188,7 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
         <div class="totals-section">
           <div class="totals-row">
             <div class="totals-label">Item Subtotal:</div>
-            <div class="totals-value">${formatCurrency(item.totalPrice)}</div>
+            <div class="totals-value">${formatCurrency(perItemSubtotal)}</div>
           </div>
           <div class="totals-row">
             <div class="totals-label">CGST (${(order.gstRate / 2).toFixed(1)}%):</div>

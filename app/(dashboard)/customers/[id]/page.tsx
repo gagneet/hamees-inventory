@@ -3,8 +3,35 @@ import { redirect } from 'next/navigation'
 import { hasPermission } from '@/lib/permissions'
 import { prisma } from '@/lib/db'
 import { CustomerDetailClient } from './customer-detail-client'
+import { Prisma } from '@prisma/client'
 
-async function getCustomerDetails(id: string) {
+// Define the return type from the Prisma query
+type CustomerWithRelations = Prisma.CustomerGetPayload<{
+  include: {
+    measurements: {
+      include: {
+        createdBy: {
+          select: {
+            id: true
+            name: true
+            email: true
+          }
+        }
+      }
+    }
+    orders: {
+      include: {
+        items: {
+          include: {
+            garmentPattern: true
+          }
+        }
+      }
+    }
+  }
+}>
+
+async function getCustomerDetails(id: string): Promise<CustomerWithRelations | null> {
   try {
     console.log('[Customer Detail] Fetching customer:', id)
     const customer = await prisma.customer.findUnique({
@@ -72,12 +99,12 @@ export default async function CustomerDetailPage({
   const serializedCustomer = {
     ...customer,
     createdAt: customer.createdAt.toISOString(),
-    orders: customer.orders?.map(order => ({
+    orders: customer.orders?.map((order: CustomerWithRelations['orders'][number]) => ({
       ...order,
       deliveryDate: order.deliveryDate.toISOString(),
       createdAt: order.createdAt.toISOString(),
     })),
-    measurements: customer.measurements?.map(measurement => ({
+    measurements: customer.measurements?.map((measurement: CustomerWithRelations['measurements'][number]) => ({
       id: measurement.id,
       garmentType: measurement.garmentType,
       bodyType: measurement.bodyType,

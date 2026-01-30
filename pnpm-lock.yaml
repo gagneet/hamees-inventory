@@ -92,9 +92,6 @@ importers:
       pino:
         specifier: ^10.2.0
         version: 10.3.0
-      pnpm:
-        specifier: ^10.28.1
-        version: 10.28.1
       qrcode:
         specifier: ^1.5.4
         version: 1.5.4
@@ -3262,11 +3259,6 @@ packages:
   pngjs@5.0.0:
     resolution: {integrity: sha512-40QW5YalBNfQo5yRYmiw7Yz6TKKVr3h6970B2YE+3fQpsWcrbj1PzJgxeJ19DRQjhMbKPIuMY8rFaXc8moolVw==}
     engines: {node: '>=10.13.0'}
-
-  pnpm@10.28.1:
-    resolution: {integrity: sha512-fX27yp6ZRHt8O/enMoavqva+mSUeuUmLrvp9QGiS9nuHmts6HX5of8TMwaOIxxdfuq5WeiarRNEGe1T8sNajFg==}
-    engines: {node: '>=18.12'}
-    hasBin: true
 
   possible-typed-array-names@1.1.0:
     resolution: {integrity: sha512-/+5VFTchJDoVj3bhoqi6UeymcD00DAwb1nJwamzPvHEszJ4FpF6SNNbUbOS8yI56qHzdV8eK0qEfOSiodkTdxg==}
@@ -7180,8 +7172,6 @@ snapshots:
       pathe: 2.0.3
 
   pngjs@5.0.0: {}
-
-  pnpm@10.28.1: {}
 
   possible-typed-array-names@1.1.0: {}
 
