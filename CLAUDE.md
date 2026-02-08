@@ -10,6 +10,165 @@ This is a comprehensive inventory and order management system built specifically
 
 ## 🎉 Recent Updates (January 2026)
 
+### ✅ Production Deployment & 404 Fix (v0.29.4)
+
+**What's New:**
+- **Fixed 404 Error on Production** - Resolved hamees.gagneet.com returning 404
+- **PM2 Process Management** - Application now running with proper fork mode
+- **Cloudflare Tunnel Configuration** - Added hamees.gagneet.com to tunnel ingress
+- **Chart Hydration Fixes** - Eliminated React hydration warnings for all dashboard charts
+- **Font Performance** - Added display:swap for improved font loading
+
+**Version:** v0.29.4
+**Date:** February 8, 2026
+**Status:** ✅ Production Ready
+
+**Issue Fixed:**
+
+**Problem:** Accessing https://hamees.gagneet.com returned 404 error from Cloudflare
+
+**Root Causes:**
+1. **PM2 Process Not Running** - hamees-inventory PM2 process had crashed and wasn't running
+2. **Wrong Cloudflare Config File** - Updated `~/.cloudflared/config.yml` but service reads `/etc/cloudflared/config.yml`
+3. **Missing Tunnel Ingress** - hamees.gagneet.com not listed in Cloudflare tunnel configuration
+4. **PM2 Cluster Mode Issue** - Next.js 16 compatibility issues with PM2 cluster mode
+
+**Solutions Implemented:**
+
+1. **PM2 Configuration (ecosystem.config.js)**
+```javascript
+{
+  name: 'hamees-inventory',
+  exec_mode: 'fork',  // ✅ Added - prevents cluster mode issues with Next.js 16
+  instances: 1,
+  autorestart: true
+}
+```
+
+2. **Cloudflare Tunnel Configuration (/etc/cloudflared/config.yml)**
+```yaml
+ingress:
+  - hostname: hamees.gagneet.com  # ✅ Added
+    service: http://localhost:80
+  # ... other domains
+  - service: http_status:404
+```
+
+3. **Chart Component Fixes**
+```typescript
+// Before - causes hydration warnings
+<ResponsiveContainer width="100%" height={350}>
+  <PieChart>...</PieChart>
+</ResponsiveContainer>
+
+// After - fixed
+<div className="w-full h-[350px]">
+  <ResponsiveContainer width="100%" height="100%">
+    <PieChart>...</PieChart>
+  </ResponsiveContainer>
+</div>
+```
+
+4. **Font Optimization (app/layout.tsx)**
+```typescript
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+  display: "swap",  // ✅ Added - prevents FOIT
+});
+```
+
+**Deployment Troubleshooting Steps:**
+
+```bash
+# 1. Check PM2 status
+pm2 status
+# Expected: hamees-inventory should be "online"
+
+# 2. If not running, start it
+cd ~/hamees
+pm2 start ecosystem.config.js
+
+# 3. Verify application responds locally
+curl -I http://localhost:3009
+# Expected: HTTP/1.1 200 OK
+
+# 4. Check Cloudflare tunnel config
+sudo cat /etc/cloudflared/config.yml
+# Expected: hamees.gagneet.com in ingress list
+
+# 5. Restart Cloudflare tunnel
+sudo systemctl restart cloudflared
+sudo systemctl status cloudflared
+# Expected: active (running) with 4 registered connections
+
+# 6. Test public URL
+curl -I https://hamees.gagneet.com
+# Expected: HTTP/2 200
+
+# 7. Save PM2 configuration
+pm2 save
+# Ensures auto-restart on server reboot
+```
+
+**Port Allocation (No Conflicts):**
+- Port 3000: healthapp-nextjs ✅
+- Port 3002: healthapp.gagneet.com ✅
+- Port 3003: expenses.gagneet.com ✅
+- **Port 3009: hamees.gagneet.com ✅**
+- Port 8000: eastgate-backend ✅
+- Port 8001: property backend ✅
+
+**Files Modified:**
+- `ecosystem.config.js` - Added exec_mode: 'fork' for PM2
+- `app/layout.tsx` - Added display: 'swap' to fonts
+- `components/dashboard/customer-retention-chart.tsx` - Fixed ResponsiveContainer
+- `components/dashboard/financial-trend-chart.tsx` - Fixed ResponsiveContainer
+- `components/dashboard/garment-type-revenue-chart.tsx` - Fixed ResponsiveContainer
+- `components/dashboard/owner-dashboard.tsx` - Fixed ResponsiveContainer
+- `components/dashboard/production-pipeline-chart.tsx` - Fixed ResponsiveContainer
+- `/etc/cloudflared/config.yml` - Added hamees.gagneet.com ingress (system file)
+
+**System Configuration Changes:**
+- Cloudflare tunnel service restarted with new configuration
+- PM2 process list saved for auto-restart persistence
+
+**User Impact:**
+- ✅ Site now accessible at https://hamees.gagneet.com
+- ✅ No port conflicts with other applications
+- ✅ Improved chart rendering performance
+- ✅ Better font loading experience
+- ✅ Stable PM2 process management
+
+**Lessons Learned:**
+1. **Always check which config file a service uses** - Cloudflared reads from `/etc/cloudflared/config.yml`, not `~/.cloudflared/config.yml`
+2. **PM2 fork mode is more reliable for Next.js 16** - Cluster mode can cause monitoring issues
+3. **ResponsiveContainer needs explicit height** - Wrap in fixed-height div to prevent hydration warnings
+4. **Font display:swap improves performance** - Prevents Flash of Invisible Text (FOIT)
+5. **Verify all layers of the stack** - Application → Nginx → Cloudflare Tunnel → Cloudflare DNS
+
+**Testing:**
+```bash
+# Full stack test
+1. Local app: curl http://localhost:3009 → 200 OK ✅
+2. Nginx: curl -H "Host: hamees.gagneet.com" http://localhost → 200 OK ✅
+3. Cloudflare: curl https://hamees.gagneet.com → 200 OK ✅
+4. PM2: pm2 status → hamees-inventory online ✅
+5. All other apps: pm2 status → all online ✅
+```
+
+**Build & Deployment:**
+- Build time: 33.6 seconds
+- Zero TypeScript errors
+- Zero hydration warnings
+- PM2 restart: ✅ Successful
+- Cloudflare tunnel: ✅ Active (4 connections)
+- Production: ✅ Live at https://hamees.gagneet.com
+
+**Documentation:** This section in CLAUDE.md + deployment guide in memory
+
+---
+
 ### ✅ Next.js 16 Viewport Metadata Fix (v0.29.3)
 
 **What's New:**
