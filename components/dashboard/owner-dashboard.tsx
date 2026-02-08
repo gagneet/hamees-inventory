@@ -401,8 +401,9 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
           <CardContent>
             {stats.revenueByFabric.length > 0 ? (
               <>
-                <ResponsiveContainer width="100%" height={350}>
-                  <PieChart>
+                <div className="w-full h-[350px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
                     <Pie
                       data={stats.revenueByFabric}
                       cx="50%"
@@ -450,8 +451,9 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
                         return `${payload.name} (${payload.color})`
                       }}
                     />
-                  </PieChart>
-                </ResponsiveContainer>
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
                 <p className="text-xs text-center text-slate-500 mt-2">
                   Click on any fabric slice to view orders using that fabric
                 </p>
@@ -512,8 +514,9 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
             {generalStats.inventory.totalItems > 0 ? (
               <div className="space-y-2">
                 <p className="text-xs text-slate-500">Click on a segment to view details</p>
-                <ResponsiveContainer width="100%" height={200}>
-                  <PieChart>
+                <div className="w-full h-[200px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
                     <Pie
                       data={[
                         {
@@ -584,7 +587,8 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
-              ) : (
+              </div>
+            ) : (
                 <div className="h-[200px] flex items-center justify-center text-slate-500">
                   <p>No inventory data available</p>
                 </div>

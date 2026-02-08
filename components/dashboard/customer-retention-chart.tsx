@@ -63,8 +63,9 @@ export function CustomerRetentionChart({ newCustomers, returningCustomers }: Cus
 
   return (
     <div className="flex flex-col items-center">
-      <ResponsiveContainer width="100%" height={250}>
-        <PieChart>
+      <div className="w-full h-[250px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
           <Pie
             data={data}
             cx="50%"
@@ -101,7 +102,8 @@ export function CustomerRetentionChart({ newCustomers, returningCustomers }: Cus
             )}
           />
         </PieChart>
-      </ResponsiveContainer>
+        </ResponsiveContainer>
+      </div>
       <p className="text-xs text-center text-slate-500 mt-2">
         Click on "Returning Customers" to view details
       </p>

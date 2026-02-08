@@ -102,8 +102,9 @@ export function GarmentTypeRevenueChart({ data }: GarmentTypeRevenueChartProps) 
 
   return (
     <div className="w-full">
-      <ResponsiveContainer width="100%" height={350}>
-        <PieChart>
+      <div className="w-full h-[350px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
           <Pie
             data={chartData}
             cx="50%"
@@ -163,7 +164,8 @@ export function GarmentTypeRevenueChart({ data }: GarmentTypeRevenueChartProps) 
             }}
           />
         </PieChart>
-      </ResponsiveContainer>
+        </ResponsiveContainer>
+      </div>
       <p className="text-xs text-center text-slate-500 mt-2">
         Click on any segment to view orders for that garment type
       </p>

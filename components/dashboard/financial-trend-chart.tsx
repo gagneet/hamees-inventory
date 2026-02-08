@@ -50,8 +50,9 @@ export function FinancialTrendChart({ data }: FinancialTrendChartProps) {
 
   return (
     <div className="w-full">
-      <ResponsiveContainer width="100%" height={350}>
-        <ComposedChart
+      <div className="w-full h-[350px]">
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart
           data={data}
           margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
           onClick={handleClick}
@@ -139,9 +140,10 @@ export function FinancialTrendChart({ data }: FinancialTrendChartProps) {
           name="Expenses"
           strokeDasharray="5 5"
         />
-      </ComposedChart>
-    </ResponsiveContainer>
-    <p className="text-xs text-center text-slate-500 mt-2">
+        </ComposedChart>
+        </ResponsiveContainer>
+      </div>
+      <p className="text-xs text-center text-slate-500 mt-2">
       Click on any month point to view orders from that period
     </p>
   </div>

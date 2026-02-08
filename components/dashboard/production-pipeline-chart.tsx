@@ -44,8 +44,9 @@ export function ProductionPipelineChart({ data }: ProductionPipelineChartProps) 
   }))
 
   return (
-    <ResponsiveContainer width="100%" height={350}>
-      <BarChart
+    <div className="w-full h-[350px]">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
         data={chartData}
         layout="vertical"
         margin={{ top: 5, right: 30, left: 120, bottom: 5 }}
@@ -71,6 +72,7 @@ export function ProductionPipelineChart({ data }: ProductionPipelineChartProps) 
           ))}
         </Bar>
       </BarChart>
-    </ResponsiveContainer>
+      </ResponsiveContainer>
+    </div>
   )
 }
