@@ -8,11 +8,13 @@ import { SessionProvider } from "@/components/providers/session-provider";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  display: "swap", // Reduces preload warning
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  display: "swap", // Reduces preload warning
 });
 
 export const metadata: Metadata = {
