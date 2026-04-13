@@ -60,11 +60,13 @@ log "Step 2/6: Generating Prisma client..."
 pnpm exec prisma generate 2>&1 | tail -3
 success "Prisma client generated"
 
-# ── Step 3: Run database migrations ──────────────────────────────────────────
-log "Step 3/6: Applying database schema..."
-# Using db push (not migrate dev) as the project uses push-based schema management
-pnpm exec prisma db push --skip-generate 2>&1 | tail -5
-success "Database schema up to date"
+# ── Step 3: Validate database schema ─────────────────────────────────────────
+log "Step 3/6: Validating Prisma schema..."
+# We use 'prisma validate' only — actual schema changes (db push) should be
+# done manually with review before a deploy, not automatically on every deploy.
+# This prevents accidental data loss from schema drift.
+pnpm exec prisma validate 2>&1 | tail -3
+success "Prisma schema valid"
 
 # ── Step 4: Build the application ────────────────────────────────────────────
 log "Step 4/6: Building application (this takes ~35 seconds)..."

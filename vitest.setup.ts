@@ -4,7 +4,7 @@ import { vi } from 'vitest'
 process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://hamees_user@/tailor_inventory?host=/var/run/postgresql'
 process.env.NEXTAUTH_URL = process.env.NEXTAUTH_URL || 'http://localhost:3009'
 process.env.NEXTAUTH_SECRET = process.env.NEXTAUTH_SECRET || 'test-secret-for-vitest-only-not-production'
-process.env.NODE_ENV = 'test'
+// NODE_ENV is read-only in TypeScript strict types; Vitest sets it to 'test' automatically
 
 // Mock next/server primitives that are not available in Node test environment
 vi.mock('next/server', async () => {
