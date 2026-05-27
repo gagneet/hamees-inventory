@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyExcelApiKey } from '@/lib/excel-api-auth'
 import { generateOrderNumber } from '@/lib/utils'
+import { BodyType } from '@/lib/types'
 import { z } from 'zod'
 
 /**
@@ -22,7 +23,7 @@ import { z } from 'zod'
  *   7. Return { orderId, orderNumber, customerId }
  *
  * @reads ClothInventory, GarmentPattern, Customer
- * @writes Customer, Measurement, Order, OrderItem, StockMovement, PaymentInstallment
+ * @writes Customer, Measurement, Order, OrderItem, StockMovement
  */
 
 // ── Request schema ────────────────────────────────────────────────
@@ -83,6 +84,17 @@ const MEASUREMENT_KEYS = [
   'inseam','outseam','thigh','knee','bottomOpening','jacketLength','lapelWidth',
   'bicep','cuff','armCircumference','crossChest','backLength','seat','rise','elbow',
 ] as const
+
+function resolveBodyType(value?: string | null): BodyType | null {
+  if (!value) return null
+  const normalized = value.trim().toUpperCase()
+  if (normalized === 'NORMAL' || normalized === 'MEDIUM') return BodyType.REGULAR
+  if (normalized === BodyType.SLIM) return BodyType.SLIM
+  if (normalized === BodyType.REGULAR) return BodyType.REGULAR
+  if (normalized === BodyType.LARGE) return BodyType.LARGE
+  if (normalized === BodyType.XL) return BodyType.XL
+  return null
+}
 
 export async function POST(request: Request) {
   // ── Auth ──────────────────────────────────────────────────────
@@ -147,6 +159,9 @@ export async function POST(request: Request) {
         id: true,
         name: true,
         baseMeters: true,
+        slimAdjustment: true,
+        largeAdjustment: true,
+        xlAdjustment: true,
         basicStitchingCharge: true,
         accessories: {
           include: { accessory: true },
@@ -161,38 +176,52 @@ export async function POST(request: Request) {
       )
     }
 
+    const bodyTypeValue = data.bodyType ?? resolveBodyType(data.preferredFit) ?? BodyType.REGULAR
+    let bodyTypeAdjustment = 0
+    if (bodyTypeValue === BodyType.SLIM) bodyTypeAdjustment = garmentPattern.slimAdjustment
+    if (bodyTypeValue === BodyType.LARGE) bodyTypeAdjustment = garmentPattern.largeAdjustment
+    if (bodyTypeValue === BodyType.XL) bodyTypeAdjustment = garmentPattern.xlAdjustment
+
+    const estimatedMeters = (garmentPattern.baseMeters ?? 2.5) + bodyTypeAdjustment
+    const requiredMeters = estimatedMeters * data.quantity
+
     // ── 3. Cloth inventory lookup ─────────────────────────────
     let clothInventory = null
     if (data.fabricName) {
-      clothInventory = await prisma.clothInventory.findFirst({
+      const exactMatches = await prisma.clothInventory.findMany({
         where: {
           name: { contains: data.fabricName, mode: 'insensitive' },
           ...(data.fabricColor ? { color: { contains: data.fabricColor, mode: 'insensitive' } } : {}),
           active: true,
         },
+        orderBy: { currentStock: 'desc' },
       })
+      clothInventory = exactMatches.find(c => (c.currentStock - c.reserved) >= requiredMeters) ?? null
       // Fallback: match by name only (ignore color)
       if (!clothInventory && data.fabricColor) {
-        clothInventory = await prisma.clothInventory.findFirst({
+        const nameMatches = await prisma.clothInventory.findMany({
           where: {
             name: { contains: data.fabricName, mode: 'insensitive' },
             active: true,
           },
+          orderBy: { currentStock: 'desc' },
         })
+        clothInventory = nameMatches.find(c => (c.currentStock - c.reserved) >= requiredMeters) ?? null
       }
     }
 
-    // If no fabric matched, use any active cloth (staff can correct in the web app)
+    // If no fabric matched, use any active cloth with sufficient available stock
     if (!clothInventory) {
-      clothInventory = await prisma.clothInventory.findFirst({
+      const fallbackStock = await prisma.clothInventory.findMany({
         where: { active: true, currentStock: { gt: 0 } },
         orderBy: { currentStock: 'desc' },
       })
+      clothInventory = fallbackStock.find(c => (c.currentStock - c.reserved) >= requiredMeters) ?? null
     }
 
     if (!clothInventory) {
       return NextResponse.json(
-        { error: 'No cloth inventory items are available. Please add fabric stock to the system first.' },
+        { error: 'No cloth inventory items have sufficient available stock for this order.' },
         { status: 422 }
       )
     }
@@ -204,27 +233,14 @@ export async function POST(request: Request) {
       measurementFields[key] = val ?? null
     }
 
-    // ── 5. Create measurement ─────────────────────────────────
-    const measurement = await prisma.measurement.create({
-      data: {
-        customerId: customer.id,
-        garmentType: garmentPattern.name,
-        bodyType: (data.bodyType ?? data.preferredFit as any) ?? 'REGULAR',
-        ...measurementFields,
-        notes: data.measurementNotes || null,
-        isActive: true,
-      },
-    })
-
-    // ── 6. Create Order + OrderItem ───────────────────────────
+    // ── 5. Create Order + OrderItem ───────────────────────────
     // gstRate stored as a percentage integer (12) to match the main orders route convention.
     // OrderItem has no fabricCost/stitchingCost columns — those are Order-level fields.
     // advancePaid is stored in Order.advancePaid only — no PaymentInstallment created
     // (same behaviour as the main orders route; balance payments use PaymentInstallment).
     const deliveryDate = new Date(data.deliveryDate)
-    const estimatedMeters = garmentPattern.baseMeters ?? 2.5
-    const fabricCostVal = clothInventory.pricePerMeter * estimatedMeters * data.quantity
-    const stitchingCostVal = garmentPattern.basicStitchingCharge ?? 0
+    const fabricCostVal = clothInventory.pricePerMeter * requiredMeters
+    const stitchingCostVal = (garmentPattern.basicStitchingCharge ?? 0) * data.quantity
     const totalItemCost = fabricCostVal + stitchingCostVal
     const gstRate = 12                                          // stored as percentage (12%), matches main route
     const subTotal = parseFloat(totalItemCost.toFixed(2))
@@ -235,23 +251,24 @@ export async function POST(request: Request) {
     const advancePaid = data.advancePaid ?? 0
     const balanceAmount = parseFloat((totalAmount - advancePaid).toFixed(2))
     const orderNumber = await generateOrderNumber()
+    const availableStock = clothInventory.currentStock - clothInventory.reserved
+
+    if (availableStock < requiredMeters) {
+      return NextResponse.json(
+        { error: `Insufficient fabric stock. Available: ${availableStock.toFixed(2)}m, Required: ${requiredMeters.toFixed(2)}m` },
+        { status: 422 }
+      )
+    }
 
     const order = await prisma.$transaction(async (tx) => {
-      // Reserve fabric stock
-      await tx.clothInventory.update({
-        where: { id: clothInventory!.id },
-        data: { reserved: { increment: estimatedMeters * data.quantity } },
-      })
-
-      // Create stock movement
-      await tx.stockMovement.create({
+      const measurement = await tx.measurement.create({
         data: {
-          clothInventoryId: clothInventory!.id,
-          userId: systemUserId,
-          type: 'ORDER_RESERVED',
-          quantityMeters: -(estimatedMeters * data.quantity),
-          balanceAfterMeters: clothInventory!.currentStock - estimatedMeters * data.quantity,
-          notes: `Reserved for order ${orderNumber} (via Excel)`,
+          customerId: customer.id,
+          garmentType: garmentPattern.name,
+          bodyType: bodyTypeValue,
+          ...measurementFields,
+          notes: data.measurementNotes || null,
+          isActive: true,
         },
       })
 
@@ -283,9 +300,9 @@ export async function POST(request: Request) {
               garmentPatternId: garmentPattern.id,
               clothInventoryId: clothInventory!.id,
               measurementId: measurement.id,
-              bodyType: (data.bodyType ?? data.preferredFit as any) ?? 'REGULAR',
+              bodyType: bodyTypeValue,
               quantityOrdered: data.quantity,
-              estimatedMeters,
+              estimatedMeters: requiredMeters,
               pricePerUnit: totalItemCost / data.quantity,  // required on OrderItem
               totalPrice: totalItemCost,
             },
@@ -294,6 +311,30 @@ export async function POST(request: Request) {
         include: {
           items: true,
           customer: { select: { id: true, name: true, phone: true } },
+        },
+      })
+
+      // Reserve fabric stock
+      await tx.clothInventory.update({
+        where: { id: clothInventory!.id },
+        data: { reserved: { increment: requiredMeters } },
+      })
+
+      const updatedInventory = await tx.clothInventory.findUnique({
+        where: { id: clothInventory!.id },
+        select: { currentStock: true },
+      })
+
+      // Create stock movement
+      await tx.stockMovement.create({
+        data: {
+          clothInventoryId: clothInventory!.id,
+          orderId: newOrder.id,
+          userId: systemUserId,
+          type: 'ORDER_RESERVED',
+          quantityMeters: -requiredMeters,
+          balanceAfterMeters: (updatedInventory?.currentStock ?? 0) - requiredMeters,
+          notes: `Reserved for order ${orderNumber} (via Excel)`,
         },
       })
 
@@ -328,7 +369,7 @@ export async function POST(request: Request) {
 }
 
 /**
- * GET /api/excel/status — health check & lookup endpoint for the VBA macro.
+ * GET /api/excel/submit-order — health check & lookup endpoint for the VBA macro.
  * Returns lists of active garment patterns and cloth inventory for populating dropdowns.
  */
 export async function GET(request: Request) {

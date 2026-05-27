@@ -469,7 +469,7 @@ app/(dashboard)/orders/[id]/page.tsx  ← Server Component
         ├── components/orders/order-item-measurements.tsx → (inline collapsible panel; props only)
         │     Phase 2: 22 measurement fields in 4 groups (Upper Body / Arms / Lengths / Lower Body)
         │     Collapsed for managers, expanded for tailors
-        ├── components/orders/edit-measurement-dialog.tsx→ PATCH /api/measurements/[id]
+        ├── components/orders/edit-measurement-dialog.tsx→ PATCH /api/customers/[id]/measurements/[measurementId]
         │     Phase 2: data-driven FIELD_SECTIONS, garment-type-aware field visibility
         ├── components/orders/order-item-detail-dialog.tsx→ (data from page props)
         ├── components/orders/assign-tailor-dialog.tsx   → PATCH /api/orders/[id]/items/[itemId]

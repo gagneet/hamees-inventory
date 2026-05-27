@@ -200,11 +200,17 @@ export async function GET(request: Request) {
       }
     }
 
+    const whereWithoutStatus = { ...where }
+    if (status && isOverdue !== 'true') {
+      delete whereWithoutStatus.status
+    }
+
     // Parallelize count, status-counts, and fetch queries
     const [totalItems, statusCountsRaw, orders] = await Promise.all([
       prisma.order.count({ where }),
       // Always group by status (ignoring the status filter) so tabs show global counts
       prisma.order.groupBy({
+        where: whereWithoutStatus,
         by: ['status'],
         _count: { _all: true },
       }),
