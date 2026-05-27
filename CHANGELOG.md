@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.30.0] - 2026-05-27
+
+### Added
+- **Test suite expansion** — 135 new unit tests across 4 new test files, bringing total to 448 tests (12 test files)
+  - `tests/unit/lib/gst-utils.test.ts` (55 tests) — Full coverage of `lib/gst-utils.ts`: `calculateSalesGST`, `calculatePurchaseGST`, `calculateExpenseGST`, `calculateGSTLiability`, `getTextileGSTRate`, `validateGSTIN`, `formatGSTAmount`, `getGSTBreakdown`, `reverseGSTCalculation`
+  - `tests/unit/lib/excel-api-auth.test.ts` (14 tests) — Covers `verifyExcelApiKey` auth branches: missing env var (503), missing header (401), wrong key (401), correct key (ok), constant-time SHA-256 safety
+  - `tests/unit/api/customers.test.ts` (29 tests) — Customer schema validation, email format rules, pagination logic, OR search filter construction, response shape
+  - `tests/unit/api/purchase-orders.test.ts` (37 tests) — PO schema validation, item total/PO total calculations, PO number generation, GET filter construction, response shape
+
+### Changed
+- **`.gitignore`** — Added `/exports/` and `/logs/` to prevent historical xlsx exports and PM2 log files from being tracked
+
+### Removed
+- **`exports/`** — Removed 3 historical xlsx inventory exports (Jan 2026) from git tracking
+- **`hamees_orders_template.xlsm`** — Removed Excel VBA order template (superseded by API-based submission)
+
 ### ✅ Production Deployment & 404 Fix (v0.29.4)
 
 **What's New:**
