@@ -27,6 +27,7 @@ import { EditMeasurementDialog } from '@/components/orders/edit-measurement-dial
 import { OrderItemDetailDialog } from '@/components/orders/order-item-detail-dialog'
 import { AssignTailorDialog } from '@/components/orders/assign-tailor-dialog'
 import { SendWhatsAppButton } from '@/components/orders/send-whatsapp-button'
+import { OrderItemMeasurements } from '@/components/orders/order-item-measurements'
 
 async function getOrderDetails(id: string) {
   try {
@@ -447,72 +448,26 @@ export default async function OrderDetailPage({
                         </div>
                       )}
 
-                      {/* Measurement Information */}
-                      {item.measurement && (
-                        <div className="mt-3 pt-3 border-t border-slate-200">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Ruler className="h-4 w-4 text-primary" />
-                                <span className="text-sm font-medium text-slate-900">
-                                  Measurements: {item.measurement.garmentType}
-                                </span>
-                              </div>
-                              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 text-xs">
-                                {item.measurement.chest && (
-                                  <div>
-                                    <span className="text-slate-500">Chest:</span>{' '}
-                                    <span className="font-medium">{item.measurement.chest} cm</span>
-                                  </div>
-                                )}
-                                {item.measurement.waist && (
-                                  <div>
-                                    <span className="text-slate-500">Waist:</span>{' '}
-                                    <span className="font-medium">{item.measurement.waist} cm</span>
-                                  </div>
-                                )}
-                                {item.measurement.shoulder && (
-                                  <div>
-                                    <span className="text-slate-500">Shoulder:</span>{' '}
-                                    <span className="font-medium">{item.measurement.shoulder} cm</span>
-                                  </div>
-                                )}
-                                {item.measurement.sleeveLength && (
-                                  <div>
-                                    <span className="text-slate-500">Sleeve:</span>{' '}
-                                    <span className="font-medium">{item.measurement.sleeveLength} cm</span>
-                                  </div>
-                                )}
-                                {item.measurement.inseam && (
-                                  <div>
-                                    <span className="text-slate-500">Inseam:</span>{' '}
-                                    <span className="font-medium">{item.measurement.inseam} cm</span>
-                                  </div>
-                                )}
-                                {item.measurement.hip && (
-                                  <div>
-                                    <span className="text-slate-500">Hip:</span>{' '}
-                                    <span className="font-medium">{item.measurement.hip} cm</span>
-                                  </div>
-                                )}
-                              </div>
-                              {item.measurement.createdBy && (
-                                <p className="text-xs text-slate-500 mt-2">
-                                  Measured by: {item.measurement.createdBy.name}
-                                </p>
-                              )}
-                            </div>
-                            <EditMeasurementDialog
-                              customerId={order.customer.id}
-                              measurement={item.measurement}
-                              triggerButton={
-                                <Button variant="ghost" size="sm" className="ml-2">
-                                  <Ruler className="h-4 w-4 mr-1" />
-                                  Edit
-                                </Button>
-                              }
-                            />
-                          </div>
+                      {/* Measurement Information — collapsible panel; always shown (warns if missing) */}
+                      <OrderItemMeasurements
+                        measurement={item.measurement}
+                        garmentType={item.garmentPattern.name}
+                        canManage={!isTailor}
+                        defaultExpanded={isTailor}
+                      />
+                      {/* Edit measurements button — managers / admins only */}
+                      {!isTailor && item.measurement && (
+                        <div className="mt-1 flex justify-end">
+                          <EditMeasurementDialog
+                            customerId={order.customer.id}
+                            measurement={item.measurement}
+                            triggerButton={
+                              <Button variant="ghost" size="sm" className="text-xs text-slate-500 hover:text-slate-700">
+                                <Ruler className="h-3 w-3 mr-1" />
+                                Edit measurements
+                              </Button>
+                            }
+                          />
                         </div>
                       )}
                     </div>
