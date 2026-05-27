@@ -5,8 +5,9 @@
  *   orders and passes them to the TailorKanban client component.
  *   Tailors can advance any order to its next production status with one click.
  *
- * @access update_order_status permission required (OWNER, ADMIN, SALES_MANAGER, TAILOR)
+ * @access view_orders permission required — all roles with view_orders can access this page
  *         VIEWER may access with view_orders but canAdvance=false
+ *         update_order_status permission enables one-click status advance (canAdvance=true)
  *
  * @reads  Order (status, priority, deliveryDate) + customer + items (garmentPattern, clothInventory)
  * @calls  TailorKanban — client component for one-click status updates

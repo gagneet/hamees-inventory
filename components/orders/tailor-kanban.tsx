@@ -144,6 +144,9 @@ function DeliveryBadge({ deliveryDate }: { deliveryDate: string | Date }) {
     days === 1 ? 'Due tomorrow' :
     `${days}d left`
 
+  // Use Clock for time-sensitive (≤1 day) cases; CalendarDays for future dates
+  const Icon = days <= 1 ? Clock : CalendarDays
+
   return (
     <span className={cn(
       'inline-flex items-center gap-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded-full',
@@ -152,7 +155,7 @@ function DeliveryBadge({ deliveryDate }: { deliveryDate: string | Date }) {
       days === 1 ? 'bg-orange-100 text-orange-700' :
                    'bg-slate-100 text-slate-600'
     )}>
-      <CalendarDays className="h-2.5 w-2.5" />
+      <Icon className="h-2.5 w-2.5" />
       {label}
     </span>
   )
@@ -180,11 +183,14 @@ function OrderCard({
   const isUrgent = order.priority === 'URGENT' || days <= 1
 
   return (
-    <div className={cn(
-      'bg-white rounded-lg border shadow-sm hover:shadow-md transition-shadow',
-      isUrgent && 'border-red-300 ring-1 ring-red-200',
-    )}>
-      <div className="p-3 space-y-2">
+    <Card
+      className={cn(
+        'shadow-sm hover:shadow-md transition-shadow',
+        isUrgent && 'border-red-300 ring-1 ring-red-200',
+      )}
+      aria-label={`Order ${order.orderNumber} — ${garmentNames}`}
+    >
+      <CardContent className="p-3 space-y-2">
         {/* Order number + customer */}
         <div className="flex items-start justify-between gap-1">
           <Link
@@ -206,7 +212,7 @@ function OrderCard({
         <p className="text-xs text-slate-600 truncate">{order.customer.name}</p>
 
         {/* Garment items */}
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1" title={garmentNames}>
           {order.items.map(item => (
             <span
               key={item.id}
@@ -233,7 +239,7 @@ function OrderCard({
             👤 {order.assignedTailor.name}
           </p>
         )}
-      </div>
+      </CardContent>
 
       {/* Advance button */}
       {canAdvance && nextStatus && nextLabel && (
@@ -253,7 +259,7 @@ function OrderCard({
           </Button>
         </div>
       )}
-    </div>
+    </Card>
   )
 }
 

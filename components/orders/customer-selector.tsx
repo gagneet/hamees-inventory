@@ -16,7 +16,7 @@
  * @props onNewCustomer   — callback when inline mini-form is submitted (adds new customer to list)
  */
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Combobox } from '@/components/ui/combobox'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -68,7 +68,9 @@ interface CustomerSelectorProps {
   value: string
   onSelect: (customerId: string) => void
   onRepeatOrder: (data: RepeatOrderData) => void
-  onNewCustomer: (customer: CustomerSummary) => void
+  /** Optional — if not provided, the "Add new customer" action is hidden (use when
+   *  the current user lacks the `manage_customers` permission). */
+  onNewCustomer?: (customer: CustomerSummary) => void
 }
 
 // ── Inline mini-form for creating a new customer ──────────────────
@@ -292,18 +294,25 @@ export function CustomerSelector({
     sublabel: c.phone,
   }))
 
-  // Fetch customer detail (last order + measurements) when a customer is selected
-  const handleSelect = async (customerId: string) => {
-    onSelect(customerId)
-    setCustomerDetail(null)
-    if (!customerId) return
+  // Load customer details whenever value changes (handles both user selection and
+  // external pre-population e.g. /orders/new?customerId=...)
+  useEffect(() => {
+    if (!value) {
+      setCustomerDetail(null)
+      return
+    }
+    // Skip if we already have up-to-date details for this customer
+    if (customerDetail?.id === value) return
+
+    let cancelled = false
     setLoadingDetail(true)
-    try {
-      const res = await fetch(`/api/customers/${customerId}`, { credentials: 'include' })
-      if (res.ok) {
-        const data = await res.json()
+    setCustomerDetail(null)
+
+    fetch(`/api/customers/${value}`, { credentials: 'include' })
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => {
+        if (cancelled || !data) return
         const customer = data.customer
-        // Build last order summary
         const lastOrder = customer.orders?.[0]
           ? {
               orderNumber: customer.orders[0].orderNumber,
@@ -311,16 +320,20 @@ export function CustomerSelector({
               deliveryDate: customer.orders[0].deliveryDate,
             }
           : null
-        // Measurement types on file
         const measurementTypes = customer.measurements?.map((m: any) => m.garmentType) ?? []
-        setCustomerDetail({
-          ...customer,
-          lastOrder,
-          measurementTypes,
-        })
-      }
-    } catch { /* ignore — customer card is optional */ }
-    finally { setLoadingDetail(false) }
+        setCustomerDetail({ ...customer, lastOrder, measurementTypes })
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoadingDetail(false) })
+
+    return () => { cancelled = true }
+  // customerDetail intentionally excluded to avoid a feedback loop
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value])
+
+  const handleSelect = (customerId: string) => {
+    onSelect(customerId)
+    // Detail loading is handled by the useEffect above
   }
 
   // Fetch the full last-order data and pass it back to the parent form
@@ -366,12 +379,12 @@ export function CustomerSelector({
         onSelect={handleSelect}
         placeholder="Search by name or phone…"
         emptyMessage="No matching customers"
-        onAddNew={() => setShowNewForm(true)}
+        onAddNew={onNewCustomer ? () => setShowNewForm(true) : undefined}
         onAddNewLabel="Add new customer"
       />
 
-      {/* Inline new-customer mini-form */}
-      {showNewForm && (
+      {/* Inline new-customer mini-form — only shown when onNewCustomer is provided */}
+      {showNewForm && onNewCustomer && (
         <InlineNewCustomerForm
           onSave={(newCustomer) => {
             onNewCustomer(newCustomer)

@@ -22,6 +22,7 @@
 
 import { useCallback, useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -37,6 +38,8 @@ import {
 import { Home, ArrowLeft, Plus, Trash2, AlertCircle, User, Package, DollarSign, RefreshCw } from 'lucide-react'
 import { CustomerSelector, type CustomerSummary, type RepeatOrderData } from '@/components/orders/customer-selector'
 import { Combobox } from '@/components/ui/combobox'
+import { hasPermission } from '@/lib/permissions'
+import type { UserRole } from '@/lib/permissions'
 
 type Customer = {
   id: string
@@ -109,6 +112,13 @@ function NewOrderForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const preselectedCustomerId = searchParams.get('customerId')
+  const { data: session } = useSession()
+
+  // Only roles with manage_customers can create customers inline
+  const canManageCustomers = hasPermission(
+    (session?.user?.role as UserRole) ?? 'VIEWER',
+    'manage_customers'
+  )
 
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
@@ -776,7 +786,32 @@ function NewOrderForm() {
             </p>
             <button
               type="button"
-              onClick={() => { setRepeatOrderSource(null); setItems([]); setStep(1) }}
+              onClick={() => {
+                // Reset repeat-order state
+                setRepeatOrderSource(null)
+                setItems([])
+                // Reset all pricing / premium fields to their defaults
+                setStitchingTier('BASIC')
+                setFabricWastagePercent(0)
+                setDesignerConsultationFee(0)
+                setIsHandStitched(false)
+                setIsFullCanvas(false)
+                setIsRushOrder(false)
+                setHasComplexDesign(false)
+                setAdditionalFittings(0)
+                setHasPremiumLining(false)
+                setIsFabricCostOverridden(false)
+                setFabricCostOverride(null)
+                setFabricCostOverrideReason('')
+                setIsStitchingCostOverridden(false)
+                setStitchingCostOverride(null)
+                setStitchingCostOverrideReason('')
+                setIsAccessoriesCostOverridden(false)
+                setAccessoriesCostOverride(null)
+                setAccessoriesCostOverrideReason('')
+                setPricingNotes('')
+                setStep(1)
+              }}
               className="text-amber-500 hover:text-amber-700 text-xs font-medium"
             >
               Start fresh
@@ -823,9 +858,9 @@ function NewOrderForm() {
                     value={customerId}
                     onSelect={setCustomerId}
                     onRepeatOrder={applyRepeatOrder}
-                    onNewCustomer={(newCustomer) => {
+                    onNewCustomer={canManageCustomers ? (newCustomer) => {
                       setCustomers(prev => [newCustomer, ...prev])
-                    }}
+                    } : undefined}
                   />
                 </div>
 

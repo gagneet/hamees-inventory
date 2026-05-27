@@ -7,9 +7,9 @@
  *   Tailors no longer need to navigate away to the customer profile to find measurements.
  *
  * @props measurement — the Measurement record linked to this OrderItem (may be null)
- * @props garmentType — display name of the garment (e.g. "Sherwani")
- * @props orderId — for linking to the edit-measurement dialog
- * @props orderItemId — used by the edit dialog
+ * @props garmentType — display name of the garment (e.g. "Sherwani"); shown in the panel header
+ * @props orderId — order ID, used when constructing action links (optional)
+ * @props orderItemId — order item ID, used when constructing action links (optional)
  * @props canManage — whether the current user can edit measurements (manage_measurements permission)
  *
  * @reads Measurement (passed as props from the server-rendered order detail page)
@@ -75,6 +75,10 @@ interface Measurement {
 interface OrderItemMeasurementsProps {
   measurement: Measurement | null | undefined
   garmentType: string
+  /** Order ID — used when constructing action links for managers */
+  orderId?: string
+  /** Order item ID — used when constructing action links for managers */
+  orderItemId?: string
   canManage?: boolean
   /** Set to true to start expanded (default: collapsed) */
   defaultExpanded?: boolean
@@ -83,6 +87,8 @@ interface OrderItemMeasurementsProps {
 export function OrderItemMeasurements({
   measurement,
   garmentType,
+  orderId,
+  orderItemId,
   canManage = false,
   defaultExpanded = false,
 }: OrderItemMeasurementsProps) {
@@ -91,12 +97,33 @@ export function OrderItemMeasurements({
   // ── Missing measurements warning ──────────────────────────────
   if (!measurement) {
     return (
-      <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-lg border border-red-200 bg-red-50 text-sm">
+      <div className="mt-3 flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg border border-red-200 bg-red-50 text-sm">
         <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
-        <span className="text-red-700 font-medium">Measurements missing</span>
-        <span className="text-red-600 text-xs">
-          — Add measurements from the customer profile before cutting.
+        <span className="text-red-700 font-medium">
+          {garmentType} — measurements missing
         </span>
+        {canManage ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="ml-auto h-6 text-xs border-red-300 text-red-700 hover:bg-red-100"
+            onClick={() => {
+              // Scroll to or highlight the edit measurements section;
+              // orderId / orderItemId are available for callers to wire up a dialog
+              const target = orderId
+                ? document.getElementById(`measurements-edit-${orderItemId ?? orderId}`)
+                : null
+              target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            }}
+          >
+            Manage measurements
+          </Button>
+        ) : (
+          <span className="text-red-600 text-xs">
+            — Add measurements from the customer profile before cutting.
+          </span>
+        )}
       </div>
     )
   }
@@ -104,7 +131,11 @@ export function OrderItemMeasurements({
   const populatedFields = getPopulatedFields(measurement as Record<string, any>)
 
   return (
-    <div className="mt-3 border border-slate-200 rounded-lg overflow-hidden">
+    <div
+      className="mt-3 border border-slate-200 rounded-lg overflow-hidden"
+      data-order-id={orderId}
+      data-order-item-id={orderItemId}
+    >
       {/* Toggle header */}
       <button
         type="button"
@@ -116,7 +147,9 @@ export function OrderItemMeasurements({
       >
         <span className="flex items-center gap-2 text-slate-700">
           <Ruler className="h-4 w-4 text-slate-500" />
-          Measurements
+          <span className="font-semibold">{garmentType}</span>
+          <span className="text-slate-400">·</span>
+          <span>Measurements</span>
           {measurement.bodyType && (
             <Badge variant="outline" className="text-[10px] py-0 border-slate-300 text-slate-500 ml-1">
               {measurement.bodyType}

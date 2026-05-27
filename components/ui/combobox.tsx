@@ -127,12 +127,12 @@ export function Combobox({
         </div>
 
         {/* Options list */}
-        <ul className="max-h-64 overflow-y-auto py-1">
+        <ul role="listbox" className="max-h-64 overflow-y-auto py-1">
           {filtered.length === 0 ? (
-            <li className="px-4 py-3 text-sm text-slate-500 text-center">{emptyMessage}</li>
+            <li role="option" aria-selected={false} className="px-4 py-3 text-sm text-slate-500 text-center">{emptyMessage}</li>
           ) : (
             filtered.map(option => (
-              <li key={option.value}>
+              <li key={option.value} role="option" aria-selected={value === option.value}>
                 <button
                   type="button"
                   onClick={() => handleSelect(option.value)}

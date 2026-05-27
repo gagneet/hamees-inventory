@@ -10,7 +10,7 @@
  * @layout DashboardLayout (sidebar present — fixed from standalone header)
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -39,24 +39,22 @@ export default function FinancialReportPage() {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [errorStatus, setErrorStatus] = useState<number | null>(null)
   const [timeRange, setTimeRange] = useState(12)
 
-  useEffect(() => {
-    fetchReport()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeRange])
-
-  const fetchReport = async () => {
+  const fetchReport = useCallback(async () => {
     setLoading(true)
     setError(null)
+    setErrorStatus(null)
     try {
       const response = await fetch(`/api/reports/financial?months=${timeRange}`)
-      const data = await response.json()
-      if (!response.ok || data.error) {
-        setError(data.error || 'Failed to load report')
+      const responseData = await response.json()
+      if (!response.ok || responseData.error) {
+        setErrorStatus(response.status)
+        setError(responseData.error || 'Failed to load report')
         setData(null)
       } else {
-        setData(data)
+        setData(responseData)
       }
     } catch {
       setError('Failed to load report')
@@ -64,7 +62,11 @@ export default function FinancialReportPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [timeRange])
+
+  useEffect(() => {
+    fetchReport()
+  }, [fetchReport])
 
   // ── Loading state ──────────────────────────────────────────────
   if (loading) {
@@ -80,17 +82,27 @@ export default function FinancialReportPage() {
 
   // ── Error / permission denied ──────────────────────────────────
   if (error) {
+    const isAccessDenied = errorStatus === 403
     return (
       <DashboardLayout>
         <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center max-w-lg mx-auto mt-12">
-          <h2 className="text-xl font-bold text-red-900 mb-2">Access Denied</h2>
+          <h2 className="text-xl font-bold text-red-900 mb-2">
+            {isAccessDenied ? 'Access Denied' : 'Failed to Load Report'}
+          </h2>
           <p className="text-red-700">{error}</p>
-          <p className="text-sm text-red-600 mt-2">
-            You need OWNER or ADMIN role to view financial reports.
-          </p>
-          <Link href="/dashboard">
-            <Button variant="outline" className="mt-4">Back to Dashboard</Button>
-          </Link>
+          {isAccessDenied && (
+            <p className="text-sm text-red-600 mt-2">
+              You need OWNER or ADMIN role to view financial reports.
+            </p>
+          )}
+          <div className="flex justify-center gap-2 mt-4">
+            <Link href="/dashboard">
+              <Button variant="outline">Back to Dashboard</Button>
+            </Link>
+            {!isAccessDenied && (
+              <Button onClick={fetchReport}>Retry</Button>
+            )}
+          </div>
         </div>
       </DashboardLayout>
     )
