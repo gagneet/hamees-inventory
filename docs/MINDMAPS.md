@@ -12,10 +12,19 @@ mindmap
   root((Hamees Attire))
     Orders
       List Orders
+        Status Tab Bar with Counts
+        Compact Table View Toggle
         Filter by Status
         Filter by Date
         Search by Customer
         View Arrears
+      Production Board
+        Tailor Kanban
+          5 Status Columns
+          Optimistic UI
+          Delivery Urgency Badges
+          Advance Order Status
+        Route slash orders slash production
       New Order
         Step 1 - Customer
           Select Existing
@@ -41,7 +50,10 @@ mindmap
         Print Invoice
         Send WhatsApp
         Assign Tailor
-        View Measurements
+        Measurements Inline Panel
+          22 Fields Grouped
+          Collapsible
+          Edit Dialog
     Customers
       List Customers
       Add Customer
@@ -100,6 +112,18 @@ mindmap
         Excel Import
         Preview Mode
         Upload History
+    Excel VBA Integration
+      Submit Order from Excel
+        API Key Authentication
+        Customer Upsert by Phone
+        Garment Pattern Lookup
+        Cloth Inventory Lookup
+        22 Measurement Fields
+        Stock Reservation
+      Health Check Endpoint
+        Garment Pattern Dropdown
+        Cloth Inventory Dropdown
+      docs slash excel-vba-module.bas
     Garment Types
       Pattern Templates
         Base Meters
@@ -203,8 +227,25 @@ erDiagram
         float neck
         float chest
         float waist
+        float hip
         float shoulder
+        float crossChest
         float sleeveLength
+        float bicep
+        float elbow
+        float armCircumference
+        float cuff
+        float shirtLength
+        float jacketLength
+        float backLength
+        float lapelWidth
+        float inseam
+        float outseam
+        float thigh
+        float knee
+        float bottomOpening
+        float rise
+        float seat
         string replacesId FK
         boolean isActive
     }
@@ -406,11 +447,16 @@ mindmap
         active
       Measurement
         Per garment type per customer
-        neck chest waist hip shoulder
-        sleeveLength shirtLength inseam
-        jacketLength lapelWidth
+        22 measurement fields
+        Upper Body
+          neck chest waist hip shoulder crossChest
+        Arms
+          sleeveLength bicep elbow armCircumference cuff
+        Lengths
+          shirtLength jacketLength backLength lapelWidth
+        Lower Body
+          inseam outseam thigh knee bottomOpening rise seat
         bodyType SLIM-REGULAR-LARGE-XL
-        additionalMeasurements JSON
         replacesId for version history
         isActive current version flag
     Order Domain
@@ -662,6 +708,15 @@ mindmap
       preview POST
       process POST
       history GET
+    excel
+      submit-order
+        POST - create order from VBA
+          API key auth x-excel-api-key
+          Customer upsert by phone
+          Stock reservation
+        GET - health check
+          Returns garment patterns
+          Returns cloth inventory
     barcode
       generate GET
       label GET
@@ -1480,4 +1535,4 @@ graph TD
 
 *Render these diagrams at https://mermaid.live by pasting any code block.*
 *Or install the Mermaid extension for VS Code: `Markdown Preview Mermaid Support`.*
-*All diagrams reflect codebase state as of May 2026.*
+*All diagrams reflect codebase state as of May 2026 (Phase 2: Excel VBA, Production Board, 22-field measurements, status tab bar).*
