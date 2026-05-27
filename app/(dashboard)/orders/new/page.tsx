@@ -1,7 +1,28 @@
 'use client'
 
+/**
+ * @featuretrace New Order — Multi-step order creation form
+ * @route GET /orders/new
+ * @permission create_order
+ *
+ * Step 1 — Customer selection (CustomerSelector combobox, inline new-customer, repeat-order)
+ * Step 2 — Order items (garment type + fabric + accessories + body type per item)
+ * Step 3 — Pricing details (stitching tier, premiums, overrides, delivery date, advance)
+ *
+ * @calls GET /api/customers          → CustomerSelector options
+ * @calls GET /api/customers/:id      → CustomerSelector profile card (last order + measurements)
+ * @calls GET /api/garment-patterns   → garment dropdown in Step 2
+ * @calls GET /api/inventory/cloth    → fabric dropdown in Step 2
+ * @calls GET /api/inventory/accessories → accessory section in Step 2
+ * @calls GET /api/orders/:id         → repeat-last-order data in CustomerSelector
+ * @calls POST /api/orders            → submits the completed order
+ *
+ * @writes Order, OrderItem, StockMovement, AccessoryStockMovement, OrderHistory (via POST /api/orders)
+ */
+
 import { useCallback, useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -14,7 +35,11 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
-import { Home, ArrowLeft, Plus, Trash2, AlertCircle, User, Package, DollarSign } from 'lucide-react'
+import { Home, ArrowLeft, Plus, Trash2, AlertCircle, User, Package, DollarSign, RefreshCw } from 'lucide-react'
+import { CustomerSelector, type CustomerSummary, type RepeatOrderData } from '@/components/orders/customer-selector'
+import { Combobox } from '@/components/ui/combobox'
+import { hasPermission } from '@/lib/permissions'
+import type { UserRole } from '@/lib/permissions'
 
 type Customer = {
   id: string
@@ -87,6 +112,13 @@ function NewOrderForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const preselectedCustomerId = searchParams.get('customerId')
+  const { data: session } = useSession()
+
+  // Only roles with manage_customers can create customers inline
+  const canManageCustomers = hasPermission(
+    (session?.user?.role as UserRole) ?? 'VIEWER',
+    'manage_customers'
+  )
 
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
@@ -127,8 +159,11 @@ function NewOrderForm() {
 
   const [pricingNotes, setPricingNotes] = useState('')
 
+  // Repeat-order banner — set when user clicks "Repeat this order" in CustomerSelector
+  const [repeatOrderSource, setRepeatOrderSource] = useState<string | null>(null)
+
   // Available data
-  const [customers, setCustomers] = useState<Customer[]>([])
+  const [customers, setCustomers] = useState<CustomerSummary[]>([])
   const [garmentPatterns, setGarmentPatterns] = useState<GarmentPattern[]>([])
   const [clothInventory, setClothInventory] = useState<ClothInventory[]>([])
   const [accessories, setAccessories] = useState<Accessory[]>([])
@@ -219,6 +254,44 @@ function NewOrderForm() {
       loadInitialData()
     }, 0)
   }, [loadInitialData])
+
+  /**
+   * applyRepeatOrder — pre-fills the form from a previous order.
+   * Called by CustomerSelector when the user clicks "Repeat this order".
+   * Moves the form to Step 2 so the user can review/modify items before submitting.
+   */
+  const applyRepeatOrder = (data: RepeatOrderData) => {
+    // Restore all pricing settings from last order
+    setStitchingTier(data.stitchingTier)
+    setIsHandStitched(data.isHandStitched)
+    setIsFullCanvas(data.isFullCanvas)
+    setIsRushOrder(false) // rush never repeats automatically
+    setHasComplexDesign(data.hasComplexDesign)
+    setAdditionalFittings(data.additionalFittings)
+    setHasPremiumLining(data.hasPremiumLining)
+    setFabricWastagePercent(data.fabricWastagePercent)
+    setDesignerConsultationFee(data.designerConsultationFee)
+
+    // Restore order items (accessories come from pattern defaults; let user adjust)
+    const restoredItems: OrderItem[] = data.items.map(item => {
+      const pattern = garmentPatterns.find(p => p.id === item.garmentPatternId)
+      const defaultAccessories = pattern?.accessories?.map(ga => ({
+        accessoryId: ga.accessory.id,
+        quantity: ga.quantityPerGarment,
+      })) ?? []
+      return {
+        garmentPatternId: item.garmentPatternId,
+        clothInventoryId: item.clothInventoryId,
+        quantityOrdered: 1,
+        bodyType: item.bodyType,
+        accessories: defaultAccessories,
+      }
+    })
+    setItems(restoredItems)
+    setRepeatOrderSource(data.sourceOrderNumber)
+    // Jump straight to items review
+    setStep(2)
+  }
 
   const addItem = () => {
     setItems([...items, {
@@ -703,6 +776,49 @@ function NewOrderForm() {
           </div>
         </div>
 
+        {/* Repeat-order banner — shown when user clicked "Repeat this order" */}
+        {repeatOrderSource && (
+          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3">
+            <RefreshCw className="h-4 w-4 text-amber-600 shrink-0" />
+            <p className="text-sm text-amber-800 flex-1">
+              <span className="font-semibold">Repeating order {repeatOrderSource}</span>
+              {' '}— all items and pricing have been pre-filled. Review and adjust as needed.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                // Reset repeat-order state
+                setRepeatOrderSource(null)
+                setItems([])
+                // Reset all pricing / premium fields to their defaults
+                setStitchingTier('BASIC')
+                setFabricWastagePercent(0)
+                setDesignerConsultationFee(0)
+                setIsHandStitched(false)
+                setIsFullCanvas(false)
+                setIsRushOrder(false)
+                setHasComplexDesign(false)
+                setAdditionalFittings(0)
+                setHasPremiumLining(false)
+                setIsFabricCostOverridden(false)
+                setFabricCostOverride(null)
+                setFabricCostOverrideReason('')
+                setIsStitchingCostOverridden(false)
+                setStitchingCostOverride(null)
+                setStitchingCostOverrideReason('')
+                setIsAccessoriesCostOverridden(false)
+                setAccessoriesCostOverride(null)
+                setAccessoriesCostOverrideReason('')
+                setPricingNotes('')
+                setStep(1)
+              }}
+              className="text-amber-500 hover:text-amber-700 text-xs font-medium"
+            >
+              Start fresh
+            </button>
+          </div>
+        )}
+
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
@@ -718,44 +834,37 @@ function NewOrderForm() {
           <Card>
             <CardHeader>
               <CardTitle>Select Customer</CardTitle>
-              <CardDescription>Choose the customer for this order</CardDescription>
+              <CardDescription>
+                Search by name or phone number. For repeat customers, their measurements
+                and last order will be shown automatically.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Customer
+                    Customer <span className="text-red-500">*</span>
                   </label>
-                  <select
+                  {/*
+                   * CustomerSelector — replaces plain <select>.
+                   * @see components/orders/customer-selector.tsx
+                   * - Combobox with name/phone search
+                   * - Shows customer profile card after selection (last order + measurements)
+                   * - "Repeat this order" button → applyRepeatOrder()
+                   * - Inline "Add new customer" form (no page navigation)
+                   */}
+                  <CustomerSelector
+                    customers={customers}
                     value={customerId}
-                    onChange={(e) => setCustomerId(e.target.value)}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select a customer</option>
-                    {customers.map((customer) => (
-                      <option key={customer.id} value={customer.id}>
-                        {customer.name} - {customer.phone}
-                      </option>
-                    ))}
-                  </select>
+                    onSelect={setCustomerId}
+                    onRepeatOrder={applyRepeatOrder}
+                    onNewCustomer={canManageCustomers ? (newCustomer) => {
+                      setCustomers(prev => [newCustomer, ...prev])
+                    } : undefined}
+                  />
                 </div>
 
-                {selectedCustomer && (
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="font-semibold text-slate-900">{selectedCustomer.name}</p>
-                    <p className="text-sm text-slate-600">{selectedCustomer.phone}</p>
-                    {selectedCustomer.email && (
-                      <p className="text-sm text-slate-600">{selectedCustomer.email}</p>
-                    )}
-                  </div>
-                )}
-
-                <div className="flex justify-between pt-4">
-                  <Link href="/customers/new">
-                    <Button variant="outline" type="button">
-                      Add New Customer
-                    </Button>
-                  </Link>
+                <div className="flex justify-end pt-4">
                   <Button
                     onClick={() => setStep(2)}
                     disabled={!customerId}
@@ -813,18 +922,22 @@ function NewOrderForm() {
                         <label className="block text-sm font-medium text-slate-700 mb-2">
                           Fabric
                         </label>
-                        <select
+                        {/*
+                         * Fabric combobox with colour swatch + available stock info.
+                         * @see components/ui/combobox.tsx — colorHex prop renders a swatch circle
+                         */}
+                        <Combobox
+                          options={clothInventory.map(cloth => ({
+                            value: cloth.id,
+                            label: cloth.name,
+                            sublabel: `${cloth.color} · ₹${cloth.pricePerMeter.toFixed(0)}/m · Avail: ${Math.max(0, cloth.currentStock - cloth.reserved).toFixed(1)}m`,
+                            colorHex: cloth.colorHex,
+                          }))}
                           value={item.clothInventoryId}
-                          onChange={(e) => updateItem(index, 'clothInventoryId', e.target.value)}
-                          className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value="">Select fabric</option>
-                          {clothInventory.map((cloth) => (
-                            <option key={cloth.id} value={cloth.id}>
-                              {cloth.name} - {cloth.color} (₹{cloth.pricePerMeter.toFixed(2)}/m, Available: {cloth.currentStock - cloth.reserved}m)
-                            </option>
-                          ))}
-                        </select>
+                          onSelect={(val) => updateItem(index, 'clothInventoryId', val)}
+                          placeholder="Select fabric…"
+                          emptyMessage="No matching fabrics"
+                        />
                       </div>
 
                       {/* Accessories Section */}
