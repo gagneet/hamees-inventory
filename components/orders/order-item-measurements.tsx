@@ -25,20 +25,32 @@ import { cn } from '@/lib/utils'
 // ── Measurement field display labels ─────────────────────────────
 
 const MEASUREMENT_FIELDS: { key: string; label: string; unit: string }[] = [
-  { key: 'neck',          label: 'Neck',           unit: 'cm' },
-  { key: 'chest',         label: 'Chest',          unit: 'cm' },
-  { key: 'waist',         label: 'Waist',          unit: 'cm' },
-  { key: 'hip',           label: 'Hip',            unit: 'cm' },
-  { key: 'shoulder',      label: 'Shoulder',       unit: 'cm' },
-  { key: 'sleeveLength',  label: 'Sleeve Length',  unit: 'cm' },
-  { key: 'shirtLength',   label: 'Shirt Length',   unit: 'cm' },
-  { key: 'inseam',        label: 'Inseam',         unit: 'cm' },
-  { key: 'outseam',       label: 'Outseam',        unit: 'cm' },
-  { key: 'thigh',         label: 'Thigh',          unit: 'cm' },
-  { key: 'knee',          label: 'Knee',           unit: 'cm' },
-  { key: 'bottomOpening', label: 'Bottom Opening', unit: 'cm' },
-  { key: 'jacketLength',  label: 'Jacket Length',  unit: 'cm' },
-  { key: 'lapelWidth',    label: 'Lapel Width',    unit: 'cm' },
+  // Upper body
+  { key: 'neck',             label: 'Neck',            unit: 'cm' },
+  { key: 'chest',            label: 'Chest',           unit: 'cm' },
+  { key: 'crossChest',       label: 'Cross Chest',     unit: 'cm' },
+  { key: 'shoulder',         label: 'Shoulder',        unit: 'cm' },
+  { key: 'waist',            label: 'Waist',           unit: 'cm' },
+  { key: 'hip',              label: 'Hip',             unit: 'cm' },
+  // Arms
+  { key: 'sleeveLength',     label: 'Sleeve Length',   unit: 'cm' },
+  { key: 'bicep',            label: 'Bicep',           unit: 'cm' },
+  { key: 'elbow',            label: 'Elbow',           unit: 'cm' },
+  { key: 'armCircumference', label: 'Arm Circumference', unit: 'cm' },
+  { key: 'cuff',             label: 'Cuff',            unit: 'cm' },
+  // Lengths
+  { key: 'shirtLength',      label: 'Shirt Length',    unit: 'cm' },
+  { key: 'backLength',       label: 'Back Length',     unit: 'cm' },
+  { key: 'jacketLength',     label: 'Jacket Length',   unit: 'cm' },
+  { key: 'lapelWidth',       label: 'Lapel Width',     unit: 'cm' },
+  // Lower body
+  { key: 'inseam',           label: 'Inseam',          unit: 'cm' },
+  { key: 'outseam',          label: 'Outseam',         unit: 'cm' },
+  { key: 'rise',             label: 'Rise',            unit: 'cm' },
+  { key: 'seat',             label: 'Seat',            unit: 'cm' },
+  { key: 'thigh',            label: 'Thigh',           unit: 'cm' },
+  { key: 'knee',             label: 'Knee',            unit: 'cm' },
+  { key: 'bottomOpening',    label: 'Bottom Opening',  unit: 'cm' },
 ]
 
 // Only show fields that have values — avoids a sea of "—" for garments
@@ -52,6 +64,7 @@ interface Measurement {
   id: string
   garmentType: string
   bodyType?: string | null
+  // Original fields
   neck?: number | null
   chest?: number | null
   waist?: number | null
@@ -66,6 +79,15 @@ interface Measurement {
   bottomOpening?: number | null
   jacketLength?: number | null
   lapelWidth?: number | null
+  // Extended fields (from Excel template)
+  bicep?: number | null
+  cuff?: number | null
+  armCircumference?: number | null
+  crossChest?: number | null
+  backLength?: number | null
+  seat?: number | null
+  rise?: number | null
+  elbow?: number | null
   notes?: string | null
   /** Accepts Date (Prisma) or ISO string (serialised via props) */
   createdAt?: Date | string | null

@@ -6,6 +6,7 @@ import { z } from 'zod'
 const measurementSchema = z.object({
   garmentType: z.string().min(1, 'Garment type is required'),
   bodyType: z.enum(['SLIM', 'REGULAR', 'LARGE', 'XL']).nullish(),
+  // Standard fields
   neck: z.number().nullish(),
   chest: z.number().nullish(),
   waist: z.number().nullish(),
@@ -20,6 +21,15 @@ const measurementSchema = z.object({
   bottomOpening: z.number().nullish(),
   jacketLength: z.number().nullish(),
   lapelWidth: z.number().nullish(),
+  // Extended fields (from Excel template)
+  bicep: z.number().nullish(),
+  cuff: z.number().nullish(),
+  armCircumference: z.number().nullish(),
+  crossChest: z.number().nullish(),
+  backLength: z.number().nullish(),
+  seat: z.number().nullish(),
+  rise: z.number().nullish(),
+  elbow: z.number().nullish(),
   notes: z.string().nullish(),
   additionalMeasurements: z.record(z.string(), z.any()).nullish(),
 })

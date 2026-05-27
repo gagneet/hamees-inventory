@@ -1,5 +1,20 @@
 'use client'
 
+/**
+ * @featuretrace Edit Measurement Dialog
+ * @component EditMeasurementDialog
+ * @description Modal dialog for updating a Measurement record linked to an order item.
+ *   Fields are displayed in garment-type-aware groups so tailors see only relevant fields.
+ *   Submits PATCH /api/customers/:id/measurements/:measurementId — creates a new versioned record.
+ *
+ * @props customerId       — for the API URL
+ * @props measurement      — current Measurement values (pre-fills the form)
+ * @props triggerButton    — optional custom trigger (defaults to "Edit Measurements" ghost button)
+ *
+ * @calls PATCH /api/customers/:customerId/measurements/:id
+ * @calls router.refresh() — re-renders server data after save
+ */
+
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -25,25 +40,97 @@ import {
 import { useToast } from '@/hooks/use-toast'
 import { Ruler } from 'lucide-react'
 
+// ── Field definitions ─────────────────────────────────────────────
+
+/**
+ * garmentGroups: which garment types show each field group.
+ * 'all' = always shown.
+ * Array of substrings matched against garmentType.toLowerCase().
+ */
+type FieldDef = {
+  key: string
+  label: string
+  garments: 'all' | string[]
+}
+
+const FIELD_SECTIONS: { section: string; fields: FieldDef[] }[] = [
+  {
+    section: 'Upper Body',
+    fields: [
+      { key: 'neck',             label: 'Neck',              garments: ['shirt', 'kurta', 'jacket', 'blazer', 'suit', 'sherwani'] },
+      { key: 'chest',            label: 'Chest',             garments: 'all' },
+      { key: 'crossChest',       label: 'Cross Chest',       garments: ['shirt', 'kurta', 'jacket', 'blazer', 'suit', 'sherwani'] },
+      { key: 'shoulder',         label: 'Shoulder',          garments: ['shirt', 'kurta', 'jacket', 'blazer', 'suit', 'sherwani'] },
+      { key: 'waist',            label: 'Waist',             garments: 'all' },
+      { key: 'hip',              label: 'Hip',               garments: 'all' },
+    ],
+  },
+  {
+    section: 'Arms',
+    fields: [
+      { key: 'sleeveLength',     label: 'Sleeve Length',     garments: ['shirt', 'kurta', 'jacket', 'blazer', 'suit', 'sherwani'] },
+      { key: 'bicep',            label: 'Bicep',             garments: ['shirt', 'kurta', 'jacket', 'blazer', 'suit', 'sherwani'] },
+      { key: 'elbow',            label: 'Elbow',             garments: ['shirt', 'kurta', 'jacket', 'blazer', 'suit', 'sherwani'] },
+      { key: 'armCircumference', label: 'Arm Circumference', garments: ['shirt', 'kurta', 'jacket', 'blazer', 'suit', 'sherwani'] },
+      { key: 'cuff',             label: 'Cuff',              garments: ['shirt', 'kurta', 'jacket', 'blazer', 'suit', 'sherwani'] },
+    ],
+  },
+  {
+    section: 'Lengths',
+    fields: [
+      { key: 'shirtLength',      label: 'Shirt / Kurta Length', garments: ['shirt', 'kurta', 'sherwani'] },
+      { key: 'backLength',       label: 'Back Length',           garments: ['shirt', 'kurta', 'jacket', 'blazer', 'suit', 'sherwani'] },
+      { key: 'jacketLength',     label: 'Jacket Length',         garments: ['jacket', 'blazer', 'suit', 'sherwani'] },
+      { key: 'lapelWidth',       label: 'Lapel Width',           garments: ['jacket', 'blazer', 'suit'] },
+    ],
+  },
+  {
+    section: 'Lower Body',
+    fields: [
+      { key: 'inseam',           label: 'Inseam',            garments: ['trouser', 'pant', 'sherwani'] },
+      { key: 'outseam',          label: 'Outseam',           garments: ['trouser', 'pant', 'sherwani'] },
+      { key: 'rise',             label: 'Rise',              garments: ['trouser', 'pant', 'sherwani'] },
+      { key: 'seat',             label: 'Seat',              garments: ['trouser', 'pant', 'sherwani'] },
+      { key: 'thigh',            label: 'Thigh',             garments: ['trouser', 'pant', 'sherwani'] },
+      { key: 'knee',             label: 'Knee',              garments: ['trouser', 'pant', 'sherwani'] },
+      { key: 'bottomOpening',    label: 'Bottom Opening',    garments: ['trouser', 'pant', 'sherwani'] },
+    ],
+  },
+]
+
+// All numeric field keys in a flat list (for PATCH payload construction)
+const ALL_NUMERIC_FIELDS = FIELD_SECTIONS.flatMap(s => s.fields.map(f => f.key))
+
+// ── Types ─────────────────────────────────────────────────────────
+
 interface Measurement {
   id: string
   garmentType: string
   bodyType: string | null
-  neck: number | null
-  chest: number | null
-  waist: number | null
-  hip: number | null
-  shoulder: number | null
-  sleeveLength: number | null
-  shirtLength: number | null
-  inseam: number | null
-  outseam: number | null
-  thigh: number | null
-  knee: number | null
-  bottomOpening: number | null
-  jacketLength: number | null
-  lapelWidth: number | null
-  notes: string | null
+  neck?: number | null
+  chest?: number | null
+  waist?: number | null
+  hip?: number | null
+  shoulder?: number | null
+  sleeveLength?: number | null
+  shirtLength?: number | null
+  inseam?: number | null
+  outseam?: number | null
+  thigh?: number | null
+  knee?: number | null
+  bottomOpening?: number | null
+  jacketLength?: number | null
+  lapelWidth?: number | null
+  // Extended fields
+  bicep?: number | null
+  cuff?: number | null
+  armCircumference?: number | null
+  crossChest?: number | null
+  backLength?: number | null
+  seat?: number | null
+  rise?: number | null
+  elbow?: number | null
+  notes?: string | null
 }
 
 interface EditMeasurementDialogProps {
@@ -51,6 +138,8 @@ interface EditMeasurementDialogProps {
   measurement: Measurement
   triggerButton?: React.ReactNode
 }
+
+// ── Component ─────────────────────────────────────────────────────
 
 export function EditMeasurementDialog({
   customerId,
@@ -62,25 +151,24 @@ export function EditMeasurementDialog({
   const [open, setOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Form state
-  const [formData, setFormData] = useState({
-    bodyType: measurement.bodyType || 'REGULAR',
-    neck: measurement.neck?.toString() || '',
-    chest: measurement.chest?.toString() || '',
-    waist: measurement.waist?.toString() || '',
-    hip: measurement.hip?.toString() || '',
-    shoulder: measurement.shoulder?.toString() || '',
-    sleeveLength: measurement.sleeveLength?.toString() || '',
-    shirtLength: measurement.shirtLength?.toString() || '',
-    inseam: measurement.inseam?.toString() || '',
-    outseam: measurement.outseam?.toString() || '',
-    thigh: measurement.thigh?.toString() || '',
-    knee: measurement.knee?.toString() || '',
-    bottomOpening: measurement.bottomOpening?.toString() || '',
-    jacketLength: measurement.jacketLength?.toString() || '',
-    lapelWidth: measurement.lapelWidth?.toString() || '',
-    notes: measurement.notes || '',
-  })
+  // Build initial form state from measurement (convert numbers to strings for inputs)
+  const initialFormData = (): Record<string, string> => {
+    const base: Record<string, string> = {
+      bodyType: measurement.bodyType || 'REGULAR',
+      notes: measurement.notes || '',
+    }
+    ALL_NUMERIC_FIELDS.forEach(key => {
+      const v = (measurement as any)[key]
+      base[key] = v != null ? String(v) : ''
+    })
+    return base
+  }
+
+  const [formData, setFormData] = useState<Record<string, string>>(initialFormData)
+
+  const handleChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -92,20 +180,9 @@ export function EditMeasurementDialog({
         notes: formData.notes || null,
       }
 
-      // Only include numeric fields if they have values
-      const numericFields = [
-        'neck', 'chest', 'waist', 'hip', 'shoulder', 'sleeveLength',
-        'shirtLength', 'inseam', 'outseam', 'thigh', 'knee',
-        'bottomOpening', 'jacketLength', 'lapelWidth'
-      ]
-
-      numericFields.forEach((field) => {
-        const value = formData[field as keyof typeof formData]
-        if (value && value !== '') {
-          payload[field] = parseFloat(value as string)
-        } else {
-          payload[field] = null
-        }
+      ALL_NUMERIC_FIELDS.forEach(field => {
+        const raw = formData[field]
+        payload[field] = raw && raw !== '' ? parseFloat(raw) : null
       })
 
       const response = await fetch(
@@ -118,19 +195,14 @@ export function EditMeasurementDialog({
       )
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to update measurement')
+        const err = await response.json()
+        throw new Error(err.error || 'Failed to update measurement')
       }
 
-      toast({
-        title: 'Success',
-        description: 'Measurement updated successfully',
-      })
-
+      toast({ title: 'Measurements saved', description: 'Changes saved and history preserved.' })
       setOpen(false)
       router.refresh()
     } catch (error) {
-      console.error('Error updating measurement:', error)
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -141,16 +213,12 @@ export function EditMeasurementDialog({
     }
   }
 
-  const handleChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }))
+  // Determine which fields are relevant for this garment type
+  const gt = measurement.garmentType.toLowerCase()
+  function isVisible(field: FieldDef): boolean {
+    if (field.garments === 'all') return true
+    return (field.garments as string[]).some(g => gt.includes(g))
   }
-
-  // Determine which fields to show based on garment type
-  const garmentType = measurement.garmentType.toLowerCase()
-  const isShirt = garmentType.includes('shirt') || garmentType.includes('kurta')
-  const isTrouser = garmentType.includes('trouser') || garmentType.includes('pant')
-  const isJacket = garmentType.includes('jacket') || garmentType.includes('blazer') || garmentType.includes('suit')
-  const isSherwani = garmentType.includes('sherwani')
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -164,20 +232,22 @@ export function EditMeasurementDialog({
       </DialogTrigger>
       <DialogContent className="bg-white text-slate-900 max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-slate-900">Edit Measurements: {measurement.garmentType}</DialogTitle>
+          <DialogTitle className="text-slate-900">
+            Edit Measurements: {measurement.garmentType}
+          </DialogTitle>
           <DialogDescription className="text-slate-600">
-            Update measurements for this garment. Changes create a new version while preserving history.
+            Update measurements. A new versioned record will be created, preserving history.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit}>
-          <div className="space-y-4 py-4">
+          <div className="space-y-5 py-4">
             {/* Body Type */}
             <div className="space-y-2">
-              <Label htmlFor="bodyType" className="text-slate-900">Body Type</Label>
+              <Label className="text-slate-900">Body Type</Label>
               <Select
                 value={formData.bodyType}
-                onValueChange={(value) => handleChange('bodyType', value)}
+                onValueChange={v => handleChange('bodyType', v)}
               >
                 <SelectTrigger className="bg-white text-slate-900 border-slate-300">
                   <SelectValue />
@@ -191,199 +261,45 @@ export function EditMeasurementDialog({
               </Select>
             </div>
 
-            {/* Common measurements */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="chest" className="text-slate-900">Chest (cm)</Label>
-                <Input
-                  id="chest"
-                  type="number"
-                  step="0.1"
-                  value={formData.chest}
-                  onChange={(e) => handleChange('chest', e.target.value)}
-                  className="bg-white text-slate-900 border-slate-300"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="waist" className="text-slate-900">Waist (cm)</Label>
-                <Input
-                  id="waist"
-                  type="number"
-                  step="0.1"
-                  value={formData.waist}
-                  onChange={(e) => handleChange('waist', e.target.value)}
-                  className="bg-white text-slate-900 border-slate-300"
-                />
-              </div>
-
-              {(isShirt || isJacket || isSherwani) && (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="shoulder" className="text-slate-900">Shoulder (cm)</Label>
-                    <Input
-                      id="shoulder"
-                      type="number"
-                      step="0.1"
-                      value={formData.shoulder}
-                      onChange={(e) => handleChange('shoulder', e.target.value)}
-                      className="bg-white text-slate-900 border-slate-300"
-                    />
+            {/* Field sections — only render sections that have at least one visible field */}
+            {FIELD_SECTIONS.map(section => {
+              const visibleFields = section.fields.filter(isVisible)
+              if (visibleFields.length === 0) return null
+              return (
+                <div key={section.section}>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
+                    {section.section}
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {visibleFields.map(field => (
+                      <div key={field.key} className="space-y-1">
+                        <Label htmlFor={field.key} className="text-sm text-slate-700">
+                          {field.label} <span className="text-slate-400 text-xs">(cm)</span>
+                        </Label>
+                        <Input
+                          id={field.key}
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          value={formData[field.key] ?? ''}
+                          onChange={e => handleChange(field.key, e.target.value)}
+                          className="bg-white text-slate-900 border-slate-300 h-9"
+                          placeholder="—"
+                        />
+                      </div>
+                    ))}
                   </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="sleeveLength" className="text-slate-900">Sleeve Length (cm)</Label>
-                    <Input
-                      id="sleeveLength"
-                      type="number"
-                      step="0.1"
-                      value={formData.sleeveLength}
-                      onChange={(e) => handleChange('sleeveLength', e.target.value)}
-                      className="bg-white text-slate-900 border-slate-300"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="neck" className="text-slate-900">Neck (cm)</Label>
-                    <Input
-                      id="neck"
-                      type="number"
-                      step="0.1"
-                      value={formData.neck}
-                      onChange={(e) => handleChange('neck', e.target.value)}
-                      className="bg-white text-slate-900 border-slate-300"
-                    />
-                  </div>
-                </>
-              )}
-
-              {(isShirt || isSherwani) && (
-                <div className="space-y-2">
-                  <Label htmlFor="shirtLength" className="text-slate-900">Shirt Length (cm)</Label>
-                  <Input
-                    id="shirtLength"
-                    type="number"
-                    step="0.1"
-                    value={formData.shirtLength}
-                    onChange={(e) => handleChange('shirtLength', e.target.value)}
-                    className="bg-white text-slate-900 border-slate-300"
-                  />
                 </div>
-              )}
-
-              {(isTrouser || isSherwani) && (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="hip" className="text-slate-900">Hip (cm)</Label>
-                    <Input
-                      id="hip"
-                      type="number"
-                      step="0.1"
-                      value={formData.hip}
-                      onChange={(e) => handleChange('hip', e.target.value)}
-                      className="bg-white text-slate-900 border-slate-300"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="inseam" className="text-slate-900">Inseam (cm)</Label>
-                    <Input
-                      id="inseam"
-                      type="number"
-                      step="0.1"
-                      value={formData.inseam}
-                      onChange={(e) => handleChange('inseam', e.target.value)}
-                      className="bg-white text-slate-900 border-slate-300"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="outseam" className="text-slate-900">Outseam (cm)</Label>
-                    <Input
-                      id="outseam"
-                      type="number"
-                      step="0.1"
-                      value={formData.outseam}
-                      onChange={(e) => handleChange('outseam', e.target.value)}
-                      className="bg-white text-slate-900 border-slate-300"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="thigh" className="text-slate-900">Thigh (cm)</Label>
-                    <Input
-                      id="thigh"
-                      type="number"
-                      step="0.1"
-                      value={formData.thigh}
-                      onChange={(e) => handleChange('thigh', e.target.value)}
-                      className="bg-white text-slate-900 border-slate-300"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="knee" className="text-slate-900">Knee (cm)</Label>
-                    <Input
-                      id="knee"
-                      type="number"
-                      step="0.1"
-                      value={formData.knee}
-                      onChange={(e) => handleChange('knee', e.target.value)}
-                      className="bg-white text-slate-900 border-slate-300"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="bottomOpening" className="text-slate-900">Bottom Opening (cm)</Label>
-                    <Input
-                      id="bottomOpening"
-                      type="number"
-                      step="0.1"
-                      value={formData.bottomOpening}
-                      onChange={(e) => handleChange('bottomOpening', e.target.value)}
-                      className="bg-white text-slate-900 border-slate-300"
-                    />
-                  </div>
-                </>
-              )}
-
-              {isJacket && (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="jacketLength" className="text-slate-900">Jacket Length (cm)</Label>
-                    <Input
-                      id="jacketLength"
-                      type="number"
-                      step="0.1"
-                      value={formData.jacketLength}
-                      onChange={(e) => handleChange('jacketLength', e.target.value)}
-                      className="bg-white text-slate-900 border-slate-300"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="lapelWidth" className="text-slate-900">Lapel Width (cm)</Label>
-                    <Input
-                      id="lapelWidth"
-                      type="number"
-                      step="0.1"
-                      value={formData.lapelWidth}
-                      onChange={(e) => handleChange('lapelWidth', e.target.value)}
-                      className="bg-white text-slate-900 border-slate-300"
-                    />
-                  </div>
-                </>
-              )}
-            </div>
+              )
+            })}
 
             {/* Notes */}
             <div className="space-y-2">
-              <Label htmlFor="notes" className="text-slate-900">Notes (Optional)</Label>
+              <Label className="text-slate-900">Notes <span className="text-slate-400 text-xs">(optional)</span></Label>
               <Textarea
-                id="notes"
                 value={formData.notes}
-                onChange={(e) => handleChange('notes', e.target.value)}
-                placeholder="Any special instructions or notes..."
+                onChange={e => handleChange('notes', e.target.value)}
+                placeholder="Special instructions, fitting notes…"
                 className="bg-white text-slate-900 border-slate-300"
                 rows={3}
               />
@@ -391,16 +307,11 @@ export function EditMeasurementDialog({
           </div>
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-              disabled={isSubmitting}
-            >
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isSubmitting}>
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving...' : 'Save Changes'}
+              {isSubmitting ? 'Saving…' : 'Save Measurements'}
             </Button>
           </DialogFooter>
         </form>

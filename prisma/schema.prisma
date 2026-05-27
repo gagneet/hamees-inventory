@@ -275,6 +275,16 @@ model Measurement {
   jacketLength  Float?
   lapelWidth    Float?
 
+  // Extended measurements (from Excel template — covers sherwani, suit, pant in more detail)
+  bicep              Float?    // Upper arm / bicep circumference
+  cuff               Float?    // Wrist/cuff circumference
+  armCircumference   Float?    // Full arm circumference (relaxed)
+  crossChest         Float?    // Horizontal chest width (point-to-point)
+  backLength         Float?    // Back length from collar to hem
+  seat               Float?    // Seat/hips (pant) circumference
+  rise               Float?    // Pant rise (crotch depth)
+  elbow              Float?    // Elbow circumference
+
   // Additional measurements as JSON for flexibility
   additionalMeasurements Json?
 
