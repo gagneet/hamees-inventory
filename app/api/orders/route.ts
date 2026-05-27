@@ -200,9 +200,14 @@ export async function GET(request: Request) {
       }
     }
 
-    // Parallelize count and fetch queries to avoid sequential waiting
-    const [totalItems, orders] = await Promise.all([
+    // Parallelize count, status-counts, and fetch queries
+    const [totalItems, statusCountsRaw, orders] = await Promise.all([
       prisma.order.count({ where }),
+      // Always group by status (ignoring the status filter) so tabs show global counts
+      prisma.order.groupBy({
+        by: ['status'],
+        _count: { _all: true },
+      }),
       prisma.order.findMany({
         where,
         include: {
@@ -242,8 +247,15 @@ export async function GET(request: Request) {
 
     const totalPages = Math.ceil(totalItems / limit)
 
+    // Build status counts map { NEW: 4, CUTTING: 2, ... }
+    const statusCounts: Record<string, number> = {}
+    for (const row of statusCountsRaw) {
+      statusCounts[row.status] = row._count._all
+    }
+
     return NextResponse.json({
       orders,
+      statusCounts,
       pagination: {
         page,
         limit,
