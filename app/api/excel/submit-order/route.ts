@@ -93,6 +93,22 @@ export async function POST(request: Request) {
     const body = await request.json()
     const data = submitOrderSchema.parse(body)
 
+    // ── 0. Resolve system user (for StockMovement.userId) ────
+    // Excel submissions are unauthenticated (API key only); attribute stock
+    // movements to the first OWNER in the system as a system actor.
+    const systemUser = await prisma.user.findFirst({
+      where: { role: 'OWNER' },
+      select: { id: true },
+      orderBy: { createdAt: 'asc' },
+    })
+    const systemUserId = systemUser?.id
+    if (!systemUserId) {
+      return NextResponse.json(
+        { error: 'System configuration error: no OWNER account found. Please set up the application first.' },
+        { status: 503 }
+      )
+    }
+
     // ── 1. Customer lookup / create ───────────────────────────
     let customer = data.customerId
       ? await prisma.customer.findUnique({ where: { id: data.customerId } })
@@ -127,7 +143,11 @@ export async function POST(request: Request) {
         name: { contains: data.garmentType, mode: 'insensitive' },
         active: true,
       },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        baseMeters: true,
+        basicStitchingCharge: true,
         accessories: {
           include: { accessory: true },
         },
@@ -197,18 +217,23 @@ export async function POST(request: Request) {
     })
 
     // ── 6. Create Order + OrderItem ───────────────────────────
+    // gstRate stored as a percentage integer (12) to match the main orders route convention.
+    // OrderItem has no fabricCost/stitchingCost columns — those are Order-level fields.
+    // advancePaid is stored in Order.advancePaid only — no PaymentInstallment created
+    // (same behaviour as the main orders route; balance payments use PaymentInstallment).
     const deliveryDate = new Date(data.deliveryDate)
-    const estimatedMeters = garmentPattern.estimatedMeters ?? 2.5
-    const fabricCost = clothInventory.pricePerMeter * estimatedMeters * data.quantity
-    const stitchingCost = garmentPattern.baseStitchingCost ?? 0
-    const totalItemCost = fabricCost + stitchingCost
-    const gstRate = 0.12
-    const subTotal = totalItemCost
-    const gstAmount = subTotal * gstRate
-    const cgst = gstAmount / 2
-    const sgst = gstAmount / 2
-    const totalAmount = subTotal + gstAmount
-    const balanceAmount = totalAmount - (data.advancePaid ?? 0)
+    const estimatedMeters = garmentPattern.baseMeters ?? 2.5
+    const fabricCostVal = clothInventory.pricePerMeter * estimatedMeters * data.quantity
+    const stitchingCostVal = garmentPattern.basicStitchingCharge ?? 0
+    const totalItemCost = fabricCostVal + stitchingCostVal
+    const gstRate = 12                                          // stored as percentage (12%), matches main route
+    const subTotal = parseFloat(totalItemCost.toFixed(2))
+    const gstAmount = parseFloat(((subTotal * gstRate) / 100).toFixed(2))
+    const cgst = parseFloat((gstAmount / 2).toFixed(2))
+    const sgst = parseFloat((gstAmount / 2).toFixed(2))
+    const totalAmount = parseFloat((subTotal + gstAmount).toFixed(2))
+    const advancePaid = data.advancePaid ?? 0
+    const balanceAmount = parseFloat((totalAmount - advancePaid).toFixed(2))
     const orderNumber = await generateOrderNumber()
 
     const order = await prisma.$transaction(async (tx) => {
@@ -222,6 +247,7 @@ export async function POST(request: Request) {
       await tx.stockMovement.create({
         data: {
           clothInventoryId: clothInventory!.id,
+          userId: systemUserId,
           type: 'ORDER_RESERVED',
           quantityMeters: -(estimatedMeters * data.quantity),
           balanceAfterMeters: clothInventory!.currentStock - estimatedMeters * data.quantity,
@@ -233,32 +259,25 @@ export async function POST(request: Request) {
         data: {
           orderNumber,
           customerId: customer!.id,
+          userId: systemUserId,           // required field — attributed to system OWNER
           measurementId: measurement.id,
           deliveryDate,
           priority: data.priority,
           notes: data.notes || null,
-          advancePaid: data.advancePaid ?? 0,
+          // Itemised costs (Order-level)
+          fabricCost: fabricCostVal,
+          stitchingCost: stitchingCostVal,
+          advancePaid,
           subTotal,
           gstRate,
           gstAmount,
+          taxableAmount: subTotal,
           cgst,
           sgst,
           igst: 0,
           totalAmount,
           balanceAmount,
           status: 'NEW',
-          // Advance payment installment
-          installments: data.advancePaid > 0 ? {
-            create: {
-              installmentNumber: 1,
-              installmentAmount: data.advancePaid,
-              paidAmount: data.advancePaid,
-              paidDate: new Date(),
-              status: 'PAID',
-              paymentMode: 'CASH',
-              notes: 'Advance received at booking (Excel import)',
-            },
-          } : undefined,
           items: {
             create: {
               garmentPatternId: garmentPattern.id,
@@ -267,8 +286,7 @@ export async function POST(request: Request) {
               bodyType: (data.bodyType ?? data.preferredFit as any) ?? 'REGULAR',
               quantityOrdered: data.quantity,
               estimatedMeters,
-              fabricCost,
-              stitchingCost,
+              pricePerUnit: totalItemCost / data.quantity,  // required on OrderItem
               totalPrice: totalItemCost,
             },
           },
@@ -320,7 +338,7 @@ export async function GET(request: Request) {
   const [garmentPatterns, clothInventory] = await Promise.all([
     prisma.garmentPattern.findMany({
       where: { active: true },
-      select: { id: true, name: true, baseStitchingCost: true, estimatedMeters: true },
+      select: { id: true, name: true, basicStitchingCharge: true, baseMeters: true },
       orderBy: { name: 'asc' },
     }),
     prisma.clothInventory.findMany({

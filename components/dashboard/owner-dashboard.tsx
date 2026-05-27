@@ -430,9 +430,10 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(value: number | undefined, name: string | undefined, props: any) => {
-                        const percentage = ((value || 0) / totalFabricRevenue * 100).toFixed(1)
-                        return [`${formatCurrency(value || 0)} (${percentage}%)`, props.payload.name]
+                      formatter={(value, _name, props: any) => {
+                        const num = typeof value === 'number' ? value : 0
+                        const percentage = (num / totalFabricRevenue * 100).toFixed(1)
+                        return [`${formatCurrency(num)} (${percentage}%)`, props.payload.name]
                       }}
                       contentStyle={{
                         backgroundColor: '#fff',
@@ -566,7 +567,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
                                 <p className="text-xs text-slate-600">
                                   {data.value} items ({((data.value as number / generalStats.inventory.totalItems) * 100).toFixed(1)}%)
                                 </p>
-                                {(data.name === 'Low Stock' || data.name === 'Critical Stock') && data.value > 0 && (
+                                {(data.name === 'Low Stock' || data.name === 'Critical Stock') && ((data.value as number) ?? 0) > 0 && (
                                   <p className="text-xs text-blue-600 mt-1">Click to view details</p>
                                 )}
                               </div>

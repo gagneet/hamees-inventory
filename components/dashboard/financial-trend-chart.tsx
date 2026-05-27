@@ -80,7 +80,7 @@ export function FinancialTrendChart({ data }: FinancialTrendChartProps) {
             border: '1px solid #e2e8f0',
             borderRadius: '6px',
           }}
-          formatter={(value: number | undefined) => formatCurrency(value || 0)}
+          formatter={(value) => typeof value === 'number' ? formatCurrency(value) : '—'}
           content={({ active, payload }) => {
             if (active && payload && payload.length) {
               return (
