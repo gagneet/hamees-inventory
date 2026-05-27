@@ -57,7 +57,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
             tickFormatter={formatCurrency}
           />
           <Tooltip
-            formatter={(value: number | undefined) => `₹${(value || 0).toLocaleString('en-IN')}`}
+            formatter={(value) => typeof value === 'number' ? `₹${value.toLocaleString('en-IN')}` : '—'}
             contentStyle={{
               backgroundColor: '#FFF',
               border: '1px solid #E5E7EB',

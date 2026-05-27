@@ -30,11 +30,12 @@
 18. [Feature: Garment Types (Patterns)](#18-feature-garment-types-patterns)
 19. [Feature: Suppliers](#19-feature-suppliers)
 20. [Feature: Admin — Users & Settings](#20-feature-admin--users--settings)
-21. [Shared Libraries Reference](#21-shared-libraries-reference)
-22. [API Route Directory](#22-api-route-directory)
-23. [Component Dependency Graph](#23-component-dependency-graph)
-24. [Data Flow: New Order (Full Trace)](#24-data-flow-new-order-full-trace)
-25. [Data Flow: Stock Reservation & Release](#25-data-flow-stock-reservation--release)
+21. [Feature: Excel VBA Integration](#21-feature-excel-vba-integration)
+22. [Shared Libraries Reference](#22-shared-libraries-reference)
+23. [API Route Directory](#23-api-route-directory)
+24. [Component Dependency Graph](#24-component-dependency-graph)
+25. [Data Flow: New Order (Full Trace)](#25-data-flow-new-order-full-trace)
+26. [Data Flow: Stock Reservation & Release](#26-data-flow-stock-reservation--release)
 
 ---
 
@@ -359,6 +360,7 @@ GET /api/dashboard/stats
 /orders                          → app/(dashboard)/orders/page.tsx
 /orders/new                      → app/(dashboard)/orders/new/page.tsx
 /orders/[id]                     → app/(dashboard)/orders/[id]/page.tsx
+/orders/production               → app/(dashboard)/orders/production/page.tsx  ← Phase 2 (Tailor Kanban)
 ```
 
 ### Order List Page Call Chain
@@ -368,13 +370,41 @@ app/(dashboard)/orders/page.tsx
   └── GET /api/orders?status=&search=&page=&limit=...
         └── app/api/orders/route.ts: GET handler
               └── requirePermission('view_orders')
-              └── prisma.order.findMany({
-                    where: { status, customer.name LIKE search, ... },
-                    include: { customer, items: { include: { garmentPattern, clothInventory } } },
-                    orderBy: { createdAt: 'desc' },
-                    skip: (page-1)*limit, take: limit
-                  })
+              └── Parallel:
+                    prisma.order.count({ where })
+                    prisma.order.groupBy({ by: ['status'], _count: { _all: true } })  ← status counts for tab bar
+                    prisma.order.findMany({
+                      where: { status, customer.name LIKE search, ... },
+                      include: { customer, items: { include: { garmentPattern, clothInventory } } },
+                      orderBy: { balanceAmount: 'desc' },
+                      skip: (page-1)*limit, take: limit
+                    })
+              └── Returns: { orders, statusCounts: Record<string,number>, pagination }
               └── DB: Order + Customer + OrderItem + GarmentPattern + ClothInventory
+
+  UI Features (Phase 2):
+  - Status tab bar with count badges (All / NEW / CUTTING / STITCHING / ...)
+  - Compact table view toggle (Cards ↔ Compact)
+  - Tab clicks set status filter + reset to page 1
+```
+
+### Production Board (Tailor Kanban) Call Chain
+
+```
+app/(dashboard)/orders/production/page.tsx  ← Server Component
+  └── auth() → session + role
+  └── hasPermission(userRole, 'update_order_status') → canAdvance flag
+  └── prisma.order.findMany({
+        where: { status: { in: ['NEW','CUTTING','STITCHING','FINISHING','READY'] } },
+        include: { customer, items: { include: { garmentPattern, clothInventory } }, assignedTailor },
+        orderBy: [{ priority: 'desc' }, { deliveryDate: 'asc' }]
+      })
+  └── components/orders/tailor-kanban.tsx
+        └── Optimistic UI: status change applied locally → PATCH /api/orders/[id]/status
+        └── Rolls back on error (toast.error via sonner)
+        └── Columns: NEW → CUTTING → STITCHING → FINISHING → READY
+        └── Uses: requirePermission('update_order_status') guard on API
+  └── DashboardLayout sidebar: "Production Board" nav item (Scissors icon, view_orders permission)
 ```
 
 ### New Order Form Call Chain (Multi-step)
@@ -436,7 +466,11 @@ app/(dashboard)/orders/[id]/page.tsx  ← Server Component
         ├── components/orders/split-order-dialog.tsx     → POST /api/orders/[id]/split
         ├── components/orders/record-payment-dialog.tsx  → POST /api/orders/[id]/payments
         ├── components/orders/print-invoice-button.tsx   → (client-side PDF generation)
-        ├── components/orders/edit-measurement-dialog.tsx→ GET/PATCH /api/measurements/[id]
+        ├── components/orders/order-item-measurements.tsx → (inline collapsible panel; props only)
+        │     Phase 2: 22 measurement fields in 4 groups (Upper Body / Arms / Lengths / Lower Body)
+        │     Collapsed for managers, expanded for tailors
+        ├── components/orders/edit-measurement-dialog.tsx→ PATCH /api/customers/[id]/measurements/[measurementId]
+        │     Phase 2: data-driven FIELD_SECTIONS, garment-type-aware field visibility
         ├── components/orders/order-item-detail-dialog.tsx→ (data from page props)
         ├── components/orders/assign-tailor-dialog.tsx   → PATCH /api/orders/[id]/items/[itemId]
         └── components/orders/send-whatsapp-button.tsx   → POST /api/whatsapp/send
@@ -605,10 +639,42 @@ Measurement model:
   ├── userId           → who recorded it (User)
   ├── garmentType      → 'Sherwani' | 'Kurta Pajama' | 'Shirt' | 'Trouser' | etc.
   ├── bodyType         → BodyType enum (SLIM/REGULAR/LARGE/XL)
-  ├── [body fields]    → neck, chest, waist, hip, shoulder, sleeveLength, etc. (all Float?)
-  ├── additionalMeasurements → JSON for non-standard fields
+  │
+  ├── Upper Body (all Float?)
+  │     neck, chest, waist, hip, shoulder, crossChest (Phase 2)
+  │
+  ├── Arms (all Float?)
+  │     sleeveLength, bicep (Phase 2), elbow (Phase 2),
+  │     armCircumference (Phase 2), cuff (Phase 2)
+  │
+  ├── Lengths (all Float?)
+  │     shirtLength, jacketLength, backLength (Phase 2), lapelWidth
+  │
+  ├── Lower Body (all Float?)
+  │     inseam, outseam, thigh, knee, bottomOpening,
+  │     rise (Phase 2), seat (Phase 2)
+  │
+  ├── notes            → free text measurement notes
   ├── replacesId       → previous Measurement.id (version chain)
   └── isActive         → only latest active version shown by default
+
+Phase 2 additions (8 new fields): bicep, cuff, armCircumference, crossChest, backLength, seat, rise, elbow
+```
+
+### Measurement UI Components (Phase 2)
+
+```
+components/orders/order-item-measurements.tsx
+  ├── Shows 22 fields grouped: Upper Body / Arms / Lengths / Lower Body
+  ├── Collapsible panel (defaultExpanded=true for TAILORs)
+  ├── Missing-measurement warning badge (orange alert)
+  └── Used in: app/(dashboard)/orders/[id]/page.tsx (per OrderItem)
+
+components/orders/edit-measurement-dialog.tsx
+  ├── Data-driven: FIELD_SECTIONS array with garments: 'all' | string[] per field
+  ├── isVisible(field, garmentType): shows only relevant fields for the garment
+  ├── 22 numeric fields handled dynamically via ALL_NUMERIC_FIELDS flat array
+  └── PATCH /api/measurements/[id]
 ```
 
 ### API Routes
@@ -1216,7 +1282,71 @@ GET/POST /api/admin/settings        → requirePermission('manage_settings')
 
 ---
 
-## 21. Shared Libraries Reference
+## 21. Feature: Excel VBA Integration
+
+> Added in Phase 2. Allows staff to submit orders directly from the Excel spreadsheet template
+> (`hamees_orders_template.xlsm`) without opening the web app.
+
+### Authentication
+
+```
+Static API key: x-excel-api-key header
+Source: EXCEL_API_KEY env var (generate: openssl rand -hex 32)
+Verified by: lib/excel-api-auth.ts → verifyExcelApiKey(request)
+  └── Constant-time XOR comparison to prevent timing attacks
+  └── Returns { ok: true } | { ok: false; error: NextResponse }
+```
+
+### VBA → API Flow
+
+```
+Excel file: hamees_orders_template.xlsm
+  └── VBA Module: docs/excel-vba-module.bas (import via Alt+F11 → Import)
+        ├── SubmitOrder() — reads cells → builds JSON → HTTP POST
+        │     └── POST /api/excel/submit-order
+        │           └── lib/excel-api-auth.ts: verifyExcelApiKey()
+        │           └── Schema validation (zod): submitOrderSchema (32 fields)
+        │           └── Look up system OWNER user for userId attribution
+        │           └── Customer: find by phone → create if not found
+        │           └── GarmentPattern: case-insensitive name match
+        │           └── ClothInventory: name+color match → fallback by name → fallback to any active
+        │           └── Create Measurement (22 fields)
+        │           └── prisma.$transaction:
+        │                 ClothInventory.reserved += estimatedMeters
+        │                 StockMovement.create { type: ORDER_RESERVED, userId: systemOwnerId }
+        │                 Order.create { userId: systemOwnerId, ... }
+        │                   └── OrderItem.create { pricePerUnit, estimatedMeters, ... }
+        │           └── Returns: { orderId, orderNumber, totalAmount, balanceAmount }
+        │
+        ├── TestConnection() — GET /api/excel/submit-order
+        │     └── Returns: { status: 'ok', garmentPatterns[], clothInventory[] }
+        │     └── Used to populate VBA dropdowns / health check
+        │
+        └── ResetForm() — clears all cells
+              ExtractJsonField() — simple JSON string parser
+              StrField() / NumField() — JSON payload building helpers
+
+Key constants (user must configure in VBA):
+  HAMEES_API_URL = "https://hamees.gagneet.com"
+  HAMEES_API_KEY = "<from EXCEL_API_KEY env var>"
+
+Stock note: advance payment → Order.advancePaid only (no PaymentInstallment)
+userId note: attributed to first OWNER user in DB (system actor for API-key calls)
+gstRate stored as integer 12 (matches main orders route convention)
+```
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `app/api/excel/submit-order/route.ts` | POST (submit order) + GET (health check / dropdown data) |
+| `lib/excel-api-auth.ts` | API key verification with constant-time comparison |
+| `docs/excel-vba-module.bas` | VBA source code to import into the Excel template |
+| `.env.example` | Added `EXCEL_API_KEY=""` entry |
+
+---
+
+## 22. Shared Libraries Reference
 
 ### `lib/db.ts` — Prisma Singleton
 
@@ -1321,7 +1451,7 @@ processRows(rows): Promise<ProcessResult>
 
 ---
 
-## 22. API Route Directory
+## 23. API Route Directory
 
 ### Authentication
 | Route | Method | Permission | Description |
@@ -1331,7 +1461,7 @@ processRows(rows): Promise<ProcessResult>
 ### Orders
 | Route | Method | Permission | DB Models Touched |
 |-------|--------|-----------|-------------------|
-| `/api/orders` | GET | view_orders | Order, Customer, OrderItem |
+| `/api/orders` | GET | view_orders | Order, Customer, OrderItem; returns `statusCounts` for tab bar |
 | `/api/orders` | POST | create_order | Order, OrderItem, ClothInventory, AccessoryInventory, StockMovement, OrderHistory |
 | `/api/orders/[id]` | GET | view_orders | Order + all relations |
 | `/api/orders/[id]` | PATCH | update_order | Order, OrderHistory |
@@ -1342,6 +1472,12 @@ processRows(rows): Promise<ProcessResult>
 | `/api/orders/[id]/installments` | GET | view_orders | PaymentInstallment |
 | `/api/orders/[id]/items/[itemId]` | PATCH | update_order | OrderItem |
 | `/api/orders/[id]/tailor-notes` | PATCH | update_order_status | Order, OrderHistory |
+
+### Excel VBA Integration (API-key auth, no session)
+| Route | Method | Auth | Description |
+|-------|--------|------|-------------|
+| `/api/excel/submit-order` | POST | x-excel-api-key header | Create order from Excel VBA macro; upserts Customer; creates Measurement, Order, OrderItem, StockMovement |
+| `/api/excel/submit-order` | GET | x-excel-api-key header | Health check; returns garment patterns + cloth inventory for dropdown population |
 
 ### Customers
 | Route | Method | Permission | DB Models |
@@ -1402,7 +1538,7 @@ processRows(rows): Promise<ProcessResult>
 
 ---
 
-## 23. Component Dependency Graph
+## 24. Component Dependency Graph
 
 ### `DashboardLayout.tsx` — Used By All Pages
 
@@ -1457,6 +1593,11 @@ print-invoice-button.tsx
 edit-measurement-dialog.tsx
   └── PATCH /api/measurements/[id]
 
+order-item-measurements.tsx                        ← Phase 2 (inline collapsible panel)
+  └── Props-only (measurement data from page props)
+  └── 22 fields in 4 groups: Upper Body / Arms / Lengths / Lower Body
+  └── defaultExpanded: true for TAILOR role, false for managers
+
 order-item-detail-dialog.tsx
   └── Props-only (no API call — data from page props)
 
@@ -1467,6 +1608,12 @@ assign-tailor-dialog.tsx
 send-whatsapp-button.tsx
   └── GET  /api/whatsapp/templates
   └── POST /api/whatsapp/send
+
+tailor-kanban.tsx                                  ← Phase 2 (Production Board)
+  └── Used in: app/(dashboard)/orders/production/page.tsx
+  └── Optimistic status advance → PATCH /api/orders/[id]/status
+  └── Uses sonner toast for success/error feedback
+  └── DeliveryBadge: color-coded urgency (overdue=red, today=amber, tomorrow=yellow)
 ```
 
 ### `components/dashboard/` — Dashboard Components
@@ -1508,7 +1655,7 @@ dashboard-client.tsx
 
 ---
 
-## 24. Data Flow: New Order (Full Trace)
+## 25. Data Flow: New Order (Full Trace)
 
 This traces every system call from clicking "New Order" to the order appearing in the database.
 
@@ -1662,7 +1809,7 @@ This traces every system call from clicking "New Order" to the order appearing i
 
 ---
 
-## 25. Data Flow: Stock Reservation & Release
+## 26. Data Flow: Stock Reservation & Release
 
 ```
 LIFECYCLE OF CLOTH STOCK FOR ONE ORDER ITEM:
@@ -1758,4 +1905,4 @@ await prisma.clothInventory.update({
 - *A component's data source changes*
 - *A permission is added or reassigned*
 
-*Last generated: May 2026*
+*Last updated: May 2026 (Phase 2: Excel VBA integration, Production Board, 22-field measurements, status tab bar, compact view)*

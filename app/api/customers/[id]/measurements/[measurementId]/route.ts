@@ -8,6 +8,7 @@ type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0
 const measurementUpdateSchema = z.object({
   garmentType: z.string().min(1, 'Garment type is required').optional(),
   bodyType: z.enum(['SLIM', 'REGULAR', 'LARGE', 'XL']).nullish(),
+  // Standard fields
   neck: z.number().nullish(),
   chest: z.number().nullish(),
   waist: z.number().nullish(),
@@ -22,6 +23,15 @@ const measurementUpdateSchema = z.object({
   bottomOpening: z.number().nullish(),
   jacketLength: z.number().nullish(),
   lapelWidth: z.number().nullish(),
+  // Extended fields (from Excel template)
+  bicep: z.number().nullish(),
+  cuff: z.number().nullish(),
+  armCircumference: z.number().nullish(),
+  crossChest: z.number().nullish(),
+  backLength: z.number().nullish(),
+  seat: z.number().nullish(),
+  rise: z.number().nullish(),
+  elbow: z.number().nullish(),
   notes: z.string().nullish(),
   additionalMeasurements: z.record(z.string(), z.any()).nullish(),
 })
@@ -117,6 +127,7 @@ export async function PATCH(
           userId: session!.user.id,
           garmentType: validatedData.garmentType || existingMeasurement.garmentType,
           bodyType: validatedData.bodyType ?? existingMeasurement.bodyType,
+          // Standard fields
           neck: validatedData.neck ?? existingMeasurement.neck,
           chest: validatedData.chest ?? existingMeasurement.chest,
           waist: validatedData.waist ?? existingMeasurement.waist,
@@ -131,6 +142,15 @@ export async function PATCH(
           bottomOpening: validatedData.bottomOpening ?? existingMeasurement.bottomOpening,
           jacketLength: validatedData.jacketLength ?? existingMeasurement.jacketLength,
           lapelWidth: validatedData.lapelWidth ?? existingMeasurement.lapelWidth,
+          // Extended fields (from Excel template)
+          bicep: validatedData.bicep ?? existingMeasurement.bicep,
+          cuff: validatedData.cuff ?? existingMeasurement.cuff,
+          armCircumference: validatedData.armCircumference ?? existingMeasurement.armCircumference,
+          crossChest: validatedData.crossChest ?? existingMeasurement.crossChest,
+          backLength: validatedData.backLength ?? existingMeasurement.backLength,
+          seat: validatedData.seat ?? existingMeasurement.seat,
+          rise: validatedData.rise ?? existingMeasurement.rise,
+          elbow: validatedData.elbow ?? existingMeasurement.elbow,
           notes: validatedData.notes ?? existingMeasurement.notes,
           additionalMeasurements: additionalMeasurementsValue || undefined,
           replacesId: measurementId, // Link to previous version

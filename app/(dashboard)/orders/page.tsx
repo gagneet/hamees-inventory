@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
-import { ShoppingBag, Plus, Filter, Home, X, DollarSign } from 'lucide-react'
+import { ShoppingBag, Plus, Filter, Home, X, DollarSign, LayoutList, Table2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -93,6 +93,8 @@ function OrdersContent() {
   const [isOverdue, setIsOverdue] = useState(false)
   const [balanceOutstanding, setBalanceOutstanding] = useState(false)
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({})
+  const [compactView, setCompactView] = useState(false)
 
   // Initialize filter states from URL params and respond to URL changes
   useEffect(() => {
@@ -172,6 +174,9 @@ function OrdersContent() {
 
         if (data.orders) {
           setOrders(data.orders)
+        }
+        if (data.statusCounts) {
+          setStatusCounts(data.statusCounts)
         }
         if (data.pagination) {
           setTotalItems(data.pagination.totalItems)
@@ -259,42 +264,63 @@ function OrdersContent() {
         </div>
       </div>
 
+      {/* Status tab bar — one-click pipeline filter */}
+      <div className="mb-4 flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+        {[{ key: '', label: 'All' }, ...Object.entries(statusLabels).map(([key, label]) => ({ key, label }))].map(tab => {
+          const count = tab.key ? (statusCounts[tab.key] ?? 0) : Object.values(statusCounts).reduce((a, b) => a + b, 0)
+          const active = status === tab.key
+          const colors = tab.key ? statusColors[tab.key as OrderStatus] : null
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => { setStatus(tab.key); setCurrentPage(1) }}
+              className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+                active
+                  ? colors ? `${colors.bg} ${colors.text} ${colors.border}` : 'bg-slate-900 text-white border-slate-900'
+                  : 'bg-white text-slate-600 border-slate-200 hover:border-slate-400 hover:text-slate-900'
+              }`}
+            >
+              {tab.label}
+              {count > 0 && (
+                <span className={`text-[10px] px-1.5 py-0 rounded-full font-bold ${
+                  active ? 'bg-white/30 text-inherit' : 'bg-slate-100 text-slate-600'
+                }`}>{count}</span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+
       {/* Main Content */}
         {/* Filters */}
-        <Card className="mb-6">
-          <CardContent className="pt-6">
+        <Card className="mb-4">
+          <CardContent className="pt-4">
             {/* Basic Filters */}
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row gap-4">
+            <div className="space-y-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <div className="flex-1">
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Status</label>
-                  <select
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value)}
-                  >
-                    <option value="">All Status</option>
-                    {Object.entries(statusLabels).map(([key, label]) => (
-                      <option key={key} value={key}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Search</label>
                   <input
                     type="text"
-                    placeholder="Search by order number or customer..."
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Search by order number or customer…"
+                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setCompactView(v => !v)}
+                  title={compactView ? 'Card view' : 'Compact table view'}
+                  className="shrink-0 flex items-center gap-1.5 px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50 text-slate-600"
+                >
+                  {compactView ? <LayoutList className="h-4 w-4" /> : <Table2 className="h-4 w-4" />}
+                  <span className="hidden sm:inline">{compactView ? 'Cards' : 'Compact'}</span>
+                </button>
               </div>
 
               {/* Advanced Filters Toggle */}
-              <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+              <div className="flex items-center justify-between pt-1 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
@@ -310,7 +336,7 @@ function OrdersContent() {
                     className="flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-700"
                   >
                     <X className="h-4 w-4" />
-                    Clear All Filters
+                    Clear
                   </button>
                 )}
               </div>
@@ -454,6 +480,74 @@ function OrdersContent() {
           </Card>
         ) : (
           <div className="space-y-4">
+            {/* ── Compact table view ── */}
+            {compactView ? (
+              <Card>
+                <CardContent className="p-0 overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50 text-left text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                        <th className="px-4 py-3">Order</th>
+                        <th className="px-4 py-3">Customer</th>
+                        <th className="px-4 py-3">Garments</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3">Delivery</th>
+                        {!isTailor && <th className="px-4 py-3 text-right">Balance</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orders.map(order => {
+                        const statusStyle = statusColors[order.status as OrderStatus]
+                        const deliveryDate = new Date(order.deliveryDate)
+                        const today = new Date(); today.setHours(0,0,0,0)
+                        const dueDate = new Date(deliveryDate); dueDate.setHours(0,0,0,0)
+                        const overdue = dueDate < today && order.status !== 'DELIVERED' && order.status !== 'CANCELLED'
+                        const arrears = order.status === 'DELIVERED' && order.balanceAmount > 0.01
+                        return (
+                          <tr key={order.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                            <td className="px-4 py-2.5">
+                              <Link href={`/orders/${order.id}`} className="font-semibold text-slate-800 hover:text-blue-600 hover:underline">
+                                {order.orderNumber}
+                              </Link>
+                              {order.priority === 'URGENT' && (
+                                <span className="ml-1.5 text-[10px] px-1.5 py-0 bg-red-500 text-white rounded font-bold">URGENT</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5 text-slate-700">{order.customer.name}</td>
+                            <td className="px-4 py-2.5">
+                              <div className="flex flex-wrap gap-1">
+                                {order.items.map((item, i) => (
+                                  <span key={i} className="flex items-center gap-1 text-[11px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">
+                                    <span className="inline-block h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: item.clothInventory.colorHex }} />
+                                    {item.garmentPattern.name}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="px-4 py-2.5">
+                              <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full border ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border}`}>
+                                {statusLabels[order.status as OrderStatus]}
+                              </span>
+                            </td>
+                            <td className={`px-4 py-2.5 text-xs font-medium ${overdue ? 'text-red-600' : 'text-slate-600'}`}>
+                              {deliveryDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                              {overdue && ' ⚠'}
+                            </td>
+                            {!isTailor && (
+                              <td className={`px-4 py-2.5 text-right text-xs font-semibold ${arrears ? 'text-red-600' : order.balanceAmount > 0.01 ? 'text-orange-600' : 'text-green-600'}`}>
+                                ₹{Math.max(0, order.balanceAmount).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                              </td>
+                            )}
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </CardContent>
+              </Card>
+            ) : (
+              /* ── Card view (original) ── */
+              <div className="space-y-4">
             {orders.map((order) => {
               const statusStyle = statusColors[order.status as OrderStatus]
               const deliveryDate = new Date(order.deliveryDate)
@@ -547,6 +641,8 @@ function OrdersContent() {
                 </Link>
               )
             })}
+              </div>
+            )}
 
             {/* Pagination */}
             {!loading && orders.length > 0 && (

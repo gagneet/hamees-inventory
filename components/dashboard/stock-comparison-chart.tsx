@@ -38,8 +38,8 @@ export function StockComparisonChart({ data }: StockComparisonChartProps) {
             border: '1px solid #e2e8f0',
             borderRadius: '6px',
           }}
-          formatter={(value: number | undefined, name: string | undefined) => [
-            `${(value || 0).toFixed(2)} meters`,
+          formatter={(value, name) => [
+            typeof value === 'number' ? `${value.toFixed(2)} meters` : '—',
             name === 'available' ? 'Available Stock' : 'Committed/Reserved',
           ]}
         />

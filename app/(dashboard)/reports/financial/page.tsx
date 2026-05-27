@@ -253,7 +253,7 @@ export default function FinancialReportPage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis />
-                <Tooltip formatter={(v: number | undefined) => v != null ? `₹${v.toLocaleString('en-IN')}` : '—'} />
+                <Tooltip formatter={(v) => typeof v === 'number' ? `₹${v.toLocaleString('en-IN')}` : '—'} />
                 <Legend />
                 <Line type="monotone" dataKey="revenue"  stroke="#10B981" strokeWidth={2} name="Revenue (₹)" />
                 <Line type="monotone" dataKey="expenses" stroke="#EF4444" strokeWidth={2} name="Expenses (₹)" />
