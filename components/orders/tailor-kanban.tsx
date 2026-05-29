@@ -49,7 +49,7 @@ export type KanbanOrder = {
   items: Array<{
     id: string
     garmentPattern: { name: string }
-    clothInventory: { name: string; color: string }
+    clothInventory: { name: string; color: string; colorHex?: string | null }
     bodyType?: string | null
   }>
   assignedTailor?: { name: string } | null
@@ -224,8 +224,14 @@ function OrderCard({
           ))}
         </div>
 
-        {/* Fabric summary */}
-        <p className="text-[10px] text-slate-400 truncate">
+        {/* Fabric summary with colour swatch */}
+        <p className="text-[10px] text-slate-400 truncate flex items-center gap-1">
+          {order.items[0]?.clothInventory.colorHex && (
+            <span
+              className="inline-block w-2.5 h-2.5 rounded-full border border-slate-200 shrink-0"
+              style={{ backgroundColor: order.items[0].clothInventory.colorHex }}
+            />
+          )}
           {order.items[0]?.clothInventory.name}
           {order.items.length > 1 ? ` +${order.items.length - 1} more` : ''}
         </p>

@@ -53,7 +53,7 @@ async function getActiveOrders(): Promise<KanbanOrder[]> {
           id: true,
           bodyType: true,
           garmentPattern: { select: { name: true } },
-          clothInventory: { select: { name: true, color: true } },
+          clothInventory: { select: { name: true, color: true, colorHex: true } },
           assignedTailor: { select: { name: true } },
         },
       },
