@@ -1613,7 +1613,7 @@ tailor-kanban.tsx                                  ← Phase 2 (Production Board
   └── Used in: app/(dashboard)/orders/production/page.tsx
   └── Optimistic status advance → PATCH /api/orders/[id]/status
   └── Uses sonner toast for success/error feedback
-  └── DeliveryBadge: color-coded urgency (overdue=red, today=amber, tomorrow=yellow)
+  └── DeliveryBadge: overdue=red / today=amber / 1 day=orange / future=slate
 ```
 
 ### `components/orders/customer-selector.tsx` — Phase 1 (Searchable Customer Selection)
@@ -1630,8 +1630,7 @@ components/orders/customer-selector.tsx
   │
   ├── "Repeat Last Order" Button
   │     ├── GET /api/orders/[lastOrderId]  → fetches full order items + stitching config
-  │     ├── Calls onRepeatOrder(RepeatOrderData) prop → parent pre-fills Steps 2 & 3
-  │     └── Displays "Repeating order from #ORD-XXXX" banner at top of form
+  │     └── Calls onRepeatOrder(RepeatOrderData) prop → parent form pre-fills Steps 2 & 3
   │
   └── InlineNewCustomerForm (when no match found)
         ├── Name + Phone + City fields (no page navigation)
@@ -1644,8 +1643,8 @@ components/orders/customer-selector.tsx
 ```
 components/ui/combobox.tsx
   ├── @featuretrace Customer Combobox
-  ├── Built on Radix UI Popover + CommandList pattern (not cmdk directly)
-  ├── Props: options[], value, onChange, placeholder, searchPlaceholder
+  ├── Built on Radix UI Popover + controlled Input + client-side filtered list (no cmdk)
+  ├── Props: options[], value, onSelect, placeholder, emptyMessage, onAddNew, onAddNewLabel
   ├── Filters options client-side via value.toLowerCase().includes(search)
   └── Used in:
         ├── components/orders/customer-selector.tsx  (customer search)
@@ -1663,9 +1662,9 @@ components/orders/tailor-kanban.tsx
   ├── KanbanCard per order:
   │     ├── Order number (bold) + customer name
   │     ├── Garment type chips (items[].garmentPattern.name)
-  │     ├── DeliveryBadge: overdue=red / ≤1 day=amber / ≤3 days=yellow / safe=green
+  │     ├── DeliveryBadge: overdue=red / today=amber / 1 day=orange / future=slate
   │     ├── Assigned tailor name (if set)
-  │     └── Colour swatch: items[0].clothInventory.color
+  │     └── Fabric name text (items[0].clothInventory.name)
   │
   ├── One-click status advance (canAdvance prop = update_order_status permission)
   │     └── Optimistic: moves card locally → PATCH /api/orders/[id]/status
