@@ -571,4 +571,58 @@ The application serves a **high-end boutique** for wealthy clients. The UI shoul
 
 ---
 
+## 16. Implementation Status (as at v0.30.x)
+
+### Phases 1 & 2 — Completed (PRs #100, #103)
+
+| # | Requirement | Status | Confidence |
+|---|------------|--------|-----------|
+| 1 | Customer searchable combobox in new order form | ✅ `components/orders/customer-selector.tsx` | 10/10 |
+| 2 | Repeat order / Clone last order button | ✅ CustomerSelector `onRepeatOrder` prop | 10/10 |
+| 3 | Measurements shown inline on order items | ✅ `components/orders/order-item-measurements.tsx` | 10/10 |
+| 4 | Tailor Kanban board with one-click status update | ✅ `components/orders/tailor-kanban.tsx` + `/orders/production` | 10/10 |
+| 5 | Active state on sidebar nav links | ✅ `isActive()` in `DashboardLayout.tsx` | 10/10 |
+| 6 | Fix Financial Report to use DashboardLayout | ✅ `app/(dashboard)/reports/financial/page.tsx` | 10/10 |
+| 7 | Global command palette (Cmd+K) | ⏳ Not yet implemented | — |
+| 8 | Inline new customer creation in order form | ✅ `InlineNewCustomerForm` in `customer-selector.tsx` | 10/10 |
+| 9 | Status pipeline tab bar on orders list | ✅ `app/(dashboard)/orders/page.tsx` tab bar | 10/10 |
+| 10 | Sidebar grouped navigation with badges | ✅ `navSections` in `DashboardLayout.tsx` | 10/10 |
+| 11 | Reports landing page + sidebar link | ✅ `app/(dashboard)/reports/page.tsx` | 10/10 |
+| 12 | Compact table view for orders | ✅ toggle in orders list page | 9/10 |
+
+### Phase 3 — Partially Complete (this session, branch `feat/ux-phase-3-requirements-and-fixes`)
+
+| # | Requirement | Status | Confidence | Notes |
+|---|------------|--------|-----------|-------|
+| 13 | Skeleton loading screens | ⏳ Not yet | — | Suspense boundaries exist but no `<Skeleton>` components |
+| 14 | Consolidated toast system (sonner) | ✅ All `useToast` → `sonner` | 9/10 | 5 files migrated; 2 systems ran in parallel before this fix |
+| 15 | WhatsApp status update prompts | ⏳ Not yet | — | Button exists; auto-prompt on status change not wired |
+| 16 | Fabric colour swatch in selections | ✅ Implemented | 9/10 | `colorHex` rendered as inline swatch in fabric combobox; `cloth.colorHex` passed from new-order form |
+| 17 | Date picker component | ⏳ Not yet | — | Native `<input type="date">` still used throughout |
+| 18 | Owner dashboard "Today at a glance" strip | ⏳ Not yet | — | Dashboards have stats cards; no "today only" strip |
+| 19 | Customer VIP indicators | ⏳ Not yet | — | `customerType` field unused in UI |
+| 20 | Brand accent + typography refinement | ⏳ Not yet | — | Plain Tailwind palette; no luxury type |
+
+### Additional Phase 3 Work Done (this session)
+
+| Item | Status | Confidence | Notes |
+|------|--------|-----------|-------|
+| Mobile nav grouped sections | ✅ `DashboardLayout.tsx` Sheet nav | 9/10 | Mobile now mirrors desktop grouping |
+| `@featuretrace` markers — dashboard components | ✅ 5 dashboard components | 9/10 | Added JSDoc markers for CodeSee tracing |
+| `@featuretrace` markers — key page files | ✅ 6 page files | 9/10 | `/customers`, `/alerts`, `/purchase-orders`, etc. |
+| FEATURETRACE.md — CustomerSelector + Kanban docs | ✅ Section 24 updated | 9/10 | New subsections for Phase 1/2 components |
+
+### Remaining Phase 3 Items (not in scope this session)
+
+- Global Cmd+K command palette (Phase 2 item — still pending)
+- Skeleton loading screens
+- Fabric colour swatches in order form dropdowns
+- WhatsApp auto-prompt on status change
+- Date picker upgrade
+- "Today at a glance" owner dashboard strip
+- Customer VIP indicators
+- Brand typography / accent colour pass
+
+---
+
 *End of UX Requirements Document*

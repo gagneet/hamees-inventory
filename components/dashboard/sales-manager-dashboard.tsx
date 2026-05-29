@@ -1,5 +1,16 @@
 'use client'
 
+/**
+ * @featuretrace Sales Manager Dashboard
+ * @component SalesManagerDashboard
+ * @description Primary view for SALES_MANAGER role. Shows sales pipeline KPIs:
+ *   orders this week, revenue, pending collections, production pipeline chart,
+ *   outstanding payments list, recent order activity.
+ *
+ * @reads stats — from GET /api/dashboard/enhanced-stats (passed as prop)
+ * @renders ProductionPipelineChart | RevenueForecastChart | SalesOrdersDialog
+ */
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ProductionPipelineChart } from './production-pipeline-chart'
 import { SalesOrdersDialog } from './sales-orders-dialog'

@@ -1,5 +1,19 @@
 'use client'
 
+/**
+ * @featuretrace Expenses
+ * @page /expenses
+ * @permission view_expenses
+ * @description CRUD management for shop expenses (fabric purchases, tailor salaries,
+ *   rent, utilities, etc.). Tracks GST (CGST/SGST/IGST), expense categories, and vendors.
+ *
+ * @calls GET /api/expenses — paginated expense list with category + vendor
+ * @calls POST /api/expenses — create new expense
+ * @calls PATCH /api/expenses/:id — edit expense
+ * @calls DELETE /api/expenses/:id — delete expense (delete_expenses permission)
+ * @renders Expense table with filter by category/date + summary KPI cards
+ */
+
 import { useEffect, useState, Suspense } from 'react'
 import Link from 'next/link'
 import {

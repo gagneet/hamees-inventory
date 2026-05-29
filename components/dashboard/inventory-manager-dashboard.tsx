@@ -1,5 +1,16 @@
 'use client'
 
+/**
+ * @featuretrace Inventory Manager Dashboard
+ * @component InventoryManagerDashboard
+ * @description Primary view for INVENTORY_MANAGER role. Shows stock health:
+ *   critical stock table, pending POs, stock comparison chart, fast-moving fabrics.
+ *   Includes quick "Create PO" action for low-stock items.
+ *
+ * @reads stats.criticalStock | pendingPOs | fastMovingFabrics — from dashboard API
+ * @renders StockComparisonChart | InventoryStockDialog | PendingPOsDialog | CreatePODialog
+ */
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { StockComparisonChart } from './stock-comparison-chart'
 import { Package, AlertTriangle, ShoppingCart, TrendingDown, TrendingUp } from 'lucide-react'

@@ -1,3 +1,16 @@
+/**
+ * @featuretrace Alerts Page
+ * @page /alerts
+ * @permission view_alerts
+ * @description Server-rendered list of all non-dismissed alerts. Alerts are fetched
+ *   where isDismissed = false (with auto-reset of expired dismissals). Rendered as a
+ *   flat list ordered by createdAt desc.
+ *
+ * @reads Alert model — prisma.alert.findMany (isDismissed: false)
+ * @renders AlertCard per alert (flat list, no category grouping) + MarkAllReadButton
+ * @actions Dismiss alert (mark isDismissed) | Mark read | Navigate to related inventory or order record
+ */
+
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/db'

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { MessageCircle, Loader2 } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 
 interface SendWhatsAppButtonProps {
   orderId: string
@@ -21,7 +21,6 @@ export function SendWhatsAppButton({
   orderStatus,
 }: SendWhatsAppButtonProps) {
   const [isSending, setIsSending] = useState(false)
-  const { toast } = useToast()
 
   const handleSendUpdate = async () => {
     setIsSending(true)
@@ -67,18 +66,10 @@ export function SendWhatsAppButton({
         throw new Error(data.error || 'Failed to send WhatsApp update')
       }
 
-      toast({
-        title: 'WhatsApp Update Sent',
-        description: `Order update sent to ${customerName} (${customerPhone})`,
-        variant: 'default',
-      })
+      toast.success(`Order update sent to ${customerName} (${customerPhone})`)
     } catch (error) {
       console.error('Error sending WhatsApp update:', error)
-      toast({
-        title: 'Failed to Send Update',
-        description: error instanceof Error ? error.message : 'An error occurred',
-        variant: 'destructive',
-      })
+      toast.error(error instanceof Error ? error.message : 'An error occurred')
     } finally {
       setIsSending(false)
     }

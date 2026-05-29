@@ -1,10 +1,23 @@
+/**
+ * @featuretrace Order Detail
+ * @page /orders/[id]
+ * @permission view_orders
+ * @description Server-rendered order detail page. Shows full order summary, status pipeline,
+ *   payment installments, order items with inline measurements, tailor notes, activity log.
+ *   Primary actions: Update Status | Record Payment | Print Invoice | Send WhatsApp.
+ *
+ * @reads Order (full) + items + customer + stockMovements + orderHistory + measurements
+ * @renders OrderActions | PaymentInstallments | OrderHistory | OrderItemDetailDialog
+ * @actions update_order_status (TAILOR+) | manage_payments (SALES_MANAGER+) | print | WhatsApp
+ */
+
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import { prisma } from '@/lib/db'
 import Link from 'next/link'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { prisma } from '@/lib/db'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Breadcrumb,
   BreadcrumbItem,

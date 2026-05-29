@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { formatCurrency } from '@/lib/utils'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import {
   Eye,
   Package,
@@ -160,7 +160,6 @@ const measurementLabels: Record<string, { en: string; pa: string }> = {
 
 export function OrderItemDetailDialog({ orderItem, onSave }: OrderItemDetailDialogProps) {
   const { data: session } = useSession()
-  const { toast } = useToast()
   const [isOpen, setIsOpen] = useState(false)
   const [designs, setDesigns] = useState<DesignUpload[]>([])
   const [accessories, setAccessories] = useState<GarmentAccessory[]>([])
@@ -315,27 +314,16 @@ export function OrderItemDetailDialog({ orderItem, onSave }: OrderItemDetailDial
       })
 
       if (response.ok) {
-        toast({
-          title: 'Success',
-          description: 'Order status updated successfully',
-        })
+        toast.success('Order status updated successfully')
         // Refresh the page data without full reload to preserve user state
         window.location.href = window.location.href
       } else {
         const error = await response.json()
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: error.error || 'Failed to update status',
-        })
+        toast.error(error.error || 'Failed to update status')
       }
     } catch (error) {
       console.error('Error updating status:', error)
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to update status. Please check your connection and try again.',
-      })
+      toast.error(error instanceof Error ? error.message : 'Failed to update status. Please check your connection and try again.')
     } finally {
       setIsUpdatingStatus(false)
     }
@@ -353,10 +341,7 @@ export function OrderItemDetailDialog({ orderItem, onSave }: OrderItemDetailDial
 
       if (response.ok) {
         const data = await response.json()
-        toast({
-          title: 'Success',
-          description: 'Work note added successfully',
-        })
+        toast.success('Work note added successfully')
         setTailorNotes('') // Clear the input
         // Add the new note to the order history state
         if (data.note) {
@@ -366,19 +351,11 @@ export function OrderItemDetailDialog({ orderItem, onSave }: OrderItemDetailDial
         onSave?.()
       } else {
         const errorMessage = await getErrorMessage(response, 'Failed to add note')
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: errorMessage,
-        })
+        toast.error(errorMessage)
       }
     } catch (error) {
       console.error('Error adding tailor note:', error)
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to add note. Please check your connection and try again.',
-      })
+      toast.error(error instanceof Error ? error.message : 'Failed to add note. Please check your connection and try again.')
     } finally {
       setIsSavingNotes(false)
     }
@@ -402,25 +379,14 @@ export function OrderItemDetailDialog({ orderItem, onSave }: OrderItemDetailDial
       if (response.ok) {
         setSelectedFile(null)
         await fetchDesigns()
-        toast({
-          title: 'Success',
-          description: 'Design file uploaded successfully',
-        })
+        toast.success('Design file uploaded successfully')
       } else {
         const errorMessage = await getErrorMessage(response, 'Failed to upload file')
-        toast({
-          variant: 'destructive',
-          title: 'Upload Failed',
-          description: errorMessage,
-        })
+        toast.error(errorMessage)
       }
     } catch (error) {
       console.error('Error uploading file:', error)
-      toast({
-        variant: 'destructive',
-        title: 'Upload Error',
-        description: error instanceof Error ? error.message : 'Failed to upload file. Please check your connection and try again.',
-      })
+      toast.error(error instanceof Error ? error.message : 'Failed to upload file. Please check your connection and try again.')
     } finally {
       setIsUploading(false)
     }
@@ -444,25 +410,14 @@ export function OrderItemDetailDialog({ orderItem, onSave }: OrderItemDetailDial
         await fetchDesigns()
         setDeleteDialogOpen(false)
         setDesignToDelete(null)
-        toast({
-          title: 'Success',
-          description: 'Design file deleted successfully',
-        })
+        toast.success('Design file deleted successfully')
       } else {
         const errorMessage = await getErrorMessage(response, 'Failed to delete file')
-        toast({
-          variant: 'destructive',
-          title: 'Delete Failed',
-          description: errorMessage,
-        })
+        toast.error(errorMessage)
       }
     } catch (error) {
       console.error('Error deleting file:', error)
-      toast({
-        variant: 'destructive',
-        title: 'Delete Error',
-        description: error instanceof Error ? error.message : 'Failed to delete file. Please check your connection and try again.',
-      })
+      toast.error(error instanceof Error ? error.message : 'Failed to delete file. Please check your connection and try again.')
     } finally {
       setIsDeleting(false)
     }

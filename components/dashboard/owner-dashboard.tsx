@@ -1,5 +1,17 @@
 'use client'
 
+/**
+ * @featuretrace Owner / Admin Dashboard
+ * @component OwnerDashboard
+ * @description Primary view for OWNER and ADMIN roles. Shows full business health:
+ *   KPI summary cards, financial trend, orders status donut, inventory health,
+ *   top customers, garment revenue, customer retention gauge.
+ *
+ * @reads dashboardData.stats — from GET /api/dashboard/enhanced-stats (passed as prop)
+ * @renders FinancialTrendChart | GaugeChart | CustomerRetentionChart |
+ *          OrdersStatusChart | InventorySummary | TopCustomersChart | GarmentTypeRevenueChart
+ */
+
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'

@@ -1,3 +1,16 @@
+/**
+ * @featuretrace Customer Detail
+ * @page /customers/[id]
+ * @permission view_customers
+ * @description Server-rendered customer profile page. Shows customer info (name, phone,
+ *   email, city), order count, and measurements by garment type.
+ *   Primary CTA: New Order (pre-fills customerId).
+ *
+ * @reads Customer + orders + measurements (all garment types, active only)
+ * @renders CustomerDetailClient — client shell for measurements + order list
+ * @actions New Order | Edit Customer | Add Measurement
+ */
+
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { hasPermission } from '@/lib/permissions'

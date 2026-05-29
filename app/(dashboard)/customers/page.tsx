@@ -1,5 +1,17 @@
 'use client'
 
+/**
+ * @featuretrace Customer List
+ * @page /customers
+ * @permission view_customers
+ * @description Client-rendered searchable grid of all customers. Supports text search
+ *   by name, email, or phone (debounced, server-side via /api/customers) with pagination.
+ *
+ * @calls GET /api/customers — paginated customer list with order counts, last measurement date
+ * @renders Customer cards in a responsive grid (name, phone, email, city, order counts)
+ * @actions Add Customer (manage_customers) | View Detail (click card)
+ */
+
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'

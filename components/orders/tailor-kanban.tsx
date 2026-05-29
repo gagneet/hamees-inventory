@@ -7,7 +7,7 @@
  *   STITCHING → FINISHING → READY) as swimlane columns with one-click status advance.
  *   Tailors can move any order to the next stage without navigating to the order detail page.
  *
- * @reads  orders — fetched via GET /api/orders?status=...&kanban=1 (passed as prop)
+ * @reads  orders: KanbanOrder[] — passed as prop; fetched by parent server component (production/page.tsx) via prisma.order.findMany()
  * @calls  PATCH /api/orders/:id/status — one-click advance to next status
  * @calls  router.refresh() — re-renders server data after update
  *

@@ -1613,10 +1613,67 @@ tailor-kanban.tsx                                  ← Phase 2 (Production Board
   └── Used in: app/(dashboard)/orders/production/page.tsx
   └── Optimistic status advance → PATCH /api/orders/[id]/status
   └── Uses sonner toast for success/error feedback
-  └── DeliveryBadge: color-coded urgency (overdue=red, today=amber, tomorrow=yellow)
+  └── DeliveryBadge: overdue=red / today=amber / 1 day=orange / future=slate
 ```
 
-### `components/dashboard/` — Dashboard Components
+### `components/orders/customer-selector.tsx` — Phase 1 (Searchable Customer Selection)
+
+```
+components/orders/customer-selector.tsx
+  ├── Used in: app/(dashboard)/orders/new/page.tsx (Step 1)
+  ├── Combobox (components/ui/combobox.tsx)
+  │     └── Filters customers by name OR phone — replaces plain <select>
+  │
+  ├── Customer Profile Card (inline, rendered on selection)
+  │     ├── Shows: name, phone, city, last order number + garment types, saved measurements
+  │     └── GET /api/customers/[id]  → fetches last order + measurement summary
+  │
+  ├── "Repeat Last Order" Button
+  │     ├── GET /api/orders/[lastOrderId]  → fetches full order items + stitching config
+  │     └── Calls onRepeatOrder(RepeatOrderData) prop → parent form pre-fills Steps 2 & 3
+  │
+  └── InlineNewCustomerForm (when no match found)
+        ├── Name + Phone + City fields (no page navigation)
+        ├── POST /api/customers  → creates customer
+        └── Calls onNewCustomer(customer) → adds to dropdown + auto-selects
+```
+
+### `components/ui/combobox.tsx` — Phase 1 (Searchable Dropdown)
+
+```
+components/ui/combobox.tsx
+  ├── @featuretrace Customer Combobox
+  ├── Built on Radix UI Popover + controlled Input + client-side filtered list (no cmdk)
+  ├── Props: options[], value, onSelect, placeholder, emptyMessage, onAddNew, onAddNewLabel
+  ├── Filters options client-side via label.toLowerCase().includes(search) || sublabel?.toLowerCase().includes(search)
+  └── Used in:
+        ├── components/orders/customer-selector.tsx  (customer search)
+        └── app/(dashboard)/orders/new/page.tsx      (garment + fabric selects)
+```
+
+### `components/orders/tailor-kanban.tsx` — Phase 2 (Production Board)
+
+```
+components/orders/tailor-kanban.tsx
+  ├── Used in: app/(dashboard)/orders/production/page.tsx
+  ├── Renders 5 swim-lane columns: NEW | CUTTING | STITCHING | FINISHING | READY
+  ├── Each column: filteredOrders.filter(o => o.status === col.status)
+  │
+  ├── KanbanCard per order:
+  │     ├── Order number (bold) + customer name
+  │     ├── Garment type chips (items[].garmentPattern.name)
+  │     ├── DeliveryBadge: overdue=red / today=amber / 1 day=orange / future=slate
+  │     ├── Assigned tailor name (if set)
+  │     └── Fabric name text (items[0].clothInventory.name)
+  │
+  ├── One-click status advance (canAdvance prop = update_order_status permission)
+  │     └── Optimistic: moves card locally → PATCH /api/orders/[id]/status
+  │           On error: reverts to previous status + toast.error
+  │
+  └── Props: orders: KanbanOrder[] (from server) | canAdvance: boolean
+```
+
+
 
 ```
 dashboard-client.tsx
@@ -1688,9 +1745,13 @@ This traces every system call from clicking "New Order" to the order appearing i
          └── prisma.accessoryInventory.findMany({ where: { active: true } })
          └── Returns: AccessoryInventory[]
 
-4. STEP 1 — Customer selected (local state update, no API call)
-   └── selectedCustomer = customers.find(c => c.id === customerId)
-   └── Customer card rendered with name, phone, email
+4. STEP 1 — Customer selected via CustomerSelector searchable combobox
+   └── components/orders/customer-selector.tsx (Phase 1)
+   ├── Customer typed in combobox → filters Customer[] by name OR phone
+   ├── On selection → GET /api/customers/[id] → fetches last order + measurements
+   ├── Customer profile card shown (last order, measurement coverage per garment type)
+   ├── "Repeat Last Order" → GET /api/orders/[lastOrderId] → onRepeatOrder() pre-fills Steps 2/3
+   └── "Add new customer" → InlineNewCustomerForm → POST /api/customers → onNewCustomer()
 
 5. STEP 2 — Items added (local state only)
    ├── addItem() → items.push({ garmentPatternId: '', clothInventoryId: '', bodyType: 'REGULAR', accessories: [] })
