@@ -30,6 +30,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { DateRangePicker, type DateRangeWithLabel } from '@/components/date-range-picker'
+import { DatePicker } from '@/components/ui/date-picker'
 import { ExpensesFilter, type ExpenseFilters } from '@/components/expenses-filter'
 import {
   Card,
@@ -934,11 +935,10 @@ function ExpensesContent() {
 
               <div className="space-y-2">
                 <Label htmlFor="expenseDate">Expense Date *</Label>
-                <Input
-                  id="expenseDate"
-                  type="date"
-                  value={formData.expenseDate}
-                  onChange={(e) => setFormData({ ...formData, expenseDate: e.target.value })}
+                <DatePicker
+                  value={formData.expenseDate ? new Date(formData.expenseDate + 'T00:00:00') : undefined}
+                  onChange={(d) => setFormData({ ...formData, expenseDate: d ? d.toISOString().split('T')[0] : '' })}
+                  placeholder="Select expense date"
                 />
               </div>
             </div>
@@ -1112,11 +1112,10 @@ function ExpensesContent() {
 
               <div className="space-y-2">
                 <Label htmlFor="edit-expenseDate">Expense Date *</Label>
-                <Input
-                  id="edit-expenseDate"
-                  type="date"
-                  value={formData.expenseDate}
-                  onChange={(e) => setFormData({ ...formData, expenseDate: e.target.value })}
+                <DatePicker
+                  value={formData.expenseDate ? new Date(formData.expenseDate + 'T00:00:00') : undefined}
+                  onChange={(d) => setFormData({ ...formData, expenseDate: d ? d.toISOString().split('T')[0] : '' })}
+                  placeholder="Select expense date"
                 />
               </div>
             </div>

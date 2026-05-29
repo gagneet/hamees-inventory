@@ -21,7 +21,8 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Edit, RefreshCw, Percent } from 'lucide-react'
+import { DatePicker } from '@/components/ui/date-picker'
+import { RefreshCw, Edit, Percent } from 'lucide-react'
 
 interface OrderActionsProps {
   orderId: string
@@ -271,15 +272,13 @@ export function OrderActions({
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div>
+              <div>
               <Label htmlFor="deliveryDate">Delivery Date</Label>
-              <Input
-                id="deliveryDate"
-                type="date"
-                value={editData.deliveryDate}
-                onChange={(e) =>
-                  setEditData({ ...editData, deliveryDate: e.target.value })
-                }
+              <DatePicker
+                value={editData.deliveryDate ? new Date(editData.deliveryDate + 'T00:00:00') : undefined}
+                onChange={(d) => setEditData({ ...editData, deliveryDate: d ? d.toISOString().split('T')[0] : '' })}
+                placeholder="Select delivery date"
+                className="mt-1"
               />
             </div>
             <div>
