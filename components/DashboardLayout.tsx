@@ -3,11 +3,12 @@
 /**
  * @featuretrace Navigation Layout
  * @component DashboardLayout
- * @renders Sidebar (desktop) + Sheet nav (mobile) + sticky header + main content area
+ * @renders Sidebar (desktop) + Sheet nav (mobile, grouped) + sticky header + main content area
  * @reads session.user.role via useSession()
  * @calls lib/permissions.ts:hasPermission — filters nav items by role
- * @activestate usePathname() highlights the current route in the sidebar
+ * @activestate usePathname() highlights the current route in both sidebar and mobile sheet
  * @groups nav items into Operations / Production / Procurement / Finance / System sections
+ * @mobile Sheet nav mirrors desktop grouping with section headers for discoverability
  */
 
 import React from 'react';
@@ -118,9 +119,6 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
     }))
     .filter(section => section.items.length > 0);
 
-  // Flat list used in the mobile sheet (same filtering, no section headers)
-  const allVisibleItems = visibleSections.flatMap(s => s.items);
-
   return (
     <div className="min-h-screen w-full">
       {/* ── Fixed Sidebar — Desktop ─────────────────────────────────── */}
@@ -211,27 +209,36 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                 </div>
               )}
 
-              {/* Mobile nav items (flat, with active highlighting) */}
-              <nav className="flex-1 overflow-y-auto space-y-1">
-                {allVisibleItems.map((item) => {
-                  const active = isActive(pathname, item.href);
-                  return (
-                    <Link
-                      key={item.label}
-                      href={item.href}
-                      className={cn(
-                        'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
-                        active
-                          ? 'bg-slate-900 text-white'
-                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                      )}
-                      aria-current={active ? 'page' : undefined}
-                    >
-                      <item.icon className="h-5 w-5 shrink-0" />
-                      {item.label}
-                    </Link>
-                  );
-                })}
+              {/* Mobile nav items — grouped sections matching the desktop sidebar */}
+              <nav className="flex-1 overflow-y-auto py-2">
+                <div className="space-y-4">
+                  {visibleSections.map((section) => (
+                    <div key={section.label}>
+                      <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-slate-400">
+                        {section.label}
+                      </p>
+                      {section.items.map((item) => {
+                        const active = isActive(pathname, item.href);
+                        return (
+                          <Link
+                            key={item.label}
+                            href={item.href}
+                            className={cn(
+                              'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
+                              active
+                                ? 'bg-slate-900 text-white'
+                                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                            )}
+                            aria-current={active ? 'page' : undefined}
+                          >
+                            <item.icon className="h-5 w-5 shrink-0" />
+                            {item.label}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
               </nav>
 
               <div className="mt-auto pt-4 border-t">
