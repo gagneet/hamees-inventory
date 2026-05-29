@@ -1,5 +1,16 @@
 'use client'
 
+/**
+ * @featuretrace Tailor Dashboard
+ * @component TailorDashboard
+ * @description Primary view for TAILOR and MASTER_TAILOR roles. Shows production workload:
+ *   KPI cards (in-progress, due today, overdue), workload radial chart, deadline list.
+ *   The TailorKanban production board is available at /orders/production (linked from sidebar).
+ *
+ * @reads stats.inProgress | dueToday | overdue | currentMonthOrders — from dashboard API
+ * @renders RadialProgress | WorkloadChart | DeadlineList
+ */
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { RadialProgress } from './radial-progress'
 import { WorkloadChart } from './workload-chart'

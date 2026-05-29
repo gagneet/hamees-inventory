@@ -1,5 +1,17 @@
 'use client'
 
+/**
+ * @featuretrace Customer List
+ * @page /customers
+ * @permission view_customers
+ * @description Searchable, sortable list of all customers. Supports table / card view toggle.
+ *   Customers can be sorted by name, last order date, total spend, or city.
+ *
+ * @calls GET /api/customers — paginated customer list with order counts + last order date
+ * @renders Customer cards/rows with VIP indicator, last-order date, outstanding balance
+ * @actions Add Customer (manage_customers) | Edit (manage_customers) | View Detail
+ */
+
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'

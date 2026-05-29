@@ -1,3 +1,16 @@
+/**
+ * @featuretrace Customer Detail
+ * @page /customers/[id]
+ * @permission view_customers
+ * @description Server-rendered customer profile page. Shows customer KPIs (total spend,
+ *   order count, favourite garment, last visit), measurements by garment type,
+ *   order history timeline. Primary CTA: New Order (pre-fills customerId).
+ *
+ * @reads Customer + orders + measurements (all garment types)
+ * @renders CustomerDetailClient — client shell for measurements + order history tabs
+ * @actions New Order | Repeat Last Order | Edit Customer | Add Measurement
+ */
+
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { hasPermission } from '@/lib/permissions'

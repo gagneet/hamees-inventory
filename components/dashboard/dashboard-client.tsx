@@ -1,5 +1,17 @@
 'use client'
 
+/**
+ * @featuretrace Dashboard Client
+ * @component DashboardClient
+ * @description Entry point for all role-specific dashboard views.
+ *   Fetches enhanced stats from the API and routes to the correct dashboard
+ *   component based on the user's role.
+ *
+ * @calls GET /api/dashboard/enhanced-stats — returns KPIs, charts, order lists
+ * @renders RoleDashboardRouter → OwnerDashboard | TailorDashboard | SalesManagerDashboard |
+ *          InventoryManagerDashboard (based on userRole prop from server)
+ */
+
 import { useEffect, useState } from 'react'
 import { RoleDashboardRouter } from './role-dashboard-router'
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'

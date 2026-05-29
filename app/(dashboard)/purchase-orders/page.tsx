@@ -1,5 +1,19 @@
 'use client'
 
+/**
+ * @featuretrace Purchase Orders
+ * @page /purchase-orders
+ * @permission view_purchase_orders
+ * @description CRUD management for fabric and accessory purchase orders.
+ *   Supports creating POs from low-stock alerts, tracking delivery status,
+ *   and receiving goods (updating ClothInventory / AccessoryInventory stock atomically).
+ *
+ * @calls GET /api/purchase-orders — paginated PO list with supplier + items
+ * @calls POST /api/purchase-orders — create new PO
+ * @calls PATCH /api/purchase-orders/:id — update status (ORDERED → RECEIVED etc.)
+ * @renders PO cards with status badges + receive-goods dialog
+ */
+
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import {
