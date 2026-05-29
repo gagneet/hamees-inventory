@@ -11,7 +11,7 @@
  * @mobile Sheet nav mirrors desktop grouping with section headers for discoverability
  */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { usePathname } from 'next/navigation';
@@ -31,11 +31,13 @@ import {
   Settings,
   BarChart2,
   Scissors,
+  Search,
 } from 'lucide-react';
 import Image from 'next/image';
 import { SignOutButton } from './dashboard/sign-out-button';
 import { hasPermission, Permission, type UserRole, getRoleName } from '@/lib/permissions';
 import { cn } from '@/lib/utils';
+import { CommandPalette } from './command-palette';
 
 type NavItem = {
   href: string;
@@ -105,6 +107,18 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   const { data: session } = useSession();
   const pathname = usePathname();
   const userRole = session?.user?.role as UserRole;
+  const [cmdOpen, setCmdOpen] = useState(false);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setCmdOpen((v) => !v);
+      }
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   /**
    * Filter each section's items by the user's role permissions.
@@ -128,7 +142,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
           <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
             <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
               <Image src="/logo.svg" alt="Hamees Attire" width={32} height={32} />
-              <span className="text-slate-800 dark:text-slate-100">Hamees Attire</span>
+              <span className="text-slate-800 dark:text-slate-100 font-display font-semibold tracking-wide">Hamees Attire</span>
             </Link>
           </div>
 
@@ -196,7 +210,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
               {/* Mobile nav header */}
               <div className="flex items-center gap-2 font-semibold pb-4 border-b">
                 <Image src="/logo.svg" alt="Hamees Attire" width={28} height={28} />
-                <span className="text-slate-800">Hamees Attire</span>
+                <span className="text-slate-800 font-display font-semibold tracking-wide">Hamees Attire</span>
               </div>
 
               {/* User identity in mobile nav */}
@@ -247,9 +261,21 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
             </SheetContent>
           </Sheet>
 
-          {/* Header right — user badge on desktop (mobile already has it in the Sheet) */}
+          {/* Header right — search trigger + user badge on desktop */}
           {session?.user && (
-            <div className="hidden md:flex ml-auto items-center gap-2">
+            <div className="hidden md:flex ml-auto items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 text-slate-500 border-slate-200 hover:border-slate-300 w-48 justify-start"
+                onClick={() => setCmdOpen(true)}
+              >
+                <Search className="h-3.5 w-3.5" />
+                <span className="text-xs flex-1 text-left">Search…</span>
+                <kbd className="ml-auto hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border bg-slate-100 px-1.5 font-mono text-[10px] text-slate-400">
+                  ⌘K
+                </kbd>
+              </Button>
               <span className="text-xs text-slate-500">{session.user.name}</span>
               <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-semibold uppercase tracking-wide">
                 {userRole ? getRoleName(userRole) : ''}
@@ -257,6 +283,8 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
             </div>
           )}
         </header>
+
+        <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} userRole={userRole} />
 
         {/* Page content */}
         <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-neutral-50 dark:bg-neutral-900/40">
