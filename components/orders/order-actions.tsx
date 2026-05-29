@@ -64,6 +64,9 @@ export function OrderActions({
   userRole,
   isDelivered = false,
 }: OrderActionsProps) {
+  const formatLocalDate = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+
   const router = useRouter()
   const [statusDialogOpen, setStatusDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
@@ -75,7 +78,7 @@ export function OrderActions({
 
   // Edit order form
   const [editData, setEditData] = useState({
-    deliveryDate: new Date(deliveryDate).toISOString().split('T')[0],
+    deliveryDate: formatLocalDate(new Date(deliveryDate)),
     advancePaid: advancePaid.toString(),
     notes: notes || '',
     priority,
@@ -276,7 +279,7 @@ export function OrderActions({
               <Label htmlFor="deliveryDate">Delivery Date</Label>
               <DatePicker
                 value={editData.deliveryDate ? new Date(editData.deliveryDate + 'T00:00:00') : undefined}
-                onChange={(d) => setEditData({ ...editData, deliveryDate: d ? d.toISOString().split('T')[0] : '' })}
+                onChange={(d) => setEditData({ ...editData, deliveryDate: d ? formatLocalDate(d) : '' })}
                 placeholder="Select delivery date"
                 fromDate={new Date()}
                 className="mt-1"

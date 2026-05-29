@@ -203,7 +203,14 @@ function NewPurchaseOrderContent() {
               <Label htmlFor="expectedDate">Expected Delivery Date</Label>
               <DatePicker
                 value={formData.expectedDate ? new Date(formData.expectedDate + 'T00:00:00') : undefined}
-                onChange={(d) => setFormData({ ...formData, expectedDate: d ? d.toISOString().split('T')[0] : '' })}
+                onChange={(d) =>
+                  setFormData({
+                    ...formData,
+                    expectedDate: d
+                      ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+                      : '',
+                  })
+                }
                 placeholder="Select expected date"
                 fromDate={new Date()}
               />

@@ -46,10 +46,10 @@ const QUICK_ACTIONS: QuickAction[] = [
   { label: 'New Order', href: '/orders/new', icon: PlusCircle, permission: 'create_order' },
   { label: 'New Customer', href: '/customers/new', icon: PlusCircle, permission: 'manage_customers' },
   { label: 'New Purchase Order', href: '/purchase-orders/new', icon: PlusCircle, permission: 'manage_inventory' },
-  { label: 'View Dashboard', href: '/dashboard', icon: ExternalLink },
-  { label: 'View Orders', href: '/orders', icon: ShoppingBag },
-  { label: 'View Customers', href: '/customers', icon: Users },
-  { label: 'View Inventory', href: '/inventory', icon: Package },
+  { label: 'View Dashboard', href: '/dashboard', icon: ExternalLink, permission: 'view_dashboard' },
+  { label: 'View Orders', href: '/orders', icon: ShoppingBag, permission: 'view_orders' },
+  { label: 'View Customers', href: '/customers', icon: Users, permission: 'view_customers' },
+  { label: 'View Inventory', href: '/inventory', icon: Package, permission: 'view_inventory' },
 ];
 
 interface CommandPaletteProps {
@@ -70,12 +70,14 @@ export function CommandPalette({ open, onOpenChange, userRole }: CommandPaletteP
   );
 
   const search = useCallback(async (q: string) => {
+    abortRef.current?.abort();
+
     if (!q.trim()) {
       setResults([]);
+      setIsSearching(false);
       return;
     }
 
-    abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
     setIsSearching(true);

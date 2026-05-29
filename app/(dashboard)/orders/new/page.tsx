@@ -109,6 +109,9 @@ type OrderItem = {
 }
 
 function NewOrderForm() {
+  const formatLocalDate = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+
   const router = useRouter()
   const searchParams = useSearchParams()
   const preselectedCustomerId = searchParams.get('customerId')
@@ -560,7 +563,7 @@ function NewOrderForm() {
       }
 
       // Set default delivery date if not provided (7 days from now)
-      const finalDeliveryDate = deliveryDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      const finalDeliveryDate = deliveryDate || formatLocalDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))
 
       // Filter out incomplete items
       const validItems = items.filter(item => item.garmentPatternId && item.clothInventoryId)
@@ -1110,7 +1113,7 @@ function NewOrderForm() {
                     </label>
                     <DatePicker
                       value={deliveryDate ? new Date(deliveryDate + 'T00:00:00') : undefined}
-                      onChange={(d) => setDeliveryDate(d ? d.toISOString().split('T')[0] : '')}
+                      onChange={(d) => setDeliveryDate(d ? formatLocalDate(d) : '')}
                       placeholder="Select delivery date"
                       fromDate={new Date()}
                       className="w-full"

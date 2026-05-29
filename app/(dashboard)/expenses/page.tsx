@@ -139,6 +139,9 @@ interface ExpensesData {
   }>
 }
 
+const formatLocalDate = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+
 function ExpensesContent() {
   const { data: session } = useSession()
   const userRole = session?.user?.role
@@ -159,7 +162,7 @@ function ExpensesContent() {
     description: '',
     amount: '',
     gstRate: '0',
-    expenseDate: new Date().toISOString().split('T')[0],
+    expenseDate: formatLocalDate(new Date()),
     vendorName: '',
     vendorGstin: '',
     invoiceNumber: '',
@@ -247,7 +250,7 @@ function ExpensesContent() {
         description: '',
         amount: '',
         gstRate: '0',
-        expenseDate: new Date().toISOString().split('T')[0],
+        expenseDate: formatLocalDate(new Date()),
         vendorName: '',
         vendorGstin: '',
         invoiceNumber: '',
@@ -937,7 +940,7 @@ function ExpensesContent() {
                 <Label htmlFor="expenseDate">Expense Date *</Label>
                 <DatePicker
                   value={formData.expenseDate ? new Date(formData.expenseDate + 'T00:00:00') : undefined}
-                  onChange={(d) => setFormData({ ...formData, expenseDate: d ? d.toISOString().split('T')[0] : '' })}
+                  onChange={(d) => setFormData({ ...formData, expenseDate: d ? formatLocalDate(d) : '' })}
                   placeholder="Select expense date"
                 />
               </div>
@@ -1114,7 +1117,7 @@ function ExpensesContent() {
                 <Label htmlFor="edit-expenseDate">Expense Date *</Label>
                 <DatePicker
                   value={formData.expenseDate ? new Date(formData.expenseDate + 'T00:00:00') : undefined}
-                  onChange={(d) => setFormData({ ...formData, expenseDate: d ? d.toISOString().split('T')[0] : '' })}
+                  onChange={(d) => setFormData({ ...formData, expenseDate: d ? formatLocalDate(d) : '' })}
                   placeholder="Select expense date"
                 />
               </div>
