@@ -597,7 +597,7 @@ The application serves a **high-end boutique** for wealthy clients. The UI shoul
 | 13 | Skeleton loading screens | ⏳ Not yet | — | Suspense boundaries exist but no `<Skeleton>` components |
 | 14 | Consolidated toast system (sonner) | ✅ All `useToast` → `sonner` | 9/10 | 5 files migrated; 2 systems ran in parallel before this fix |
 | 15 | WhatsApp status update prompts | ⏳ Not yet | — | Button exists; auto-prompt on status change not wired |
-| 16 | Fabric colour swatch in selections | ⏳ Not yet | — | `colorHex` field exists in model; no visual swatch in dropdowns |
+| 16 | Fabric colour swatch in selections | ✅ Implemented | 9/10 | `colorHex` rendered as inline swatch in fabric combobox; `cloth.colorHex` passed from new-order form |
 | 17 | Date picker component | ⏳ Not yet | — | Native `<input type="date">` still used throughout |
 | 18 | Owner dashboard "Today at a glance" strip | ⏳ Not yet | — | Dashboards have stats cards; no "today only" strip |
 | 19 | Customer VIP indicators | ⏳ Not yet | — | `customerType` field unused in UI |

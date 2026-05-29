@@ -1645,7 +1645,7 @@ components/ui/combobox.tsx
   ├── @featuretrace Customer Combobox
   ├── Built on Radix UI Popover + controlled Input + client-side filtered list (no cmdk)
   ├── Props: options[], value, onSelect, placeholder, emptyMessage, onAddNew, onAddNewLabel
-  ├── Filters options client-side via value.toLowerCase().includes(search)
+  ├── Filters options client-side via label.toLowerCase().includes(search) || sublabel?.toLowerCase().includes(search)
   └── Used in:
         ├── components/orders/customer-selector.tsx  (customer search)
         └── app/(dashboard)/orders/new/page.tsx      (garment + fabric selects)

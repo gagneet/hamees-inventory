@@ -2,13 +2,13 @@
  * @featuretrace Alerts Page
  * @page /alerts
  * @permission view_alerts
- * @description Server-rendered list of all active alerts. Categories: Low Stock,
- *   Overdue Orders, Outstanding Payments, PO Delays. Each alert links to a direct
- *   action: Create PO | Open Order | Record Payment.
+ * @description Server-rendered list of all non-dismissed alerts. Alerts are fetched
+ *   where isDismissed = false (with auto-reset of expired dismissals). Rendered as a
+ *   flat list ordered by createdAt desc.
  *
- * @reads Alert model — prisma.alert.findMany (active = true)
- * @renders Alert cards grouped by category with dismiss / action buttons
- * @actions Acknowledge (mark alert inactive) | navigate to related record
+ * @reads Alert model — prisma.alert.findMany (isDismissed: false)
+ * @renders AlertCard per alert (flat list, no category grouping) + MarkAllReadButton
+ * @actions Dismiss alert (mark isDismissed) | Mark read | Navigate to related inventory or order record
  */
 
 import { auth } from '@/lib/auth'

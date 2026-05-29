@@ -4,12 +4,12 @@
  * @featuretrace Customer List
  * @page /customers
  * @permission view_customers
- * @description Searchable, sortable list of all customers. Supports table / card view toggle.
- *   Customers can be sorted by name, last order date, total spend, or city.
+ * @description Client-rendered searchable grid of all customers. Supports text search
+ *   by name, email, or phone (debounced, server-side via /api/customers) with pagination.
  *
- * @calls GET /api/customers — paginated customer list with order counts + last order date
- * @renders Customer cards/rows with VIP indicator, last-order date, outstanding balance
- * @actions Add Customer (manage_customers) | Edit (manage_customers) | View Detail
+ * @calls GET /api/customers — paginated customer list with order counts, last measurement date
+ * @renders Customer cards in a responsive grid (name, phone, email, city, order counts)
+ * @actions Add Customer (manage_customers) | View Detail (click card)
  */
 
 import { useState, useEffect } from 'react'

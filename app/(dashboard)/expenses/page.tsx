@@ -10,7 +10,7 @@
  * @calls GET /api/expenses — paginated expense list with category + vendor
  * @calls POST /api/expenses — create new expense
  * @calls PATCH /api/expenses/:id — edit expense
- * @calls DELETE /api/expenses/:id — delete expense (delete_expense permission)
+ * @calls DELETE /api/expenses/:id — delete expense (delete_expenses permission)
  * @renders Expense table with filter by category/date + summary KPI cards
  */
 
