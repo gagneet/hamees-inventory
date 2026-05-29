@@ -36,7 +36,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { InventoryType } from "@/lib/types"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "sonner"
 import { formatCurrency } from "@/lib/utils"
 import { Pagination } from "@/components/ui/pagination"
 import { ItemEditDialog } from "@/components/inventory/item-edit-dialog"
@@ -88,7 +88,6 @@ interface AccessoryInventoryItem {
 
 export default function InventoryPageClient() {
   const router = useRouter()
-  const { toast } = useToast()
   const { data: session } = useSession()
   const [activeTab, setActiveTab] = useState<InventoryType>("cloth")
   const [isLoading, setIsLoading] = useState(false)
@@ -252,11 +251,7 @@ export default function InventoryPageClient() {
       }
     } catch (error) {
       console.error("Failed to fetch inventory:", error)
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to load inventory. Please try again.",
-      })
+      toast.error('Failed to load inventory. Please try again.')
     } finally {
       setIsFetchingInventory(false)
     }
@@ -312,10 +307,7 @@ export default function InventoryPageClient() {
 
       if (result.found) {
         // Item found - Open edit dialog with item data
-        toast({
-          title: "Item Found",
-          description: `Found ${result.type} item: ${result.item?.name || barcode}. Opening editor...`,
-        })
+        toast(`Found ${result.type} item: ${result.item?.name || barcode}`)
 
         setEditItem({
           type: result.type as 'cloth' | 'accessory',
@@ -324,10 +316,7 @@ export default function InventoryPageClient() {
         setShowEditDialog(true)
       } else {
         // Item not found - Open add form with barcode pre-filled
-        toast({
-          title: "Item Not Found",
-          description: `No item found with barcode: ${barcode}. Opening form to create new item...`,
-        })
+        toast(`No item found with barcode: ${barcode} — opening form to create new item`)
 
         // Set the active tab based on barcode prefix
         if (barcode.startsWith('CLT-')) {
@@ -342,13 +331,9 @@ export default function InventoryPageClient() {
       console.error("Lookup failed:", error)
       setLookupResult({ found: false })
 
-      toast({
-        title: "Lookup Failed",
-        description: error instanceof Error
+      toast.error(error instanceof Error
           ? `Network error: ${error.message}. Please check your connection and try again.`
-          : "Unable to lookup barcode. Please check your connection and try again.",
-        variant: "destructive",
-      })
+          : "Unable to lookup barcode. Please check your connection and try again.")
     } finally {
       setIsLoading(false)
     }
@@ -382,10 +367,7 @@ export default function InventoryPageClient() {
       })
       if (!response.ok) throw new Error('Failed to create cloth item')
       await response.json()
-      toast({
-        title: "Success",
-        description: "Cloth item created successfully",
-      })
+      toast.success('Cloth item created successfully')
       setShowAddForm(false)
       setScannedBarcode(null)
       setLookupResult(null)
@@ -393,11 +375,7 @@ export default function InventoryPageClient() {
       e.currentTarget.reset()
     } catch (error) {
       console.error(error)
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to create cloth item. Please try again.",
-      })
+      toast.error('Failed to create cloth item. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -424,10 +402,7 @@ export default function InventoryPageClient() {
       })
       if (!response.ok) throw new Error('Failed to create accessory item')
       await response.json()
-      toast({
-        title: "Success",
-        description: "Accessory item created successfully",
-      })
+      toast.success('Accessory item created successfully')
       setShowAddForm(false)
       setScannedBarcode(null)
       setLookupResult(null)
@@ -435,21 +410,14 @@ export default function InventoryPageClient() {
       e.currentTarget.reset()
     } catch (error) {
       console.error(error)
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to create accessory item. Please try again.",
-      })
+      toast.error('Failed to create accessory item. Please try again.')
     } finally {
       setIsLoading(false)
     }
   }
 
   const handleReorder = (itemId: string, itemName: string) => {
-    toast({
-      title: "Reorder Request",
-      description: `Reorder request for "${itemName}" - Purchase Order feature coming soon!`,
-    })
+    toast(`Reorder requested for "${itemName}" — create a Purchase Order to proceed.`)
     // TODO: Implement purchase order creation
   }
 

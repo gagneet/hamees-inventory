@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import { formatCurrency } from '@/lib/utils'
 import { Package, Save, X, ExternalLink } from 'lucide-react'
 
@@ -53,7 +53,6 @@ interface ItemEditDialogProps {
 
 export function ItemEditDialog({ isOpen, onClose, itemType, item, userRole }: ItemEditDialogProps) {
   const router = useRouter()
-  const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState(item)
 
@@ -86,20 +85,13 @@ export function ItemEditDialog({ isOpen, onClose, itemType, item, userRole }: It
         throw new Error('Failed to update item')
       }
 
-      toast({
-        title: "Success",
-        description: `${itemType === 'cloth' ? 'Cloth' : 'Accessory'} item updated successfully`,
-      })
+      toast.success(`${itemType === 'cloth' ? 'Cloth' : 'Accessory'} item updated successfully`)
 
       onClose()
       router.refresh()
     } catch (error) {
       console.error(error)
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to update item. Please try again.",
-      })
+      toast.error('Failed to update item. Please try again.')
     } finally {
       setIsLoading(false)
     }

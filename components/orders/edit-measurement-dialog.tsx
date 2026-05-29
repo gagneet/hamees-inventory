@@ -37,7 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 import { Ruler } from 'lucide-react'
 
 // ── Field definitions ─────────────────────────────────────────────
@@ -147,7 +147,6 @@ export function EditMeasurementDialog({
   triggerButton,
 }: EditMeasurementDialogProps) {
   const router = useRouter()
-  const { toast } = useToast()
   const [open, setOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -199,15 +198,11 @@ export function EditMeasurementDialog({
         throw new Error(err.error || 'Failed to update measurement')
       }
 
-      toast({ title: 'Measurements saved', description: 'Changes saved and history preserved.' })
+      toast.success('Measurements saved — changes saved and history preserved.')
       setOpen(false)
       router.refresh()
     } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to update measurement',
-      })
+      toast.error(error instanceof Error ? error.message : 'Failed to update measurement')
     } finally {
       setIsSubmitting(false)
     }
