@@ -1,5 +1,13 @@
 'use client'
 
+/**
+ * @featuretrace Expense Report
+ * @route GET /reports/expenses
+ * @permission view_expense_reports
+ * @calls GET /api/reports/expenses?months=N
+ * @layout DashboardLayout (sidebar + header visible)
+ */
+
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -17,6 +25,7 @@ import {
   Pie,
   Cell,
 } from 'recharts'
+import DashboardLayout from '@/components/DashboardLayout'
 
 const CATEGORY_COLORS: Record<string, string> = {
   RENT: '#3B82F6',
@@ -65,12 +74,16 @@ export default function ExpenseReportPage() {
   }
 
   if (loading) {
-    return <div className="p-8">Loading...</div>
+    return (
+      <DashboardLayout>
+        <div className="p-8">Loading...</div>
+      </DashboardLayout>
+    )
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-slate-50">
+      <DashboardLayout>
         <div className="container mx-auto px-4 py-8">
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
             <h2 className="text-xl font-bold text-red-900 mb-2">Access Denied</h2>
@@ -80,51 +93,56 @@ export default function ExpenseReportPage() {
             </p>
           </div>
         </div>
-      </div>
+      </DashboardLayout>
     )
   }
 
   if (!data) {
-    return <div className="p-8">No data available</div>
+    return (
+      <DashboardLayout>
+        <div className="p-8">No data available</div>
+      </DashboardLayout>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b border-slate-200 print:hidden">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">Expense Report</h1>
-              <p className="text-sm text-slate-600">
-                Last {timeRange} months • Generated {new Date().toLocaleDateString()}
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <select
-                value={timeRange}
-                onChange={(e) => setTimeRange(parseInt(e.target.value))}
-                className="px-3 py-2 border border-slate-300 rounded-lg"
-              >
-                <option value={3}>3 Months</option>
-                <option value={6}>6 Months</option>
-                <option value={12}>12 Months</option>
-              </select>
-              <Button variant="outline" onClick={() => window.print()}>
-                <Printer className="h-4 w-4 mr-2" />
-                Print
-              </Button>
-              <Button>
-                <Download className="h-4 w-4 mr-2" />
-                Export
-              </Button>
+    <DashboardLayout>
+      <div className="min-h-screen bg-slate-50">
+        <header className="bg-white border-b border-slate-200 print:hidden">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold">Expense Report</h1>
+                <p className="text-sm text-slate-600">
+                  Last {timeRange} months • Generated {new Date().toLocaleDateString()}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <select
+                  value={timeRange}
+                  onChange={(e) => setTimeRange(parseInt(e.target.value))}
+                  className="px-3 py-2 border border-slate-300 rounded-lg"
+                >
+                  <option value={3}>3 Months</option>
+                  <option value={6}>6 Months</option>
+                  <option value={12}>12 Months</option>
+                </select>
+                <Button variant="outline" onClick={() => window.print()}>
+                  <Printer className="h-4 w-4 mr-2" />
+                  Print
+                </Button>
+                <Button>
+                  <Download className="h-4 w-4 mr-2" />
+                  Export
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main className="container mx-auto px-4 py-6">
-        {/* Summary Cards */}
-        <div className="grid gap-4 md:grid-cols-4 mb-6">
+        <main className="container mx-auto px-4 py-6">
+          {/* Summary Cards */}
+          <div className="grid gap-4 md:grid-cols-4 mb-6">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">Total Expenses</CardTitle>
@@ -175,8 +193,8 @@ export default function ExpenseReportPage() {
           </Card>
         </div>
 
-        {/* Charts */}
-        <div className="grid gap-6 md:grid-cols-2 mb-6">
+          {/* Charts */}
+          <div className="grid gap-6 md:grid-cols-2 mb-6">
           {/* Monthly Trend */}
           <Card>
             <CardHeader>
@@ -232,8 +250,8 @@ export default function ExpenseReportPage() {
           </Card>
         </div>
 
-        {/* Category Table */}
-        <Card className="mb-6">
+          {/* Category Table */}
+          <Card className="mb-6">
           <CardHeader>
             <CardTitle>Category Breakdown</CardTitle>
           </CardHeader>
@@ -273,8 +291,8 @@ export default function ExpenseReportPage() {
           </CardContent>
         </Card>
 
-        {/* Top Expenses */}
-        <Card>
+          {/* Top Expenses */}
+          <Card>
           <CardHeader>
             <CardTitle>Top 10 Expenses</CardTitle>
           </CardHeader>
@@ -299,8 +317,9 @@ export default function ExpenseReportPage() {
               ))}
             </div>
           </CardContent>
-        </Card>
-      </main>
-    </div>
+          </Card>
+        </main>
+      </div>
+    </DashboardLayout>
   )
 }

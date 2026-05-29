@@ -21,7 +21,8 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Edit, RefreshCw, Percent } from 'lucide-react'
+import { DatePicker } from '@/components/ui/date-picker'
+import { RefreshCw, Edit, Percent } from 'lucide-react'
 
 interface OrderActionsProps {
   orderId: string
@@ -63,6 +64,9 @@ export function OrderActions({
   userRole,
   isDelivered = false,
 }: OrderActionsProps) {
+  const formatLocalDate = (date: Date) =>
+    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+
   const router = useRouter()
   const [statusDialogOpen, setStatusDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
@@ -74,7 +78,7 @@ export function OrderActions({
 
   // Edit order form
   const [editData, setEditData] = useState({
-    deliveryDate: new Date(deliveryDate).toISOString().split('T')[0],
+    deliveryDate: formatLocalDate(new Date(deliveryDate)),
     advancePaid: advancePaid.toString(),
     notes: notes || '',
     priority,
@@ -271,15 +275,14 @@ export function OrderActions({
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div>
+              <div>
               <Label htmlFor="deliveryDate">Delivery Date</Label>
-              <Input
-                id="deliveryDate"
-                type="date"
-                value={editData.deliveryDate}
-                onChange={(e) =>
-                  setEditData({ ...editData, deliveryDate: e.target.value })
-                }
+              <DatePicker
+                value={editData.deliveryDate ? new Date(editData.deliveryDate + 'T00:00:00') : undefined}
+                onChange={(d) => setEditData({ ...editData, deliveryDate: d ? formatLocalDate(d) : '' })}
+                placeholder="Select delivery date"
+                fromDate={new Date()}
+                className="mt-1"
               />
             </div>
             <div>

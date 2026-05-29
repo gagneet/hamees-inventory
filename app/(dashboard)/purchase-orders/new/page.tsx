@@ -22,6 +22,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { DatePicker } from '@/components/ui/date-picker'
 import {
   Select,
   SelectContent,
@@ -200,14 +201,18 @@ function NewPurchaseOrderContent() {
 
             <div className="grid gap-2">
               <Label htmlFor="expectedDate">Expected Delivery Date</Label>
-              <Input
-                id="expectedDate"
-                type="date"
-                value={formData.expectedDate}
-                onChange={(e) =>
-                  setFormData({ ...formData, expectedDate: e.target.value })
+              <DatePicker
+                value={formData.expectedDate ? new Date(formData.expectedDate + 'T00:00:00') : undefined}
+                onChange={(d) =>
+                  setFormData({
+                    ...formData,
+                    expectedDate: d
+                      ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+                      : '',
+                  })
                 }
-                min={new Date().toISOString().split('T')[0]}
+                placeholder="Select expected date"
+                fromDate={new Date()}
               />
             </div>
           </CardContent>

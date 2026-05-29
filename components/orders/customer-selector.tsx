@@ -42,6 +42,7 @@ export type CustomerSummary = {
   phone: string
   email?: string | null
   city?: string | null
+  customerType?: string | null
 }
 
 export type RepeatOrderData = {
@@ -202,9 +203,12 @@ function CustomerCard({
       <div className="flex items-start justify-between">
         <div className="space-y-1">
           <p className="font-semibold text-slate-900 flex items-center gap-2">
-            <User className="h-4 w-4 text-blue-600" />
-            {customer.name}
-          </p>
+              <User className="h-4 w-4 text-blue-600" />
+              {customer.name}
+              {customer.customerType === 'B2B' && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-400 text-amber-700 bg-amber-50">B2B</Badge>
+              )}
+            </p>
           <p className="text-sm text-slate-600 flex items-center gap-1">
             <Phone className="h-3 w-3" />
             {customer.phone}

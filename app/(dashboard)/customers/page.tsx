@@ -17,6 +17,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Users, Plus, Search, Phone, Mail, MapPin, Home, Package, CheckCircle } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Breadcrumb,
@@ -37,6 +39,7 @@ interface CustomerSummary {
   phone: string
   email?: string | null
   city?: string | null
+  customerType?: string | null
   measurements?: Array<{
     id: string
     createdAt: string
@@ -173,14 +176,28 @@ export default function CustomersPage() {
 
         {/* Customer List */}
         {loading ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <span className="ml-3 text-slate-600">Loading customers...</span>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Card key={i}>
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-5 w-36" />
+                      <Skeleton className="h-4 w-20" />
+                    </div>
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-4 w-44" />
+                    <Skeleton className="h-4 w-24" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         ) : customers.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
@@ -214,7 +231,12 @@ export default function CustomersPage() {
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
-                        <CardTitle className="text-lg">{customer.name}</CardTitle>
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          {customer.name}
+                          {customer.customerType === 'B2B' && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-400 text-amber-700 bg-amber-50">B2B</Badge>
+                          )}
+                        </CardTitle>
                         <CardDescription className="mt-1">
                           {customer._count?.orders || 0} orders
                         </CardDescription>
