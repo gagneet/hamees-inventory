@@ -12,9 +12,9 @@ interface DatePickerProps {
   value?: Date | undefined
   onChange: (date: Date | undefined) => void
   placeholder?: string
-  /** Minimum selectable date */
+  /** Earliest selectable date — also blocks navigation before this month */
   fromDate?: Date
-  /** Maximum selectable date */
+  /** Latest selectable date — also blocks navigation after this month */
   toDate?: Date
   disabled?: boolean
   className?: string
@@ -33,6 +33,14 @@ export function DatePicker({
   displayFormat = "dd/MM/yyyy",
 }: DatePickerProps) {
   const [open, setOpen] = React.useState(false)
+
+  // Build disabled matcher: prevent selecting dates before fromDate / after toDate
+  const disabledDays = React.useMemo(() => {
+    if (fromDate && toDate) return [{ before: fromDate }, { after: toDate }]
+    if (fromDate) return { before: fromDate }
+    if (toDate) return { after: toDate }
+    return undefined
+  }, [fromDate, toDate])
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -58,9 +66,10 @@ export function DatePicker({
             onChange(date)
             setOpen(false)
           }}
-          fromDate={fromDate}
-          toDate={toDate}
-          initialFocus
+          startMonth={fromDate}
+          endMonth={toDate}
+          disabled={disabledDays}
+          autoFocus
         />
       </PopoverContent>
     </Popover>

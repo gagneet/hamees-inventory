@@ -278,6 +278,7 @@ export function OrderActions({
                 value={editData.deliveryDate ? new Date(editData.deliveryDate + 'T00:00:00') : undefined}
                 onChange={(d) => setEditData({ ...editData, deliveryDate: d ? d.toISOString().split('T')[0] : '' })}
                 placeholder="Select delivery date"
+                fromDate={new Date()}
                 className="mt-1"
               />
             </div>

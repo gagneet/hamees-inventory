@@ -16,7 +16,6 @@ import { useEffect, useState } from 'react'
 import { RoleDashboardRouter } from './role-dashboard-router'
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Loader2 } from 'lucide-react'
 
 interface DashboardClientProps {
   userRole: string

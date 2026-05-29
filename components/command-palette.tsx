@@ -112,7 +112,8 @@ export function CommandPalette({ open, onOpenChange, userRole }: CommandPaletteP
     } catch (e) {
       if ((e as Error).name !== 'AbortError') setResults([]);
     } finally {
-      setIsSearching(false);
+      // Only clear spinner if this is still the active request (not superseded by a newer one)
+      if (abortRef.current === controller) setIsSearching(false);
     }
   }, []);
 
