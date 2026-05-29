@@ -6,6 +6,7 @@ import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { ShoppingBag, Plus, Filter, Home, X, DollarSign, LayoutList, Table2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import {
   Breadcrumb,
@@ -448,14 +449,23 @@ function OrdersContent() {
 
         {/* Order List */}
         {loading ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <span className="ml-3 text-slate-600">Loading orders...</span>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="space-y-3">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Card key={i}>
+                <CardContent className="py-4 px-5">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-2 flex-1">
+                      <Skeleton className="h-4 w-28" />
+                      <Skeleton className="h-4 w-48" />
+                    </div>
+                    <Skeleton className="h-6 w-24 rounded-full" />
+                    <Skeleton className="h-4 w-20 hidden md:block" />
+                    <Skeleton className="h-4 w-16 hidden lg:block" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         ) : orders.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">

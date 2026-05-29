@@ -15,6 +15,7 @@
 import { useEffect, useState } from 'react'
 import { RoleDashboardRouter } from './role-dashboard-router'
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Loader2 } from 'lucide-react'
 
 interface DashboardClientProps {
@@ -50,10 +51,23 @@ export function DashboardClient({ userRole }: DashboardClientProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-slate-600">Loading dashboard...</p>
+      <div className="space-y-6">
+        {/* Stats cards skeleton */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="pb-2 space-y-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-8 w-32" />
+                <Skeleton className="h-3 w-20" />
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
+        {/* Charts skeleton */}
+        <div className="grid gap-4 md:grid-cols-2">
+          <Card><CardHeader><Skeleton className="h-48 w-full" /></CardHeader></Card>
+          <Card><CardHeader><Skeleton className="h-48 w-full" /></CardHeader></Card>
         </div>
       </div>
     )
