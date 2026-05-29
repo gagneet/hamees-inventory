@@ -76,6 +76,7 @@ async function getOrderDetails(id: string) {
             email: true,
             city: true,
             address: true,
+            customerType: true,
           },
         },
         items: {
@@ -501,7 +502,12 @@ export default async function OrderDetailPage({
               <div className="space-y-3">
                 <div>
                   <p className="text-sm text-slate-500">Name</p>
-                  <p className="font-semibold text-slate-900">{order.customer.name}</p>
+                  <p className="font-semibold text-slate-900 flex items-center gap-2">
+                    {order.customer.name}
+                    {order.customer.customerType === 'B2B' && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-400 text-amber-700 bg-amber-50">B2B</Badge>
+                    )}
+                  </p>
                 </div>
                 <div className="flex items-center gap-2 text-slate-700">
                   <Phone className="h-4 w-4" />

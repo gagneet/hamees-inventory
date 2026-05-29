@@ -223,6 +223,7 @@ export async function GET(request: Request) {
               name: true,
               phone: true,
               email: true,
+              customerType: true,
             },
           },
           items: {
