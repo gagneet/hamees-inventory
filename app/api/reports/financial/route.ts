@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server'
+import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
+import { filterApiResponse } from '@/lib/api-filter-response'
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns'
 
 export async function GET(request: Request) {
   const { error } = await requireAnyPermission(['view_financial_reports'])
   if (error) return error
+
+  const session = await auth()
+  const userRole = session?.user?.role as any
 
   try {
     const { searchParams } = new URL(request.url)
@@ -83,7 +88,7 @@ export async function GET(request: Request) {
 
     const totalInventoryValue = Number(inventoryValueResult[0]?.totalValue || 0)
 
-    return NextResponse.json({
+    const response = {
       summary: {
         thisMonthRevenue: thisMonth?.revenue || 0,
         thisMonthExpenses: thisMonth?.expenses || 0,
@@ -100,7 +105,10 @@ export async function GET(request: Request) {
         expenses: financialData.reduce((sum, m) => sum + m.expenses, 0),
         profit: financialData.reduce((sum, m) => sum + m.profit, 0),
       },
-    })
+    }
+
+    const filtered = filterApiResponse(response, userRole, 'report_financial')
+    return NextResponse.json(filtered)
   } catch (error) {
     console.error('Error generating financial report:', error)
     return NextResponse.json(

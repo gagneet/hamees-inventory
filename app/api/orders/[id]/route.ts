@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
+import { filterApiResponse } from '@/lib/api-filter-response'
 import { z } from 'zod'
 
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
@@ -205,7 +206,11 @@ export async function PATCH(
       },
     })
 
-    return NextResponse.json({ order: updatedOrder })
+    // FEATURETRACE: Apply ACL field filtering to response
+    const userRole = session?.user?.role as any
+    const filtered = filterApiResponse(updatedOrder, userRole, 'order')
+    
+    return NextResponse.json({ order: filtered })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(

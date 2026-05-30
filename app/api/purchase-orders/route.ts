@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
+import { filterApiResponse } from '@/lib/api-filter-response'
 import { z } from 'zod'
 
 const purchaseOrderSchema = z.object({
@@ -52,7 +53,11 @@ export async function GET(request: Request) {
       },
     })
 
-    return NextResponse.json({ purchaseOrders })
+    // FEATURETRACE: Apply ACL field filtering to response
+    const userRole = session.user.role as any
+    const filtered = filterApiResponse(purchaseOrders, userRole, 'purchase_order')
+
+    return NextResponse.json({ purchaseOrders: filtered })
   } catch (error) {
     console.error('Error fetching purchase orders:', error)
     return NextResponse.json(
@@ -107,7 +112,11 @@ export async function POST(request: Request) {
       },
     })
 
-    return NextResponse.json({ purchaseOrder }, { status: 201 })
+    // FEATURETRACE: Apply ACL field filtering to response
+    const userRole = session.user.role as any
+    const filtered = filterApiResponse(purchaseOrder, userRole, 'purchase_order')
+
+    return NextResponse.json({ purchaseOrder: filtered }, { status: 201 })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(

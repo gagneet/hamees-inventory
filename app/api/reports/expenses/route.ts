@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server'
+import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
+import { filterApiResponse } from '@/lib/api-filter-response'
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns'
 
 export async function GET(request: Request) {
   const { error } = await requireAnyPermission(['view_expense_reports'])
   if (error) return error
+
+  const session = await auth()
+  const userRole = session?.user?.role as any
 
   try {
     const { searchParams } = new URL(request.url)
@@ -103,7 +108,7 @@ export async function GET(request: Request) {
           100
         : 0
 
-    return NextResponse.json({
+    const response = {
       summary: {
         totalExpenses,
         thisMonth: thisMonthExpenses._sum.totalAmount || 0,
@@ -121,7 +126,10 @@ export async function GET(request: Request) {
         date: expense.expenseDate,
         user: expense.paidByUser,
       })),
-    })
+    }
+
+    const filtered = filterApiResponse(response, userRole, 'report_financial')
+    return NextResponse.json(filtered)
   } catch (error) {
     console.error('Error generating expense report:', error)
     return NextResponse.json(

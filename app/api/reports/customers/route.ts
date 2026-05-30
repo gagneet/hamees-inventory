@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server'
+import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
+import { filterApiResponse } from '@/lib/api-filter-response'
 import { subMonths } from 'date-fns'
 
 export async function GET(request: Request) {
   const { error } = await requireAnyPermission(['view_customer_reports'])
   if (error) return error
+
+  const session = await auth()
+  const userRole = session?.user?.role as any
 
   try {
     const { searchParams } = new URL(request.url)
@@ -63,7 +68,7 @@ export async function GET(request: Request) {
           customersWithStats.length
         : 0
 
-    return NextResponse.json({
+    const response = {
       summary: {
         totalCustomers: customers.length,
         activeCustomers: customersWithStats.length,
@@ -86,7 +91,10 @@ export async function GET(request: Request) {
         ).length,
         lowValue: customersWithStats.filter((c: any) => c.totalRevenue < 20000).length,
       },
-    })
+    }
+
+    const filtered = filterApiResponse(response, userRole, 'report_financial')
+    return NextResponse.json(filtered)
   } catch (error) {
     console.error('Error generating customer report:', error)
     return NextResponse.json(

@@ -3,6 +3,8 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
 import { requireAnyPermission } from '@/lib/api-permissions'
+import { filterApiResponse } from '@/lib/api-filter-response'
+import { canViewField } from '@/lib/field-acl'
 
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 
@@ -65,12 +67,20 @@ export async function POST(
       )
     }
 
+    const userRole = session.user.role as any
+    const canViewPaymentAmounts = canViewField(userRole, 'payment', 'amount')
+    const canViewOrderBalance = canViewField(userRole, 'order', 'balanceAmount')
+
     // Validate payment amount doesn't exceed balance
     if (validatedData.amount > order.balanceAmount) {
       return NextResponse.json(
-        {
-          error: `Payment amount (${validatedData.amount.toFixed(2)}) cannot exceed balance (${order.balanceAmount.toFixed(2)})`
-        },
+        canViewPaymentAmounts
+          ? {
+              error: `Payment amount (${validatedData.amount.toFixed(2)}) cannot exceed balance (${order.balanceAmount.toFixed(2)})`,
+            }
+          : {
+              error: 'Payment amount cannot exceed outstanding balance',
+            },
         { status: 400 }
       )
     }
@@ -142,11 +152,17 @@ export async function POST(
       return { installment, newBalanceAmount }
     })
 
+    // FEATURETRACE: Apply ACL field filtering to response
+    const filteredInstallment = filterApiResponse(result.installment, userRole, 'payment')
+    const message = canViewPaymentAmounts
+      ? `Payment of ₹${validatedData.amount.toFixed(2)} recorded successfully`
+      : 'Payment recorded successfully'
+
     return NextResponse.json({
       success: true,
-      installment: result.installment,
-      newBalanceAmount: result.newBalanceAmount,
-      message: `Payment of ₹${validatedData.amount.toFixed(2)} recorded successfully`,
+      installment: filteredInstallment,
+      ...(canViewOrderBalance ? { newBalanceAmount: result.newBalanceAmount } : {}),
+      message,
     })
   } catch (error) {
     if (error instanceof z.ZodError) {

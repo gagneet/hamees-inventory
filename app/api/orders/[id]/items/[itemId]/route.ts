@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { hasPermission, type UserRole } from '@/lib/permissions'
+import { filterApiResponse } from '@/lib/api-filter-response'
 import { z } from 'zod'
 
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
@@ -349,9 +350,14 @@ export async function PATCH(
       },
     })
 
+    // FEATURETRACE: Apply ACL field filtering to response
+    const userRole = session.user.role as any
+    const filteredItem = filterApiResponse(updatedItem, userRole, 'order_item')
+    const filteredOrder = filterApiResponse(updatedOrder, userRole, 'order')
+
     return NextResponse.json({
-      updatedOrderItem: updatedItem,
-      updatedOrder: updatedOrder,
+      updatedOrderItem: filteredItem,
+      updatedOrder: filteredOrder,
       message: 'Order item updated successfully. Order totals have been recalculated.',
     })
   } catch (error) {
