@@ -21,7 +21,6 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import { Home, TrendingUp, BarChart2, Users } from 'lucide-react'
-import DashboardLayout from '@/components/DashboardLayout'
 
 export default async function ReportsPage() {
   const session = await auth()
@@ -62,7 +61,7 @@ export default async function ReportsPage() {
   ].filter(r => hasPermission(userRole, r.permission))
 
   return (
-    <DashboardLayout>
+    <>
       <Breadcrumb className="mb-4">
         <BreadcrumbList>
           <BreadcrumbItem>
@@ -104,6 +103,6 @@ export default async function ReportsPage() {
           </Link>
         ))}
       </div>
-    </DashboardLayout>
+    </>
   )
 }

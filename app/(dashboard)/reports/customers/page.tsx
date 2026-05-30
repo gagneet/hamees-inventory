@@ -23,7 +23,6 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import { Home, Users, TrendingUp, Star, AlertCircle } from 'lucide-react'
-import DashboardLayout from '@/components/DashboardLayout'
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -65,12 +64,12 @@ interface CustomerReportData {
 
 function formatCurrency(value: number | string) {
   const num = typeof value === 'string' ? parseFloat(value) : value
-  return new Intl.NumberFormat('en-PK', { style: 'currency', currency: 'PKR', maximumFractionDigits: 0 }).format(num ?? 0)
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(num ?? 0)
 }
 
 function formatDate(dateStr: string | null) {
   if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleDateString('en-PK', { year: 'numeric', month: 'short', day: 'numeric' })
+  return new Date(dateStr).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
 // ── Page component ────────────────────────────────────────────────
@@ -111,12 +110,10 @@ export default function CustomerReportPage() {
   // ── Loading state ────────────────────────────────────────────────
   if (loading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-          <span className="ml-3 text-slate-600">Loading customer report…</span>
-        </div>
-      </DashboardLayout>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+        <span className="ml-3 text-slate-600">Loading customer report…</span>
+      </div>
     )
   }
 
@@ -124,43 +121,37 @@ export default function CustomerReportPage() {
   if (error) {
     const isAccessDenied = errorStatus === 403
     return (
-      <DashboardLayout>
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center max-w-lg mx-auto mt-12">
-          <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-3" />
-          <h2 className="text-xl font-bold text-red-900 mb-2">
-            {isAccessDenied ? 'Access Denied' : 'Failed to Load Report'}
-          </h2>
-          <p className="text-red-700">{error}</p>
-          {isAccessDenied && (
-            <p className="text-sm text-red-600 mt-2">
-              You need the <strong>view_customer_reports</strong> permission to access this page.
-            </p>
+      <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center max-w-lg mx-auto mt-12">
+        <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-3" />
+        <h2 className="text-xl font-bold text-red-900 mb-2">
+          {isAccessDenied ? 'Access Denied' : 'Failed to Load Report'}
+        </h2>
+        <p className="text-red-700">{error}</p>
+        {isAccessDenied && (
+          <p className="text-sm text-red-600 mt-2">
+            You need the <strong>view_customer_reports</strong> permission to access this page.
+          </p>
+        )}
+        <div className="flex justify-center gap-2 mt-4">
+          <Link href="/reports">
+            <Button variant="outline">Back to Reports</Button>
+          </Link>
+          {!isAccessDenied && (
+            <Button onClick={fetchReport}>Retry</Button>
           )}
-          <div className="flex justify-center gap-2 mt-4">
-            <Link href="/reports">
-              <Button variant="outline">Back to Reports</Button>
-            </Link>
-            {!isAccessDenied && (
-              <Button onClick={fetchReport}>Retry</Button>
-            )}
-          </div>
         </div>
-      </DashboardLayout>
+      </div>
     )
   }
 
   if (!data) {
-    return (
-      <DashboardLayout>
-        <div className="p-8 text-slate-500">No data available.</div>
-      </DashboardLayout>
-    )
+    return <div className="p-8 text-slate-500">No data available.</div>
   }
 
   const { summary, topCustomers, customerSegments } = data
 
   return (
-    <DashboardLayout>
+    <>
       <div className="p-6 space-y-6">
 
         {/* Breadcrumb */}
@@ -267,17 +258,17 @@ export default function CustomerReportPage() {
               <div className="p-4 bg-green-50 rounded-lg border border-green-200">
                 <p className="text-2xl font-bold text-green-900">{customerSegments.highValue}</p>
                 <p className="text-sm font-medium text-green-700 mt-1">High Value</p>
-                <p className="text-xs text-green-600">Revenue &gt; PKR 50,000</p>
+                <p className="text-xs text-green-600">Revenue &gt; ₹50,000</p>
               </div>
               <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
                 <p className="text-2xl font-bold text-amber-900">{customerSegments.mediumValue}</p>
                 <p className="text-sm font-medium text-amber-700 mt-1">Medium Value</p>
-                <p className="text-xs text-amber-600">PKR 20,000 – 50,000</p>
+                <p className="text-xs text-amber-600">₹20,000 – ₹50,000</p>
               </div>
               <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                 <p className="text-2xl font-bold text-slate-900">{customerSegments.lowValue}</p>
                 <p className="text-sm font-medium text-slate-700 mt-1">Low Value</p>
-                <p className="text-xs text-slate-600">Revenue &lt; PKR 20,000</p>
+                <p className="text-xs text-slate-600">Revenue &lt; ₹20,000</p>
               </div>
             </div>
           </CardContent>
@@ -358,6 +349,6 @@ export default function CustomerReportPage() {
         </Card>
 
       </div>
-    </DashboardLayout>
+    </>
   )
 }
