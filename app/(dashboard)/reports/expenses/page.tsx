@@ -25,7 +25,6 @@ import {
   Pie,
   Cell,
 } from 'recharts'
-import DashboardLayout from '@/components/DashboardLayout'
 
 const CATEGORY_COLORS: Record<string, string> = {
   RENT: '#3B82F6',
@@ -74,40 +73,29 @@ export default function ExpenseReportPage() {
   }
 
   if (loading) {
-    return (
-      <DashboardLayout>
-        <div className="p-8">Loading...</div>
-      </DashboardLayout>
-    )
+    return <div className="p-8">Loading...</div>
   }
 
   if (error) {
     return (
-      <DashboardLayout>
-        <div className="container mx-auto px-4 py-8">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-            <h2 className="text-xl font-bold text-red-900 mb-2">Access Denied</h2>
-            <p className="text-red-700">{error}</p>
-            <p className="text-sm text-red-600 mt-2">
-              You need OWNER or ADMIN role to view expense reports.
-            </p>
-          </div>
+      <div className="container mx-auto px-4 py-8">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+          <h2 className="text-xl font-bold text-red-900 mb-2">Access Denied</h2>
+          <p className="text-red-700">{error}</p>
+          <p className="text-sm text-red-600 mt-2">
+            You need OWNER or ADMIN role to view expense reports.
+          </p>
         </div>
-      </DashboardLayout>
+      </div>
     )
   }
 
   if (!data) {
-    return (
-      <DashboardLayout>
-        <div className="p-8">No data available</div>
-      </DashboardLayout>
-    )
+    return <div className="p-8">No data available</div>
   }
 
   return (
-    <DashboardLayout>
-      <div className="min-h-screen bg-slate-50">
+      <div className="bg-slate-50">
         <header className="bg-white border-b border-slate-200 print:hidden">
           <div className="container mx-auto px-4 py-4">
             <div className="flex items-center justify-between">
@@ -320,6 +308,5 @@ export default function ExpenseReportPage() {
           </Card>
         </main>
       </div>
-    </DashboardLayout>
   )
 }

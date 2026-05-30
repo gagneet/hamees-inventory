@@ -33,7 +33,6 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts'
-import DashboardLayout from '@/components/DashboardLayout'
 
 export default function FinancialReportPage() {
   const [data, setData] = useState<any>(null)
@@ -71,12 +70,10 @@ export default function FinancialReportPage() {
   // ── Loading state ──────────────────────────────────────────────
   if (loading) {
     return (
-      <DashboardLayout>
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-          <span className="ml-3 text-slate-600">Loading financial report…</span>
-        </div>
-      </DashboardLayout>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+        <span className="ml-3 text-slate-600">Loading financial report…</span>
+      </div>
     )
   }
 
@@ -84,42 +81,36 @@ export default function FinancialReportPage() {
   if (error) {
     const isAccessDenied = errorStatus === 403
     return (
-      <DashboardLayout>
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center max-w-lg mx-auto mt-12">
-          <h2 className="text-xl font-bold text-red-900 mb-2">
-            {isAccessDenied ? 'Access Denied' : 'Failed to Load Report'}
-          </h2>
-          <p className="text-red-700">{error}</p>
-          {isAccessDenied && (
-            <p className="text-sm text-red-600 mt-2">
-              You need OWNER or ADMIN role to view financial reports.
-            </p>
+      <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center max-w-lg mx-auto mt-12">
+        <h2 className="text-xl font-bold text-red-900 mb-2">
+          {isAccessDenied ? 'Access Denied' : 'Failed to Load Report'}
+        </h2>
+        <p className="text-red-700">{error}</p>
+        {isAccessDenied && (
+          <p className="text-sm text-red-600 mt-2">
+            You need OWNER or ADMIN role to view financial reports.
+          </p>
+        )}
+        <div className="flex justify-center gap-2 mt-4">
+          <Link href="/dashboard">
+            <Button variant="outline">Back to Dashboard</Button>
+          </Link>
+          {!isAccessDenied && (
+            <Button onClick={fetchReport}>Retry</Button>
           )}
-          <div className="flex justify-center gap-2 mt-4">
-            <Link href="/dashboard">
-              <Button variant="outline">Back to Dashboard</Button>
-            </Link>
-            {!isAccessDenied && (
-              <Button onClick={fetchReport}>Retry</Button>
-            )}
-          </div>
         </div>
-      </DashboardLayout>
+      </div>
     )
   }
 
   if (!data) {
-    return (
-      <DashboardLayout>
-        <div className="p-8 text-slate-500">No data available.</div>
-      </DashboardLayout>
-    )
+    return <div className="p-8 text-slate-500">No data available.</div>
   }
 
   const isProfitable = data.summary.thisMonthProfit >= 0
 
   return (
-    <DashboardLayout>
+    <>
       {/* ── Breadcrumb ───────────────────────────────────────────── */}
       <Breadcrumb className="mb-4">
         <BreadcrumbList>
@@ -297,6 +288,6 @@ export default function FinancialReportPage() {
           </CardContent>
         </Card>
       </div>
-    </DashboardLayout>
+    </>
   )
 }
