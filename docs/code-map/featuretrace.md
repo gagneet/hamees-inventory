@@ -34,7 +34,8 @@ features:
     known_risks:
       - "Incorrect scoping could link another customer's measurement."
       - "Allowing updates on delivered/cancelled orders would corrupt historical production data."
-    last_updated_reason: "Fix non-functional Manage Measurements path and add create/link flow."
+      - "Defaulting to a non-matching measurement would confuse repeat-order workflows."
+    last_updated_reason: "Fix non-functional Manage Measurements path, add create/link flow, and prefer garment-matching defaults."
 
   reports_shell_layout:
     purpose: "Ensure all report pages render inside the dashboard shell (sidebar + header)."

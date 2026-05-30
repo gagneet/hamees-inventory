@@ -139,18 +139,17 @@ export function AddOrderItemMeasurementDialog({
 
   const normalizedGarmentType = garmentType.toLowerCase()
 
+  const matchesGarmentType = (measurementType: string) => (
+    measurementType.includes(normalizedGarmentType) ||
+    normalizedGarmentType.includes(measurementType) ||
+    (measurementType.includes('shirt') && normalizedGarmentType.includes('kurta')) ||
+    (measurementType.includes('kurta') && normalizedGarmentType.includes('shirt')) ||
+    (measurementType.includes('trouser') && (normalizedGarmentType.includes('pant') || normalizedGarmentType.includes('pajama') || normalizedGarmentType.includes('pyjama'))) ||
+    ((measurementType.includes('pant') || measurementType.includes('pajama') || measurementType.includes('pyjama')) && normalizedGarmentType.includes('trouser'))
+  )
+
   const matchingMeasurements = useMemo(() => {
-    return measurements.filter((measurement) => {
-      const measurementType = measurement.garmentType.toLowerCase()
-      return (
-        measurementType.includes(normalizedGarmentType) ||
-        normalizedGarmentType.includes(measurementType) ||
-        (measurementType.includes('shirt') && normalizedGarmentType.includes('kurta')) ||
-        (measurementType.includes('kurta') && normalizedGarmentType.includes('shirt')) ||
-        (measurementType.includes('trouser') && (normalizedGarmentType.includes('pant') || normalizedGarmentType.includes('pajama') || normalizedGarmentType.includes('pyjama'))) ||
-        ((measurementType.includes('pant') || measurementType.includes('pajama') || measurementType.includes('pyjama')) && normalizedGarmentType.includes('trouser'))
-      )
-    })
+    return measurements.filter((measurement) => matchesGarmentType(measurement.garmentType.toLowerCase()))
   }, [measurements, normalizedGarmentType])
 
   const currentMeasurementOptions = matchingMeasurements.length > 0 ? matchingMeasurements : measurements
@@ -171,8 +170,12 @@ export function AddOrderItemMeasurementDialog({
           (measurement: { isActive: boolean }) => measurement.isActive
         )
         setMeasurements(activeMeasurements)
-        const firstMeasurement = activeMeasurements[0]
+        const matchingMeasurements = activeMeasurements.filter((measurement: ExistingMeasurement) =>
+          matchesGarmentType(measurement.garmentType.toLowerCase())
+        )
+        const firstMeasurement = matchingMeasurements[0] || activeMeasurements[0]
         if (firstMeasurement) {
+          setMode(matchingMeasurements.length > 0 ? 'existing' : 'new')
           setSelectedMeasurementId(firstMeasurement.id)
         } else {
           setMode('new')
@@ -191,13 +194,13 @@ export function AddOrderItemMeasurementDialog({
     return () => {
       mounted = false
     }
-  }, [open, customerId])
+  }, [open, customerId, normalizedGarmentType])
 
   useEffect(() => {
-    if (currentMeasurementOptions.length > 0 && !selectedMeasurementId) {
+    if (mode === 'existing' && currentMeasurementOptions.length > 0 && !selectedMeasurementId) {
       setSelectedMeasurementId(currentMeasurementOptions[0].id)
     }
-  }, [currentMeasurementOptions, selectedMeasurementId])
+  }, [currentMeasurementOptions, mode, selectedMeasurementId])
 
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
