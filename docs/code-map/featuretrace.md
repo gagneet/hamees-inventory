@@ -2,6 +2,7 @@
 
 This file is the concise, session-safe dependency map for recently touched features.  
 Use it before edits to identify upstream callers, downstream dependencies, and coupled files.
+If a PR touches these mapped flows, update this file in the same PR.
 
 ```yaml
 features:
@@ -29,6 +30,7 @@ features:
     config_env: []
     related_tests:
       - "tests/unit/api/customers.test.ts (measurement schema conventions)"
+      - "tests/unit/api/order-item-measurement.test.ts"
     known_risks:
       - "Incorrect scoping could link another customer's measurement."
       - "Allowing updates on delivered/cancelled orders would corrupt historical production data."
@@ -63,7 +65,7 @@ features:
     external_services: []
     config_env: []
     related_tests:
-      - "No report-route unit tests currently"
+      - "tests/unit/api/reports.test.ts"
     known_risks:
       - "If pages re-wrap or bypass route layout, shell regressions can recur."
       - "Report API shape drift can break chart rendering."
