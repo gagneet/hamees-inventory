@@ -7,6 +7,26 @@ import { z } from 'zod'
  * @featuretrace Order Item Measurement Link API
  * @route POST /api/orders/:id/items/:itemId/measurement
  * @description Links an existing customer measurement or creates a new measurement and links it to the order item atomically.
+ *
+ * FEATURETRACE:
+ *   feature: order_item_measurement_linking
+ *   owner_area: orders + measurements
+ *   entry_points:
+ *     - POST /api/orders/:id/items/:itemId/measurement
+ *   upstream_callers:
+ *     - app/(dashboard)/orders/[id]/page.tsx (AddOrderItemMeasurementDialog trigger)
+ *     - components/orders/add-order-item-measurement-dialog.tsx
+ *   downstream_dependencies:
+ *     - lib/api-permissions.ts:requireAnyPermission
+ *     - prisma.orderItem (lookup + update measurementId)
+ *     - prisma.measurement (create/link)
+ *   related_tests:
+ *     - tests/unit/api/customers.test.ts (measurement payload conventions)
+ *   change_risk:
+ *     - medium: affects measurement linkage on active production orders
+ *   maintainer_notes:
+ *     - Blocks delivered/cancelled orders by design.
+ *     - Always scope linked measurement to the order customer.
  */
 
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]

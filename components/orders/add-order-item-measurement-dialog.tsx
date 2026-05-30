@@ -6,6 +6,24 @@
  * @description Creates a new measurement or links an existing active measurement to a specific order item.
  * @calls GET /api/customers/:id/measurements
  * @calls POST /api/orders/:orderId/items/:itemId/measurement
+ *
+ * FEATURETRACE:
+ *   feature: order_item_measurement_linking
+ *   owner_area: order detail UX
+ *   entry_points:
+ *     - /orders/:id (missing-measurement state action)
+ *   upstream_callers:
+ *     - app/(dashboard)/orders/[id]/page.tsx
+ *   downstream_dependencies:
+ *     - app/api/customers/[id]/measurements/route.ts
+ *     - app/api/orders/[id]/items/[itemId]/measurement/route.ts
+ *     - sonner toast + next/navigation router.refresh
+ *   related_tests:
+ *     - tests/unit/api/customers.test.ts
+ *   change_risk:
+ *     - medium: affects tailoring readiness workflow when measurements are missing
+ *   maintainer_notes:
+ *     - Supports both link-existing and create-new to avoid duplicate re-entry for repeat customers.
  */
 
 import { useEffect, useMemo, useState } from 'react'
