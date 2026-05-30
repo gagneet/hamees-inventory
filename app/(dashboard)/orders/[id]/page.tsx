@@ -37,6 +37,7 @@ import { SplitOrderDialog } from '@/components/orders/split-order-dialog'
 import { RecordPaymentDialog } from '@/components/orders/record-payment-dialog'
 import { PrintInvoiceButton } from '@/components/orders/print-invoice-button'
 import { EditMeasurementDialog } from '@/components/orders/edit-measurement-dialog'
+import { AddOrderItemMeasurementDialog } from '@/components/orders/add-order-item-measurement-dialog'
 import { OrderItemDetailDialog } from '@/components/orders/order-item-detail-dialog'
 import { AssignTailorDialog } from '@/components/orders/assign-tailor-dialog'
 import { SendWhatsAppButton } from '@/components/orders/send-whatsapp-button'
@@ -466,22 +467,36 @@ export default async function OrderDetailPage({
                       <OrderItemMeasurements
                         measurement={item.measurement}
                         garmentType={item.garmentPattern.name}
-                        canManage={!isTailor}
                         defaultExpanded={isTailor}
                       />
                       {/* Edit measurements button — managers / admins only */}
-                      {!isTailor && item.measurement && (
+                      {!isTailor && (
                         <div className="mt-1 flex justify-end">
-                          <EditMeasurementDialog
-                            customerId={order.customer.id}
-                            measurement={item.measurement}
-                            triggerButton={
-                              <Button variant="ghost" size="sm" className="text-xs text-slate-500 hover:text-slate-700">
-                                <Ruler className="h-3 w-3 mr-1" />
-                                Edit measurements
-                              </Button>
-                            }
-                          />
+                          {item.measurement ? (
+                            <EditMeasurementDialog
+                              customerId={order.customer.id}
+                              measurement={item.measurement}
+                              triggerButton={
+                                <Button variant="ghost" size="sm" className="text-xs text-slate-500 hover:text-slate-700">
+                                  <Ruler className="h-3 w-3 mr-1" />
+                                  Edit measurements
+                                </Button>
+                              }
+                            />
+                          ) : (
+                            <AddOrderItemMeasurementDialog
+                              orderId={order.id}
+                              orderItemId={item.id}
+                              customerId={order.customer.id}
+                              garmentType={item.garmentPattern.name}
+                              triggerButton={
+                                <Button variant="ghost" size="sm" className="text-xs text-red-600 hover:text-red-700">
+                                  <Ruler className="h-3 w-3 mr-1" />
+                                  Manage measurements
+                                </Button>
+                              }
+                            />
+                          )}
                         </div>
                       )}
                     </div>

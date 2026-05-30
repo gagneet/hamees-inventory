@@ -8,17 +8,13 @@
  *
  * @props measurement — the Measurement record linked to this OrderItem (may be null)
  * @props garmentType — display name of the garment (e.g. "Sherwani"); shown in the panel header
- * @props orderId — order ID, used when constructing action links (optional)
- * @props orderItemId — order item ID, used when constructing action links (optional)
- * @props canManage — whether the current user can edit measurements (manage_measurements permission)
  *
  * @reads Measurement (passed as props from the server-rendered order detail page)
- * @calls Nothing on its own — editing is delegated to EditMeasurementDialog
+ * @calls Nothing on its own — add/edit actions are rendered by the parent order page
  */
 
 import React, { useState } from 'react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Ruler, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -97,11 +93,6 @@ interface Measurement {
 interface OrderItemMeasurementsProps {
   measurement: Measurement | null | undefined
   garmentType: string
-  /** Order ID — used when constructing action links for managers */
-  orderId?: string
-  /** Order item ID — used when constructing action links for managers */
-  orderItemId?: string
-  canManage?: boolean
   /** Set to true to start expanded (default: collapsed) */
   defaultExpanded?: boolean
 }
@@ -109,9 +100,6 @@ interface OrderItemMeasurementsProps {
 export function OrderItemMeasurements({
   measurement,
   garmentType,
-  orderId,
-  orderItemId,
-  canManage = false,
   defaultExpanded = false,
 }: OrderItemMeasurementsProps) {
   const [expanded, setExpanded] = useState(defaultExpanded)
@@ -124,28 +112,9 @@ export function OrderItemMeasurements({
         <span className="text-red-700 font-medium">
           {garmentType} — measurements missing
         </span>
-        {canManage ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="ml-auto h-6 text-xs border-red-300 text-red-700 hover:bg-red-100"
-            onClick={() => {
-              // Scroll to or highlight the edit measurements section;
-              // orderId / orderItemId are available for callers to wire up a dialog
-              const target = orderId
-                ? document.getElementById(`measurements-edit-${orderItemId ?? orderId}`)
-                : null
-              target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-            }}
-          >
-            Manage measurements
-          </Button>
-        ) : (
-          <span className="text-red-600 text-xs">
-            — Add measurements from the customer profile before cutting.
-          </span>
-        )}
+        <span className="text-red-600 text-xs">
+          — Add measurements before cutting.
+        </span>
       </div>
     )
   }
@@ -153,11 +122,7 @@ export function OrderItemMeasurements({
   const populatedFields = getPopulatedFields(measurement as Record<string, any>)
 
   return (
-    <div
-      className="mt-3 border border-slate-200 rounded-lg overflow-hidden"
-      data-order-id={orderId}
-      data-order-item-id={orderItemId}
-    >
+    <div className="mt-3 border border-slate-200 rounded-lg overflow-hidden">
       {/* Toggle header */}
       <button
         type="button"
