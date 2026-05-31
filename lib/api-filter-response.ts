@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { filterObjectByRole, filterArrayByRole, type EntityType } from '@/lib/field-acl'
+import { canViewField, filterObjectByRole, filterArrayByRole, type EntityType } from '@/lib/field-acl'
 import type { UserRole } from '@prisma/client'
 
 /**
@@ -18,10 +18,42 @@ export function filterApiResponse<T extends Record<string, any> | Record<string,
   if (!data) return data
 
   if (Array.isArray(data)) {
-    return filterArrayByRole(data, userRole, entityType) as Partial<T>[]
+    const filtered = filterArrayByRole(data, userRole, entityType)
+    return filterPurchaseOrderItems(filtered, userRole, entityType) as Partial<T>[]
   }
 
-  return filterObjectByRole(data, userRole, entityType) as Partial<T>
+  const filtered = filterObjectByRole(data, userRole, entityType)
+  return filterPurchaseOrderItems(filtered, userRole, entityType) as Partial<T>
+}
+
+function filterPurchaseOrderItems<T>(
+  data: T,
+  userRole: UserRole,
+  entityType: EntityType
+): T {
+  if (entityType !== 'purchase_order' || canViewField(userRole, 'purchase_order', 'totalAmount')) {
+    return data
+  }
+
+  const stripItemPrices = (item: Record<string, any>) => {
+    const { pricePerUnit, totalPrice, ...rest } = item
+    return rest
+  }
+
+  const stripFromPO = (po: Record<string, any>) => ({
+    ...po,
+    items: Array.isArray(po.items) ? po.items.map(stripItemPrices) : po.items,
+  })
+
+  if (Array.isArray(data)) {
+    return data.map((item) => stripFromPO(item as Record<string, any>)) as T
+  }
+
+  if (data && typeof data === 'object') {
+    return stripFromPO(data as Record<string, any>) as T
+  }
+
+  return data
 }
 
 /**

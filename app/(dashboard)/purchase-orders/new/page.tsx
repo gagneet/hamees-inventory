@@ -33,6 +33,7 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import DashboardLayout from '@/components/DashboardLayout'
 import { formatCurrency } from '@/lib/utils'
+import { useFieldVisibility } from '@/hooks/use-field-visibility'
 
 interface Supplier {
   id: string
@@ -52,6 +53,8 @@ interface POItem {
 function NewPurchaseOrderContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { role, isLoading } = useFieldVisibility()
+  const canEnterPOPricesOnCreate = role === 'OWNER'
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -111,6 +114,7 @@ function NewPurchaseOrderContent() {
   }
 
   const calculateTotal = () => {
+    if (!canEnterPOPricesOnCreate) return 0
     return items.reduce((sum, item) => sum + item.orderedQuantity * item.pricePerUnit, 0)
   }
 
@@ -124,7 +128,13 @@ function NewPurchaseOrderContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          items: items.filter((item) => item.itemName && item.orderedQuantity > 0),
+          items: items
+            .filter((item) => item.itemName && item.orderedQuantity > 0)
+            .map((item) => ({
+              ...item,
+              quantity: item.orderedQuantity,
+              pricePerUnit: canEnterPOPricesOnCreate ? item.pricePerUnit : undefined,
+            })),
         }),
       })
 
@@ -308,26 +318,30 @@ function NewPurchaseOrderContent() {
                     </Select>
                   </div>
 
-                  <div className="grid gap-2">
-                    <Label>Price per Unit *</Label>
-                    <Input
-                      type="number"
-                      value={item.pricePerUnit || ''}
-                      onChange={(e) =>
-                        updateItem(index, 'pricePerUnit', parseFloat(e.target.value) || 0)
-                      }
-                      step="0.01"
-                      min="0"
-                      required
-                    />
-                  </div>
+                  {canEnterPOPricesOnCreate && (
+                    <>
+                      <div className="grid gap-2">
+                        <Label>Price per Unit *</Label>
+                        <Input
+                          type="number"
+                          value={item.pricePerUnit || ''}
+                          onChange={(e) =>
+                            updateItem(index, 'pricePerUnit', parseFloat(e.target.value) || 0)
+                          }
+                          step="0.01"
+                          min="0"
+                          required
+                        />
+                      </div>
 
-                  <div className="grid gap-2">
-                    <Label>Total Price</Label>
-                    <div className="p-2 bg-slate-100 rounded-md font-semibold">
-                      {formatCurrency(item.orderedQuantity * item.pricePerUnit)}
-                    </div>
-                  </div>
+                      <div className="grid gap-2">
+                        <Label>Total Price</Label>
+                        <div className="p-2 bg-slate-100 rounded-md font-semibold">
+                          {formatCurrency(item.orderedQuantity * item.pricePerUnit)}
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             ))}
@@ -354,32 +368,34 @@ function NewPurchaseOrderContent() {
         </Card>
 
         {/* Summary */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Order Summary</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-slate-600">Total Items:</span>
-                <span className="font-semibold">{items.length}</span>
+        {canEnterPOPricesOnCreate && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle>Order Summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-slate-600">Total Items:</span>
+                  <span className="font-semibold">{items.length}</span>
+                </div>
+                <div className="flex justify-between text-lg">
+                  <span className="font-semibold">Total Amount:</span>
+                  <span className="font-bold text-blue-600">
+                    {formatCurrency(calculateTotal())}
+                  </span>
+                </div>
               </div>
-              <div className="flex justify-between text-lg">
-                <span className="font-semibold">Total Amount:</span>
-                <span className="font-bold text-blue-600">
-                  {formatCurrency(calculateTotal())}
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Actions */}
         <div className="flex gap-3 justify-end">
           <Button type="button" variant="outline" asChild>
             <Link href="/purchase-orders">Cancel</Link>
           </Button>
-          <Button type="submit" disabled={loading || !formData.supplierId}>
+          <Button type="submit" disabled={loading || isLoading || !formData.supplierId}>
             {loading ? 'Creating...' : 'Create Purchase Order'}
           </Button>
         </div>

@@ -10,8 +10,8 @@
  *
  * @calls GET /api/purchase-orders — paginated PO list with supplier + items
  * @calls POST /api/purchase-orders — create new PO
- * @calls PATCH /api/purchase-orders/:id — update status (ORDERED → RECEIVED etc.)
- * @renders PO cards with status badges + receive-goods dialog
+ * @calls PATCH /api/purchase-orders/:id — approve pending POs with supplier prices
+ * @renders PO cards with status badges and approve/receive navigation
  */
 
 import { useEffect, useState } from 'react'
@@ -44,6 +44,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import DashboardLayout from '@/components/DashboardLayout'
 import { formatCurrency } from '@/lib/utils'
+import { useFieldVisibility } from '@/hooks/use-field-visibility'
 
 interface PurchaseOrder {
   id: string
@@ -51,9 +52,9 @@ interface PurchaseOrder {
   orderDate: string
   expectedDate: string | null
   receivedDate: string | null
-  totalAmount: number
-  paidAmount: number
-  balanceAmount: number
+  totalAmount?: number
+  paidAmount?: number
+  balanceAmount?: number
   status: string
   notes: string | null
   supplier: {
@@ -69,11 +70,14 @@ interface PurchaseOrder {
     orderedQuantity: number
     receivedQuantity: number
     unit: string
-    pricePerUnit: number
+    pricePerUnit?: number
   }>
 }
 
 export default function PurchaseOrdersPage() {
+  const { canView, isLoading, role } = useFieldVisibility()
+  const canViewPOPrices = canView('purchase_order', 'totalAmount')
+  const canApprovePurchaseOrder = role === 'OWNER' || role === 'INVENTORY_MANAGER'
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string>('ALL')
@@ -100,6 +104,16 @@ export default function PurchaseOrdersPage() {
   }
 
   const statusConfig: Record<string, { label: string; variant: any; icon: any }> = {
+    PENDING_APPROVAL: {
+      label: 'Pending Approval',
+      variant: 'secondary',
+      icon: Clock,
+    },
+    APPROVED: {
+      label: 'Approved',
+      variant: 'default',
+      icon: CheckCircle,
+    },
     PENDING: {
       label: 'Pending',
       variant: 'default',
@@ -124,10 +138,10 @@ export default function PurchaseOrdersPage() {
 
   const stats = {
     total: purchaseOrders.length,
-    pending: purchaseOrders.filter((po) => po.status === 'PENDING').length,
+    pending: purchaseOrders.filter((po) => po.status === 'PENDING_APPROVAL' || po.status === 'PENDING').length,
     received: purchaseOrders.filter((po) => po.status === 'RECEIVED').length,
-    totalValue: purchaseOrders.reduce((sum, po) => sum + po.totalAmount, 0),
-    totalBalance: purchaseOrders.reduce((sum, po) => sum + po.balanceAmount, 0),
+    totalValue: purchaseOrders.reduce((sum, po) => sum + (po.totalAmount ?? 0), 0),
+    totalBalance: purchaseOrders.reduce((sum, po) => sum + (po.balanceAmount ?? 0), 0),
   }
 
   return (
@@ -177,29 +191,33 @@ export default function PurchaseOrdersPage() {
             <div className="text-2xl font-bold text-yellow-600">{stats.pending}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Total Value</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(stats.totalValue)}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Balance Due</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              {formatCurrency(stats.totalBalance)}
-            </div>
-          </CardContent>
-        </Card>
+        {canViewPOPrices && (
+          <>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Total Value</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{formatCurrency(stats.totalValue)}</div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium">Balance Due</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-red-600">
+                  {formatCurrency(stats.totalBalance)}
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
 
       {/* Filters */}
       <div className="flex gap-2 mb-4">
-        {['ALL', 'PENDING', 'PARTIAL', 'RECEIVED', 'CANCELLED'].map((status) => (
+        {['ALL', 'PENDING_APPROVAL', 'APPROVED', 'PARTIAL', 'RECEIVED', 'CANCELLED'].map((status) => (
           <Button
             key={status}
             variant={filter === status ? 'default' : 'outline'}
@@ -212,7 +230,7 @@ export default function PurchaseOrdersPage() {
       </div>
 
       {/* Purchase Orders List */}
-      {loading ? (
+      {loading || isLoading ? (
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-slate-500">Loading purchase orders...</p>
@@ -260,14 +278,16 @@ export default function PurchaseOrdersPage() {
                         Supplier: {po.supplier.name} • {po.items.length} item(s)
                       </CardDescription>
                     </div>
-                    <div className="text-right">
-                      <p className="text-lg font-bold">{formatCurrency(po.totalAmount)}</p>
-                      {po.balanceAmount > 0 && (
-                        <p className="text-sm text-red-600">
-                          Balance: {formatCurrency(po.balanceAmount)}
-                        </p>
-                      )}
-                    </div>
+                    {canViewPOPrices && (
+                      <div className="text-right">
+                        <p className="text-lg font-bold">{formatCurrency(po.totalAmount ?? 0)}</p>
+                        {(po.balanceAmount ?? 0) > 0 && (
+                          <p className="text-sm text-red-600">
+                            Balance: {formatCurrency(po.balanceAmount ?? 0)}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -315,7 +335,12 @@ export default function PurchaseOrdersPage() {
                     <Button variant="outline" size="sm" asChild>
                       <Link href={`/purchase-orders/${po.id}`}>View Details</Link>
                     </Button>
-                    {po.status === 'PENDING' || po.status === 'PARTIAL' ? (
+                    {po.status === 'PENDING_APPROVAL' && canApprovePurchaseOrder ? (
+                      <Button size="sm" variant="outline" asChild>
+                        <Link href={`/purchase-orders/${po.id}`}>Approve</Link>
+                      </Button>
+                    ) : null}
+                    {po.status === 'APPROVED' || po.status === 'PARTIAL' ? (
                       <Button size="sm" asChild>
                         <Link href={`/purchase-orders/${po.id}`}>Receive Items</Link>
                       </Button>

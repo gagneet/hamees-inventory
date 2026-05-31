@@ -1,22 +1,44 @@
+/**
+ * @featuretrace Purchase Order Approval
+ * FEATURETRACE:
+ *   feature: purchase_order_non_owner_price_privacy
+ *   owner_area: purchase-orders
+ *   entry_points: POST /api/purchase-orders, UI /purchase-orders/new, CreatePODialog
+ *   upstream_callers: app/(dashboard)/purchase-orders/new/page.tsx, components/dashboard/create-po-dialog.tsx
+ *   downstream_dependencies: Prisma PurchaseOrder/POItem, field ACL filtering, NextAuth role
+ *   related_tests: tests/unit/api/purchase-orders.test.ts, tests/integration/acl-filtering.test.ts
+ *   change_risk: medium - status controls whether PO can be approved, paid, or received
+ */
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
 import { filterApiResponse } from '@/lib/api-filter-response'
 import { z } from 'zod'
+import type { UserRole } from '@prisma/client'
+
+const purchaseOrderItemSchema = z
+  .object({
+    itemName: z.string().min(1),
+    itemType: z.enum(['CLOTH', 'ACCESSORY']),
+    quantity: z.number().positive().optional(),
+    orderedQuantity: z.number().positive().optional(),
+    unit: z.string().min(1),
+    pricePerUnit: z.number().nonnegative().optional(),
+  })
+  .refine((item) => item.quantity !== undefined || item.orderedQuantity !== undefined, {
+    message: 'Quantity is required',
+    path: ['quantity'],
+  })
+
+function getInitialPurchaseOrderStatus(role: UserRole): 'APPROVED' | 'PENDING_APPROVAL' {
+  return role === 'OWNER' ? 'APPROVED' : 'PENDING_APPROVAL'
+}
 
 const purchaseOrderSchema = z.object({
   supplierId: z.string().min(1),
   expectedDate: z.string().nullish(),
-  items: z.array(
-    z.object({
-      itemName: z.string().min(1),
-      itemType: z.enum(['CLOTH', 'ACCESSORY']),
-      quantity: z.number().positive(),
-      unit: z.string().min(1),
-      pricePerUnit: z.number().nonnegative(),
-    })
-  ),
+  items: z.array(purchaseOrderItemSchema).min(1),
   notes: z.string().nullish(),
 })
 
@@ -68,15 +90,31 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { session, error } = await requireAnyPermission(['manage_inventory'])
+  const { session, error } = await requireAnyPermission(['manage_inventory', 'manage_purchase_orders'])
   if (error) return error
 
   try {
     const body = await request.json()
     const { supplierId, expectedDate, items, notes } = purchaseOrderSchema.parse(body)
+    const isOwner = session.user.role === 'OWNER'
+
+    if (isOwner && items.some((item) => item.pricePerUnit === undefined)) {
+      return NextResponse.json(
+        { error: 'Validation failed', details: [{ path: ['items', 'pricePerUnit'], message: 'Price per unit is required' }] },
+        { status: 400 }
+      )
+    }
+
+    const normalizedItems = items.map((item) => ({
+      itemName: item.itemName,
+      itemType: item.itemType,
+      quantity: item.quantity ?? item.orderedQuantity ?? 0,
+      unit: item.unit,
+      pricePerUnit: isOwner ? item.pricePerUnit ?? 0 : 0,
+    }))
 
     // Calculate totals
-    const totalAmount = items.reduce(
+    const totalAmount = normalizedItems.reduce(
       (sum, item) => sum + item.quantity * item.pricePerUnit,
       0
     )
@@ -94,9 +132,9 @@ export async function POST(request: Request) {
         totalAmount,
         balanceAmount: totalAmount,
         notes: notes || null,
-        status: 'PENDING',
+        status: getInitialPurchaseOrderStatus(session.user.role),
         items: {
-          create: items.map((item) => ({
+          create: normalizedItems.map((item) => ({
             itemName: item.itemName,
             itemType: item.itemType,
             orderedQuantity: item.quantity,

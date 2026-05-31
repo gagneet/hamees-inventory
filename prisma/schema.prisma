@@ -664,7 +664,7 @@ model PurchaseOrder {
   supplierInvoiceNumber String?
   supplierInvoiceDate   DateTime?
 
-  status        String    @default("PENDING") // PENDING, RECEIVED, PARTIAL, CANCELLED
+  status        String    @default("PENDING") // PENDING is legacy; active flow uses PENDING_APPROVAL, APPROVED, PARTIAL, RECEIVED, CANCELLED
   notes         String?
   active        Boolean   @default(true)
   createdAt     DateTime  @default(now())

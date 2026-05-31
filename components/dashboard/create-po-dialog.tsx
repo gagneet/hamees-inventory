@@ -55,7 +55,8 @@ interface CreatePODialogProps {
 
 export function CreatePODialog({ trigger, criticalFabrics = [] }: CreatePODialogProps) {
   const router = useRouter()
-  const { canView } = useFieldVisibility()
+  const { role, isLoading } = useFieldVisibility()
+  const canEnterPOPricesOnCreate = role === 'OWNER'
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
@@ -136,7 +137,7 @@ export function CreatePODialog({ trigger, criticalFabrics = [] }: CreatePODialog
       (item) =>
         !item.itemName ||
         item.quantity <= 0 ||
-        item.pricePerUnit < 0
+        (canEnterPOPricesOnCreate && item.pricePerUnit < 0)
     )
 
     if (invalidItems.length > 0) {
@@ -153,7 +154,10 @@ export function CreatePODialog({ trigger, criticalFabrics = [] }: CreatePODialog
         body: JSON.stringify({
           supplierId,
           expectedDate: expectedDate || null,
-          items,
+          items: items.map((item) => ({
+            ...item,
+            pricePerUnit: canEnterPOPricesOnCreate ? item.pricePerUnit : undefined,
+          })),
           notes: notes || null,
         }),
       })
@@ -181,10 +185,9 @@ export function CreatePODialog({ trigger, criticalFabrics = [] }: CreatePODialog
     }
   }
 
-  const totalAmount = items.reduce(
-    (sum, item) => sum + item.quantity * item.pricePerUnit,
-    0
-  )
+  const totalAmount = canEnterPOPricesOnCreate
+    ? items.reduce((sum, item) => sum + item.quantity * item.pricePerUnit, 0)
+    : 0
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -332,26 +335,30 @@ export function CreatePODialog({ trigger, criticalFabrics = [] }: CreatePODialog
                         />
                       </div>
 
-                      <div>
-                        <Label className="text-xs">Price per Unit *</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={item.pricePerUnit || ''}
-                          onChange={(e) =>
-                            updateItem(
-                              index,
-                              'pricePerUnit',
-                              parseFloat(e.target.value) || 0
-                            )
-                          }
-                        />
-                      </div>
+                      {canEnterPOPricesOnCreate && (
+                        <div>
+                          <Label className="text-xs">Price per Unit *</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={item.pricePerUnit || ''}
+                            onChange={(e) =>
+                              updateItem(
+                                index,
+                                'pricePerUnit',
+                                parseFloat(e.target.value) || 0
+                              )
+                            }
+                          />
+                        </div>
+                      )}
                     </div>
 
-                    <div className="text-right text-sm font-medium">
-                      Total: ₹{(item.quantity * item.pricePerUnit).toFixed(2)}
-                    </div>
+                    {canEnterPOPricesOnCreate && (
+                      <div className="text-right text-sm font-medium">
+                        Total: ₹{(item.quantity * item.pricePerUnit).toFixed(2)}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -371,7 +378,7 @@ export function CreatePODialog({ trigger, criticalFabrics = [] }: CreatePODialog
           </div>
 
           {/* Total Amount */}
-          {items.length > 0 && canView('purchase_order', 'totalAmount') && (
+          {items.length > 0 && canEnterPOPricesOnCreate && (
             <div className="p-4 bg-blue-50 rounded-lg">
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium text-blue-900">
@@ -394,7 +401,7 @@ export function CreatePODialog({ trigger, criticalFabrics = [] }: CreatePODialog
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || isLoading}>
               {loading ? 'Creating...' : 'Create Purchase Order'}
             </Button>
           </div>

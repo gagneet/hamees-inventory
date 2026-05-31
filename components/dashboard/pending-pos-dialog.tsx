@@ -20,10 +20,10 @@ interface POItem {
   id: string
   itemName: string
   itemType: string
-  quantity: number
+  orderedQuantity: number
   unit: string
-  pricePerUnit: number
-  totalPrice: number
+  pricePerUnit?: number
+  totalPrice?: number
 }
 
 interface PurchaseOrder {
@@ -31,8 +31,8 @@ interface PurchaseOrder {
   poNumber: string
   createdAt: string
   expectedDate: string | null
-  totalAmount: number
-  balanceAmount: number
+  totalAmount?: number
+  balanceAmount?: number
   status: string
   supplier: {
     id: string
@@ -67,15 +67,17 @@ export function PendingPOsDialog({ trigger }: PendingPOsDialogProps) {
   async function fetchPendingPOs() {
     setLoading(true)
     try {
-      const response = await fetch('/api/purchase-orders?status=PENDING')
+      const response = await fetch('/api/purchase-orders')
       const data = await response.json()
 
       if (response.ok && data.purchaseOrders) {
-        const pendingPOs = data.purchaseOrders
+        const pendingPOs = data.purchaseOrders.filter((po: PurchaseOrder) =>
+          ['PENDING_APPROVAL', 'APPROVED', 'PARTIAL', 'PENDING'].includes(po.status)
+        )
 
         // Calculate stats
         const totalValue = pendingPOs.reduce(
-          (sum: number, po: PurchaseOrder) => sum + po.totalAmount,
+          (sum: number, po: PurchaseOrder) => sum + (po.totalAmount ?? 0),
           0
         )
 
@@ -113,7 +115,7 @@ export function PendingPOsDialog({ trigger }: PendingPOsDialogProps) {
             Pending Purchase Orders
           </DialogTitle>
           <DialogDescription>
-            Purchase orders awaiting delivery from suppliers
+            Purchase orders awaiting approval, delivery, or supplier payment
           </DialogDescription>
         </DialogHeader>
 
@@ -210,7 +212,7 @@ export function PendingPOsDialog({ trigger }: PendingPOsDialogProps) {
                   <div className="text-right shrink-0">
                    {canView('purchase_order', 'totalAmount') && (
                    <div className="text-lg font-bold text-slate-900">
-                     ₹{po.totalAmount.toFixed(2)}
+                     ₹{(po.totalAmount ?? 0).toFixed(2)}
                    </div>
                    )}
                    <Link href={`/purchase-orders/${po.id}`}>
@@ -235,9 +237,15 @@ export function PendingPOsDialog({ trigger }: PendingPOsDialogProps) {
                       >
                         <div className="font-medium">{item.itemName}</div>
                         <div className="text-slate-600">
-                          {item.quantity} {item.unit} × ₹
-                          {item.pricePerUnit.toFixed(2)} = ₹
-                          {item.totalPrice.toFixed(2)}
+                          {item.orderedQuantity} {item.unit}
+                          {canView('purchase_order', 'totalAmount') &&
+                            item.pricePerUnit !== undefined &&
+                            item.totalPrice !== undefined && (
+                              <>
+                                {' '}× ₹{item.pricePerUnit.toFixed(2)} = ₹
+                                {item.totalPrice.toFixed(2)}
+                              </>
+                            )}
                         </div>
                       </div>
                     ))}

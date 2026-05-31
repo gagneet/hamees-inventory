@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Home, Package, CheckCircle, Trash2, DollarSign } from 'lucide-react'
+import { Home, Package, CheckCircle, Trash2, DollarSign, ShieldCheck } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -41,6 +41,7 @@ import {
 } from '@/components/ui/dialog'
 import DashboardLayout from '@/components/DashboardLayout'
 import { formatCurrency } from '@/lib/utils'
+import { useFieldVisibility } from '@/hooks/use-field-visibility'
 
 interface PurchaseOrder {
   id: string
@@ -67,8 +68,8 @@ interface PurchaseOrder {
     orderedQuantity: number
     receivedQuantity: number
     unit: string
-    pricePerUnit: number
-    totalPrice: number
+    pricePerUnit?: number
+    totalPrice?: number
   }>
 }
 
@@ -90,6 +91,9 @@ export default function PurchaseOrderDetailPage({
   params: Promise<{ id: string }>
 }) {
   const router = useRouter()
+  const { canView, isLoading, role } = useFieldVisibility()
+  const canViewPOPrices = canView('purchase_order', 'totalAmount')
+  const canApprovePurchaseOrder = role === 'OWNER' || role === 'INVENTORY_MANAGER'
   const [resolvedParams, setResolvedParams] = useState<{ id: string } | null>(null)
   const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrder | null>(null)
   const [clothInventory, setClothInventory] = useState<ClothInventory[]>([])
@@ -98,13 +102,17 @@ export default function PurchaseOrderDetailPage({
   const [receiving, setReceiving] = useState(false)
   const [showReceiveDialog, setShowReceiveDialog] = useState(false)
   const [showPaymentDialog, setShowPaymentDialog] = useState(false)
+  const [showApproveDialog, setShowApproveDialog] = useState(false)
   const [processingPayment, setProcessingPayment] = useState(false)
+  const [approving, setApproving] = useState(false)
   const [paymentData, setPaymentData] = useState({
     amount: 0,
     paymentMode: 'CASH' as const,
     transactionRef: '',
     notes: '',
   })
+  const [approveItems, setApproveItems] = useState<Array<{ id: string; pricePerUnit: number }>>([])
+  const [approvalNotes, setApprovalNotes] = useState('')
 
   const [receiveData, setReceiveData] = useState<{
     items: Array<{
@@ -141,6 +149,13 @@ export default function PurchaseOrderDetailPage({
       const response = await fetch(`/api/purchase-orders/${resolvedParams.id}`)
       const data = await response.json()
       setPurchaseOrder(data.purchaseOrder)
+
+      setApproveItems(
+        data.purchaseOrder.items.map((item: any) => ({
+          id: item.id,
+          pricePerUnit: item.pricePerUnit || 0,
+        }))
+      )
 
       // Initialize receive data
       setReceiveData({
@@ -245,6 +260,52 @@ export default function PurchaseOrderDetailPage({
     }
   }
 
+
+  const updateApproveItemPrice = (itemId: string, pricePerUnit: number) => {
+    setApproveItems((items) =>
+      items.map((item) => (item.id === itemId ? { ...item, pricePerUnit } : item))
+    )
+  }
+
+  const handleApprove = async () => {
+    if (!resolvedParams || !purchaseOrder) return
+
+    const invalidItem = approveItems.find((item) => item.pricePerUnit <= 0)
+    if (invalidItem) {
+      alert('Enter a price per unit greater than zero for every item before approval.')
+      return
+    }
+
+    setApproving(true)
+    try {
+      const response = await fetch(`/api/purchase-orders/${resolvedParams.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'APPROVED',
+          items: approveItems,
+          notes: approvalNotes || null,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to approve purchase order')
+      }
+
+      setShowApproveDialog(false)
+      setApprovalNotes('')
+      await fetchPurchaseOrder()
+      alert('Purchase order approved successfully!')
+    } catch (error: any) {
+      console.error('Error approving purchase order:', error)
+      alert(error.message || 'Failed to approve purchase order')
+    } finally {
+      setApproving(false)
+    }
+  }
+
   const handleDelete = async () => {
     if (!resolvedParams) return
     if (!confirm('Are you sure you want to cancel this purchase order?')) return
@@ -278,7 +339,7 @@ export default function PurchaseOrderDetailPage({
     })
   }
 
-  if (loading || !purchaseOrder) {
+  if (loading || isLoading || !purchaseOrder) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-96">
@@ -289,6 +350,8 @@ export default function PurchaseOrderDetailPage({
   }
 
   const statusConfig: Record<string, { label: string; variant: any; color: string }> = {
+    PENDING_APPROVAL: { label: 'Pending Approval', variant: 'secondary', color: 'text-amber-600' },
+    APPROVED: { label: 'Approved', variant: 'default', color: 'text-blue-600' },
     PENDING: { label: 'Pending', variant: 'default', color: 'text-yellow-600' },
     PARTIAL: {
       label: 'Partially Received',
@@ -299,7 +362,7 @@ export default function PurchaseOrderDetailPage({
     CANCELLED: { label: 'Cancelled', variant: 'destructive', color: 'text-red-600' },
   }
 
-  const config = statusConfig[purchaseOrder.status]
+  const config = statusConfig[purchaseOrder.status] || statusConfig.PENDING
 
   return (
     <DashboardLayout>
@@ -329,19 +392,25 @@ export default function PurchaseOrderDetailPage({
           </Badge>
         </div>
         <div className="flex gap-2">
-          {purchaseOrder.status === 'PENDING' && (
+          {['PENDING_APPROVAL', 'PENDING', 'APPROVED'].includes(purchaseOrder.status) && (
             <Button variant="destructive" size="sm" onClick={handleDelete}>
               <Trash2 className="mr-2 h-4 w-4" />
               Cancel PO
             </Button>
           )}
-          {purchaseOrder.balanceAmount > 0 && purchaseOrder.status !== 'CANCELLED' && (
+          {canViewPOPrices && purchaseOrder.balanceAmount > 0 && ['APPROVED', 'PARTIAL'].includes(purchaseOrder.status) && (
             <Button variant="outline" onClick={openPaymentDialog}>
               <DollarSign className="mr-2 h-4 w-4" />
               Make Payment
             </Button>
           )}
-          {(purchaseOrder.status === 'PENDING' || purchaseOrder.status === 'PARTIAL') && (
+          {purchaseOrder.status === 'PENDING_APPROVAL' && canApprovePurchaseOrder && canViewPOPrices && (
+            <Button onClick={() => setShowApproveDialog(true)}>
+              <ShieldCheck className="mr-2 h-4 w-4" />
+              Approve PO
+            </Button>
+          )}
+          {(['APPROVED', 'PARTIAL'].includes(purchaseOrder.status)) && (
             <Dialog open={showReceiveDialog} onOpenChange={setShowReceiveDialog}>
               <DialogTrigger asChild>
                 <Button>
@@ -444,25 +513,27 @@ export default function PurchaseOrderDetailPage({
                   })}
 
                   <div className="grid gap-4">
-                    <div>
-                      <Label className="text-slate-700">Additional Payment (Optional)</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max={purchaseOrder.balanceAmount}
-                        value={receiveData.paidAmount}
-                        onChange={(e) =>
-                          setReceiveData({
-                            ...receiveData,
-                            paidAmount: parseFloat(e.target.value) || 0,
-                          })
-                        }
-                      />
-                      <p className="text-xs text-slate-500 mt-1">
-                        Balance due: {formatCurrency(purchaseOrder.balanceAmount)}
-                      </p>
-                    </div>
+                    {canViewPOPrices && (
+                      <div>
+                        <Label className="text-slate-700">Additional Payment (Optional)</Label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max={purchaseOrder.balanceAmount}
+                          value={receiveData.paidAmount}
+                          onChange={(e) =>
+                            setReceiveData({
+                              ...receiveData,
+                              paidAmount: parseFloat(e.target.value) || 0,
+                            })
+                          }
+                        />
+                        <p className="text-xs text-slate-500 mt-1">
+                          Balance due: {formatCurrency(purchaseOrder.balanceAmount)}
+                        </p>
+                      </div>
+                    )}
                     <div>
                       <Label className="text-slate-700">Notes</Label>
                       <Textarea
@@ -552,20 +623,24 @@ export default function PurchaseOrderDetailPage({
                 </p>
               </div>
             )}
-            <div>
-              <p className="text-sm text-slate-500">Total Amount</p>
-              <p className="font-bold text-lg">{formatCurrency(purchaseOrder.totalAmount)}</p>
-            </div>
-            <div>
-              <p className="text-sm text-slate-500">Paid Amount</p>
-              <p className="text-green-600">{formatCurrency(purchaseOrder.paidAmount)}</p>
-            </div>
-            <div>
-              <p className="text-sm text-slate-500">Balance Amount</p>
-              <p className={purchaseOrder.balanceAmount > 0 ? 'text-red-600 font-semibold' : ''}>
-                {formatCurrency(purchaseOrder.balanceAmount)}
-              </p>
-            </div>
+            {canViewPOPrices && (
+              <>
+                <div>
+                  <p className="text-sm text-slate-500">Total Amount</p>
+                  <p className="font-bold text-lg">{formatCurrency(purchaseOrder.totalAmount)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500">Paid Amount</p>
+                  <p className="text-green-600">{formatCurrency(purchaseOrder.paidAmount)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-slate-500">Balance Amount</p>
+                  <p className={purchaseOrder.balanceAmount > 0 ? 'text-red-600 font-semibold' : ''}>
+                    {formatCurrency(purchaseOrder.balanceAmount)}
+                  </p>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -586,8 +661,12 @@ export default function PurchaseOrderDetailPage({
                   <th className="pb-2 text-right">Quantity</th>
                   <th className="pb-2 text-right">Received</th>
                   <th className="pb-2">Unit</th>
-                  <th className="pb-2 text-right">Price/Unit</th>
-                  <th className="pb-2 text-right">Total</th>
+                  {canViewPOPrices && (
+                    <>
+                      <th className="pb-2 text-right">Price/Unit</th>
+                      <th className="pb-2 text-right">Total</th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -610,10 +689,14 @@ export default function PurchaseOrderDetailPage({
                       </span>
                     </td>
                     <td className="py-3">{item.unit}</td>
-                    <td className="py-3 text-right">{formatCurrency(item.pricePerUnit)}</td>
-                    <td className="py-3 text-right font-semibold">
-                      {formatCurrency(item.totalPrice)}
-                    </td>
+                    {canViewPOPrices && (
+                      <>
+                        <td className="py-3 text-right">{formatCurrency(item.pricePerUnit ?? 0)}</td>
+                        <td className="py-3 text-right font-semibold">
+                          {formatCurrency(item.totalPrice ?? 0)}
+                        </td>
+                      </>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -633,6 +716,70 @@ export default function PurchaseOrderDetailPage({
           </CardContent>
         </Card>
       )}
+
+
+      {/* Approval Dialog */}
+      <Dialog open={showApproveDialog} onOpenChange={setShowApproveDialog}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-slate-900">Approve Purchase Order</DialogTitle>
+            <DialogDescription>
+              Enter supplier pricing before this PO can be received or paid.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {purchaseOrder.items.map((item) => {
+              const approveItem = approveItems.find((i) => i.id === item.id)
+              const pricePerUnit = approveItem?.pricePerUnit || 0
+
+              return (
+                <div key={item.id} className="grid gap-3 border rounded-lg p-4 bg-slate-50 md:grid-cols-[1fr_140px_160px] md:items-end">
+                  <div>
+                    <p className="font-medium text-slate-900">{item.itemName}</p>
+                    <p className="text-sm text-slate-600">
+                      {item.orderedQuantity} {item.unit} • {item.itemType}
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-slate-700">Price per Unit *</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      value={pricePerUnit || ''}
+                      onChange={(e) =>
+                        updateApproveItemPrice(item.id, parseFloat(e.target.value) || 0)
+                      }
+                    />
+                  </div>
+                  <div className="text-right font-semibold text-slate-900">
+                    {formatCurrency(item.orderedQuantity * pricePerUnit)}
+                  </div>
+                </div>
+              )
+            })}
+
+            <div>
+              <Label className="text-slate-700">Approval Notes</Label>
+              <Textarea
+                value={approvalNotes}
+                onChange={(e) => setApprovalNotes(e.target.value)}
+                placeholder="Add any approval notes..."
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 border-t pt-4">
+              <Button variant="outline" onClick={() => setShowApproveDialog(false)} disabled={approving}>
+                Cancel
+              </Button>
+              <Button onClick={handleApprove} disabled={approving}>
+                {approving ? 'Approving...' : 'Approve Purchase Order'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Payment Dialog */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>

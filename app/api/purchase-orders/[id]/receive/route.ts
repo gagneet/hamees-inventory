@@ -28,6 +28,11 @@ const receiveSchema = z.object({
   notes: z.string().nullish(),
 })
 
+function appendNote(existingNotes: string | null, note: string | null | undefined): string | null {
+  if (!note) return existingNotes
+  return [existingNotes, note].filter(Boolean).join('\n')
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -49,6 +54,13 @@ export async function POST(
     if (purchaseOrder.status === 'CANCELLED') {
       return NextResponse.json(
         { error: 'Cannot receive cancelled purchase order' },
+        { status: 400 }
+      )
+    }
+
+    if (!['APPROVED', 'PARTIAL'].includes(purchaseOrder.status)) {
+      return NextResponse.json(
+        { error: 'Purchase order must be approved before receiving items' },
         { status: 400 }
       )
     }
@@ -119,19 +131,19 @@ export async function POST(
         }
       }
 
-      // Check if all items fully received (check total received quantity)
-      const allFullyReceived = items.every((item) => {
-        const poItem = purchaseOrder.items.find((i: POItem) => i.id === item.id)
-        if (!poItem) return false
-        const totalReceived = poItem.receivedQuantity + item.receivedQuantity
+      // Check every PO item, not only the submitted rows, before marking the PO complete.
+      const receivedQuantityByItemId = new Map(
+        items.map((item) => [item.id, item.receivedQuantity])
+      )
+
+      const allFullyReceived = purchaseOrder.items.every((poItem: POItem) => {
+        const totalReceived = poItem.receivedQuantity + (receivedQuantityByItemId.get(poItem.id) ?? 0)
         return totalReceived >= poItem.orderedQuantity
       })
 
-      const anyPartiallyReceived = items.some((item) => {
-        const poItem = purchaseOrder.items.find((i: POItem) => i.id === item.id)
-        if (!poItem) return false
-        const totalReceived = poItem.receivedQuantity + item.receivedQuantity
-        return totalReceived > 0 && totalReceived < poItem.orderedQuantity
+      const anyReceived = purchaseOrder.items.some((poItem: POItem) => {
+        const totalReceived = poItem.receivedQuantity + (receivedQuantityByItemId.get(poItem.id) ?? 0)
+        return totalReceived > 0
       })
 
       // Calculate new payment amounts (ADD instead of REPLACE)
@@ -143,10 +155,10 @@ export async function POST(
       const paymentComplete = newBalanceAmount <= 0.01
 
       // Determine status based on BOTH items received AND payment complete
-      let newStatus = 'PENDING'
+      let newStatus = purchaseOrder.status
       if (allFullyReceived && paymentComplete) {
         newStatus = 'RECEIVED' // Both items and payment complete
-      } else if (anyPartiallyReceived || newPaidAmount > 0) {
+      } else if (anyReceived || newPaidAmount > 0) {
         newStatus = 'PARTIAL' // Partial receipt or partial payment
       }
 
@@ -158,7 +170,7 @@ export async function POST(
           receivedDate: newStatus === 'RECEIVED' ? new Date() : purchaseOrder.receivedDate,
           paidAmount: newPaidAmount,
           balanceAmount: newBalanceAmount,
-          notes: notes ? `${purchaseOrder.notes || ''}\n${notes}` : purchaseOrder.notes,
+          notes: appendNote(purchaseOrder.notes, notes),
         },
       })
     })

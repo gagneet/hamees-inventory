@@ -11,6 +11,11 @@ const paymentSchema = z.object({
   notes: z.string().nullish(),
 })
 
+function appendNote(existingNotes: string | null, note: string | null | undefined): string | null {
+  if (!note) return existingNotes
+  return [existingNotes, note].filter(Boolean).join('\n')
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -38,6 +43,13 @@ export async function POST(
       )
     }
 
+    if (!['APPROVED', 'PARTIAL'].includes(purchaseOrder.status)) {
+      return NextResponse.json(
+        { error: 'Purchase order must be approved before recording payment' },
+        { status: 400 }
+      )
+    }
+
     // Validate payment amount doesn't exceed balance
     if (amount > purchaseOrder.balanceAmount) {
       return NextResponse.json(
@@ -60,7 +72,7 @@ export async function POST(
       where: { purchaseOrderId: id },
     })
 
-    const allItemsReceived = items.every((item: any) => item.receivedQuantity >= item.quantityOrdered)
+    const allItemsReceived = items.every((item: any) => item.receivedQuantity >= item.orderedQuantity)
 
     // Determine new status
     let newStatus = purchaseOrder.status
@@ -77,9 +89,12 @@ export async function POST(
         paidAmount: newPaidAmount,
         balanceAmount: newBalanceAmount,
         status: newStatus,
-        notes: notes
-          ? `${purchaseOrder.notes || ''}\n[${new Date().toLocaleDateString('en-IN')}] Payment: ${amount.toFixed(2)} via ${paymentMode || 'Cash'}${notes ? ` - ${notes}` : ''}`
-          : purchaseOrder.notes,
+        notes: appendNote(
+          purchaseOrder.notes,
+          notes
+            ? `[${new Date().toLocaleDateString('en-IN')}] Payment: ${amount.toFixed(2)} via ${paymentMode || 'Cash'} - ${notes}`
+            : null
+        ),
       },
       include: {
         supplier: true,

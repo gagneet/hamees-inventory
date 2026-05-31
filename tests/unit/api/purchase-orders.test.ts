@@ -18,19 +18,87 @@ import { describe, it, expect } from 'vitest'
 import { z } from 'zod'
 
 // ── Replicate schema from app/api/purchase-orders/route.ts ────────────────
-const purchaseOrderItemSchema = z.object({
-  itemName: z.string().min(1),
-  itemType: z.enum(['CLOTH', 'ACCESSORY']),
-  quantity: z.number().positive(),
-  unit: z.string().min(1),
-  pricePerUnit: z.number().nonnegative(),
-})
+const purchaseOrderItemSchema = z
+  .object({
+    itemName: z.string().min(1),
+    itemType: z.enum(['CLOTH', 'ACCESSORY']),
+    quantity: z.number().positive().optional(),
+    orderedQuantity: z.number().positive().optional(),
+    unit: z.string().min(1),
+    pricePerUnit: z.number().nonnegative().optional(),
+  })
+  .refine((item) => item.quantity !== undefined || item.orderedQuantity !== undefined, {
+    message: 'Quantity is required',
+    path: ['quantity'],
+  })
 
 const purchaseOrderSchema = z.object({
   supplierId: z.string().min(1),
   expectedDate: z.string().nullish(),
-  items: z.array(purchaseOrderItemSchema),
+  items: z.array(purchaseOrderItemSchema).min(1),
   notes: z.string().nullish(),
+})
+
+const approvePurchaseOrderSchema = z.object({
+  status: z.literal('APPROVED'),
+  items: z.array(
+    z.object({
+      id: z.string().min(1),
+      pricePerUnit: z.number().positive(),
+    })
+  ).min(1),
+  notes: z.string().nullish(),
+})
+
+
+function getInitialPurchaseOrderStatus(role: string): 'APPROVED' | 'PENDING_APPROVAL' {
+  return role === 'OWNER' ? 'APPROVED' : 'PENDING_APPROVAL'
+}
+
+function canApprovePurchaseOrder(role: string): boolean {
+  return role === 'OWNER' || role === 'INVENTORY_MANAGER'
+}
+
+
+// ── Approval workflow helpers ─────────────────────────────────────────────
+
+describe('PO approval workflow', () => {
+  it('marks OWNER-created POs as approved immediately', () => {
+    expect(getInitialPurchaseOrderStatus('OWNER')).toBe('APPROVED')
+  })
+
+  it('marks non-owner-created POs as pending approval', () => {
+    expect(getInitialPurchaseOrderStatus('TAILOR')).toBe('PENDING_APPROVAL')
+    expect(getInitialPurchaseOrderStatus('ADMIN')).toBe('PENDING_APPROVAL')
+    expect(getInitialPurchaseOrderStatus('INVENTORY_MANAGER')).toBe('PENDING_APPROVAL')
+  })
+
+  it('allows only OWNER and INVENTORY_MANAGER to approve POs', () => {
+    expect(canApprovePurchaseOrder('OWNER')).toBe(true)
+    expect(canApprovePurchaseOrder('INVENTORY_MANAGER')).toBe(true)
+    expect(canApprovePurchaseOrder('ADMIN')).toBe(false)
+    expect(canApprovePurchaseOrder('TAILOR')).toBe(false)
+  })
+
+  it('requires positive item prices during approval', () => {
+    const result = approvePurchaseOrderSchema.safeParse({
+      status: 'APPROVED',
+      items: [{ id: 'item-1', pricePerUnit: 0 }],
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('accepts approval payload with prices for every item', () => {
+    const result = approvePurchaseOrderSchema.safeParse({
+      status: 'APPROVED',
+      items: [
+        { id: 'item-1', pricePerUnit: 300 },
+        { id: 'item-2', pricePerUnit: 5 },
+      ],
+      notes: 'Approved by inventory manager',
+    })
+    expect(result.success).toBe(true)
+  })
 })
 
 // ── PO number generation (mirrors route logic) ────────────────────────────
@@ -48,6 +116,68 @@ function calculatePOTotal(
 function calculateItemTotal(quantity: number, pricePerUnit: number): number {
   return quantity * pricePerUnit
 }
+
+function calculateReceiveStatus(
+  purchaseOrder: { status: string; paidAmount: number; totalAmount: number; items: Array<{ id: string; orderedQuantity: number; receivedQuantity: number }> },
+  submittedItems: Array<{ id: string; receivedQuantity: number }>,
+  additionalPayment = 0
+): string {
+  const receivedQuantityByItemId = new Map(
+    submittedItems.map((item) => [item.id, item.receivedQuantity])
+  )
+  const newPaidAmount = purchaseOrder.paidAmount + additionalPayment
+  const newBalanceAmount = purchaseOrder.totalAmount - newPaidAmount
+  const paymentComplete = newBalanceAmount <= 0.01
+
+  const allFullyReceived = purchaseOrder.items.every((poItem) => {
+    const totalReceived = poItem.receivedQuantity + (receivedQuantityByItemId.get(poItem.id) ?? 0)
+    return totalReceived >= poItem.orderedQuantity
+  })
+
+  const anyReceived = purchaseOrder.items.some((poItem) => {
+    const totalReceived = poItem.receivedQuantity + (receivedQuantityByItemId.get(poItem.id) ?? 0)
+    return totalReceived > 0
+  })
+
+  if (allFullyReceived && paymentComplete) return 'RECEIVED'
+  if (anyReceived || newPaidAmount > 0) return 'PARTIAL'
+  return purchaseOrder.status
+}
+
+describe('PO receive status calculation', () => {
+  const purchaseOrder = {
+    status: 'APPROVED',
+    paidAmount: 0,
+    totalAmount: 1000,
+    items: [
+      { id: 'item-1', orderedQuantity: 10, receivedQuantity: 0 },
+      { id: 'item-2', orderedQuantity: 5, receivedQuantity: 0 },
+    ],
+  }
+
+  it('does not mark a PO as received when only a submitted subset is fully received', () => {
+    const status = calculateReceiveStatus(
+      purchaseOrder,
+      [{ id: 'item-1', receivedQuantity: 10 }],
+      1000
+    )
+
+    expect(status).toBe('PARTIAL')
+  })
+
+  it('marks a PO as received only when every PO item is fully received and payment is complete', () => {
+    const status = calculateReceiveStatus(
+      purchaseOrder,
+      [
+        { id: 'item-1', receivedQuantity: 10 },
+        { id: 'item-2', receivedQuantity: 5 },
+      ],
+      1000
+    )
+
+    expect(status).toBe('RECEIVED')
+  })
+})
 
 // ── Fixtures ──────────────────────────────────────────────────────────────
 function makeValidPO(overrides: Partial<Record<string, unknown>> = {}) {
@@ -75,6 +205,22 @@ describe('purchaseOrderSchema – valid data', () => {
     const result = purchaseOrderSchema.safeParse({
       supplierId: 'sup-123',
       items: [{ itemName: 'Silk', itemType: 'CLOTH', quantity: 10, unit: 'm', pricePerUnit: 500 }],
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('accepts non-owner-style payload without pricePerUnit', () => {
+    const result = purchaseOrderSchema.safeParse({
+      supplierId: 'sup-123',
+      items: [{ itemName: 'Silk', itemType: 'CLOTH', quantity: 10, unit: 'm' }],
+    })
+    expect(result.success).toBe(true)
+  })
+
+  it('accepts orderedQuantity as a legacy/full-page quantity field', () => {
+    const result = purchaseOrderSchema.safeParse({
+      supplierId: 'sup-123',
+      items: [{ itemName: 'Silk', itemType: 'CLOTH', orderedQuantity: 10, unit: 'm' }],
     })
     expect(result.success).toBe(true)
   })
@@ -134,10 +280,8 @@ describe('purchaseOrderSchema – invalid data', () => {
   })
 
   it('rejects empty items array (must have at least 1 item)', () => {
-    // Note: Zod does not enforce min(1) on the array in this schema,
-    // but business logic requires items. Test schema allows empty — document that.
     const result = purchaseOrderSchema.safeParse({ supplierId: 'sup-123', items: [] })
-    expect(result.success).toBe(true) // schema allows, but route handler rejects logically
+    expect(result.success).toBe(false)
   })
 
   it('rejects item with zero quantity', () => {
@@ -169,6 +313,16 @@ describe('purchaseOrderSchema – invalid data', () => {
       quantity: 10,
       unit: 'm',
       pricePerUnit: -100,
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects an item without quantity or orderedQuantity', () => {
+    const result = purchaseOrderItemSchema.safeParse({
+      itemName: 'Test',
+      itemType: 'CLOTH',
+      unit: 'm',
+      pricePerUnit: 100,
     })
     expect(result.success).toBe(false)
   })

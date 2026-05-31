@@ -45,7 +45,7 @@ interface QuickAction {
 const QUICK_ACTIONS: QuickAction[] = [
   { label: 'New Order', href: '/orders/new', icon: PlusCircle, permission: 'create_order' },
   { label: 'New Customer', href: '/customers/new', icon: PlusCircle, permission: 'manage_customers' },
-  { label: 'New Purchase Order', href: '/purchase-orders/new', icon: PlusCircle, permission: 'manage_inventory' },
+  { label: 'New Purchase Order', href: '/purchase-orders/new', icon: PlusCircle, permission: 'manage_purchase_orders' },
   { label: 'View Dashboard', href: '/dashboard', icon: ExternalLink, permission: 'view_dashboard' },
   { label: 'View Orders', href: '/orders', icon: ShoppingBag, permission: 'view_orders' },
   { label: 'View Customers', href: '/customers', icon: Users, permission: 'view_customers' },
