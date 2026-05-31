@@ -575,23 +575,24 @@ Private Sub ApplyEntryFormProtection()
     ws.Unprotect Password:=PROTECT_PASSWORD
     On Error GoTo 0
 
+    ' Lock everything first.
     ws.Cells.Locked = True
 
     ' Static entry fields and item table inputs.
-    ws.Range("B5:B6,B9:B13,B15,B17:E18,C22:J31,L22:O31").Locked = False
+    UnlockRangeSafely ws.Range("B5:B6,B9:B13,B15,B17:E18,C22:J31,L22:O31")
 
     ' Rebuild map from the current card geometry if VBA state was reset.
     If gMeasMap Is Nothing Then RebuildMeasurementCardMapOnly
 
-    Dim k As Variant
-    If Not gMeasMap Is Nothing Then
-        For Each k In gMeasMap.Keys
-            ws.Range(gMeasMap(k)).Locked = False
-        Next k
-    End If
+    ' Unlock measurement input cells safely.
+    UnlockMeasurementMapSafely ws
 
-    ws.Protect Password:=PROTECT_PASSWORD, UserInterfaceOnly:=True, AllowFiltering:=True, AllowSorting:=True, AllowFormattingCells:=True
-
+    ws.Protect Password:=PROTECT_PASSWORD, _
+               UserInterfaceOnly:=True, _
+               AllowFiltering:=True, _
+               AllowSorting:=True, _
+               AllowFormattingCells:=True
+               
 End Sub
 
 Private Sub ClearMeasurementCardArea(ByVal ws As Worksheet)
@@ -881,7 +882,7 @@ End Sub
 
 ' Show the Measurements alos, when searching for a Customer or Order ID record.
 ' This macro appends to your existing SearchOrders (or run as a second step).
-' It builds a vertical card per matched item below the results Ã¯Â¿Â½ Item ID + Type + Date as a heading,
+' It builds a vertical card per matched item below the results ÃƒÂ¯Ã‚Â¿Ã‚Â½ Item ID + Type + Date as a heading,
 ' then measurements as label: value pairs. No wide horizontal scrolling.
 Public Sub ShowCustomerMeasurements()
     Dim wsS As Worksheet, wsM As Worksheet
@@ -1637,6 +1638,66 @@ Public Sub PrintOrderCard()
 
 End Sub
 
+
+Private Sub UnlockMeasurementMapSafely(ByVal ws As Worksheet)
+    Dim k As Variant
+    Dim addr As String
+    Dim rng As Range
+    Dim area As Range
+    Dim cell As Range
+
+    If gMeasMap Is Nothing Then Exit Sub
+
+    For Each k In gMeasMap.Keys
+        addr = CStr(gMeasMap(k))
+
+        If Len(Trim$(addr)) > 0 Then
+            Set rng = Nothing
+
+            On Error Resume Next
+            Set rng = ws.Range(addr)
+            On Error GoTo 0
+
+            If Not rng Is Nothing Then
+                For Each area In rng.Areas
+                    For Each cell In area.Cells
+                        UnlockCellOrMergeAreaSafely cell
+                    Next cell
+                Next area
+            End If
+        End If
+    Next k
+    
+End Sub
+
+Private Sub UnlockRangeSafely(ByVal rng As Range)
+    Dim area As Range
+    Dim cell As Range
+
+    If rng Is Nothing Then Exit Sub
+
+    For Each area In rng.Areas
+        For Each cell In area.Cells
+            UnlockCellOrMergeAreaSafely cell
+        Next cell
+    Next area
+    
+End Sub
+
+Private Sub UnlockCellOrMergeAreaSafely(ByVal cell As Range)
+    If cell Is Nothing Then Exit Sub
+
+    On Error Resume Next
+
+    If cell.MergeCells Then
+        cell.MergeArea.Locked = False
+    Else
+        cell.Locked = False
+    End If
+
+    On Error GoTo 0
+    
+End Sub
 
 
 ' =========================================
