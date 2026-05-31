@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
+import { filterApiResponse } from '@/lib/api-filter-response'
 
 export async function GET(
   request: Request,
@@ -27,7 +28,11 @@ export async function GET(
       return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 })
     }
 
-    return NextResponse.json({ purchaseOrder })
+    // FEATURETRACE: Apply ACL field filtering to response
+    const userRole = session.user.role as any
+    const filtered = filterApiResponse(purchaseOrder, userRole, 'purchase_order')
+
+    return NextResponse.json({ purchaseOrder: filtered })
   } catch (error) {
     console.error('Error fetching purchase order:', error)
     return NextResponse.json(

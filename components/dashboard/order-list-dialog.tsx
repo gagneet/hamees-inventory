@@ -1,5 +1,6 @@
 'use client'
 
+import { useFieldVisibility } from '@/hooks/use-field-visibility'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
@@ -71,6 +72,7 @@ export function OrderListDialog({
 }: OrderListDialogProps) {
   const [open, setOpen] = useState(false)
   const router = useRouter()
+  const { canView } = useFieldVisibility()
 
   const handleOrderClick = (orderId: string) => {
     setOpen(false)
@@ -136,12 +138,14 @@ export function OrderListDialog({
                   </div>
 
                   <div className="flex items-center gap-4 ml-4">
+                    {canView('order', 'totalAmount') && (
                     <div className="text-right">
                       <p className="text-sm text-slate-500">Total</p>
                       <p className="text-lg font-semibold text-slate-900">
                         {formatCurrency(order.totalAmount)}
                       </p>
                     </div>
+                    )}
                     <ChevronRight className="h-5 w-5 text-slate-400" />
                   </div>
                 </div>

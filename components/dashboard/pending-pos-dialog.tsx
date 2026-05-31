@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useFieldVisibility } from '@/hooks/use-field-visibility'
 import {
   Dialog,
   DialogContent,
@@ -48,6 +49,7 @@ interface PendingPOsDialogProps {
 
 export function PendingPOsDialog({ trigger }: PendingPOsDialogProps) {
   const [open, setOpen] = useState(false)
+  const { canView } = useFieldVisibility()
   const [pos, setPOs] = useState<PurchaseOrder[]>([])
   const [loading, setLoading] = useState(false)
   const [stats, setStats] = useState({
@@ -123,12 +125,14 @@ export function PendingPOsDialog({ trigger }: PendingPOsDialogProps) {
             </div>
             <div className="text-xs text-blue-600">Pending Orders</div>
           </div>
+          {canView('purchase_order', 'totalAmount') && (
           <div className="p-3 bg-slate-50 rounded-lg text-center">
             <div className="text-2xl font-bold text-slate-900">
               ₹{stats.totalValue.toFixed(2)}
             </div>
             <div className="text-xs text-slate-600">Total Value</div>
           </div>
+          )}
           <div className="p-3 bg-red-50 rounded-lg text-center">
             <div className="text-2xl font-bold text-red-900">
               {stats.overdue}
@@ -204,10 +208,12 @@ export function PendingPOsDialog({ trigger }: PendingPOsDialogProps) {
                   </div>
 
                   <div className="text-right shrink-0">
-                    <div className="text-lg font-bold text-slate-900">
-                      ₹{po.totalAmount.toFixed(2)}
-                    </div>
-                    <Link href={`/purchase-orders/${po.id}`}>
+                   {canView('purchase_order', 'totalAmount') && (
+                   <div className="text-lg font-bold text-slate-900">
+                     ₹{po.totalAmount.toFixed(2)}
+                   </div>
+                   )}
+                   <Link href={`/purchase-orders/${po.id}`}>
                       <Button variant="outline" size="sm" className="mt-2">
                         <ExternalLink className="h-3 w-3 mr-1" />
                         View Details

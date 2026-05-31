@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
+import { filterApiResponse } from '@/lib/api-filter-response'
 import { z } from 'zod'
 
 const paymentSchema = z.object({
@@ -86,8 +87,12 @@ export async function POST(
       },
     })
 
+    // FEATURETRACE: Apply ACL field filtering to response
+    const userRole = session.user.role as any
+    const filtered = filterApiResponse(updatedPO, userRole, 'purchase_order')
+
     return NextResponse.json({
-      purchaseOrder: updatedPO,
+      purchaseOrder: filtered,
       message: paymentComplete
         ? 'Payment completed successfully!'
         : `Payment of ${amount.toFixed(2)} recorded. Balance remaining: ${newBalanceAmount.toFixed(2)}`,

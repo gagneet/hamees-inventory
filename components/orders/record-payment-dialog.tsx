@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useFieldVisibility } from '@/hooks/use-field-visibility'
 import { Wallet, CreditCard, Smartphone, Banknote, Building2 } from 'lucide-react'
 import {
   Dialog,
@@ -37,6 +38,8 @@ export function RecordPaymentDialog({
   balanceAmount,
 }: RecordPaymentDialogProps) {
   const router = useRouter()
+  const { canView, isLoading } = useFieldVisibility()
+  const canRecordPayment = !isLoading && canView('payment', 'amount')
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [amount, setAmount] = useState(balanceAmount.toString())
@@ -99,6 +102,10 @@ export function RecordPaymentDialog({
     }
   }
 
+  if (!canRecordPayment) {
+    return null
+  }
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -117,31 +124,35 @@ export function RecordPaymentDialog({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Balance Summary */}
+          {canView('order', 'balanceAmount') && (
           <div className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
-            <p className="text-sm text-slate-600">Balance Due</p>
-            <p className="text-2xl font-bold text-blue-600">
-              {formatCurrency(balanceAmount)}
-            </p>
-          </div>
+             <p className="text-sm text-slate-600">Balance Due</p>
+             <p className="text-2xl font-bold text-blue-600">
+               {formatCurrency(balanceAmount)}
+             </p>
+           </div>
+          )}
 
-          {/* Payment Amount */}
-          <div>
-            <Label htmlFor="amount" className="text-slate-700">Payment Amount *</Label>
-            <Input
-              id="amount"
-              type="number"
-              step="0.01"
-              min="0"
-              max={balanceAmount}
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="mt-1 text-lg font-semibold"
-              required
-            />
-            <p className="text-xs text-slate-500 mt-1">
-              Maximum: {formatCurrency(balanceAmount)}
-            </p>
-          </div>
+           {/* Payment Amount */}
+           {canView('payment', 'amount') && (
+           <div>
+             <Label htmlFor="amount" className="text-slate-700">Payment Amount *</Label>
+             <Input
+               id="amount"
+               type="number"
+               step="0.01"
+               min="0"
+               max={balanceAmount}
+               value={amount}
+               onChange={(e) => setAmount(e.target.value)}
+               className="mt-1 text-lg font-semibold"
+               required
+             />
+             <p className="text-xs text-slate-500 mt-1">
+               Maximum: {formatCurrency(balanceAmount)}
+             </p>
+           </div>
+           )}
 
           {/* Payment Mode */}
           <div>

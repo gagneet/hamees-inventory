@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useFieldVisibility } from '@/hooks/use-field-visibility'
 import {
   Dialog,
   DialogContent,
@@ -54,6 +55,7 @@ interface CreatePODialogProps {
 
 export function CreatePODialog({ trigger, criticalFabrics = [] }: CreatePODialogProps) {
   const router = useRouter()
+  const { canView } = useFieldVisibility()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
@@ -369,7 +371,7 @@ export function CreatePODialog({ trigger, criticalFabrics = [] }: CreatePODialog
           </div>
 
           {/* Total Amount */}
-          {items.length > 0 && (
+          {items.length > 0 && canView('purchase_order', 'totalAmount') && (
             <div className="p-4 bg-blue-50 rounded-lg">
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium text-blue-900">

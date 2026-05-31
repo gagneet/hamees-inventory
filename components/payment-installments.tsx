@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { useFieldVisibility } from '@/hooks/use-field-visibility'
 import { format } from 'date-fns'
 import { Calendar, CreditCard, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -32,6 +33,7 @@ interface PaymentInstallmentsProps {
 }
 
 export function PaymentInstallments({ orderId, balanceAmount }: PaymentInstallmentsProps) {
+  const { canView } = useFieldVisibility()
   const [installments, setInstallments] = useState<PaymentInstallment[]>([])
   const [loading, setLoading] = useState(true)
   const [recordingPayment, setRecordingPayment] = useState<string | null>(null)
@@ -135,7 +137,10 @@ export function PaymentInstallments({ orderId, balanceAmount }: PaymentInstallme
           Payment Installments
         </CardTitle>
         <CardDescription>
-          {installments.length} installments | Paid: {formatCurrency(totalPaid)} of {formatCurrency(totalDue)}
+          {installments.length} installments
+          {canView('payment', 'amount') && (
+            <span> | Paid: {formatCurrency(totalPaid)} of {formatCurrency(totalDue)}</span>
+          )}
           {overdueCount > 0 && (
             <span className="ml-2 text-red-600 font-semibold">
               ({overdueCount} overdue)
@@ -167,20 +172,24 @@ export function PaymentInstallments({ orderId, balanceAmount }: PaymentInstallme
                     </div>
                   </TableCell>
                   <TableCell className="text-right font-semibold">
-                    {formatCurrency(installment.installmentAmount)}
+                    {canView('payment', 'amount') && (
+                    formatCurrency(installment.installmentAmount)
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
-                    {installment.paidAmount > 0 ? (
-                      <span className="text-green-600 font-semibold">
-                        {formatCurrency(installment.paidAmount)}
-                      </span>
-                    ) : (
-                      <span className="text-slate-400">-</span>
+                    {canView('payment', 'amount') && (
+                    installment.paidAmount > 0 ? (
+                       <span className="text-green-600 font-semibold">
+                         {formatCurrency(installment.paidAmount)}
+                       </span>
+                     ) : (
+                       <span className="text-slate-400">-</span>
+                     )
                     )}
                   </TableCell>
                   <TableCell>{getStatusBadge(installment.status)}</TableCell>
                   <TableCell>
-                    {installment.status !== 'PAID' && (
+                    {installment.status !== 'PAID' && canView('payment', 'amount') && (
                       <Dialog open={recordingPayment === installment.id} onOpenChange={(open) => {
                         if (!open) {
                           setRecordingPayment(null)

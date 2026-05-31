@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { after } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
+import { filterApiResponse } from '@/lib/api-filter-response'
+import { canViewField } from '@/lib/field-acl'
 import { z } from 'zod'
 import { OrderStatus, OrderPriority, BodyType, StitchingTier } from '@/lib/types'
 
@@ -61,7 +63,7 @@ const orderSchema = z.object({
 })
 
 export async function GET(request: Request) {
-  const { error } = await requireAnyPermission(['view_orders'])
+  const { error, session } = await requireAnyPermission(['view_orders'])
   if (error) return error
 
   try {
@@ -71,6 +73,8 @@ export async function GET(request: Request) {
     const search = searchParams.get('search')
     const fabricId = searchParams.get('fabricId')
     const garmentPatternId = searchParams.get('garmentPatternId')
+    // NOTE: minAmount, maxAmount, balanceAmount filtering restricted to OWNER/ADMIN roles
+    // These are financial fields that not all roles should be able to filter by
     const minAmount = searchParams.get('minAmount')
     const maxAmount = searchParams.get('maxAmount')
     const deliveryDateFrom = searchParams.get('deliveryDateFrom')
@@ -128,8 +132,11 @@ export async function GET(request: Request) {
       }
     }
 
-    // Filter by amount range
-    if (minAmount || maxAmount) {
+    const userRole = session?.user?.role as any
+    const canFilterFinancial = canViewField(userRole, 'order', 'totalAmount')
+
+    // Filter by amount range (financial filter restricted by role)
+    if (canFilterFinancial && (minAmount || maxAmount)) {
       where.totalAmount = {}
       if (minAmount) {
         where.totalAmount.gte = parseFloat(minAmount)
@@ -161,8 +168,8 @@ export async function GET(request: Request) {
       }
     }
 
-    // Filter by balance amount (supports gt:0, gte:100, lt:500, lte:1000, eq:0)
-    if (balanceAmount) {
+    // Filter by balance amount (financial filter restricted by role)
+    if (canFilterFinancial && balanceAmount) {
       const [operator, value] = balanceAmount.split(':')
       const numValue = parseFloat(value)
 
@@ -246,7 +253,7 @@ export async function GET(request: Request) {
             },
           },
         },
-        orderBy: { balanceAmount: 'desc' }, // Sort by balance amount (high to low) by default
+        orderBy: canFilterFinancial ? { balanceAmount: 'desc' } : { createdAt: 'desc' },
         skip,
         take: limit,
       }),
@@ -260,8 +267,12 @@ export async function GET(request: Request) {
       statusCounts[row.status] = row._count._all
     }
 
+    // FEATURETRACE: Apply ACL field filtering to orders response
+    // Users without financial field access will not see amount fields
+    const filteredOrders = filterApiResponse(orders, userRole, 'order')
+
     return NextResponse.json({
-      orders,
+      orders: filteredOrders,
       statusCounts,
       pagination: {
         page,
@@ -696,6 +707,10 @@ export async function POST(request: Request) {
       return newOrder
     })
 
+    // FEATURETRACE: Apply ACL field filtering to response
+    const userRole = session?.user?.role as any
+    const filtered = filterApiResponse(order, userRole, 'order')
+
     // Send WhatsApp order confirmation (non-blocking with after())
     after(async () => {
       try {
@@ -707,7 +722,7 @@ export async function POST(request: Request) {
       }
     })
 
-    return NextResponse.json({ order }, { status: 201 })
+    return NextResponse.json({ order: filtered }, { status: 201 })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(

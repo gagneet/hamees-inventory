@@ -11,6 +11,7 @@
  * @renders ProductionPipelineChart | RevenueForecastChart | SalesOrdersDialog
  */
 
+import { useFieldVisibility } from '@/hooks/use-field-visibility'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ProductionPipelineChart } from './production-pipeline-chart'
 import { SalesOrdersDialog } from './sales-orders-dialog'
@@ -84,6 +85,7 @@ interface SalesManagerDashboardProps {
 }
 
 export function SalesManagerDashboard({ stats, generalStats }: SalesManagerDashboardProps) {
+  const { canView } = useFieldVisibility()
   return (
     <div className="space-y-6">
       {/* Row 1: Sales Velocity - All Cards Clickable */}
@@ -258,9 +260,11 @@ export function SalesManagerDashboard({ stats, generalStats }: SalesManagerDashb
                     <div className="flex items-center gap-4 text-xs mt-2">
                       <div>
                         <span className="text-slate-500">Total Spent: </span>
+                        {canView('customer', 'totalRevenue') && (
                         <span className="font-bold text-green-700">
                           {formatCurrency(customer.totalSpent)}
                         </span>
+                        )}
                       </div>
                       <div>
                         <span className="text-slate-500">Orders: </span>

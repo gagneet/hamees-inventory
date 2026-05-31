@@ -34,6 +34,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recha
 import { DollarSign, TrendingUp, TrendingDown, Clock, Users, Package, AlertCircle, Activity } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import Link from 'next/link'
+import { useFieldVisibility } from '@/hooks/use-field-visibility'
 
 interface OwnerDashboardProps {
   stats: {
@@ -152,6 +153,7 @@ interface OwnerDashboardProps {
 
 export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, salesStats }: OwnerDashboardProps) {
   const router = useRouter()
+  const { canView } = useFieldVisibility()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogType, setDialogType] = useState<'revenue' | 'cash' | 'expenses' | 'profit' | 'outstanding' | 'stockTurnover' | 'fulfillmentRate' | 'inventoryValue' | 'totalOrders' | 'efficiency' | null>(null)
 
@@ -230,103 +232,113 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
     <div className="space-y-6">
       {/* Row 1: Financial Pulse */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+        {canView('order', 'totalAmount') && (
         <Card
-          className="border-l-4 border-l-green-500 cursor-pointer hover:shadow-lg transition-shadow"
-          onClick={() => openDialog('revenue')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Revenue (This Month)</CardTitle>
-            <DollarSign className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {formatCurrency(generalStats.revenue.thisMonth)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {generalStats.revenue.growth >= 0 ? '+' : ''}
-              {generalStats.revenue.growth.toFixed(2)}% from last month
-            </p>
-            <p className="text-xs text-blue-600 font-medium mt-2">Click for details →</p>
-          </CardContent>
-        </Card>
+           className="border-l-4 border-l-green-500 cursor-pointer hover:shadow-lg transition-shadow"
+           onClick={() => openDialog('revenue')}
+         >
+           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+             <CardTitle className="text-sm font-medium">Revenue (This Month)</CardTitle>
+             <DollarSign className="h-4 w-4 text-green-600" />
+           </CardHeader>
+           <CardContent>
+             <div className="text-2xl font-bold text-green-600">
+               {formatCurrency(generalStats.revenue.thisMonth)}
+             </div>
+             <p className="text-xs text-muted-foreground mt-1">
+               {generalStats.revenue.growth >= 0 ? '+' : ''}
+               {generalStats.revenue.growth.toFixed(2)}% from last month
+             </p>
+             <p className="text-xs text-blue-600 font-medium mt-2">Click for details →</p>
+           </CardContent>
+         </Card>
+        )}
 
+        {canView('order', 'advancePaid') && (
         <Card
-          className="border-l-4 border-l-cyan-500 cursor-pointer hover:shadow-lg transition-shadow"
-          onClick={() => openDialog('cash')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Cash Collected</CardTitle>
-            <DollarSign className="h-4 w-4 text-cyan-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-cyan-600">
-              {formatCurrency(stats.cashCollectedThisMonth)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {cashGrowth >= 0 ? '+' : ''}
-              {cashGrowth.toFixed(2)}% from last month
-            </p>
-            <p className="text-xs text-blue-600 font-medium mt-2">Click for details →</p>
-          </CardContent>
-        </Card>
+           className="border-l-4 border-l-cyan-500 cursor-pointer hover:shadow-lg transition-shadow"
+           onClick={() => openDialog('cash')}
+         >
+           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+             <CardTitle className="text-sm font-medium">Cash Collected</CardTitle>
+             <DollarSign className="h-4 w-4 text-cyan-600" />
+           </CardHeader>
+           <CardContent>
+             <div className="text-2xl font-bold text-cyan-600">
+               {formatCurrency(stats.cashCollectedThisMonth)}
+             </div>
+             <p className="text-xs text-muted-foreground mt-1">
+               {cashGrowth >= 0 ? '+' : ''}
+               {cashGrowth.toFixed(2)}% from last month
+             </p>
+             <p className="text-xs text-blue-600 font-medium mt-2">Click for details →</p>
+           </CardContent>
+         </Card>
+        )}
 
+        {canView('expense', 'totalAmount') && (
         <Card
-          className="border-l-4 border-l-red-500 cursor-pointer hover:shadow-lg transition-shadow"
-          onClick={() => openDialog('expenses')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Expenses (This Month)</CardTitle>
-            <TrendingDown className="h-4 w-4 text-red-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              {formatCurrency(stats.expensesThisMonth)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {expenseGrowth >= 0 ? '+' : ''}
-              {expenseGrowth.toFixed(2)}% from last month
-            </p>
-            <p className="text-xs text-blue-600 font-medium mt-2">Click for breakdown →</p>
-          </CardContent>
-        </Card>
+           className="border-l-4 border-l-red-500 cursor-pointer hover:shadow-lg transition-shadow"
+           onClick={() => openDialog('expenses')}
+         >
+           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+             <CardTitle className="text-sm font-medium">Expenses (This Month)</CardTitle>
+             <TrendingDown className="h-4 w-4 text-red-600" />
+           </CardHeader>
+           <CardContent>
+             <div className="text-2xl font-bold text-red-600">
+               {formatCurrency(stats.expensesThisMonth)}
+             </div>
+             <p className="text-xs text-muted-foreground mt-1">
+               {expenseGrowth >= 0 ? '+' : ''}
+               {expenseGrowth.toFixed(2)}% from last month
+             </p>
+             <p className="text-xs text-blue-600 font-medium mt-2">Click for breakdown →</p>
+           </CardContent>
+         </Card>
+        )}
 
+        {canView('order', 'totalAmount') && (
         <Card
-          className="border-l-4 border-l-blue-500 cursor-pointer hover:shadow-lg transition-shadow"
-          onClick={() => openDialog('profit')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Net Profit (This Month)</CardTitle>
-            <TrendingUp className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${netRevenue >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
-              {formatCurrency(netRevenue)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Revenue minus expenses
-            </p>
-            <p className="text-xs text-blue-600 font-medium mt-2">Click for analysis →</p>
-          </CardContent>
-        </Card>
+           className="border-l-4 border-l-blue-500 cursor-pointer hover:shadow-lg transition-shadow"
+           onClick={() => openDialog('profit')}
+         >
+           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+             <CardTitle className="text-sm font-medium">Net Profit (This Month)</CardTitle>
+             <TrendingUp className="h-4 w-4 text-blue-600" />
+           </CardHeader>
+           <CardContent>
+             <div className={`text-2xl font-bold ${netRevenue >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+               {formatCurrency(netRevenue)}
+             </div>
+             <p className="text-xs text-muted-foreground mt-1">
+               Revenue minus expenses
+             </p>
+             <p className="text-xs text-blue-600 font-medium mt-2">Click for analysis →</p>
+           </CardContent>
+         </Card>
+        )}
 
+        {canView('payment', 'amount') && (
         <Card
-          className="border-l-4 border-l-amber-500 cursor-pointer hover:shadow-lg transition-shadow"
-          onClick={() => openDialog('outstanding')}
-        >
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Outstanding Payments</CardTitle>
-            <DollarSign className="h-4 w-4 text-amber-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-600">
-              {formatCurrency(stats.outstandingPayments)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Balance due from customers
-            </p>
-            <p className="text-xs text-blue-600 font-medium mt-2">Click for details →</p>
-          </CardContent>
+           className="border-l-4 border-l-amber-500 cursor-pointer hover:shadow-lg transition-shadow"
+           onClick={() => openDialog('outstanding')}
+         >
+           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+             <CardTitle className="text-sm font-medium">Outstanding Payments</CardTitle>
+             <DollarSign className="h-4 w-4 text-amber-600" />
+           </CardHeader>
+           <CardContent>
+             <div className="text-2xl font-bold text-amber-600">
+               {formatCurrency(stats.outstandingPayments)}
+             </div>
+             <p className="text-xs text-muted-foreground mt-1">
+               Balance due from customers
+             </p>
+             <p className="text-xs text-blue-600 font-medium mt-2">Click for details →</p>
+           </CardContent>
         </Card>
+       )}
       </div>
 
       {/* Recent Alerts */}
@@ -399,6 +411,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
       {/* Row 4: Revenue Distribution Charts */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Revenue by Fabric */}
+        {canView('order', 'totalAmount') && (
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -478,9 +491,10 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
             )}
           </CardContent>
         </Card>
+        )}
 
         {/* Revenue by Garment Type */}
-        {stats.revenueByGarmentType && stats.revenueByGarmentType.length > 0 && (
+        {canView('order', 'totalAmount') && stats.revenueByGarmentType && stats.revenueByGarmentType.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle>Revenue by Garment Type</CardTitle>
@@ -677,6 +691,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {canView('inventory', 'totalCost') && (
             <div
               className="flex items-center justify-between p-4 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors"
               onClick={() => openDialog('inventoryValue')}
@@ -694,6 +709,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
                 {formatCurrency(generalStats.inventory.totalValue)}
               </div>
             </div>
+            )}
 
             <div
               className="flex items-center justify-between p-4 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors"
@@ -807,7 +823,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
           </DialogHeader>
 
           <div className="space-y-4">
-            {dialogType === 'revenue' && (
+            {dialogType === 'revenue' && canView('order', 'totalAmount') && (
               <div>
                 <div className="p-4 bg-green-50 rounded-lg mb-4">
                   <p className="text-2xl font-bold text-green-600">
@@ -832,7 +848,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
               </div>
             )}
 
-            {dialogType === 'cash' && (
+            {dialogType === 'cash' && canView('order', 'advancePaid') && (
               <div>
                 <div className="p-4 bg-cyan-50 rounded-lg mb-4">
                   <p className="text-2xl font-bold text-cyan-600">
@@ -871,7 +887,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
               </div>
             )}
 
-            {dialogType === 'expenses' && (
+            {dialogType === 'expenses' && canView('expense', 'totalAmount') && (
               <div>
                 <div className="p-4 bg-red-50 rounded-lg mb-4">
                   <p className="text-2xl font-bold text-red-600">
@@ -906,7 +922,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
               </div>
             )}
 
-            {dialogType === 'profit' && (
+            {dialogType === 'profit' && canView('order', 'totalAmount') && (
               <div>
                 <div className={`p-4 rounded-lg mb-4 ${netRevenue >= 0 ? 'bg-blue-50' : 'bg-red-50'}`}>
                   <p className={`text-2xl font-bold ${netRevenue >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
@@ -944,7 +960,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
               </div>
             )}
 
-            {dialogType === 'outstanding' && (
+            {dialogType === 'outstanding' && canView('payment', 'amount') && (
               <div>
                 <div className="p-4 bg-amber-50 rounded-lg mb-4">
                   <p className="text-2xl font-bold text-amber-600">

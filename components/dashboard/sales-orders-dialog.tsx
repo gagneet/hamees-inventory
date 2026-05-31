@@ -1,5 +1,6 @@
 'use client'
 
+import { useFieldVisibility } from '@/hooks/use-field-visibility'
 import {
   Dialog,
   DialogContent,
@@ -63,6 +64,7 @@ export function SalesOrdersDialog({
   trigger,
   emptyMessage = 'No orders found',
 }: SalesOrdersDialogProps) {
+  const { canView } = useFieldVisibility()
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       NEW: 'bg-blue-100 text-blue-800 border-blue-200',
@@ -104,18 +106,22 @@ export function SalesOrdersDialog({
             <div className="text-2xl font-bold text-blue-900">{orders.length}</div>
             <div className="text-xs text-blue-600">Orders</div>
           </div>
+          {canView('order', 'totalAmount') && (
           <div className="p-3 bg-green-50 rounded-lg text-center">
             <div className="text-2xl font-bold text-green-900">
               {formatCurrency(totalRevenue)}
             </div>
             <div className="text-xs text-green-600">Total Value</div>
           </div>
+          )}
+          {canView('order', 'balanceAmount') && (
           <div className="p-3 bg-amber-50 rounded-lg text-center">
             <div className="text-2xl font-bold text-amber-900">
               {formatCurrency(totalBalance)}
             </div>
             <div className="text-xs text-amber-600">Balance Due</div>
           </div>
+          )}
           <div className="p-3 bg-purple-50 rounded-lg text-center">
             <div className="text-2xl font-bold text-purple-900">{totalItems}</div>
             <div className="text-xs text-purple-600">Total Items</div>
@@ -159,7 +165,7 @@ export function SalesOrdersDialog({
                             Overdue
                           </Badge>
                         )}
-                      {order.balanceAmount > 0 && (
+                      {order.balanceAmount > 0 && canView('order', 'balanceAmount') && (
                         <Badge variant="outline" className="text-xs text-amber-600">
                           Balance: {formatCurrency(order.balanceAmount)}
                         </Badge>
@@ -243,6 +249,8 @@ export function SalesOrdersDialog({
 
                   {/* Right Section - Amount and Action */}
                   <div className="text-right shrink-0">
+                    {canView('order', 'totalAmount') && (
+                    <>
                     <div className="flex items-center gap-1 text-slate-500 text-xs mb-1">
                       <DollarSign className="h-3 w-3" />
                       <span>Total</span>
@@ -250,6 +258,8 @@ export function SalesOrdersDialog({
                     <div className="text-xl font-bold text-slate-900 mb-3">
                       {formatCurrency(order.totalAmount)}
                     </div>
+                    </>
+                    )}
                     <Link href={`/orders/${order.id}`}>
                       <Button variant="outline" size="sm">
                         <ExternalLink className="h-3 w-3 mr-1" />

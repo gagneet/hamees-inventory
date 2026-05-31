@@ -3,6 +3,8 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
 import { addDays, addMonths } from 'date-fns'
+import { filterApiResponse } from '@/lib/api-filter-response'
+import { canViewField } from '@/lib/field-acl'
 
 const createInstallmentPlanSchema = z.object({
   numberOfInstallments: z.number().min(1).max(12),
@@ -55,20 +57,28 @@ export async function GET(
       inst.status === 'OVERDUE' || (inst.status === 'PENDING' && inst.dueDate < new Date())
     ).length
 
+    // FEATURETRACE: Apply ACL field filtering to response
+    const userRole = session.user.role as any
+    const canViewPaymentAmounts = canViewField(userRole, 'payment', 'amount')
+    const canViewOrderBalance = canViewField(userRole, 'order', 'balanceAmount')
+    const filteredOrder = {
+      id: order.id,
+      orderNumber: order.orderNumber,
+      totalAmount: order.totalAmount,
+      advancePaid: order.advancePaid,
+      balanceAmount: order.balanceAmount,
+      customer: order.customer,
+    }
+    const filtered = filterApiResponse(filteredOrder, userRole, 'order')
+    const filteredInstallments = filterApiResponse(order.installments, userRole, 'payment')
+
     return NextResponse.json({
-      order: {
-        id: order.id,
-        orderNumber: order.orderNumber,
-        totalAmount: order.totalAmount,
-        advancePaid: order.advancePaid,
-        balanceAmount: order.balanceAmount,
-        customer: order.customer,
-      },
-      installments: order.installments,
+      order: filtered,
+      installments: filteredInstallments,
       summary: {
         totalInstallments: order.installments.length,
-        totalPaid,
-        totalDue,
+        ...(canViewPaymentAmounts ? { totalPaid } : {}),
+        ...(canViewOrderBalance ? { totalDue } : {}),
         overdueCount: overdue,
       },
     })
@@ -171,9 +181,12 @@ export async function POST(
       orderBy: { installmentNumber: 'asc' },
     })
 
+    const userRole = session.user.role as any
+    const filteredInstallments = filterApiResponse(createdInstallments, userRole, 'payment')
+
     return NextResponse.json({
       success: true,
-      installments: createdInstallments,
+      installments: filteredInstallments,
       message: `Created ${numberOfInstallments} installments for order ${order.orderNumber}`,
     })
   } catch (error) {

@@ -6,6 +6,45 @@ If a PR touches these mapped flows, update this file in the same PR.
 
 ```yaml
 features:
+  field_level_acl:
+    purpose: "Restrict visibility of financial fields (amounts, costs, payments) based on user roles. Only OWNER/ADMIN see all financial data; other roles have restricted access."
+    main_files:
+      - "lib/field-acl.ts (core ACL schema and utilities)"
+      - "lib/api-filter-response.ts (API middleware for filtering)"
+      - "hooks/use-field-visibility.tsx (React hook for frontend)"
+      - "tests/unit/lib/field-acl.test.ts (73 unit tests)"
+      - "tests/integration/acl-filtering.test.ts (28 integration tests)"
+    entry_points:
+      - "API: All GET endpoints returning financial data"
+      - "UI: Dashboard, Orders, POs, Reports, Customers pages"
+    upstream_callers:
+      - "app/api/orders/* routes (5 routes: GET, POST, PATCH, payment, installments, items) ✅ UPDATED"
+      - "app/api/purchase-orders/* routes (3 routes: GET, POST, detail, payment) ✅ UPDATED"
+      - "app/api/reports/* routes (3 routes: financial, customers, expenses) ✅ UPDATED May 30"
+      - "components/* and app/(dashboard)/orders/* (17 targeted surfaces) ✅ UPDATED"
+    downstream_dependencies:
+      - "lib/permissions.ts (role definitions)"
+      - "lib/api-permissions.ts::requireAnyPermission (auth)"
+      - "lib/auth.ts (session with user.role)"
+      - "@prisma/client (UserRole enum)"
+    database_tables: []
+    external_services: []
+    config_env:
+      - "ENABLE_FIELD_ACL (future, currently always enabled)"
+    related_tests:
+      - "tests/unit/lib/field-acl.test.ts (73 tests, all role combinations) ✅ PASSING"
+      - "tests/integration/acl-filtering.test.ts (28 tests, API response filtering) ✅ PASSING"
+    implementation_status:
+      - "Phase 1 - Core ACL system: ✅ COMPLETE (lib/field-acl.ts, api middleware, React hooks)"
+      - "Phase 2 - API route updates: ✅ COMPLETE (11/11 routes updated, all endpoints filtering)"
+      - "Phase 3 - Frontend components: ✅ COMPLETE (17/17 targeted surfaces now guarded via useFieldVisibility or canViewField)"
+      - "Phase 4 - PO approval workflow: ⏳ PENDING (status field + approval UI, optional)"
+    known_risks:
+      - "Field-level guards depend on correctly classifying new financial fields. Update field-acl rules when adding new amount/cost/payment fields."
+      - "Query-level financial filters (minAmount, maxAmount, balanceAmount) are restricted to roles that can view order financial fields (OWNER/ADMIN)."
+      - "Floating-point precision in field detection (isFinancialField) - relies on pattern matching."
+    last_updated_reason: "May 30: Completed reports route filtering and frontend ACL guards across all 17 targeted screens/components."
+  
   order_item_measurement_linking:
     purpose: "Add or link measurements directly from Order Detail when an item has no measurement."
     main_files:
