@@ -15,6 +15,7 @@ import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { prisma } from '@/lib/db'
+import { canViewField } from '@/lib/field-acl'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -176,6 +177,7 @@ export default async function OrderDetailPage({
 
   // Check if user is a Tailor (hide pricing information)
   const isTailor = session.user.role === 'TAILOR'
+  const canViewFinancial = canViewField(session.user.role as any, 'order', 'totalAmount')
 
   const { id } = await params
   const order = await getOrderDetails(id)
@@ -557,8 +559,8 @@ export default async function OrderDetailPage({
 
         {/* Right Column - Summary & Dates */}
         <div className="space-y-6">
-          {/* Payment Summary - Hidden for Tailor */}
-          {!isTailor && (
+          {/* Payment Summary - Hidden for Tailor and non-OWNER/ADMIN */}
+          {!isTailor && canViewFinancial && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">

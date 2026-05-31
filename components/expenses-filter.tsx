@@ -1,6 +1,7 @@
 'use client'
 
 import * as React from 'react'
+import { useFieldVisibility } from '@/hooks/use-field-visibility'
 import { Filter, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -60,6 +61,7 @@ const paymentModes = [
 ]
 
 export function ExpensesFilter({ filters, onChange, onReset }: ExpensesFilterProps) {
+  const { canView } = useFieldVisibility()
   const [localFilters, setLocalFilters] = React.useState<ExpenseFilters>(filters)
   const [isOpen, setIsOpen] = React.useState(false)
 
@@ -155,7 +157,8 @@ export function ExpensesFilter({ filters, onChange, onReset }: ExpensesFilterPro
             </Select>
           </div>
 
-          {/* Amount Range Filter */}
+          {/* Amount Range Filter - Only visible to OWNER/ADMIN */}
+          {canView('expense', 'totalAmount') && (
           <div className="space-y-2">
             <Label>Amount Range</Label>
             <div className="grid grid-cols-2 gap-2">
@@ -181,6 +184,7 @@ export function ExpensesFilter({ filters, onChange, onReset }: ExpensesFilterPro
               </div>
             </div>
           </div>
+          )}
 
           {/* Action Buttons */}
           <div className="flex gap-2 pt-4">

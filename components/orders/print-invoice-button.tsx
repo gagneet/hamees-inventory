@@ -1,6 +1,7 @@
 'use client'
 
 import { Printer } from 'lucide-react'
+import { useFieldVisibility } from '@/hooks/use-field-visibility'
 import { Button } from '@/components/ui/button'
 import { formatCurrency } from '@/lib/utils'
 import { format } from 'date-fns'
@@ -55,6 +56,7 @@ interface PrintInvoiceButtonProps {
 }
 
 export function PrintInvoiceButton({ order }: PrintInvoiceButtonProps) {
+  const { canView } = useFieldVisibility()
   const handlePrint = () => {
     const invoiceHTML = generateInvoiceHTML(order)
     const printWindow = window.open('', '_blank', 'width=800,height=600')
@@ -105,7 +107,7 @@ export function PrintInvoiceButton({ order }: PrintInvoiceButtonProps) {
     }
   }
 
-  return (
+  return canView('order', 'totalAmount') ? (
     <Button
       onClick={handlePrint}
       className="w-full"
@@ -115,7 +117,7 @@ export function PrintInvoiceButton({ order }: PrintInvoiceButtonProps) {
       <Printer className="mr-2 h-4 w-4" />
       Print Invoice
     </Button>
-  )
+  ) : null
 }
 
 function generateInvoiceHTML(order: InvoiceOrder): string {

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useFieldVisibility } from '@/hooks/use-field-visibility'
 import { Package, ShoppingBag, Calendar, DollarSign } from 'lucide-react'
 import {
   Dialog,
@@ -62,6 +63,7 @@ export function CustomerOrdersDialog({
   trigger,
 }: CustomerOrdersDialogProps) {
   const router = useRouter()
+  const { canView } = useFieldVisibility()
   const [open, setOpen] = useState(false)
 
   // Filter orders based on type
@@ -133,11 +135,13 @@ export function CustomerOrdersDialog({
                       </div>
                     </div>
                   </div>
+                  {canView('order', 'totalAmount') && (
                   <div className="text-right">
                     <div className="font-semibold text-slate-900">
                       {formatCurrency(order.totalAmount)}
                     </div>
                   </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 text-sm">

@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
+import { useFieldVisibility } from '@/hooks/use-field-visibility'
 import Link from 'next/link'
 import { ShoppingBag, Plus, Filter, Home, X, DollarSign, LayoutList, Table2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -46,6 +47,7 @@ const statusLabels: Record<OrderStatus, string> = {
 function OrdersContent() {
   const searchParams = useSearchParams()
   const { data: session } = useSession()
+  const { canView } = useFieldVisibility()
   const [orders, setOrders] = useState<Array<{
     id: string
     orderNumber: string
@@ -543,7 +545,7 @@ function OrdersContent() {
                               {deliveryDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
                               {overdue && ' ⚠'}
                             </td>
-                            {!isTailor && (
+                            {!isTailor && canView('order', 'balanceAmount') && (
                               <td className={`px-4 py-2.5 text-right text-xs font-semibold ${arrears ? 'text-red-600' : order.balanceAmount > 0.01 ? 'text-orange-600' : 'text-green-600'}`}>
                                 ₹{Math.max(0, order.balanceAmount).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                               </td>
@@ -594,7 +596,7 @@ function OrdersContent() {
                     </CardHeader>
                     <CardContent>
                       <div className={`grid ${isTailor ? 'grid-cols-2 md:grid-cols-3' : 'grid-cols-2 md:grid-cols-4'} gap-4 text-sm`}>
-                        {!isTailor && (
+                        {!isTailor && canView('order', 'totalAmount') && (
                           <>
                             <div>
                               <p className="text-slate-500 mb-1">Total Amount</p>
@@ -602,12 +604,14 @@ function OrdersContent() {
                                 ₹{order.totalAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                               </p>
                             </div>
+                            {canView('order', 'balanceAmount') && (
                             <div>
                               <p className="text-slate-500 mb-1">Balance</p>
                               <p className={`font-semibold ${isArrears ? 'text-red-600' : order.balanceAmount > 0.01 ? 'text-orange-600' : 'text-green-600'}`}>
                                 ₹{Math.max(0, order.balanceAmount).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                               </p>
                             </div>
+                            )}
                           </>
                         )}
                         <div>

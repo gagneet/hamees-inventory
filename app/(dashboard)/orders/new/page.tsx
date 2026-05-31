@@ -23,6 +23,7 @@
 import { useCallback, useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
+import { useFieldVisibility } from '@/hooks/use-field-visibility'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -116,6 +117,7 @@ function NewOrderForm() {
   const searchParams = useSearchParams()
   const preselectedCustomerId = searchParams.get('customerId')
   const { data: session } = useSession()
+  const { canView } = useFieldVisibility()
 
   // Only roles with manage_customers can create customers inline
   const canManageCustomers = hasPermission(
@@ -1120,6 +1122,7 @@ function NewOrderForm() {
                     />
                   </div>
 
+                  {canView('order', 'advancePaid') && (
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">
                       Advance Payment
@@ -1146,6 +1149,7 @@ function NewOrderForm() {
                       Maximum: ₹{total.toFixed(2)}
                     </p>
                   </div>
+                  )}
 
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">
@@ -1163,7 +1167,8 @@ function NewOrderForm() {
               </CardContent>
             </Card>
 
-            {/* Premium Pricing Configuration */}
+            {/* Premium Pricing Configuration - Only visible to OWNER/ADMIN */}
+            {canView('order', 'stitchingTier') && (
             <Card className="border-2 border-orange-200 bg-orange-50/30">
               <CardHeader>
                 <CardTitle className="text-orange-900">Premium Pricing Configuration</CardTitle>
@@ -1368,6 +1373,7 @@ function NewOrderForm() {
                 </div>
               </CardContent>
             </Card>
+            )}
 
             {/* Manual Price Overrides */}
             <Card className="border-2 border-amber-200 bg-amber-50/30">

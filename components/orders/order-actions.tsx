@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useFieldVisibility } from '@/hooks/use-field-visibility'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -68,6 +69,7 @@ export function OrderActions({
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 
   const router = useRouter()
+  const { canView } = useFieldVisibility()
   const [statusDialogOpen, setStatusDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [discountDialogOpen, setDiscountDialogOpen] = useState(false)
@@ -303,6 +305,8 @@ export function OrderActions({
               </Select>
             </div>
             <div>
+              {canView('order', 'advancePaid') && (
+              <>
               <Label htmlFor="advancePaid">Advance Paid (₹)</Label>
               <Input
                 id="advancePaid"
@@ -316,9 +320,12 @@ export function OrderActions({
                 }
               />
               <p className="text-xs text-slate-500 mt-1">
-                Total: ₹{totalAmount.toFixed(2)} | Balance: ₹
-                {(totalAmount - parseFloat(editData.advancePaid || '0')).toFixed(2)}
+                {canView('order', 'totalAmount') && <span>Total: ₹{totalAmount.toFixed(2)} | </span>}
+                {canView('order', 'balanceAmount') && <span>Balance: ₹
+                {(totalAmount - parseFloat(editData.advancePaid || '0')).toFixed(2)}</span>}
               </p>
+              </>
+              )}
             </div>
             <div>
               <Label htmlFor="notes">Notes</Label>
@@ -350,13 +357,15 @@ export function OrderActions({
       {/* Apply Discount Dialog (OWNER only) */}
       {userRole === 'OWNER' && (
         <Dialog open={discountDialogOpen} onOpenChange={setDiscountDialogOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline" className="bg-yellow-50 hover:bg-yellow-100" disabled={isDelivered}>
-              <Percent className="mr-2 h-4 w-4" />
-              Apply Discount
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
+          {canView('order', 'discount') && (
+          <>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="bg-yellow-50 hover:bg-yellow-100" disabled={isDelivered}>
+                <Percent className="mr-2 h-4 w-4" />
+                Apply Discount
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Apply Discount</DialogTitle>
               <DialogDescription>
@@ -467,6 +476,8 @@ export function OrderActions({
               </div>
             </div>
           </DialogContent>
+          </>
+          )}
         </Dialog>
       )}
     </div>

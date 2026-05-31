@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { useFieldVisibility } from '@/hooks/use-field-visibility'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import {
   AlertDialog,
@@ -160,6 +161,7 @@ const measurementLabels: Record<string, { en: string; pa: string }> = {
 
 export function OrderItemDetailDialog({ orderItem, onSave }: OrderItemDetailDialogProps) {
   const { data: session } = useSession()
+  const { canView } = useFieldVisibility()
   const [isOpen, setIsOpen] = useState(false)
   const [designs, setDesigns] = useState<DesignUpload[]>([])
   const [accessories, setAccessories] = useState<GarmentAccessory[]>([])
@@ -935,7 +937,9 @@ export function OrderItemDetailDialog({ orderItem, onSave }: OrderItemDetailDial
                       </p>
                     </div>
                     <div className="text-right">
+                      {canView('order', 'totalAmount') && (
                       <p className="font-semibold text-sm">{formatCurrency(prevOrder.totalAmount)}</p>
+                      )}
                       <p className="text-xs text-slate-500">{prevOrder.items?.length || 0} items</p>
                     </div>
                   </div>
