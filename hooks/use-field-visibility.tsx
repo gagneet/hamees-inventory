@@ -45,12 +45,12 @@ export function useFieldRenderer() {
     label: string,
     format?: (val: any) => string
   ): React.ReactNode => {
-    if (!canView(entityType, fieldName)) {
-      return null
-    }
-
     if (isLoading) {
       return <span className="text-slate-400">Loading...</span>
+    }
+
+    if (!canView(entityType, fieldName)) {
+      return null
     }
 
     const displayValue = value === null ? '$0' : value === undefined ? '—' : format ? format(value) : value

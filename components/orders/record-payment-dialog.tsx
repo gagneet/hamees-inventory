@@ -38,7 +38,8 @@ export function RecordPaymentDialog({
   balanceAmount,
 }: RecordPaymentDialogProps) {
   const router = useRouter()
-  const { canView } = useFieldVisibility()
+  const { canView, isLoading } = useFieldVisibility()
+  const canRecordPayment = !isLoading && canView('payment', 'amount')
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [amount, setAmount] = useState(balanceAmount.toString())
@@ -99,6 +100,10 @@ export function RecordPaymentDialog({
     } finally {
       setLoading(false)
     }
+  }
+
+  if (!canRecordPayment) {
+    return null
   }
 
   return (

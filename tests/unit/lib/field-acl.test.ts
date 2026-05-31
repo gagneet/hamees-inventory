@@ -6,11 +6,8 @@ import {
   filterArrayByRole,
   canViewAnyField,
   canViewAllFields,
-  type EntityType,
 } from '@/lib/field-acl'
 import type { UserRole } from '@prisma/client'
-
-const ALL_ROLES: UserRole[] = ['OWNER', 'ADMIN', 'INVENTORY_MANAGER', 'SALES_MANAGER', 'TAILOR', 'VIEWER']
 
 // ─────────────────────────────────────────────────────────────
 // OWNER role — Full access to all financial fields

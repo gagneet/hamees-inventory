@@ -887,7 +887,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
               </div>
             )}
 
-            {dialogType === 'expenses' && canView('expense', 'amount') && (
+            {dialogType === 'expenses' && canView('expense', 'totalAmount') && (
               <div>
                 <div className="p-4 bg-red-50 rounded-lg mb-4">
                   <p className="text-2xl font-bold text-red-600">

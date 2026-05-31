@@ -41,7 +41,7 @@ features:
       - "Phase 4 - PO approval workflow: ⏳ PENDING (status field + approval UI, optional)"
     known_risks:
       - "Field-level guards depend on correctly classifying new financial fields. Update field-acl rules when adding new amount/cost/payment fields."
-      - "Query-level filtering (minAmount, balanceAmount filters) currently allowed to all authenticated users. Future phase: restrict to authorized roles only."
+      - "Query-level financial filters (minAmount, maxAmount, balanceAmount) are restricted to roles that can view order financial fields (OWNER/ADMIN)."
       - "Floating-point precision in field detection (isFinancialField) - relies on pattern matching."
     last_updated_reason: "May 30: Completed reports route filtering and frontend ACL guards across all 17 targeted screens/components."
   

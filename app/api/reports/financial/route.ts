@@ -1,15 +1,13 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
 import { filterApiResponse } from '@/lib/api-filter-response'
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns'
 
 export async function GET(request: Request) {
-  const { error } = await requireAnyPermission(['view_financial_reports'])
+  const { session, error } = await requireAnyPermission(['view_financial_reports'])
   if (error) return error
 
-  const session = await auth()
   const userRole = session?.user?.role as any
 
   try {

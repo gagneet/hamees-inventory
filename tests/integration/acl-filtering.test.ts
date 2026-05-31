@@ -1,5 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
-import { NextResponse } from 'next/server'
+import { describe, it, expect } from 'vitest'
 import { filterApiResponse } from '@/lib/api-filter-response'
 import type { UserRole } from '@prisma/client'
 

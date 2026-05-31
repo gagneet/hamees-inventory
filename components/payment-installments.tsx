@@ -137,9 +137,9 @@ export function PaymentInstallments({ orderId, balanceAmount }: PaymentInstallme
           Payment Installments
         </CardTitle>
         <CardDescription>
-          {installments.length} installments | 
+          {installments.length} installments
           {canView('payment', 'amount') && (
-          <span>Paid: {formatCurrency(totalPaid)} of {formatCurrency(totalDue)}</span>
+            <span> | Paid: {formatCurrency(totalPaid)} of {formatCurrency(totalDue)}</span>
           )}
           {overdueCount > 0 && (
             <span className="ml-2 text-red-600 font-semibold">

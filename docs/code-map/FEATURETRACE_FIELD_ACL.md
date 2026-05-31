@@ -46,7 +46,7 @@ Complete field-level visibility control for financial data in the Hamees Invento
 - **Financial Reports**: NO
 
 ### SALES_MANAGER
-- **Customer Financial Summary**: YES (totalRevenue, outstandingAmount, totalOrders, averageOrderValue)
+- **Customer Financial Summary**: NO (customer financial summary fields are hidden)
 - **Order Amounts**: NO
 - **PO Amounts**: NO
 - **Inventory Costs**: NO
@@ -335,4 +335,3 @@ For each role, verify:
   - Updated GET /api/orders with filtering
   - Identified 14 critical API routes for updates
   - Identified 20+ components for updates
-
