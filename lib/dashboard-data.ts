@@ -365,7 +365,7 @@ export async function getDashboardData(
           lte: endOfDay(now),
         },
         status: {
-          not: 'DELIVERED',
+          notIn: ['DELIVERED', 'CANCELLED'],
         },
       },
       select: {
@@ -401,7 +401,7 @@ export async function getDashboardData(
           lt: startOfDay(now),
         },
         status: {
-          not: 'DELIVERED',
+          notIn: ['DELIVERED', 'CANCELLED'],
         },
       },
       select: {
@@ -475,7 +475,7 @@ export async function getDashboardData(
         lte: addDays(now, 7),
       },
       status: {
-        not: 'DELIVERED',
+        notIn: ['DELIVERED', 'CANCELLED'],
       },
     },
     select: {

@@ -85,7 +85,7 @@ export async function GET(request: Request) {
             lte: endDate,
           },
           status: {
-            not: 'DELIVERED',
+            notIn: ['DELIVERED', 'CANCELLED'],
           },
         },
         select: {
@@ -121,7 +121,7 @@ export async function GET(request: Request) {
             lt: startOfDay(now),
           },
           status: {
-            not: 'DELIVERED',
+            notIn: ['DELIVERED', 'CANCELLED'],
           },
         },
         select: {
@@ -195,7 +195,7 @@ export async function GET(request: Request) {
           lte: addDays(now, 7),
         },
         status: {
-          not: 'DELIVERED',
+          notIn: ['DELIVERED', 'CANCELLED'],
         },
       },
       select: {
