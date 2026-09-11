@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Loader2 } from 'lucide-react'
 import { useAppSettings } from '@/components/providers/settings-provider'
+import { PhoneInput } from '@/components/ui/phone-input'
 
 interface CustomerData {
   id: string
@@ -44,6 +45,8 @@ export function CustomerEditDialog({
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Another customer has the new number: the next save confirms it (families often share one)
+  const [confirmDuplicate, setConfirmDuplicate] = useState(false)
 
   const [formData, setFormData] = useState({
     name: customer.name,
@@ -65,11 +68,15 @@ export function CustomerEditDialog({
       const response = await fetch(`/api/customers/${customer.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, allowDuplicatePhone: confirmDuplicate }),
       })
 
       const data = await response.json()
 
+      if (response.status === 409 && data.code === 'DUPLICATE_PHONE') {
+        setConfirmDuplicate(true)
+        throw new Error(`${data.error} Select "Save anyway" to keep it.`)
+      }
       if (!response.ok) {
         throw new Error(data.error || 'Failed to update customer')
       }
@@ -116,15 +123,14 @@ export function CustomerEditDialog({
                 <Label htmlFor="phone">
                   Phone <span className="text-red-500">*</span>
                 </Label>
-                <Input
+                <PhoneInput
                   id="phone"
-                  type="tel"
                   value={formData.phone}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, phone: e.target.value }))
-                  }
+                  onChange={(phone) => {
+                    setConfirmDuplicate(false)
+                    setFormData((prev) => ({ ...prev, phone }))
+                  }}
                   required
-                  placeholder={`+${settings.phoneCountryCode} …`}
                 />
               </div>
             </div>
@@ -228,7 +234,7 @@ export function CustomerEditDialog({
             </Button>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save Changes
+              {confirmDuplicate ? 'Save anyway' : 'Save Changes'}
             </Button>
           </DialogFooter>
         </form>

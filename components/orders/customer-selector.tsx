@@ -22,6 +22,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
+import { PhoneInput, PhoneText, usePhoneFormatter } from '@/components/ui/phone-input'
 import {
   User,
   Phone,
@@ -88,6 +89,8 @@ function InlineNewCustomerForm({
   const [city, setCity] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  // Another customer has this number: the next save confirms it (families often share one)
+  const [confirmDuplicate, setConfirmDuplicate] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -102,11 +105,18 @@ function InlineNewCustomerForm({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ name: name.trim(), phone: phone.trim(), city: city.trim() || undefined }),
+        body: JSON.stringify({
+          name: name.trim(),
+          phone: phone.trim(),
+          city: city.trim() || undefined,
+          allowDuplicatePhone: confirmDuplicate,
+        }),
       })
       const data = await res.json()
       if (!res.ok) {
-        setError(data.error || 'Failed to create customer')
+        const duplicate = res.status === 409 && data.code === 'DUPLICATE_PHONE'
+        setConfirmDuplicate(duplicate)
+        setError(duplicate ? `${data.error} Save again to add another customer with this number.` : data.error || 'Failed to create customer')
         return
       }
       onSave(data.customer)
@@ -148,12 +158,13 @@ function InlineNewCustomerForm({
               <label className="text-xs font-medium text-slate-600 mb-1 block">
                 Phone <span className="text-red-500">*</span>
               </label>
-              <Input
+              <PhoneInput
                 value={phone}
-                onChange={e => setPhone(e.target.value)}
-                placeholder="Phone number (with country code)"
-                type="tel"
-                className="h-8 text-sm"
+                onChange={(value) => {
+                  setConfirmDuplicate(false)
+                  setPhone(value)
+                }}
+                size="sm"
                 required
               />
             </div>
@@ -173,7 +184,7 @@ function InlineNewCustomerForm({
           <div className="flex gap-2 pt-1">
             <Button type="submit" size="sm" disabled={saving} className="h-8">
               {saving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-              {saving ? 'Saving…' : 'Save & Select'}
+              {saving ? 'Saving…' : confirmDuplicate ? 'Save anyway' : 'Save & Select'}
             </Button>
             <Button type="button" variant="outline" size="sm" onClick={onCancel} className="h-8">
               Cancel
@@ -211,7 +222,7 @@ function CustomerCard({
             </p>
           <p className="text-sm text-slate-600 flex items-center gap-1">
             <Phone className="h-3 w-3" />
-            {customer.phone}
+            <PhoneText value={customer.phone} />
           </p>
           {customer.email && (
             <p className="text-sm text-slate-600 flex items-center gap-1">
@@ -291,11 +302,13 @@ export function CustomerSelector({
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [repeatLoading, setRepeatLoading] = useState(false)
 
-  // Build combobox options
+  // Build combobox options (search also matches the stored digits, e.g. "9876543210")
+  const formatPhone = usePhoneFormatter()
   const options = customers.map(c => ({
     value: c.id,
     label: c.name,
-    sublabel: c.phone,
+    sublabel: formatPhone(c.phone),
+    keywords: c.phone,
   }))
 
   // Load customer details whenever value changes (handles both user selection and
