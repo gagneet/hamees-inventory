@@ -23,7 +23,14 @@ export function SettingsProvider({
 }) {
   // Applied during render (not in an effect) so children format with the shop's
   // currency on the very first render, both on the server and in the browser.
-  setActiveLocaleConfig({ currency: settings.currency, locale: settings.locale, timeZone: settings.timeZone })
+  setActiveLocaleConfig({
+    currency: settings.currency,
+    locale: settings.locale,
+    timeZone: settings.timeZone,
+    secondaryCurrency: settings.secondaryCurrency,
+    exchangeRate: settings.exchangeRate,
+    exchangeRateUpdatedAt: settings.exchangeRateUpdatedAt,
+  })
   return <SettingsContext.Provider value={settings}>{children}</SettingsContext.Provider>
 }
 
