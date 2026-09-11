@@ -380,11 +380,11 @@ model Order {
 
 ### Migration Script
 
-**Location**: `/prisma/migrations/manual_premium_pricing_system.sql`
+**Location**: `/prisma/manual-sql/manual_premium_pricing_system.sql`
 
 **Execution**:
 ```bash
-PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -f prisma/migrations/manual_premium_pricing_system.sql
+PGPASSWORD=<REDACTED_DB_PASSWORD> psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -f prisma/manual-sql/manual_premium_pricing_system.sql
 ```
 
 **Verification**:
@@ -1287,7 +1287,7 @@ WHERE "isFabricCostOverridden" = true;
 **Solution**:
 ```bash
 # Re-run migration
-PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -f prisma/migrations/manual_premium_pricing_system.sql
+PGPASSWORD=<REDACTED_DB_PASSWORD> psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -f prisma/manual-sql/manual_premium_pricing_system.sql
 
 # Verify
 psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -c "SELECT name, basicStitchingCharge FROM \"GarmentPattern\";"

@@ -369,23 +369,23 @@ All users available with password: `admin123`
 
 ```bash
 # Verify customer types
-PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -c \
+PGPASSWORD=<REDACTED_DB_PASSWORD> psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -c \
   "SELECT customerType, COUNT(*) FROM \"Customer\" GROUP BY customerType;"
 
 # Verify tailor assignments
-PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -c \
+PGPASSWORD=<REDACTED_DB_PASSWORD> psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -c \
   "SELECT COUNT(*) FILTER (WHERE assignedTailorId IS NOT NULL) as assigned,
    COUNT(*) FILTER (WHERE assignedTailorId IS NULL) as unassigned
    FROM \"OrderItem\";"
 
 # Verify GST on purchase orders
-PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -c \
+PGPASSWORD=<REDACTED_DB_PASSWORD> psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -c \
   "SELECT poNumber, subTotal, gstAmount, totalAmount,
    ROUND((gstAmount / subTotal * 100)::numeric, 2) as calculated_rate
    FROM \"PurchaseOrder\" LIMIT 5;"
 
 # Verify ITC tracking
-PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -c \
+PGPASSWORD=<REDACTED_DB_PASSWORD> psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -c \
   "SELECT status, itcClaimed, COUNT(*), SUM(gstAmount) as total_gst
    FROM \"PurchaseOrder\"
    WHERE isInputTaxCredit = true

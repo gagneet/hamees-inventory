@@ -239,7 +239,7 @@ NextAuth provides CSRF tokens for its own form actions, but custom API endpoints
 `prisma.config.ts` contains a fallback connection string with the production password:
 
 ```typescript
-url: process.env.DATABASE_URL || "postgresql://hamees_user:hamees_secure_2026@/tailor_inventory..."
+url: process.env.DATABASE_URL || "postgresql://hamees_user:<REDACTED_DB_PASSWORD>@/tailor_inventory..."
 ```
 
 This means the production database password is committed to source control.
@@ -269,6 +269,8 @@ This is particularly risky given the financial nature of the application. Multip
 ---
 
 ### 3.2 No Database Migration Strategy (HIGH)
+
+> **Status (v0.31.0): resolved.** Migrations are tracked in `prisma/migrations` (`0_init` baseline plus release migrations) and applied with `prisma migrate deploy` by `scripts/deploy.sh`. The old manual SQL scripts moved to `prisma/manual-sql/`.
 
 The project has **no Prisma migration files**. The `prisma/migrations/` directory contains only raw `.sql` files for manual fixes — not Prisma-managed migrations. Development uses `pnpm db:push` which can silently drop columns or cause data loss.
 
@@ -537,6 +539,8 @@ The supplier model tracks contact information but there is no integration with s
 ## 7. Database & Schema Issues
 
 ### 7.1 No Prisma Migration History (CRITICAL)
+
+> **Status (v0.31.0): resolved.** Migrations are tracked in `prisma/migrations` (`0_init` baseline plus release migrations) and applied with `prisma migrate deploy` by `scripts/deploy.sh`. The old manual SQL scripts moved to `prisma/manual-sql/`.
 
 As noted in section 3.2, there are no Prisma-managed migration files. The `prisma/migrations/` directory contains only manual SQL fix scripts. This means:
 - `prisma migrate status` will show no migrations
