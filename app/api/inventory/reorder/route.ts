@@ -3,7 +3,7 @@
  * FEATURETRACE:
  *   feature: automated_reorder
  *   entry_points: GET /api/inventory/reorder (view_inventory)
- *   upstream_callers: components/purchase-orders/reorder-suggestions.tsx, components/purchase-orders/inventory-item-picker.tsx
+ *   upstream_callers: components/purchase-orders/reorder-suggestions.tsx, components/purchase-orders/po-line-editor.tsx
  *   downstream_dependencies: lib/reorder (computeReorderPositions), field ACL ('inventory' amounts)
  *   related_tests: tests/unit/lib/reorder.test.ts, tests/unit/api/reorder-routes.test.ts
  *
