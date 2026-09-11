@@ -21,6 +21,7 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import DashboardLayout from '@/components/DashboardLayout'
 import { hasPermission, type UserRole } from '@/lib/permissions'
 import { ClothDetailEditButton } from '@/components/inventory/cloth-detail-edit-button'
+import { PhoneText } from '@/components/ui/phone-input'
 
 type ClothDetails = NonNullable<Awaited<ReturnType<typeof getClothDetails>>>
 type OrderItem = ClothDetails['orderItems'][number]
@@ -471,7 +472,7 @@ export default async function ClothDetailPage({
                   {cloth.supplierRel.phone && (
                     <div>
                       <p className="text-sm text-slate-500">Phone</p>
-                      <p className="text-sm">{cloth.supplierRel.phone}</p>
+                      <p className="text-sm"><PhoneText value={cloth.supplierRel.phone} /></p>
                     </div>
                   )}
                 </CardContent>

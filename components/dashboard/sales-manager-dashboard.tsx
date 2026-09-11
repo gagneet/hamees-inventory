@@ -18,6 +18,7 @@ import { SalesOrdersDialog } from './sales-orders-dialog'
 import { RevenueForecastChart } from './revenue-forecast-chart'
 import { ShoppingBag, Package, Users, TrendingUp, Mail, Phone } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
+import { PhoneText } from '@/components/ui/phone-input'
 import Link from 'next/link'
 
 interface OrderItem {
@@ -253,7 +254,7 @@ export function SalesManagerDashboard({ stats, generalStats }: SalesManagerDashb
                           )}
                           <span className="flex items-center gap-1">
                             <Phone className="h-3 w-3" />
-                            {customer.phone}
+                            <PhoneText value={customer.phone} />
                           </span>
                         </div>
                       </div>

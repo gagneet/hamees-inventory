@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { PhoneText } from '@/components/ui/phone-input'
 import {
   Select,
   SelectContent,
@@ -223,7 +224,7 @@ export function CreatePODialog({ trigger, criticalFabrics = [] }: CreatePODialog
                 {suppliers.map((supplier) => (
                   <SelectItem key={supplier.id} value={supplier.id}>
                     {supplier.name}
-                    {supplier.phone && ` • ${supplier.phone}`}
+                    {supplier.phone && <> • <PhoneText value={supplier.phone} /></>}
                   </SelectItem>
                 ))}
               </SelectContent>

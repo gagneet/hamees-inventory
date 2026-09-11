@@ -25,6 +25,7 @@ import { formatCurrency, formatDateTime } from '@/lib/utils'
 import { useSession } from 'next-auth/react'
 import { hasPermission, type UserRole } from '@/lib/permissions'
 import { useFieldVisibility } from '@/hooks/use-field-visibility'
+import { PhoneText } from '@/components/ui/phone-input'
 
 interface AlertData {
   id: string
@@ -283,7 +284,7 @@ export default function AlertDetailPage({
                   </div>
                   <div>
                     <p className="text-sm font-medium text-slate-500">Supplier Contact</p>
-                    <p className="text-lg">{relatedItem.supplierRel.phone}</p>
+                    <p className="text-lg"><PhoneText value={relatedItem.supplierRel.phone} /></p>
                   </div>
                 </>
               )}

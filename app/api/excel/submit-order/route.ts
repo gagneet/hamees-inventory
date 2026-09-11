@@ -8,6 +8,8 @@ import { formatCurrency } from '@/lib/locale'
 import { roundMoney } from '@/lib/order-finance'
 import { InsufficientStockError, reserveClothStock, roundMeters } from '@/lib/stock'
 import { BodyType } from '@/lib/types'
+import { normalizePhone } from '@/lib/phone'
+import { findCustomersByPhone } from '@/lib/phone-lookup'
 import { z } from 'zod'
 
 /**
@@ -110,6 +112,13 @@ export async function POST(request: Request) {
     const body = await request.json()
     const data = submitOrderSchema.parse(body)
 
+    // Phone numbers are stored in E.164; numbers without +code are read in the shop's region
+    const { phoneRegion } = await getAppSettings()
+    const customerPhone = normalizePhone(data.customerPhone, phoneRegion)
+    if (!customerPhone.ok) {
+      return NextResponse.json({ error: customerPhone.error }, { status: 400 })
+    }
+
     // ── 0. Resolve system user (for StockMovement.userId) ────
     // Excel submissions are unauthenticated (API key only); attribute stock
     // movements to the first OWNER in the system as a system actor.
@@ -129,15 +138,15 @@ export async function POST(request: Request) {
     // ── 1. Customer lookup / create ───────────────────────────
     let customer = data.customerId
       ? await prisma.customer.findUnique({ where: { id: data.customerId } })
-      : await prisma.customer.findFirst({
-          where: { phone: { equals: data.customerPhone, mode: 'insensitive' } },
-        })
+      : await findCustomersByPhone(customerPhone.e164, phoneRegion).then(([match]) =>
+          match ? prisma.customer.findUnique({ where: { id: match.id } }) : null
+        )
 
     if (!customer) {
       customer = await prisma.customer.create({
         data: {
           name: data.customerName.trim(),
-          phone: data.customerPhone.trim(),
+          phone: customerPhone.e164,
           city: data.customerCity?.trim() || null,
           address: data.customerAddress?.trim() || null,
         },

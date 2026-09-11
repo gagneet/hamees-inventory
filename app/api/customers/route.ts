@@ -3,19 +3,27 @@ import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
 import { filterApiResponse } from '@/lib/api-filter-response'
 import { actorFromSession, customerScope, orderScope, scopedWhere } from '@/lib/authz'
+import { getAppSettings } from '@/lib/settings'
+import { phoneSearchVariants } from '@/lib/phone'
+import { phoneIssueMessage, phoneSchema } from '@/lib/phone-schema'
+import { duplicatePhoneBody, findCustomersByPhone } from '@/lib/phone-lookup'
 import type { Prisma } from '@prisma/client'
 import { z } from 'zod'
 
-const customerSchema = z.object({
-  name: z.string().trim().min(1, 'Name is required').max(120),
-  email: z.string().email().nullish(),
-  phone: z.string().trim().min(1, 'Phone is required').max(30),
-  address: z.string().max(300).nullish(),
-  city: z.string().max(80).nullish(),
-  state: z.string().max(80).nullish(),
-  pincode: z.string().max(20).nullish(),
-  notes: z.string().max(2000).nullish(),
-})
+/** Phone numbers are stored in E.164; numbers typed without +code are read in the shop's region. */
+const customerSchema = (phoneRegion: string) =>
+  z.object({
+    name: z.string().trim().min(1, 'Name is required').max(120),
+    email: z.string().email().nullish(),
+    phone: phoneSchema(phoneRegion),
+    address: z.string().max(300).nullish(),
+    city: z.string().max(80).nullish(),
+    state: z.string().max(80).nullish(),
+    pincode: z.string().max(20).nullish(),
+    notes: z.string().max(2000).nullish(),
+    /** Confirms a second customer with a number already on file (families often share one) */
+    allowDuplicatePhone: z.boolean().optional(),
+  })
 
 export async function GET(request: Request) {
   const { session, error } = await requireAnyPermission(['view_customers'])
@@ -32,12 +40,15 @@ export async function GET(request: Request) {
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '10') || 10))
     const skip = (page - 1) * limit
 
+    // "98765 43210", "098765…" and "+91 98765…" all find the stored "+919876543210"
+    const phoneVariants = search ? phoneSearchVariants(search, (await getAppSettings()).phoneRegion) : []
     const filter: Prisma.CustomerWhereInput = search
       ? {
           OR: [
             { name: { contains: search, mode: 'insensitive' as const } },
             { email: { contains: search, mode: 'insensitive' as const } },
             { phone: { contains: search, mode: 'insensitive' as const } },
+            ...phoneVariants.map((variant) => ({ phone: { contains: variant } })),
           ],
         }
       : {}
@@ -111,7 +122,13 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
-    const validatedData = customerSchema.parse(body)
+    const { phoneRegion } = await getAppSettings()
+    const { allowDuplicatePhone, ...validatedData } = customerSchema(phoneRegion).parse(body)
+
+    if (!allowDuplicatePhone) {
+      const [existing] = await findCustomersByPhone(validatedData.phone, phoneRegion)
+      if (existing) return NextResponse.json(duplicatePhoneBody(existing), { status: 409 })
+    }
 
     const customer = await prisma.customer.create({
       data: validatedData,
@@ -121,7 +138,7 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation failed', details: error.issues },
+        { error: phoneIssueMessage(error) ?? 'Validation failed', details: error.issues },
         { status: 400 }
       )
     }

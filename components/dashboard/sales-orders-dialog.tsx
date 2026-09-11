@@ -22,6 +22,8 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { PhoneText } from '@/components/ui/phone-input'
+import { phoneHref } from '@/lib/phone'
 
 interface OrderItem {
   id: string
@@ -184,8 +186,8 @@ export function SalesOrdersDialog({
                       </div>
                       <div className="flex items-center gap-1">
                         <Phone className="h-3 w-3" />
-                        <a href={`tel:${order.customer.phone}`} className="hover:text-blue-600">
-                          {order.customer.phone}
+                        <a href={phoneHref(order.customer.phone) ?? undefined} className="hover:text-blue-600">
+                          <PhoneText value={order.customer.phone} />
                         </a>
                       </div>
                       {order.customer.email && (

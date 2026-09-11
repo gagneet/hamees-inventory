@@ -25,6 +25,7 @@ import {
 import { Home, Users, TrendingUp, Star, AlertCircle } from 'lucide-react'
 import { formatCurrency as formatMoney, formatDate as formatShopDate } from '@/lib/utils'
 import { Money } from '@/components/ui/money'
+import { PhoneText } from '@/components/ui/phone-input'
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -329,7 +330,7 @@ export default function CustomerReportPage() {
                             {customer.name}
                           </Link>
                           {customer.phone && (
-                            <span className="block text-xs text-slate-500">{customer.phone}</span>
+                            <span className="block text-xs text-slate-500"><PhoneText value={customer.phone} /></span>
                           )}
                           {customer.city && (
                             <span className="block text-xs text-slate-400">{customer.city}</span>

@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { PhoneText } from '@/components/ui/phone-input'
 import { ExternalLink } from 'lucide-react'
 
 interface CustomerRetentionChartProps {
@@ -150,7 +151,7 @@ export function CustomerRetentionChart({ newCustomers, returningCustomers }: Cus
                     <div>
                       <h3 className="font-semibold text-lg text-slate-900">{customer.name}</h3>
                       <p className="text-sm text-slate-600">{customer.email}</p>
-                      <p className="text-sm text-slate-600">{customer.phone}</p>
+                      <p className="text-sm text-slate-600"><PhoneText value={customer.phone} /></p>
                     </div>
                     <Link href={`/customers/${customer.id}`}>
                       <Button variant="outline" size="sm">

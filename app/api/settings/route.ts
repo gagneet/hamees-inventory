@@ -7,13 +7,13 @@
 
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { isSupportedCountry } from 'libphonenumber-js'
 import { prisma } from '@/lib/db'
 import { requireAuth, requirePermission } from '@/lib/api-permissions'
 import { DEFAULT_APP_SETTINGS, getAppSettings, invalidateAppSettings, SETTINGS_ROW_ID, type AppSettings } from '@/lib/settings'
 import { isValidCurrency, isValidLocale, isValidTimeZone } from '@/lib/locale'
 import { TAX_MODES } from '@/lib/tax'
 import { audit } from '@/lib/audit'
+import { isSupportedCountry, normalizePhone } from '@/lib/phone'
 
 const optionalText = (max: number) =>
   z
@@ -126,6 +126,12 @@ export async function PUT(request: Request) {
     // Fresh copy of the current settings, used to audit only the fields that actually change
     invalidateAppSettings()
     const before = await getAppSettings()
+    // The shop's own number is stored in E.164 too, read in the (possibly new) phone region
+    if (input.phone) {
+      const phone = normalizePhone(input.phone, input.phoneRegion ?? before.phoneRegion)
+      if (!phone.ok) return NextResponse.json({ error: `Shop phone: ${phone.error}` }, { status: 400 })
+      input.phone = phone.e164
+    }
     const currentCurrency = existing?.currencyCode ?? DEFAULT_APP_SETTINGS.currency
     const currencyChanges = input.currency !== undefined && input.currency !== currentCurrency
 

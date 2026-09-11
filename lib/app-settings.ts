@@ -3,7 +3,7 @@
  * The server-side loader lives in lib/settings.ts.
  */
 
-import { getCountryCallingCode, isSupportedCountry, type CountryCode } from 'libphonenumber-js'
+import { getCountryCallingCode, isSupportedCountry, type CountryCode } from '@/lib/phone'
 import { DEFAULT_LOCALE_CONFIG } from '@/lib/locale'
 import type { TaxConfig, TaxMode } from '@/lib/tax'
 
@@ -106,21 +106,4 @@ export function taxConfigFrom(settings: Pick<AppSettings, 'taxMode' | 'taxRate' 
     name: settings.taxName,
     businessRegion: settings.region,
   }
-}
-
-/**
- * Normalise a phone number to international digits (no '+') using the shop's country code.
- * A number is treated as already international only when it has a '+' or '00' prefix, or when it
- * starts with the country code and is longer than a national number (national numbers are at most
- * 10 digits in the supported regions) — so an Indian mobile such as 9123456789 still gets 91.
- */
-export function toInternationalPhone(phone: string, countryCode: string): string {
-  const trimmed = phone.trim()
-  if (trimmed.startsWith('+')) return trimmed.replace(/\D/g, '')
-  let digits = trimmed.replace(/\D/g, '')
-  if (digits.startsWith('00')) return digits.slice(2)
-  const cc = countryCode.replace(/\D/g, '')
-  if (cc && digits.startsWith(cc) && digits.length > 10) return digits
-  digits = digits.replace(/^0+/, '') // national trunk prefix
-  return cc ? `${cc}${digits}` : digits
 }

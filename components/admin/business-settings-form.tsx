@@ -22,6 +22,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAppSettings } from '@/components/providers/settings-provider'
+import { CountryPicker, PhoneInput } from '@/components/ui/phone-input'
 import { taxConfigFrom, type AppSettings } from '@/lib/app-settings'
 import {
   formatCurrency,
@@ -33,6 +34,7 @@ import {
   isValidTimeZone,
   normalizeLocaleConfig,
 } from '@/lib/locale'
+import { regionName } from '@/lib/phone'
 import { computeTax, taxLines, type TaxMode } from '@/lib/tax'
 
 export type SettingsSection = 'business' | 'localization' | 'tax' | 'production'
@@ -54,42 +56,42 @@ const PRESETS: Preset[] = [
   {
     label: 'India',
     values: {
-      country: 'India', currency: 'INR', locale: 'en-IN', timeZone: 'Asia/Kolkata', phoneCountryCode: '91',
+      country: 'India', currency: 'INR', locale: 'en-IN', timeZone: 'Asia/Kolkata', phoneRegion: 'IN',
       postalCodeLabel: 'Pincode', taxMode: 'SPLIT', taxName: 'GST', taxIdLabel: 'GSTIN', taxRate: '12',
     },
   },
   {
     label: 'United Kingdom',
     values: {
-      country: 'United Kingdom', currency: 'GBP', locale: 'en-GB', timeZone: 'Europe/London', phoneCountryCode: '44',
+      country: 'United Kingdom', currency: 'GBP', locale: 'en-GB', timeZone: 'Europe/London', phoneRegion: 'GB',
       postalCodeLabel: 'Postcode', taxMode: 'SINGLE', taxName: 'VAT', taxIdLabel: 'VAT Reg. No.', taxRate: '20',
     },
   },
   {
     label: 'United States',
     values: {
-      country: 'United States', currency: 'USD', locale: 'en-US', timeZone: 'America/New_York', phoneCountryCode: '1',
+      country: 'United States', currency: 'USD', locale: 'en-US', timeZone: 'America/New_York', phoneRegion: 'US',
       postalCodeLabel: 'ZIP code', taxMode: 'SINGLE', taxName: 'Sales Tax', taxIdLabel: 'Tax ID', taxRate: '0',
     },
   },
   {
     label: 'UAE',
     values: {
-      country: 'United Arab Emirates', currency: 'AED', locale: 'en-AE', timeZone: 'Asia/Dubai', phoneCountryCode: '971',
+      country: 'United Arab Emirates', currency: 'AED', locale: 'en-AE', timeZone: 'Asia/Dubai', phoneRegion: 'AE',
       postalCodeLabel: 'P.O. Box', taxMode: 'SINGLE', taxName: 'VAT', taxIdLabel: 'TRN', taxRate: '5',
     },
   },
   {
     label: 'Australia',
     values: {
-      country: 'Australia', currency: 'AUD', locale: 'en-AU', timeZone: 'Australia/Sydney', phoneCountryCode: '61',
+      country: 'Australia', currency: 'AUD', locale: 'en-AU', timeZone: 'Australia/Sydney', phoneRegion: 'AU',
       postalCodeLabel: 'Postcode', taxMode: 'SINGLE', taxName: 'GST', taxIdLabel: 'ABN', taxRate: '10',
     },
   },
   {
     label: 'Canada',
     values: {
-      country: 'Canada', currency: 'CAD', locale: 'en-CA', timeZone: 'America/Toronto', phoneCountryCode: '1',
+      country: 'Canada', currency: 'CAD', locale: 'en-CA', timeZone: 'America/Toronto', phoneRegion: 'CA',
       postalCodeLabel: 'Postal code', taxMode: 'SINGLE', taxName: 'HST', taxIdLabel: 'BN', taxRate: '13',
     },
   },
@@ -307,7 +309,9 @@ export function BusinessSettingsForm({ section }: { section: SettingsSection }) 
           <div className="grid gap-4 md:grid-cols-2">
             <Field id="businessName" label="Business name"><Input {...text('businessName')} maxLength={120} /></Field>
             <Field id="tagline" label="Tagline" hint="Optional; shown under the name on the login page and invoices."><Input {...text('tagline')} maxLength={160} /></Field>
-            <Field id="phone" label="Phone"><Input {...text('phone')} maxLength={30} /></Field>
+            <Field id="phone" label="Phone">
+              <PhoneInput id="phone" value={form.phone} onChange={(v) => set('phone', v || null)} defaultRegion={form.phoneRegion} />
+            </Field>
             <Field id="email" label="Email"><Input {...text('email')} type="email" maxLength={254} /></Field>
             <Field id="website" label="Website" hint="Printed on invoices."><Input {...text('website')} placeholder="https://" maxLength={200} /></Field>
             <Field id="country" label="Country"><Input {...text('country')} maxLength={80} /></Field>
@@ -343,7 +347,7 @@ export function BusinessSettingsForm({ section }: { section: SettingsSection }) 
                 </Button>
               ))}
             </div>
-            <p className="text-xs text-slate-500">Presets fill currency, locale, time zone, phone code and tax defaults. Review the Tax tab before saving.</p>
+            <p className="text-xs text-slate-500">Presets fill currency, locale, time zone, phone country and tax defaults. Review the Tax tab before saving.</p>
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
@@ -367,8 +371,20 @@ export function BusinessSettingsForm({ section }: { section: SettingsSection }) 
               <Input {...text('timeZone')} list="tz-options" maxLength={64} />
               <datalist id="tz-options">{timeZones.map((tz) => <option key={tz} value={tz} />)}</datalist>
             </Field>
-            <Field id="phoneCountryCode" label="Phone country code" hint="Digits only, e.g. 91, 44, 1. Used for WhatsApp messages.">
-              <Input {...text('phoneCountryCode')} inputMode="numeric" maxLength={4} />
+            <Field
+              id="phoneRegion"
+              label="Phone number country"
+              hint={`Numbers typed without + are read as ${regionName(form.phoneRegion, form.locale)} numbers, including for WhatsApp.`}
+            >
+              <CountryPicker
+                id="phoneRegion"
+                value={form.phoneRegion}
+                onChange={(code) => set('phoneRegion', code)}
+                locale={form.locale}
+                showName
+                className="w-full"
+                aria-label="Phone number country"
+              />
             </Field>
             <Field id="postalCodeLabel" label="Postal code label" hint="Used on customer forms."><Input {...text('postalCodeLabel')} maxLength={30} /></Field>
           </div>

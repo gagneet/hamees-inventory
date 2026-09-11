@@ -17,6 +17,7 @@ import { escapeHtml } from '@/lib/html-escape'
 import { indicativeTotalNote, normalizeLocaleConfig } from '@/lib/locale'
 import { useAppSettings } from '@/components/providers/settings-provider'
 import type { AppSettings } from '@/lib/app-settings'
+import { formatPhone } from '@/lib/phone'
 
 interface InvoiceOrder {
   orderNumber: string
@@ -132,7 +133,7 @@ export function PrintInvoiceButton({ order }: PrintInvoiceButtonProps) {
 function sellerBlock(settings: AppSettings): string {
   const addressLine = [settings.address, settings.city, settings.region, settings.postalCode].filter(Boolean).join(', ')
   const contactLine = [
-    settings.phone ? `Phone: ${escapeHtml(settings.phone)}` : '',
+    settings.phone ? `Phone: ${escapeHtml(formatPhone(settings.phone, { defaultRegion: settings.phoneRegion }))}` : '',
     settings.email ? `Email: ${escapeHtml(settings.email)}` : '',
     settings.website ? escapeHtml(settings.website) : '',
   ].filter(Boolean).join(' &nbsp;|&nbsp; ')
@@ -240,7 +241,7 @@ export function generateInvoiceHTML(order: InvoiceOrder, settings: AppSettings):
           <div class="info-block">
             <h3>Bill To:</h3>
             <p><strong>${esc(order.customer.name)}</strong></p>
-            <p>Phone: ${esc(order.customer.phone)}</p>
+            <p>Phone: ${esc(formatPhone(order.customer.phone, { defaultRegion: settings.phoneRegion }))}</p>
             ${order.customer.email ? `<p>Email: ${esc(order.customer.email)}</p>` : ''}
             ${order.customer.address ? `<p>Address: ${esc(order.customer.address)}</p>` : ''}
             ${order.customer.city ? `<p>City: ${esc(order.customer.city)}</p>` : ''}
