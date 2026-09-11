@@ -130,6 +130,8 @@ export function formatCurrency(amount: number | null | undefined, options: Curre
   const intlOptions: Intl.NumberFormatOptions = { style: 'currency', currency: config.currency }
   if (options.compact) {
     intlOptions.notation = 'compact'
+    // Set both bounds: ICU versions differ on the default minimum ("$12K" vs "$12.0K")
+    intlOptions.minimumFractionDigits = 0
     intlOptions.maximumFractionDigits = 1
   } else if (options.decimals !== undefined) {
     intlOptions.minimumFractionDigits = options.decimals
