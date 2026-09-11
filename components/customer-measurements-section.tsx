@@ -25,6 +25,9 @@ import {
 import { Ruler, Edit, Trash2, History, Loader2, Camera } from 'lucide-react'
 import { MeasurementEditDialog } from '@/components/measurement-edit-dialog'
 import { MeasurementHistoryDialog } from '@/components/measurement-history-dialog'
+import { formatDate } from '@/lib/utils'
+import { useSession } from 'next-auth/react'
+import { hasPermission, type UserRole } from '@/lib/permissions'
 
 interface Measurement {
   id: string
@@ -50,7 +53,6 @@ interface Measurement {
   createdBy?: {
     id: string
     name: string
-    email: string
   } | null
 }
 
@@ -68,6 +70,10 @@ export function CustomerMeasurementsSection({
   highlight,
 }: CustomerMeasurementsSectionProps) {
   const router = useRouter()
+  const { data: session } = useSession()
+  // DELETE /api/customers/[id]/measurements/[measurementId] requires delete_measurement (ADMIN)
+  const canDelete =
+    !!session?.user?.role && hasPermission(session.user.role as UserRole, 'delete_measurement')
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -214,9 +220,7 @@ export function CustomerMeasurementsSection({
                       </div>
                       <div className="flex flex-col gap-1 mt-1">
                         <p className="text-xs text-slate-500">
-                          {new Date(measurement.createdAt).toLocaleDateString('en-IN', {
-                            dateStyle: 'medium',
-                          })}
+                          {formatDate(measurement.createdAt, 'medium')}
                         </p>
                         {measurement.createdBy && (
                           <p className="text-xs text-slate-500">
@@ -314,15 +318,17 @@ export function CustomerMeasurementsSection({
                         <Edit className="h-3 w-3 mr-1" />
                         Edit
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDeleteClick(measurement)}
-                        className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <Trash2 className="h-3 w-3 mr-1" />
-                        Delete
-                      </Button>
+                      {canDelete && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDeleteClick(measurement)}
+                          className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-3 w-3 mr-1" />
+                          Delete
+                        </Button>
+                      )}
                     </div>
                   )}
                 </div>

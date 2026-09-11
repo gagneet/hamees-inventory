@@ -2,11 +2,18 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
+import { hasPermission, type UserRole } from '@/lib/permissions'
 
 export function MarkAllReadButton() {
   const router = useRouter()
+  const { data: session } = useSession()
   const [isLoading, setIsLoading] = useState(false)
+
+  // Marking alerts read changes shared state, so it needs manage_alerts (enforced by the API too)
+  const canManageAlerts = !!session?.user?.role && hasPermission(session.user.role as UserRole, 'manage_alerts')
+  if (!canManageAlerts) return null
 
   const handleMarkAllRead = async () => {
     setIsLoading(true)

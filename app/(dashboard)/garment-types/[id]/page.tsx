@@ -22,6 +22,9 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import DashboardLayout from '@/components/DashboardLayout'
+import { formatDateTime } from '@/lib/utils'
+import { useSession } from 'next-auth/react'
+import { hasPermission, type UserRole } from '@/lib/permissions'
 
 interface GarmentPattern {
   id: string
@@ -56,6 +59,11 @@ export default function GarmentTypeDetailPage({
   const [pattern, setPattern] = useState<GarmentPattern | null>(null)
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState(false)
+  const { data: session } = useSession()
+  const role = session?.user?.role as UserRole | undefined
+  // Buttons follow the API: edit → manage_garment_types, delete → delete_garment_type
+  const canManage = !!role && hasPermission(role, 'manage_garment_types')
+  const canDelete = !!role && hasPermission(role, 'delete_garment_type')
 
   useEffect(() => {
     params.then((p) => setResolvedParams(p))
@@ -158,20 +166,24 @@ export default function GarmentTypeDetailPage({
               Back to List
             </Link>
           </Button>
-          <Button variant="default" asChild>
-            <Link href={`/garment-types/${pattern.id}/edit`}>
-              <Pencil className="mr-2 h-4 w-4" />
-              Edit
-            </Link>
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={handleDelete}
-            disabled={deleting}
-          >
-            <Trash2 className="mr-2 h-4 w-4" />
-            {deleting ? 'Deleting...' : 'Delete'}
-          </Button>
+          {canManage && (
+            <Button variant="default" asChild>
+              <Link href={`/garment-types/${pattern.id}/edit`}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Edit
+              </Link>
+            </Button>
+          )}
+          {canDelete && (
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deleting}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {deleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -302,13 +314,13 @@ export default function GarmentTypeDetailPage({
             <div>
               <p className="text-slate-500">Created</p>
               <p className="font-medium">
-                {new Date(pattern.createdAt).toLocaleString('en-IN')}
+                {formatDateTime(pattern.createdAt)}
               </p>
             </div>
             <div>
               <p className="text-slate-500">Last Updated</p>
               <p className="font-medium">
-                {new Date(pattern.updatedAt).toLocaleString('en-IN')}
+                {formatDateTime(pattern.updatedAt)}
               </p>
             </div>
           </div>

@@ -23,16 +23,18 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import { Home, Users, TrendingUp, Star, AlertCircle } from 'lucide-react'
+import { formatCurrency as formatMoney, formatDate as formatShopDate } from '@/lib/utils'
 
 // ── Types ─────────────────────────────────────────────────────────
 
+// Amount fields are null/absent for roles without financial report access (the API strips them)
 interface CustomerSummary {
   totalCustomers: number
   activeCustomers: number
   repeatCustomers: number
   repeatRate: string
-  avgLifetimeValue: string
-  avgOrderValue: string
+  avgLifetimeValue?: string | number | null
+  avgOrderValue?: string | number | null
 }
 
 interface TopCustomer {
@@ -42,8 +44,8 @@ interface TopCustomer {
   email: string | null
   city: string | null
   orderCount: number
-  totalRevenue: number
-  avgOrderValue: number
+  totalRevenue?: number | null
+  avgOrderValue?: number | null
   lastOrderDate: string | null
   hasMeasurements: boolean
 }
@@ -55,21 +57,24 @@ interface CustomerSegments {
 }
 
 interface CustomerReportData {
-  summary: CustomerSummary
-  topCustomers: TopCustomer[]
-  customerSegments: CustomerSegments
+  summary?: CustomerSummary | null
+  topCustomers?: TopCustomer[] | null
+  customerSegments?: CustomerSegments | null
 }
 
 // ── Helper ────────────────────────────────────────────────────────
 
-function formatCurrency(value: number | string) {
+function formatCurrency(value: number | string | null | undefined) {
+  if (value === null || value === undefined || value === '') return '—'
   const num = typeof value === 'string' ? parseFloat(value) : value
-  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(num ?? 0)
+  return Number.isFinite(num) ? formatMoney(num, { decimals: 0 }) : '—'
 }
+
+const hasAmount = (v: unknown) => v !== null && v !== undefined && v !== ''
 
 function formatDate(dateStr: string | null) {
   if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })
+  return formatShopDate(dateStr, 'medium')
 }
 
 // ── Page component ────────────────────────────────────────────────
@@ -144,11 +149,14 @@ export default function CustomerReportPage() {
     )
   }
 
-  if (!data) {
+  if (!data?.summary) {
     return <div className="p-8 text-slate-500">No data available.</div>
   }
 
-  const { summary, topCustomers, customerSegments } = data
+  const { summary, customerSegments } = data
+  const topCustomers = data.topCustomers ?? []
+  // Revenue figures are only present for roles with financial report access
+  const showAmounts = hasAmount(summary.avgLifetimeValue)
 
   return (
     <>
@@ -207,7 +215,7 @@ export default function CustomerReportPage() {
         </div>
 
         {/* Summary cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className={`grid grid-cols-2 gap-4 ${showAmounts ? 'lg:grid-cols-3' : ''}`}>
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
@@ -234,21 +242,24 @@ export default function CustomerReportPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
-                <Star className="h-4 w-4" />
-                Avg Lifetime Value
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-slate-900">{formatCurrency(summary.avgLifetimeValue)}</p>
-              <p className="text-xs text-slate-500 mt-1">Avg order: {formatCurrency(summary.avgOrderValue)}</p>
-            </CardContent>
-          </Card>
+          {showAmounts && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-500 flex items-center gap-2">
+                  <Star className="h-4 w-4" />
+                  Avg Lifetime Value
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-bold text-slate-900">{formatCurrency(summary.avgLifetimeValue)}</p>
+                <p className="text-xs text-slate-500 mt-1">Avg order: {formatCurrency(summary.avgOrderValue)}</p>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
-        {/* Customer segments */}
+        {/* Customer segments (revenue bands) */}
+        {showAmounts && customerSegments && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Customer Segments</CardTitle>
@@ -258,26 +269,27 @@ export default function CustomerReportPage() {
               <div className="p-4 bg-green-50 rounded-lg border border-green-200">
                 <p className="text-2xl font-bold text-green-900">{customerSegments.highValue}</p>
                 <p className="text-sm font-medium text-green-700 mt-1">High Value</p>
-                <p className="text-xs text-green-600">Revenue &gt; ₹50,000</p>
+                <p className="text-xs text-green-600">Revenue &gt; {formatCurrency(50000)}</p>
               </div>
               <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
                 <p className="text-2xl font-bold text-amber-900">{customerSegments.mediumValue}</p>
                 <p className="text-sm font-medium text-amber-700 mt-1">Medium Value</p>
-                <p className="text-xs text-amber-600">₹20,000 – ₹50,000</p>
+                <p className="text-xs text-amber-600">{formatCurrency(20000)} – {formatCurrency(50000)}</p>
               </div>
               <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                 <p className="text-2xl font-bold text-slate-900">{customerSegments.lowValue}</p>
                 <p className="text-sm font-medium text-slate-700 mt-1">Low Value</p>
-                <p className="text-xs text-slate-600">Revenue &lt; ₹20,000</p>
+                <p className="text-xs text-slate-600">Revenue &lt; {formatCurrency(20000)}</p>
               </div>
             </div>
           </CardContent>
         </Card>
+        )}
 
         {/* Top customers table */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Top Customers by Revenue</CardTitle>
+            <CardTitle className="text-base">{showAmounts ? 'Top Customers by Revenue' : 'Top Customers'}</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -287,8 +299,12 @@ export default function CustomerReportPage() {
                     <th className="text-left px-4 py-3 font-medium text-slate-600">#</th>
                     <th className="text-left px-4 py-3 font-medium text-slate-600">Customer</th>
                     <th className="text-right px-4 py-3 font-medium text-slate-600">Orders</th>
-                    <th className="text-right px-4 py-3 font-medium text-slate-600">Total Revenue</th>
-                    <th className="text-right px-4 py-3 font-medium text-slate-600">Avg Order</th>
+                    {showAmounts && (
+                      <>
+                        <th className="text-right px-4 py-3 font-medium text-slate-600">Total Revenue</th>
+                        <th className="text-right px-4 py-3 font-medium text-slate-600">Avg Order</th>
+                      </>
+                    )}
                     <th className="text-left px-4 py-3 font-medium text-slate-600">Last Order</th>
                     <th className="text-center px-4 py-3 font-medium text-slate-600">Measurements</th>
                   </tr>
@@ -296,7 +312,7 @@ export default function CustomerReportPage() {
                 <tbody>
                   {topCustomers.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
+                      <td colSpan={showAmounts ? 7 : 5} className="px-4 py-8 text-center text-slate-400">
                         No customer data for this period.
                       </td>
                     </tr>
@@ -319,12 +335,16 @@ export default function CustomerReportPage() {
                           )}
                         </td>
                         <td className="px-4 py-3 text-right font-medium">{customer.orderCount}</td>
-                        <td className="px-4 py-3 text-right font-medium text-slate-900">
-                          {formatCurrency(customer.totalRevenue)}
-                        </td>
-                        <td className="px-4 py-3 text-right text-slate-600">
-                          {formatCurrency(customer.avgOrderValue)}
-                        </td>
+                        {showAmounts && (
+                          <>
+                            <td className="px-4 py-3 text-right font-medium text-slate-900">
+                              {formatCurrency(customer.totalRevenue)}
+                            </td>
+                            <td className="px-4 py-3 text-right text-slate-600">
+                              {formatCurrency(customer.avgOrderValue)}
+                            </td>
+                          </>
+                        )}
                         <td className="px-4 py-3 text-slate-500 text-xs">
                           {formatDate(customer.lastOrderDate)}
                         </td>

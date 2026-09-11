@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Edit, AlertTriangle } from 'lucide-react'
+import { formatCurrency } from '@/lib/utils'
 
 interface OrderItemEditProps {
   orderId: string
@@ -31,6 +32,8 @@ interface OrderItemEditProps {
   currentClothName: string
   currentPrice: number
   currentPricePerUnit: number
+  /** Hide prices for roles without order-item pricing visibility */
+  showPricing?: boolean
 }
 
 interface GarmentPattern {
@@ -45,7 +48,7 @@ interface ClothInventory {
   color: string
   sku: string
   brand: string
-  pricePerMeter: number
+  pricePerMeter?: number | null
   currentStock: number
   reserved: number
 }
@@ -59,6 +62,7 @@ export function OrderItemEdit({
   currentClothName,
   currentPrice,
   currentPricePerUnit,
+  showPricing = true,
 }: OrderItemEditProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -90,13 +94,13 @@ export function OrderItemEdit({
 
   // Calculate estimated new price when fabric changes
   useEffect(() => {
-    if (selectedClothId !== currentClothInventoryId) {
+    if (showPricing && selectedClothId !== currentClothInventoryId) {
       const selectedCloth = clothInventory.find(c => c.id === selectedClothId)
       if (selectedCloth) {
         // Estimated price will be calculated on server side with accurate accessories
         // This is just a preview based on fabric cost difference
         const currentCloth = clothInventory.find(c => c.id === currentClothInventoryId)
-        if (currentCloth) {
+        if (currentCloth?.pricePerMeter && selectedCloth.pricePerMeter != null) {
           const priceDifference = selectedCloth.pricePerMeter - currentCloth.pricePerMeter
           const estimatedMeters = currentPricePerUnit / currentCloth.pricePerMeter // rough estimate
           setEstimatedNewPrice(currentPrice + (priceDifference * estimatedMeters))
@@ -105,7 +109,7 @@ export function OrderItemEdit({
     } else {
       setEstimatedNewPrice(null)
     }
-  }, [selectedClothId, currentClothInventoryId, clothInventory, currentPrice, currentPricePerUnit])
+  }, [showPricing, selectedClothId, currentClothInventoryId, clothInventory, currentPrice, currentPricePerUnit])
 
   const handleSave = async () => {
     // Check if anything changed (only cloth can change now)
@@ -130,7 +134,11 @@ export function OrderItemEdit({
       }
 
       const result = await response.json()
-      alert(`Order item updated successfully!\n\nOld Price: ₹${currentPrice.toFixed(2)}\nNew Price: ₹${result.updatedOrderItem.totalPrice.toFixed(2)}\n\nOrder total has been recalculated.`)
+      alert(
+        showPricing && typeof result.updatedOrderItem?.totalPrice === 'number'
+          ? `Order item updated successfully!\n\nOld Price: ${formatCurrency(currentPrice)}\nNew Price: ${formatCurrency(result.updatedOrderItem.totalPrice)}\n\nOrder total has been recalculated.`
+          : 'Order item updated successfully!'
+      )
       setOpen(false)
       router.refresh()
     } catch (error) {
@@ -186,7 +194,8 @@ export function OrderItemEdit({
               <SelectContent>
                 {clothInventory.map((cloth) => (
                   <SelectItem key={cloth.id} value={cloth.id}>
-                    {cloth.name} - {cloth.color} ({cloth.brand}) - ₹{cloth.pricePerMeter.toFixed(2)}/m
+                    {cloth.name} - {cloth.color} ({cloth.brand})
+                    {showPricing && cloth.pricePerMeter != null && ` - ${formatCurrency(cloth.pricePerMeter)}/m`}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -201,8 +210,8 @@ export function OrderItemEdit({
             <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
               <div className="text-sm font-medium text-blue-900 mb-1">Price Estimate</div>
               <div className="text-xs text-blue-700 space-y-1">
-                <div>Current Item Price: <span className="font-semibold">₹{currentPrice.toFixed(2)}</span></div>
-                <div>Estimated New Price: <span className="font-semibold">₹{estimatedNewPrice.toFixed(2)}</span></div>
+                <div>Current Item Price: <span className="font-semibold">{formatCurrency(currentPrice)}</span></div>
+                <div>Estimated New Price: <span className="font-semibold">{formatCurrency(estimatedNewPrice)}</span></div>
                 <div className="text-blue-600 italic mt-2">
                   Note: Actual price will be calculated server-side including accessories and updated order total.
                 </div>

@@ -13,7 +13,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatDate } from '@/lib/utils'
 
 interface Order {
   id: string
@@ -150,7 +150,7 @@ export function CustomerOrdersDialog({
                     <div>
                       <div className="text-xs text-slate-500">Delivery Date</div>
                       <div className="font-medium">
-                        {new Date(order.deliveryDate).toLocaleDateString()}
+                        {formatDate(order.deliveryDate)}
                       </div>
                     </div>
                   </div>
@@ -159,7 +159,7 @@ export function CustomerOrdersDialog({
                     <div>
                       <div className="text-xs text-slate-500">Order Date</div>
                       <div className="font-medium">
-                        {new Date(order.createdAt).toLocaleDateString()}
+                        {formatDate(order.createdAt)}
                       </div>
                     </div>
                   </div>

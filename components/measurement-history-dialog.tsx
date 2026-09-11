@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Clock, User, ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
+import { formatDateWith } from '@/lib/utils'
 
 interface Measurement {
   id: string
@@ -36,7 +37,7 @@ interface Measurement {
   createdBy?: {
     id: string
     name: string
-    email: string
+    email?: string
   } | null
 }
 
@@ -231,7 +232,7 @@ export function MeasurementHistoryDialog({
                                 )}
                               </div>
                               <div className="text-xs text-slate-500 mt-1">
-                                {new Date(measurement.createdAt).toLocaleString('en-IN', {
+                                {formatDateWith(measurement.createdAt, {
                                   dateStyle: 'medium',
                                   timeStyle: 'short',
                                 })}

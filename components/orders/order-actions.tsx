@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useFieldVisibility } from '@/hooks/use-field-visibility'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -24,6 +23,9 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { DatePicker } from '@/components/ui/date-picker'
 import { RefreshCw, Edit, Percent } from 'lucide-react'
+import { hasPermission, type UserRole } from '@/lib/permissions'
+import { hasFinancialAccess } from '@/lib/field-acl'
+import { currencySymbol, formatCurrency } from '@/lib/utils'
 
 interface OrderActionsProps {
   orderId: string
@@ -36,7 +38,14 @@ interface OrderActionsProps {
   priority: string
   totalAmount: number
   balanceAmount: number
-  userRole: string
+  /** Explicit capability flags (preferred). When omitted they are derived from userRole. */
+  canUpdateStatus?: boolean
+  canEditOrder?: boolean
+  /** Advance and discount edits (record_payment) */
+  canRecordPayment?: boolean
+  showFinancials?: boolean
+  /** @deprecated pass the capability flags instead */
+  userRole?: string
   isDelivered?: boolean
 }
 
@@ -51,6 +60,9 @@ const statusOptions = [
   { value: 'CANCELLED', label: 'Cancelled' },
 ]
 
+// Moving an order into these statuses needs update_order (mirrors lib/authz checkStatusTransition)
+const TERMINAL_STATUSES = ['DELIVERED', 'CANCELLED']
+
 export function OrderActions({
   orderId,
   currentStatus,
@@ -62,14 +74,27 @@ export function OrderActions({
   priority,
   totalAmount,
   balanceAmount,
+  canUpdateStatus,
+  canEditOrder,
+  canRecordPayment,
+  showFinancials,
   userRole,
   isDelivered = false,
 }: OrderActionsProps) {
+  const role = userRole as UserRole | undefined
+  const allowStatus = canUpdateStatus ?? (role ? hasPermission(role, 'update_order_status') : false)
+  const allowEdit = canEditOrder ?? (role ? hasPermission(role, 'update_order') : false)
+  const allowFinancials = showFinancials ?? (role ? hasFinancialAccess(role, 'order') : false)
+  const allowPayments = (canRecordPayment ?? (role ? hasPermission(role, 'record_payment') : false)) && allowFinancials
+  const isClosed = isDelivered || TERMINAL_STATUSES.includes(currentStatus)
+  const availableStatuses = statusOptions.filter(
+    (option) => allowEdit || !TERMINAL_STATUSES.includes(option.value) || option.value === currentStatus
+  )
+
   const formatLocalDate = (date: Date) =>
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 
   const router = useRouter()
-  const { canView } = useFieldVisibility()
   const [statusDialogOpen, setStatusDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [discountDialogOpen, setDiscountDialogOpen] = useState(false)
@@ -95,6 +120,8 @@ export function OrderActions({
   const [discountPercentage, setDiscountPercentage] = useState(
     totalAmount > 0 ? ((balanceAmount / totalAmount) * 100).toFixed(2) : '0.00'
   )
+
+  const symbol = currencySymbol()
 
   // Handle discount amount change (updates percentage)
   const handleDiscountAmountChange = (value: string) => {
@@ -156,7 +183,8 @@ export function OrderActions({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           deliveryDate: new Date(editData.deliveryDate).toISOString(),
-          advancePaid: parseFloat(editData.advancePaid),
+          // Advance is a payment field — only sent by roles allowed to record payments
+          ...(allowPayments && { advancePaid: parseFloat(editData.advancePaid) }),
           notes: editData.notes || null,
           priority: editData.priority,
         }),
@@ -212,12 +240,15 @@ export function OrderActions({
     }
   }
 
+  const newBalance = balanceAmount - (parseFloat(discountData.discount || '0') - discount)
+
   return (
-    <div className="flex gap-2">
+    <div className="flex flex-wrap gap-2">
       {/* Update Status Dialog */}
+      {allowStatus && (
       <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
         <DialogTrigger asChild>
-          <Button variant="default" disabled={isDelivered}>
+          <Button variant="default" disabled={isClosed}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Update Status
           </Button>
@@ -237,13 +268,18 @@ export function OrderActions({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {statusOptions.map((option) => (
+                  {availableStatuses.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {!allowEdit && (
+                <p className="text-xs text-slate-500 mt-1">
+                  Delivery and cancellation are handled by the front office.
+                </p>
+              )}
             </div>
             <div className="flex justify-end gap-2">
               <Button
@@ -260,11 +296,13 @@ export function OrderActions({
           </div>
         </DialogContent>
       </Dialog>
+      )}
 
       {/* Edit Order Dialog */}
+      {allowEdit && (
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogTrigger asChild>
-          <Button variant="outline" disabled={isDelivered}>
+          <Button variant="outline" disabled={isClosed}>
             <Edit className="mr-2 h-4 w-4" />
             Edit Order
           </Button>
@@ -273,7 +311,7 @@ export function OrderActions({
           <DialogHeader>
             <DialogTitle>Edit Order Details</DialogTitle>
             <DialogDescription>
-              Update order information and payment details
+              Update order information{allowPayments ? ' and payment details' : ''}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -304,10 +342,9 @@ export function OrderActions({
                 </SelectContent>
               </Select>
             </div>
+            {allowPayments && (
             <div>
-              {canView('order', 'advancePaid') && (
-              <>
-              <Label htmlFor="advancePaid">Advance Paid (₹)</Label>
+              <Label htmlFor="advancePaid">Advance Paid ({symbol})</Label>
               <Input
                 id="advancePaid"
                 type="number"
@@ -320,13 +357,11 @@ export function OrderActions({
                 }
               />
               <p className="text-xs text-slate-500 mt-1">
-                {canView('order', 'totalAmount') && <span>Total: ₹{totalAmount.toFixed(2)} | </span>}
-                {canView('order', 'balanceAmount') && <span>Balance: ₹
-                {(totalAmount - parseFloat(editData.advancePaid || '0')).toFixed(2)}</span>}
+                Total: {formatCurrency(totalAmount)} | Balance:{' '}
+                {formatCurrency(totalAmount - parseFloat(editData.advancePaid || '0'))}
               </p>
-              </>
-              )}
             </div>
+            )}
             <div>
               <Label htmlFor="notes">Notes</Label>
               <Textarea
@@ -353,14 +388,13 @@ export function OrderActions({
           </div>
         </DialogContent>
       </Dialog>
+      )}
 
-      {/* Apply Discount Dialog (OWNER only) */}
-      {userRole === 'OWNER' && (
+      {/* Apply Discount Dialog (record_payment holders only) */}
+      {allowPayments && (
         <Dialog open={discountDialogOpen} onOpenChange={setDiscountDialogOpen}>
-          {canView('order', 'discount') && (
-          <>
             <DialogTrigger asChild>
-              <Button variant="outline" className="bg-yellow-50 hover:bg-yellow-100" disabled={isDelivered}>
+              <Button variant="outline" className="bg-yellow-50 hover:bg-yellow-100" disabled={isClosed}>
                 <Percent className="mr-2 h-4 w-4" />
                 Apply Discount
               </Button>
@@ -375,10 +409,10 @@ export function OrderActions({
             <div className="space-y-4 py-4">
               <div className="bg-blue-50 p-3 rounded-lg text-sm">
                 <p className="text-blue-900">
-                  <strong>Current Balance:</strong> ₹{balanceAmount.toFixed(2)}
+                  <strong>Current Balance:</strong> {formatCurrency(balanceAmount)}
                 </p>
                 <p className="text-blue-700 text-xs mt-1">
-                  Total: ₹{totalAmount.toFixed(2)} | Advance: ₹{advancePaid.toFixed(2)} | Current Discount: ₹{discount.toFixed(2)}
+                  Total: {formatCurrency(totalAmount)} | Advance: {formatCurrency(advancePaid)} | Current Discount: {formatCurrency(discount)}
                 </p>
               </div>
 
@@ -391,7 +425,7 @@ export function OrderActions({
                   onClick={() => setDiscountMode('amount')}
                   className="flex-1"
                 >
-                  Amount (₹)
+                  Amount ({symbol})
                 </Button>
                 <Button
                   type="button"
@@ -407,7 +441,7 @@ export function OrderActions({
               {/* Amount Mode */}
               {discountMode === 'amount' && (
                 <div>
-                  <Label htmlFor="discount">Discount Amount (₹)</Label>
+                  <Label htmlFor="discount">Discount Amount ({symbol})</Label>
                   <Input
                     id="discount"
                     type="number"
@@ -422,7 +456,7 @@ export function OrderActions({
                     = {discountPercentage}% of Total Amount
                   </p>
                   <p className="text-xs text-slate-500 mt-1">
-                    New Balance: ₹{(balanceAmount - (parseFloat(discountData.discount || '0') - discount)).toFixed(2)}
+                    New Balance: {formatCurrency(newBalance)}
                   </p>
                 </div>
               )}
@@ -442,10 +476,10 @@ export function OrderActions({
                     className="text-red-600 font-bold text-lg"
                   />
                   <p className="text-xs text-slate-600 mt-1 font-medium">
-                    = ₹{parseFloat(discountData.discount || '0').toFixed(2)}
+                    = {formatCurrency(parseFloat(discountData.discount || '0'))}
                   </p>
                   <p className="text-xs text-slate-500 mt-1">
-                    New Balance: ₹{(balanceAmount - (parseFloat(discountData.discount || '0') - discount)).toFixed(2)}
+                    New Balance: {formatCurrency(newBalance)}
                   </p>
                 </div>
               )}
@@ -476,8 +510,6 @@ export function OrderActions({
               </div>
             </div>
           </DialogContent>
-          </>
-          )}
         </Dialog>
       )}
     </div>

@@ -1,6 +1,9 @@
+import type { Prisma } from '@prisma/client'
 import { auth } from '@/lib/auth'
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { prisma } from '@/lib/db'
+import { hasPermission, type UserRole } from '@/lib/permissions'
+import { actorFromSession, customerScope, scopedWhere, type Actor } from '@/lib/authz'
 import { MeasurementForm } from '@/components/measurements/measurement-form'
 import { GarmentTypeSelector } from '@/components/measurements/garment-type-selector'
 import Link from 'next/link'
@@ -8,9 +11,9 @@ import { Button } from '@/components/ui/button'
 import DashboardLayout from '@/components/DashboardLayout'
 import { ArrowLeft } from 'lucide-react'
 
-async function getCustomer(id: string) {
-  return await prisma.customer.findUnique({
-    where: { id },
+async function getCustomer(id: string, actor: Actor) {
+  return await prisma.customer.findFirst({
+    where: scopedWhere<Prisma.CustomerWhereInput>({ id }, customerScope(actor)),
     select: { id: true, name: true },
   })
 }
@@ -23,13 +26,15 @@ export default async function NewMeasurementPage({
   searchParams: Promise<{ garmentType?: string }>
 }) {
   const session = await auth()
-  if (!session?.user) redirect('/')
+  const actor = actorFromSession(session)
+  if (!session?.user || !actor) redirect('/')
+  if (!hasPermission(session.user.role as UserRole, 'manage_measurements')) redirect('/dashboard?denied=1')
 
   const { id } = await params
   const { garmentType = "Men's Shirt" } = await searchParams
 
-  const customer = await getCustomer(id)
-  if (!customer) redirect('/customers')
+  const customer = await getCustomer(id, actor)
+  if (!customer) notFound()
 
   return (
     <DashboardLayout>

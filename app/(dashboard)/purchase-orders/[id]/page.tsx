@@ -40,8 +40,9 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import DashboardLayout from '@/components/DashboardLayout'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatDate } from '@/lib/utils'
 import { useFieldVisibility } from '@/hooks/use-field-visibility'
+import { hasPermission } from '@/lib/permissions'
 
 interface PurchaseOrder {
   id: string
@@ -94,6 +95,9 @@ export default function PurchaseOrderDetailPage({
   const { canView, isLoading, role } = useFieldVisibility()
   const canViewPOPrices = canView('purchase_order', 'totalAmount')
   const canApprovePurchaseOrder = role === 'OWNER' || role === 'INVENTORY_MANAGER'
+  // Buttons follow the permission the API enforces (receive → manage_inventory, cancel → delete_purchase_order)
+  const canReceive = !!role && hasPermission(role, 'manage_inventory')
+  const canCancel = !!role && hasPermission(role, 'delete_purchase_order')
   const [resolvedParams, setResolvedParams] = useState<{ id: string } | null>(null)
   const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrder | null>(null)
   const [clothInventory, setClothInventory] = useState<ClothInventory[]>([])
@@ -392,7 +396,7 @@ export default function PurchaseOrderDetailPage({
           </Badge>
         </div>
         <div className="flex gap-2">
-          {['PENDING_APPROVAL', 'PENDING', 'APPROVED'].includes(purchaseOrder.status) && (
+          {canCancel && ['PENDING_APPROVAL', 'PENDING', 'APPROVED'].includes(purchaseOrder.status) && (
             <Button variant="destructive" size="sm" onClick={handleDelete}>
               <Trash2 className="mr-2 h-4 w-4" />
               Cancel PO
@@ -410,7 +414,7 @@ export default function PurchaseOrderDetailPage({
               Approve PO
             </Button>
           )}
-          {(['APPROVED', 'PARTIAL'].includes(purchaseOrder.status)) && (
+          {canReceive && ['APPROVED', 'PARTIAL'].includes(purchaseOrder.status) && (
             <Dialog open={showReceiveDialog} onOpenChange={setShowReceiveDialog}>
               <DialogTrigger asChild>
                 <Button>
@@ -606,20 +610,20 @@ export default function PurchaseOrderDetailPage({
             <div>
               <p className="text-sm text-slate-500">Order Date</p>
               <p className="font-semibold">
-                {new Date(purchaseOrder.orderDate).toLocaleDateString('en-IN')}
+                {formatDate(purchaseOrder.orderDate)}
               </p>
             </div>
             {purchaseOrder.expectedDate && (
               <div>
                 <p className="text-sm text-slate-500">Expected Date</p>
-                <p>{new Date(purchaseOrder.expectedDate).toLocaleDateString('en-IN')}</p>
+                <p>{formatDate(purchaseOrder.expectedDate)}</p>
               </div>
             )}
             {purchaseOrder.receivedDate && (
               <div>
                 <p className="text-sm text-slate-500">Received Date</p>
                 <p className="text-green-600 font-semibold">
-                  {new Date(purchaseOrder.receivedDate).toLocaleDateString('en-IN')}
+                  {formatDate(purchaseOrder.receivedDate)}
                 </p>
               </div>
             )}

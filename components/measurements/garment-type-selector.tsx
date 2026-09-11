@@ -22,10 +22,10 @@ export function GarmentTypeSelector({ customerId, currentType }: GarmentTypeSele
         value={currentType}
         onChange={handleChange}
       >
-        <option value="Men's Shirt">Men's Shirt</option>
-        <option value="Men's Trouser">Men's Trouser</option>
-        <option value="Men's Suit">Men's Suit</option>
-        <option value="Men's Sherwani">Men's Sherwani</option>
+        <option value="Men's Shirt">Men&apos;s Shirt</option>
+        <option value="Men's Trouser">Men&apos;s Trouser</option>
+        <option value="Men's Suit">Men&apos;s Suit</option>
+        <option value="Men's Sherwani">Men&apos;s Sherwani</option>
       </select>
     </div>
   )

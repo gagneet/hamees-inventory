@@ -24,6 +24,9 @@ import { useCallback, useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { useFieldVisibility } from '@/hooks/use-field-visibility'
+import { useAppSettings } from '@/components/providers/settings-provider'
+import { taxConfigFrom } from '@/lib/app-settings'
+import { computeTax, taxLines, taxTotalLabel } from '@/lib/tax'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -41,6 +44,7 @@ import { CustomerSelector, type CustomerSummary, type RepeatOrderData } from '@/
 import { Combobox } from '@/components/ui/combobox'
 import { DatePicker } from '@/components/ui/date-picker'
 import { hasPermission, type UserRole } from '@/lib/permissions'
+import { formatCurrency, formatCompactCurrency } from '@/lib/utils'
 
 type Customer = {
   id: string
@@ -118,6 +122,8 @@ function NewOrderForm() {
   const preselectedCustomerId = searchParams.get('customerId')
   const { data: session } = useSession()
   const { canView } = useFieldVisibility()
+  const settings = useAppSettings()
+  const taxConfig = taxConfigFrom(settings)
 
   // Only roles with manage_customers can create customers inline
   const canManageCustomers = hasPermission(
@@ -396,6 +402,7 @@ function NewOrderForm() {
         total: 0,
         cgst: 0,
         sgst: 0,
+        igst: 0,
         gstRate: 0
       }
     }
@@ -498,12 +505,10 @@ function NewOrderForm() {
       designerConsultationFee
     ).toFixed(2))
 
-    // Calculate GST (12% for garments - split into CGST 6% + SGST 6%)
-    const gstRate = 12
-    const gstAmount = parseFloat(((subTotal * gstRate) / 100).toFixed(2))
-    const cgst = parseFloat((gstAmount / 2).toFixed(2))
-    const sgst = parseFloat((gstAmount / 2).toFixed(2))
-    const total = parseFloat((subTotal + gstAmount).toFixed(2))
+    // Tax preview from shop settings (the server recomputes authoritatively on save)
+    const tax = computeTax(subTotal, taxConfig)
+    const { gstRate, gstAmount, cgst, sgst, igst } = tax
+    const total = tax.totalAmount
 
     return {
       // Calculated values (for reference/display)
@@ -523,6 +528,7 @@ function NewOrderForm() {
       total,
       cgst,
       sgst,
+      igst,
       gstRate
     }
   }
@@ -642,8 +648,10 @@ function NewOrderForm() {
     total,
     cgst,
     sgst,
+    igst,
     gstRate
   } = calculateEstimate()
+  const taxRows = taxLines({ gstRate, cgst, sgst, igst, gstAmount }, taxConfig)
   const balanceAmount = total - advancePaid
 
   return (
@@ -704,15 +712,17 @@ function NewOrderForm() {
                   <div className="flex items-center gap-8">
                     <div className="text-right">
                       <p className="text-xs text-blue-200 uppercase tracking-wide">Subtotal</p>
-                      <p className="text-lg font-bold">₹{subTotal.toLocaleString('en-IN', {minimumFractionDigits: 2})}</p>
+                      <p className="text-lg font-bold">{formatCurrency(subTotal)}</p>
                     </div>
+                    {gstAmount > 0 && (
                     <div className="text-right">
-                      <p className="text-xs text-blue-200 uppercase tracking-wide">GST (12%)</p>
-                      <p className="text-lg font-semibold">₹{gstAmount.toLocaleString('en-IN', {minimumFractionDigits: 2})}</p>
+                      <p className="text-xs text-blue-200 uppercase tracking-wide">{taxTotalLabel(taxConfig, gstRate)}</p>
+                      <p className="text-lg font-semibold">{formatCurrency(gstAmount)}</p>
                     </div>
+                    )}
                     <div className="text-right border-l border-blue-400 pl-6">
                       <p className="text-xs text-blue-200 uppercase tracking-wide">Total Amount</p>
-                      <p className="text-2xl font-bold">₹{total.toLocaleString('en-IN', {minimumFractionDigits: 2})}</p>
+                      <p className="text-2xl font-bold">{formatCurrency(total)}</p>
                     </div>
                   </div>
                 </div>
@@ -729,13 +739,13 @@ function NewOrderForm() {
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-slate-500">Subtotal</p>
-                    <p className="text-sm font-semibold text-slate-900">₹{subTotal.toLocaleString('en-IN', {minimumFractionDigits: 2})}</p>
+                    <p className="text-sm font-semibold text-slate-900">{formatCurrency(subTotal)}</p>
                   </div>
                 </div>
                 <div className="flex items-center justify-between gap-4 pt-2 border-t border-slate-200">
                   <div>
                     <p className="text-xs text-slate-500">Total Amount</p>
-                    <p className="text-xl font-bold text-blue-600">₹{total.toLocaleString('en-IN', {minimumFractionDigits: 2})}</p>
+                    <p className="text-xl font-bold text-blue-600">{formatCurrency(total)}</p>
                   </div>
                   {step === 3 && (
                     <Button
@@ -935,7 +945,7 @@ function NewOrderForm() {
                           options={clothInventory.map(cloth => ({
                             value: cloth.id,
                             label: cloth.name,
-                            sublabel: `${cloth.color} · ₹${cloth.pricePerMeter.toFixed(0)}/m · Avail: ${Math.max(0, cloth.currentStock - cloth.reserved).toFixed(1)}m`,
+                            sublabel: `${cloth.color} · ${formatCurrency(cloth.pricePerMeter, { decimals: 0 })}/m · Avail: ${Math.max(0, cloth.currentStock - cloth.reserved).toFixed(1)}m`,
                             colorHex: cloth.colorHex,
                           }))}
                           value={item.clothInventoryId}
@@ -966,7 +976,7 @@ function NewOrderForm() {
                                 .filter(acc => !item.accessories.find(ia => ia.accessoryId === acc.id))
                                 .map((acc) => (
                                   <option key={acc.id} value={acc.id}>
-                                    {acc.name} ({acc.type}) - ₹{acc.pricePerUnit.toFixed(2)}/unit
+                                    {acc.name} ({acc.type}) - {formatCurrency(acc.pricePerUnit)}/unit
                                   </option>
                                 ))}
                             </select>
@@ -988,7 +998,7 @@ function NewOrderForm() {
                                         {accessory.color && ` - ${accessory.color}`}
                                       </p>
                                       <p className="text-xs text-slate-600">
-                                        {accessory.type} • ₹{accessory.pricePerUnit.toFixed(2)}/unit • Stock: {accessory.currentStock}
+                                        {accessory.type} • {formatCurrency(accessory.pricePerUnit)}/unit • Stock: {accessory.currentStock}
                                       </p>
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -1136,7 +1146,7 @@ function NewOrderForm() {
                       onChange={(e) => {
                         const value = parseFloat(e.target.value) || 0
                         if (value > total) {
-                          alert(`Advance payment cannot exceed total order amount of ₹${total.toFixed(2)}`)
+                          alert(`Advance payment cannot exceed total order amount of ${formatCurrency(total)}`)
                           setAdvancePaid(total)
                         } else {
                           setAdvancePaid(value)
@@ -1146,7 +1156,7 @@ function NewOrderForm() {
                       placeholder="0.00"
                     />
                     <p className="text-xs text-slate-500 mt-1">
-                      Maximum: ₹{total.toFixed(2)}
+                      Maximum: {formatCurrency(total)}
                     </p>
                   </div>
                   )}
@@ -1199,7 +1209,7 @@ function NewOrderForm() {
                         />
                       </div>
                       <p className="text-sm text-slate-600">Entry-level bespoke quality</p>
-                      <p className="text-xs text-slate-500 mt-2">₹2K-₹12K per garment</p>
+                      <p className="text-xs text-slate-500 mt-2">{formatCompactCurrency(2000)}–{formatCompactCurrency(12000)} per garment</p>
                     </div>
 
                     <div
@@ -1220,7 +1230,7 @@ function NewOrderForm() {
                         />
                       </div>
                       <p className="text-sm text-slate-600">Mid-range quality</p>
-                      <p className="text-xs text-slate-500 mt-2">₹3K-₹18K per garment</p>
+                      <p className="text-xs text-slate-500 mt-2">{formatCompactCurrency(3000)}–{formatCompactCurrency(18000)} per garment</p>
                     </div>
 
                     <div
@@ -1241,7 +1251,7 @@ function NewOrderForm() {
                         />
                       </div>
                       <p className="text-sm text-slate-600">High-end bespoke quality</p>
-                      <p className="text-xs text-slate-500 mt-2">₹4K-₹25K per garment</p>
+                      <p className="text-xs text-slate-500 mt-2">{formatCompactCurrency(4000)}–{formatCompactCurrency(25000)} per garment</p>
                     </div>
                   </div>
                 </div>
@@ -1274,7 +1284,7 @@ function NewOrderForm() {
                       />
                       <div className="flex-1">
                         <span className="font-medium text-slate-900 group-hover:text-blue-600">Full Canvas Construction</span>
-                        <p className="text-sm text-slate-600">Superior drape, 6 weeks crafting (+₹5,000)</p>
+                        <p className="text-sm text-slate-600">Superior drape, 6 weeks crafting (+{formatCurrency(5000, { decimals: 0 })})</p>
                       </div>
                     </label>
 
@@ -1307,7 +1317,7 @@ function NewOrderForm() {
                     <div className="flex items-start space-x-3">
                       <div className="flex-1">
                         <label className="block font-medium text-slate-900 mb-2">Additional Fittings</label>
-                        <p className="text-sm text-slate-600 mb-2">Beyond standard 2 fittings (+₹1,500 per fitting)</p>
+                        <p className="text-sm text-slate-600 mb-2">Beyond standard 2 fittings (+{formatCurrency(1500, { decimals: 0 })} per fitting)</p>
                         <input
                           type="number"
                           min="0"
@@ -1328,7 +1338,7 @@ function NewOrderForm() {
                       />
                       <div className="flex-1">
                         <span className="font-medium text-slate-900 group-hover:text-blue-600">Premium Lining</span>
-                        <p className="text-sm text-slate-600">Silk lining, custom monograms (+₹5,000)</p>
+                        <p className="text-sm text-slate-600">Silk lining, custom monograms (+{formatCurrency(5000, { decimals: 0 })})</p>
                       </div>
                     </label>
                   </div>
@@ -1337,7 +1347,7 @@ function NewOrderForm() {
                 {/* Fabric Wastage */}
                 <div className="border-t pt-6">
                   <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Fabric Wastage: {fabricWastagePercent}% {fabricWastageAmount > 0 && `(+₹${fabricWastageAmount.toLocaleString('en-IN', {minimumFractionDigits: 2})})`}
+                    Fabric Wastage: {fabricWastagePercent}% {fabricWastageAmount > 0 && `(+${formatCurrency(fabricWastageAmount)})`}
                   </label>
                   <p className="text-sm text-slate-600 mb-3">Industry standard: 10-15% for bespoke work</p>
                   <input
@@ -1409,7 +1419,7 @@ function NewOrderForm() {
                       )}
                     </div>
                     <div className="text-sm text-slate-600">
-                      Calculated: <span className="font-semibold text-slate-900">₹{(calculatedFabricCost || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                      Calculated: <span className="font-semibold text-slate-900">{formatCurrency((calculatedFabricCost || 0))}</span>
                     </div>
                   </div>
 
@@ -1471,7 +1481,7 @@ function NewOrderForm() {
                       )}
                     </div>
                     <div className="text-sm text-slate-600">
-                      Calculated: <span className="font-semibold text-slate-900">₹{(calculatedStitchingCost || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                      Calculated: <span className="font-semibold text-slate-900">{formatCurrency((calculatedStitchingCost || 0))}</span>
                     </div>
                   </div>
 
@@ -1533,7 +1543,7 @@ function NewOrderForm() {
                       )}
                     </div>
                     <div className="text-sm text-slate-600">
-                      Calculated: <span className="font-semibold text-slate-900">₹{(calculatedAccessoriesCost || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                      Calculated: <span className="font-semibold text-slate-900">{formatCurrency((calculatedAccessoriesCost || 0))}</span>
                     </div>
                   </div>
 
@@ -1611,78 +1621,78 @@ function NewOrderForm() {
                     {fabricCost > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-700">Fabric Cost:</span>
-                        <span className="font-medium text-slate-900">₹{fabricCost.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                        <span className="font-medium text-slate-900">{formatCurrency(fabricCost)}</span>
                       </div>
                     )}
 
                     {fabricWastageAmount > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-700">Fabric Wastage ({fabricWastagePercent}%):</span>
-                        <span className="font-medium text-orange-600">₹{fabricWastageAmount.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                        <span className="font-medium text-orange-600">{formatCurrency(fabricWastageAmount)}</span>
                       </div>
                     )}
 
                     {accessoriesCost > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-700">Accessories:</span>
-                        <span className="font-medium text-slate-900">₹{accessoriesCost.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                        <span className="font-medium text-slate-900">{formatCurrency(accessoriesCost)}</span>
                       </div>
                     )}
 
                     {stitchingCost > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-700">Stitching ({stitchingTier}):</span>
-                        <span className="font-medium text-slate-900">₹{stitchingCost.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                        <span className="font-medium text-slate-900">{formatCurrency(stitchingCost)}</span>
                       </div>
                     )}
 
                     {workmanshipPremiums > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-700">Workmanship Premiums:</span>
-                        <span className="font-medium text-orange-600">₹{workmanshipPremiums.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                        <span className="font-medium text-orange-600">{formatCurrency(workmanshipPremiums)}</span>
                       </div>
                     )}
 
                     {designerFee && designerFee > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-slate-700">Designer Consultation:</span>
-                        <span className="font-medium text-slate-900">₹{designerFee.toLocaleString('en-IN', {minimumFractionDigits: 2})}</span>
+                        <span className="font-medium text-slate-900">{formatCurrency(designerFee)}</span>
                       </div>
                     )}
                   </div>
 
                   {/* Subtotal and GST */}
                   <div className="flex justify-between pt-3 border-t">
-                    <span className="text-slate-700 font-medium">Subtotal (before GST):</span>
-                    <span className="font-semibold text-slate-900">₹{subTotal.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                    <span className="text-slate-700 font-medium">Subtotal{gstAmount > 0 ? ` (before ${settings.taxName})` : ''}:</span>
+                    <span className="font-semibold text-slate-900">{formatCurrency(subTotal)}</span>
                   </div>
 
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-600">CGST ({(gstRate / 2).toFixed(2)}%):</span>
-                    <span className="text-slate-700">₹{cgst.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-600">SGST ({(gstRate / 2).toFixed(2)}%):</span>
-                    <span className="text-slate-700">₹{sgst.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                  </div>
+                  {taxRows.length > 1 && taxRows.map((line) => (
+                    <div key={line.label} className="flex justify-between text-sm">
+                      <span className="text-slate-600">{line.label}:</span>
+                      <span className="text-slate-700">{formatCurrency(line.amount)}</span>
+                    </div>
+                  ))}
+                  {gstAmount > 0 && (
                   <div className="flex justify-between pb-3 border-b">
-                    <span className="text-slate-600">Total GST ({gstRate.toFixed(2)}%):</span>
-                    <span className="font-semibold text-slate-900">₹{gstAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                    <span className="text-slate-600">{taxRows.length > 1 ? 'Total ' : ''}{taxTotalLabel(taxConfig, gstRate)}:</span>
+                    <span className="font-semibold text-slate-900">{formatCurrency(gstAmount)}</span>
                   </div>
+                  )}
 
                   {/* Total, Advance, Balance */}
                   <div className="flex justify-between">
                     <span className="text-slate-700 font-medium">Total Amount:</span>
-                    <span className="font-bold text-lg text-blue-600">₹{total.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                    <span className="font-bold text-lg text-blue-600">{formatCurrency(total)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-600">Advance Paid:</span>
-                    <span className="font-semibold text-green-600">₹{advancePaid.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                    <span className="font-semibold text-green-600">{formatCurrency(advancePaid)}</span>
                   </div>
                   <div className="flex justify-between pt-3 border-t">
                     <span className="text-slate-600">Balance Amount:</span>
                     <span className="font-semibold text-lg text-orange-600">
-                      ₹{balanceAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                      {formatCurrency(balanceAmount)}
                     </span>
                   </div>
                 </div>

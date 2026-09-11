@@ -50,6 +50,7 @@ import {
 } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { Loader2, Ruler } from 'lucide-react'
+import { formatDate } from '@/lib/utils'
 
 type FieldDef = {
   key: string
@@ -334,7 +335,7 @@ export function AddOrderItemMeasurementDialog({
                     <SelectContent className="bg-white text-slate-900">
                       {currentMeasurementOptions.map((measurement) => (
                         <SelectItem key={measurement.id} value={measurement.id}>
-                          {measurement.garmentType} · {new Date(measurement.createdAt).toLocaleDateString('en-IN')}
+                          {measurement.garmentType} · {formatDate(measurement.createdAt)}
                         </SelectItem>
                       ))}
                     </SelectContent>

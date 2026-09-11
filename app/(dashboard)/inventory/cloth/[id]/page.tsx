@@ -1,6 +1,9 @@
 import { auth } from '@/lib/auth'
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { prisma } from '@/lib/db'
+import { actorFromSession, orderItemScope, type Actor } from '@/lib/authz'
+import { hasFinancialAccess } from '@/lib/field-acl'
+import { getAppSettings } from '@/lib/settings'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -14,7 +17,7 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import { Home, Package, ArrowLeft, ShoppingBag, AlertTriangle } from 'lucide-react'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatDate } from '@/lib/utils'
 import DashboardLayout from '@/components/DashboardLayout'
 import { hasPermission, type UserRole } from '@/lib/permissions'
 import { ClothDetailEditButton } from '@/components/inventory/cloth-detail-edit-button'
@@ -22,7 +25,7 @@ import { ClothDetailEditButton } from '@/components/inventory/cloth-detail-edit-
 type ClothDetails = NonNullable<Awaited<ReturnType<typeof getClothDetails>>>
 type OrderItem = ClothDetails['orderItems'][number]
 
-async function getClothDetails(id: string) {
+async function getClothDetails(id: string, actor: Actor) {
   try {
     const cloth = await prisma.clothInventory.findUnique({
       where: { id },
@@ -35,6 +38,8 @@ async function getClothDetails(id: string) {
           },
         },
         orderItems: {
+          // Usage history lists customers/orders: scoped roles only see their own work
+          where: orderItemScope(actor),
           include: {
             order: {
               include: {
@@ -74,17 +79,20 @@ export default async function ClothDetailPage({
   params: Promise<{ id: string }>
 }) {
   const session = await auth()
-  if (!session?.user) redirect('/')
+  const actor = actorFromSession(session)
+  if (!session?.user || !actor) redirect('/')
+  await getAppSettings()
 
   const { id } = await params
-  const cloth = await getClothDetails(id)
+  const cloth = await getClothDetails(id, actor)
 
-  if (!cloth) {
-    redirect('/inventory')
-  }
+  if (!cloth) notFound()
 
+  const role = session.user.role as UserRole
   // Check if user can edit inventory
-  const canEdit = hasPermission(session.user.role as UserRole, 'manage_inventory')
+  const canEdit = hasPermission(role, 'manage_inventory')
+  const showPricing = hasFinancialAccess(role, 'inventory')
+  const canRaisePO = hasPermission(role, 'manage_purchase_orders')
 
   const available = cloth.currentStock - cloth.reserved
   const totalValue = cloth.currentStock * cloth.pricePerMeter
@@ -358,7 +366,7 @@ export default async function ClothDetailPage({
                               </span>
                             </div>
                             <span className="text-slate-500 text-xs">
-                              {new Date(item.order.createdAt).toLocaleDateString()}
+                              {formatDate(item.order.createdAt)}
                             </span>
                           </div>
                         </div>
@@ -383,13 +391,13 @@ export default async function ClothDetailPage({
                     <span className="text-sm text-slate-500">Status</span>
                     <Badge variant={status.variant}>{status.label}</Badge>
                   </div>
-                  {available < cloth.minimumStockMeters && (
+                  {canRaisePO && available < cloth.minimumStockMeters && (
                     <Link
                       href={`/purchase-orders/new?itemName=${encodeURIComponent(
                         cloth.name
                       )}&supplierId=${cloth.supplierId || ''}&itemType=CLOTH&quantity=${
                         Math.max(cloth.minimumStockMeters * 2 - cloth.currentStock, cloth.minimumStockMeters)
-                      }&pricePerUnit=${cloth.pricePerMeter}&unit=meters&color=${encodeURIComponent(
+                      }${showPricing ? `&pricePerUnit=${cloth.pricePerMeter}` : ''}&unit=meters&color=${encodeURIComponent(
                         cloth.color
                       )}&brand=${encodeURIComponent(cloth.brand)}&type=${encodeURIComponent(
                         cloth.type
@@ -424,6 +432,7 @@ export default async function ClothDetailPage({
             </Card>
 
             {/* Pricing Information */}
+            {showPricing && (
             <Card>
               <CardHeader>
                 <CardTitle>Pricing</CardTitle>
@@ -441,6 +450,7 @@ export default async function ClothDetailPage({
                 </div>
               </CardContent>
             </Card>
+            )}
 
             {/* Supplier Information */}
             {cloth.supplierRel && (

@@ -37,7 +37,9 @@ import {
 } from "@/components/ui/breadcrumb"
 import { InventoryType } from "@/lib/types"
 import { toast } from "sonner"
-import { formatCurrency } from "@/lib/utils"
+import { hasFinancialAccess } from '@/lib/field-acl'
+import { hasPermission, type UserRole } from '@/lib/permissions'
+import { formatCurrency, currencySymbol } from "@/lib/utils"
 import { Pagination } from "@/components/ui/pagination"
 import { ItemEditDialog } from "@/components/inventory/item-edit-dialog"
 
@@ -104,7 +106,11 @@ export default function InventoryPageClient() {
   const [editItem, setEditItem] = useState<{ type: 'cloth' | 'accessory'; item: ClothInventoryItem | AccessoryInventoryItem } | null>(null)
 
   // Check if user is a Tailor (hide pricing information)
-  const isTailor = session?.user?.role === 'TAILOR'
+  const sessionRole = session?.user?.role as UserRole | undefined
+  // Prices are only shown to roles with inventory financial access (lib/field-acl);
+  // roles that can add stock may still enter a purchase price.
+  const showPricing = sessionRole ? hasFinancialAccess(sessionRole, 'inventory') : false
+  const canEnterPrices = showPricing || (sessionRole ? hasPermission(sessionRole, 'add_inventory') : false)
 
   // Pagination states
   const [clothPage, setClothPage] = useState(1)
@@ -573,10 +579,10 @@ export default function InventoryPageClient() {
                       </div>
 
                       {/* Hide pricing fields for Tailor */}
-                      {!isTailor && (
+                      {canEnterPrices && (
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
-                            <Label htmlFor="pricePerMeter">Price/Meter (₹) *</Label>
+                            <Label htmlFor="pricePerMeter">Price/Meter ({currencySymbol()}) *</Label>
                             <Input id="pricePerMeter" name="pricePerMeter" type="number" step="0.01" required />
                           </div>
                           <div className="space-y-2">
@@ -635,9 +641,9 @@ export default function InventoryPageClient() {
                       </div>
 
                       {/* Hide pricing for Tailor */}
-                      {!isTailor && (
+                      {canEnterPrices && (
                         <div className="space-y-2">
-                          <Label htmlFor="acc-pricePerUnit">Price/Unit (₹) *</Label>
+                          <Label htmlFor="acc-pricePerUnit">Price/Unit ({currencySymbol()}) *</Label>
                           <Input id="acc-pricePerUnit" name="pricePerUnit" type="number" step="0.01" required />
                         </div>
                       )}
@@ -765,7 +771,7 @@ export default function InventoryPageClient() {
                             <ArrowUpDown className={`h-3 w-3 ${clothSortField === 'available' ? 'text-blue-600' : 'text-slate-400'}`} />
                           </div>
                         </TableHead>
-                        {!isTailor && (
+                        {showPricing && (
                           <TableHead
                             className="cursor-pointer hover:bg-slate-100 select-none"
                             onClick={() => handleSort('pricePerMeter', 'cloth')}
@@ -817,7 +823,7 @@ export default function InventoryPageClient() {
                                 <span className="text-xs text-slate-500"> ({item.reserved.toFixed(2)}m reserved)</span>
                               )}
                             </TableCell>
-                            {!isTailor && <TableCell>{formatCurrency(item.pricePerMeter)}/m</TableCell>}
+                            {showPricing && <TableCell>{formatCurrency(item.pricePerMeter)}/m</TableCell>}
                             <TableCell>
                               <Badge variant={status.variant}>{status.label}</Badge>
                             </TableCell>
@@ -942,7 +948,7 @@ export default function InventoryPageClient() {
                             <ArrowUpDown className={`h-3 w-3 ${accessorySortField === 'minimum' ? 'text-blue-600' : 'text-slate-400'}`} />
                           </div>
                         </TableHead>
-                        {!isTailor && (
+                        {showPricing && (
                           <TableHead
                             className="cursor-pointer hover:bg-slate-100 select-none"
                             onClick={() => handleSort('pricePerUnit', 'accessory')}
@@ -987,7 +993,7 @@ export default function InventoryPageClient() {
                               )}
                             </TableCell>
                             <TableCell>{item.minimumStockUnits}</TableCell>
-                            {!isTailor && <TableCell>{formatCurrency(item.pricePerUnit)}</TableCell>}
+                            {showPricing && <TableCell>{formatCurrency(item.pricePerUnit)}</TableCell>}
                             <TableCell>
                               <Badge variant={status.variant}>{status.label}</Badge>
                             </TableCell>
