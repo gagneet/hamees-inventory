@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.32.1] - 2026-09-11 — Dependency refresh
+
+### Security
+- **Next.js 16.2.6 → 16.3.5**, fixing two critical advisories: unauthenticated remote code execution on Windows-hosted servers, and RCE in the Image Optimization API when AVIF files are used (this shop runs on Linux, and the second needs AVIF uploads, so neither was exploitable here).
+- **next-auth 5.0.0-beta.30 → beta.32** and **@auth/prisma-adapter 2.11.2 → 2.11.3** (pulls `@auth/core` 0.41.3), fixing critical and high advisories in the auth layer.
+- Refreshing the lockfile within the declared ranges patched the remaining transitive advisories: `postcss` 8.5.28, `brace-expansion` 5.0.9, `fast-uri` 4.1.4, `tmp` 0.2.7, `js-yaml` 4.3.2, `nanoid`, `browserslist`, `@humanfs/node`, `sharp` and `@babel/core`. `pnpm audit` goes from 4 critical / 21 high / 6 moderate to 0 critical / 2 high / 1 moderate.
+- The two remaining advisories (`mysql2`, `deepmerge-ts`) are both inside the **Prisma CLI** (a dev dependency): Prisma 7.10 pins `mysql2` 3.15.3 and `@prisma/config` pins `deepmerge-ts` 7.1.5, and no patched release exists that Prisma accepts. Neither ships in the application, and this shop uses PostgreSQL, so the MySQL driver is never loaded. They clear when Prisma 8 is stable — they are deliberately *not* forced with an override.
+
+### Changed
+- Dependencies updated to current releases: Prisma 7.10, React 19.3, Radix UI, `zod` 4.6, `recharts` 3.10, `react-hook-form` 7.88, `pg` 8.23, `date-fns` 4.4, `@hookform/resolvers` 5.9, `sonner`, Tailwind 4.3.3, `tsx`, `@types/*`.
+- **Vitest 3 → 5** (with `@vitest/coverage-v8`) and an explicit `vite` 8 dev dependency, which clears the `vite`/`esbuild` advisories. `vitest.config.ts` moves `poolOptions.forks.singleFork` to `fileParallelism: false`, which Vitest 4 replaced it with — tests still run one file at a time, as the database-backed tests require.
+- **lucide-react 0.562 → 1.45**, **jsdom 26 → 30**, **@testing-library/jest-dom 6 → 7**.
+- Five `pnpm.overrides` entries are gone: `ws`, `hono`, `@hono/node-server` and one `minimatch` range are no longer in the dependency tree at all (Prisma 7.10 dropped the Hono-based dev server), and the rest now name the version that actually carries the fix instead of an older floor.
+- `@types/bcryptjs` removed — `bcryptjs` 3 ships its own types, and the `@types` package is deprecated.
+- `package-lock.json` deleted. The project uses pnpm (`packageManager: pnpm@10.28.0`); the stale npm lockfile only made the bots propose updates against a file nothing installs from.
+- `react-hooks/set-state-in-effect` and `react-hooks/immutability` — new React Compiler rules in eslint-plugin-react-hooks 7.1 — report as warnings for now: they flag 34 long-standing patterns in pages and dialogs (fetch-then-`setState` inside an effect, mutating a captured value), to be paid down page by page.
+- `version` in `package.json` now tracks the release (it had been left at 0.31.0).
+
+### Not taken
+- **TypeScript 7**, **ESLint 10** (its plugin ecosystem still declares `eslint@^9`, and forcing it would need exactly the overrides this change removes), **react-day-picker 10** (breaking API in the date picker) and **Prisma 8** (release candidate).
+
 ## [0.32.0] - 2026-09-11 — Exact money, per-item production, stock reorder, international phones
 
 ### Changed
