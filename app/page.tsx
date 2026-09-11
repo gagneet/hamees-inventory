@@ -1,11 +1,17 @@
-import dynamic from 'next/dynamic'
+import nextDynamic from 'next/dynamic'
 import { Scissors, Package, Users, TrendingUp } from 'lucide-react'
+import { getAppSettings } from '@/lib/settings'
 
-const LoginForm = dynamic(() => import('@/components/login-form').then(mod => mod.LoginForm), {
+const LoginForm = nextDynamic(() => import('@/components/login-form').then(mod => mod.LoginForm), {
   loading: () => <div className="w-full max-w-md animate-pulse rounded-lg bg-slate-200 h-96" />
 })
 
-export default function Home() {
+// Branding is read from BusinessSettings at request time (not baked in at build)
+export const dynamic = 'force-dynamic'
+
+export default async function Home() {
+  const { businessName, tagline } = await getAppSettings()
+
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
       {/* Left Side - Branding & Features */}
@@ -13,10 +19,10 @@ export default function Home() {
         <div className="max-w-lg">
           <div className="flex items-center gap-3 mb-8">
             <Scissors className="h-12 w-12" />
-            <h1 className="text-4xl font-bold">Hamees Inventory</h1>
+            <h1 className="text-4xl font-bold">{businessName}</h1>
           </div>
           <p className="text-xl mb-12 text-white/90">
-            Complete inventory and order management system for the Hamees Attire shop
+            {tagline || 'Inventory, orders and production management for your tailoring business'}
           </p>
 
           <div className="space-y-6">
@@ -53,14 +59,10 @@ export default function Home() {
           {/* Mobile Header */}
           <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
             <Scissors className="h-10 w-10 text-primary" />
-            <h1 className="text-3xl font-bold text-primary">Hamees</h1>
+            <h1 className="text-3xl font-bold text-primary">{businessName}</h1>
           </div>
 
-          <LoginForm />
-
-          <p className="mt-8 text-center text-sm text-slate-500">
-            Powered by Next.js 16 • Secure & Fast
-          </p>
+          <LoginForm businessName={businessName} tagline={tagline} />
         </div>
       </div>
     </div>
