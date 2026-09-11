@@ -2,7 +2,7 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
   engineType = "binary"
 }
 
@@ -16,7 +16,7 @@ enum UserRole {
   ADMIN
   INVENTORY_MANAGER
   SALES_MANAGER
-  MASTER_TAILOR     // Production supervisor: assigns work to tailors and oversees their workload
+  MASTER_TAILOR // Production supervisor: assigns work to tailors and oversees their workload
   TAILOR
   VIEWER
 }
@@ -48,7 +48,8 @@ enum AlertType {
   LOW_STOCK
   CRITICAL_STOCK
   ORDER_DELAYED
-  REORDER_REMINDER
+  REORDER_REMINDER // Stock at/below minimum: reorder suggested or drafted (inventory items)
+  PAYMENT_REMINDER // Delivered order with an outstanding balance
 }
 
 enum StockMovementType {
@@ -93,90 +94,96 @@ enum PaymentMode {
 }
 
 enum DesignFileCategory {
-  SKETCH            // Rough paper design
-  REFERENCE         // Reference image
-  WORK_IN_PROGRESS  // WIP photos
-  FINAL             // Final product photo
+  SKETCH // Rough paper design
+  REFERENCE // Reference image
+  WORK_IN_PROGRESS // WIP photos
+  FINAL // Final product photo
 }
 
 enum StitchingTier {
-  BASIC             // Entry-level stitching
-  PREMIUM           // Mid-range quality
-  LUXURY            // High-end bespoke
+  BASIC // Entry-level stitching
+  PREMIUM // Mid-range quality
+  LUXURY // High-end bespoke
 }
+
+// Money: every amount column is BigInt in minor units (paise/cents, 2 decimal places).
+// lib/db.ts converts at the Prisma boundary: application code reads and writes plain decimal
+// numbers (1234.56), the database stores whole numbers (123456). See lib/money.ts.
 
 // Models
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  password      String
-  name          String
-  role          UserRole  @default(VIEWER)
-  phone         String?
-  active        Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      UserRole @default(VIEWER)
+  phone     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  orders        Order[]
-  stockMovements StockMovement[]
+  orders                  Order[]
+  stockMovements          StockMovement[]
   accessoryStockMovements AccessoryStockMovement[]
-  orderHistory  OrderHistory[]
-  measurements  Measurement[]
-  uploadHistory UploadHistory[]
-  expenses      Expense[]
-  designUploads DesignUpload[]
-  assignedOrderItems OrderItem[] @relation("OrderItemAssignedTailor")
-  auditLogs     AuditLog[]
+  orderHistory            OrderHistory[]
+  measurements            Measurement[]
+  uploadHistory           UploadHistory[]
+  expenses                Expense[]
+  designUploads           DesignUpload[]
+  assignedOrderItems      OrderItem[]              @relation("OrderItemAssignedTailor")
+  auditLogs               AuditLog[]
 }
 
 model ClothInventory {
-  id                  String    @id @default(cuid())
-  sku                 String    @unique
-  name                String
-  brand               String
-  color               String
-  colorHex            String    // For UI display
-  pattern             String    // Plain, Striped, Checkered, etc.
-  quality             String    // Premium, Standard, Economy
-  type                String    // Cotton, Silk, Linen, etc.
-  pricePerMeter       Float
-  currentStock        Float     // in meters
-  totalPurchased      Float     @default(0) // Track total ever purchased
-  reserved            Float     @default(0) // Reserved for orders (in meters)
-  minimumStockMeters  Float     // Minimum stock level in meters (for reorder alerts)
-  supplier            String
-  supplierId          String?
-  location            String?   // Storage location
-  notes               String?
-  active              Boolean   @default(true)
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  id                 String   @id @default(cuid())
+  sku                String   @unique
+  name               String
+  brand              String
+  color              String
+  colorHex           String // For UI display
+  pattern            String // Plain, Striped, Checkered, etc.
+  quality            String // Premium, Standard, Economy
+  type               String // Cotton, Silk, Linen, etc.
+  pricePerMeter      BigInt
+  currentStock       Float // in meters
+  totalPurchased     Float    @default(0) // Track total ever purchased
+  reserved           Float    @default(0) // Reserved for orders (in meters)
+  minimumStockMeters Float // Minimum stock level in meters (for reorder alerts)
+  reorderQuantity    Float? // Meters to order when available stock reaches the minimum (null = top up to 2x minimum)
+  supplier           String
+  supplierId         String?
+  location           String? // Storage location
+  notes              String?
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   // ====== PHASE 1 ENHANCEMENTS (v0.23.0) ======
   // Fabric Technical Specifications
-  fabricComposition String?   // e.g., "70% Cotton, 30% Polyester"
-  gsm               Float?    // Grams per Square Meter (fabric weight)
-  threadCount       Int?      // Threads per inch
-  weaveType         String?   // Plain, Twill, Satin, Jacquard, Dobby
-  fabricWidth       Float?    // Width in inches (usually 44", 58", 60")
-  shrinkagePercent  Float?    // Expected shrinkage percentage (2-5%)
-  colorFastness     String?   // Excellent, Good, Fair, Poor
+  fabricComposition String? // e.g., "70% Cotton, 30% Polyester"
+  gsm               Float? // Grams per Square Meter (fabric weight)
+  threadCount       Int? // Threads per inch
+  weaveType         String? // Plain, Twill, Satin, Jacquard, Dobby
+  fabricWidth       Float? // Width in inches (usually 44", 58", 60")
+  shrinkagePercent  Float? // Expected shrinkage percentage (2-5%)
+  colorFastness     String? // Excellent, Good, Fair, Poor
 
   // Business Classification
-  seasonSuitability String[]  // e.g., ["Summer", "Winter", "All-season", "Monsoon"]
-  occasionType      String[]  // e.g., ["Casual", "Formal", "Wedding", "Festival", "Party"]
-  careInstructions  String?   // e.g., "Dry clean only", "Machine wash cold"
+  seasonSuitability String[] // e.g., ["Summer", "Winter", "All-season", "Monsoon"]
+  occasionType      String[] // e.g., ["Casual", "Formal", "Wedding", "Festival", "Party"]
+  careInstructions  String? // e.g., "Dry clean only", "Machine wash cold"
 
   // Visual Assets
-  swatchImage       String?   // URL to primary fabric swatch photo
-  textureImage      String?   // URL to close-up texture photo
+  swatchImage  String? // URL to primary fabric swatch photo
+  textureImage String? // URL to close-up texture photo
 
   // Relations
-  orderItems    OrderItem[]
+  orderItems     OrderItem[]
   stockMovements StockMovement[]
-  supplierRel   Supplier? @relation(fields: [supplierId], references: [id])
+  supplierRel    Supplier?       @relation(fields: [supplierId], references: [id])
   supplierPrices SupplierPrice[]
+  poItems        POItem[]
 
   @@index([sku])
   @@index([active])
@@ -184,70 +191,72 @@ model ClothInventory {
 }
 
 model AccessoryInventory {
-  id                 String    @id @default(cuid())
-  sku                String    @unique
-  name               String
-  type               String    // Button, Thread, Zipper, etc.
-  color              String?
-  currentStock       Int
-  reserved           Int       @default(0) // Reserved for orders (in units)
-  minimumStockUnits  Int       // Minimum stock level in units (for reorder alerts)
-  pricePerUnit       Float
-  supplier           String?
-  supplierId         String?
-  active             Boolean   @default(true)
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  id                String   @id @default(cuid())
+  sku               String   @unique
+  name              String
+  type              String // Button, Thread, Zipper, etc.
+  color             String?
+  currentStock      Int
+  reserved          Int      @default(0) // Reserved for orders (in units)
+  minimumStockUnits Int // Minimum stock level in units (for reorder alerts)
+  reorderQuantity   Int? // Units to order when available stock reaches the minimum (null = top up to 2x minimum)
+  pricePerUnit      BigInt
+  supplier          String?
+  supplierId        String?
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   // ====== PHASE 1 ENHANCEMENTS (v0.23.0) ======
   // Thread-Specific Fields
-  colorCode         String?   // Pantone/DMC color code (e.g., "PANTONE 19-4028")
-  threadWeight      String?   // e.g., "40wt", "50wt", "60wt"
+  colorCode    String? // Pantone/DMC color code (e.g., "PANTONE 19-4028")
+  threadWeight String? // e.g., "40wt", "50wt", "60wt"
 
   // Button-Specific Fields
-  buttonSize        String?   // Ligne sizing: "14L", "18L", "20L", "24L", etc.
-  holePunchSize     Int?      // Number of holes: 2, 4
-  material          String?   // Shell, Brass, Resin, Horn, Plastic, Wood
-  finish            String?   // Matte, Polished, Antique, Brushed
+  buttonSize    String? // Ligne sizing: "14L", "18L", "20L", "24L", etc.
+  holePunchSize Int? // Number of holes: 2, 4
+  material      String? // Shell, Brass, Resin, Horn, Plastic, Wood
+  finish        String? // Matte, Polished, Antique, Brushed
 
   // Compatibility & Recommendations
-  recommendedFor    String[]  // e.g., ["Suit", "Shirt", "Trouser", "Blazer"]
-  styleCategory     String?   // Formal, Casual, Designer, Traditional
+  recommendedFor String[] // e.g., ["Suit", "Shirt", "Trouser", "Blazer"]
+  styleCategory  String? // Formal, Casual, Designer, Traditional
 
   // Visual Assets
-  productImage      String?   // URL to product photo
-  closeUpImage      String?   // URL to close-up detail photo
+  productImage String? // URL to product photo
+  closeUpImage String? // URL to close-up detail photo
 
   // Relations
   garmentAccessories GarmentAccessory[]
-  supplierRel   Supplier? @relation(fields: [supplierId], references: [id])
-  stockMovements AccessoryStockMovement[]
+  supplierRel        Supplier?                @relation(fields: [supplierId], references: [id])
+  stockMovements     AccessoryStockMovement[]
+  poItems            POItem[]
 
   @@index([active])
   @@index([sku])
 }
 
 model Customer {
-  id            String    @id @default(cuid())
-  name          String
-  email         String?
-  phone         String
-  address       String?
-  city          String?
-  state         String?
-  pincode       String?
-  notes         String?
-  active        Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  phone     String
+  address   String?
+  city      String?
+  state     String?
+  pincode   String?
+  notes     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // GST fields
-  gstin         String?   // GST Identification Number (for B2B customers)
-  customerType  String    @default("B2C") // B2B or B2C
+  gstin        String? // GST Identification Number (for B2B customers)
+  customerType String  @default("B2C") // B2B or B2C
 
   // Relations
-  orders        Order[]
-  measurements  Measurement[]
+  orders           Order[]
+  measurements     Measurement[]
   whatsappMessages WhatsAppMessage[]
 
   @@index([phone])
@@ -255,11 +264,11 @@ model Customer {
 }
 
 model Measurement {
-  id            String    @id @default(cuid())
-  customerId    String
-  userId        String?   // Who created this measurement (for audit trail)
-  garmentType   String    // Shirt, Trouser, Suit, Sherwani
-  bodyType      BodyType? // Body type for this measurement
+  id          String    @id @default(cuid())
+  customerId  String
+  userId      String? // Who created this measurement (for audit trail)
+  garmentType String // Shirt, Trouser, Suit, Sherwani
+  bodyType    BodyType? // Body type for this measurement
 
   // Common measurements (in cm)
   neck          Float?
@@ -278,35 +287,35 @@ model Measurement {
   lapelWidth    Float?
 
   // Extended measurements (from Excel template — covers sherwani, suit, pant in more detail)
-  bicep              Float?    // Upper arm / bicep circumference
-  cuff               Float?    // Wrist/cuff circumference
-  armCircumference   Float?    // Full arm circumference (relaxed)
-  crossChest         Float?    // Horizontal chest width (point-to-point)
-  backLength         Float?    // Back length from collar to hem
-  seat               Float?    // Seat/hips (pant) circumference
-  rise               Float?    // Pant rise (crotch depth)
-  elbow              Float?    // Elbow circumference
+  bicep            Float? // Upper arm / bicep circumference
+  cuff             Float? // Wrist/cuff circumference
+  armCircumference Float? // Full arm circumference (relaxed)
+  crossChest       Float? // Horizontal chest width (point-to-point)
+  backLength       Float? // Back length from collar to hem
+  seat             Float? // Seat/hips (pant) circumference
+  rise             Float? // Pant rise (crotch depth)
+  elbow            Float? // Elbow circumference
 
   // Additional measurements as JSON for flexibility
   additionalMeasurements Json?
 
   // History tracking
-  replacesId    String?   // ID of the measurement this replaces (for version history)
-  isActive      Boolean   @default(true) // Current active version
+  replacesId String? // ID of the measurement this replaces (for version history)
+  isActive   Boolean @default(true) // Current active version
 
-  notes         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  customer      Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  createdBy     User?     @relation(fields: [userId], references: [id])
-  orders        Order[]
-  orderItems    OrderItem[]
+  customer   Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdBy  User?       @relation(fields: [userId], references: [id])
+  orders     Order[]
+  orderItems OrderItem[]
 
   // Self-referencing for history
-  replaces      Measurement?  @relation("MeasurementHistory", fields: [replacesId], references: [id], onDelete: SetNull)
-  replacedBy    Measurement[] @relation("MeasurementHistory")
+  replaces   Measurement?  @relation("MeasurementHistory", fields: [replacesId], references: [id], onDelete: SetNull)
+  replacedBy Measurement[] @relation("MeasurementHistory")
 
   @@index([customerId])
   @@index([garmentType])
@@ -316,140 +325,142 @@ model Measurement {
 }
 
 model GarmentPattern {
-  id            String    @id @default(cuid())
-  name          String    // Men's Shirt, Men's Trouser, etc.
-  description   String?
-  baseMeters    Float     // Base fabric requirement
+  id          String  @id @default(cuid())
+  name        String // Men's Shirt, Men's Trouser, etc.
+  description String?
+  baseMeters  Float // Base fabric requirement
 
   // Body type adjustments (additional meters needed)
-  slimAdjustment     Float @default(0)
-  regularAdjustment  Float @default(0)
-  largeAdjustment    Float @default(0.3)
-  xlAdjustment       Float @default(0.5)
+  slimAdjustment    Float @default(0)
+  regularAdjustment Float @default(0)
+  largeAdjustment   Float @default(0.3)
+  xlAdjustment      Float @default(0.5)
 
   // Stitching charge tiers (premium bespoke pricing)
-  basicStitchingCharge    Float @default(1500)   // Basic tier stitching
-  premiumStitchingCharge  Float @default(3000)   // Premium tier stitching
-  luxuryStitchingCharge   Float @default(5000)   // Luxury tier stitching
+  basicStitchingCharge   BigInt @default(150000) // Basic tier stitching
+  premiumStitchingCharge BigInt @default(300000) // Premium tier stitching
+  luxuryStitchingCharge  BigInt @default(500000) // Luxury tier stitching
 
-  active        Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  accessories   GarmentAccessory[]
-  orderItems    OrderItem[]
+  accessories GarmentAccessory[]
+  orderItems  OrderItem[]
 
   @@index([active])
 }
 
 model GarmentAccessory {
-  id                  String    @id @default(cuid())
-  garmentPatternId    String
-  accessoryId         String
-  quantityPerGarment  Int       // How many units needed per garment (e.g., 10 buttons per shirt)
+  id                 String @id @default(cuid())
+  garmentPatternId   String
+  accessoryId        String
+  quantityPerGarment Int // How many units needed per garment (e.g., 10 buttons per shirt)
 
   // Relations
-  garmentPattern  GarmentPattern    @relation(fields: [garmentPatternId], references: [id], onDelete: Cascade)
-  accessory       AccessoryInventory @relation(fields: [accessoryId], references: [id])
+  garmentPattern GarmentPattern     @relation(fields: [garmentPatternId], references: [id], onDelete: Cascade)
+  accessory      AccessoryInventory @relation(fields: [accessoryId], references: [id])
 
   @@unique([garmentPatternId, accessoryId])
 }
 
 model Order {
-  id              String       @id @default(cuid())
-  orderNumber     String       @unique
-  customerId      String
-  userId          String       // Who created the order
-  measurementId   String?
+  id            String  @id @default(cuid())
+  orderNumber   String  @unique
+  customerId    String
+  userId        String // Who created the order
+  measurementId String?
 
-  status          OrderStatus  @default(NEW)
-  priority        OrderPriority @default(NORMAL)
+  // Production stages are tracked per item (OrderItem.status); while in production this is the
+  // least-advanced item's stage (lib/item-status.ts). DELIVERED/CANCELLED are set on the order.
+  status   OrderStatus   @default(NEW)
+  priority OrderPriority @default(NORMAL)
 
-  deliveryDate    DateTime
-  orderDate       DateTime     @default(now())
-  completedDate   DateTime?
+  deliveryDate  DateTime
+  orderDate     DateTime  @default(now())
+  completedDate DateTime?
 
-  totalAmount     Float
-  advancePaid     Float        @default(0)
-  discount        Float        @default(0)   // Discount given by owner
-  discountReason  String?                    // Reason for discount
-  balanceAmount   Float
+  totalAmount    BigInt
+  advancePaid    BigInt  @default(0)
+  discount       BigInt  @default(0) // Discount given by owner
+  discountReason String? // Reason for discount
+  balanceAmount  BigInt
 
   // GST fields
-  subTotal        Float        @default(0)   // Amount before GST
-  gstRate         Float        @default(0)   // 5%, 12%, 18%, or 28%
-  cgst            Float        @default(0)   // Central GST (intra-state)
-  sgst            Float        @default(0)   // State GST (intra-state)
-  igst            Float        @default(0)   // Integrated GST (inter-state)
-  gstAmount       Float        @default(0)   // Total GST charged
-  taxableAmount   Float        @default(0)   // Base for GST calculation
+  subTotal      BigInt @default(0) // Amount before GST
+  gstRate       Float  @default(0) // 5%, 12%, 18%, or 28%
+  cgst          BigInt @default(0) // Central GST (intra-state)
+  sgst          BigInt @default(0) // State GST (intra-state)
+  igst          BigInt @default(0) // Integrated GST (inter-state)
+  gstAmount     BigInt @default(0) // Total GST charged
+  taxableAmount BigInt @default(0) // Base for GST calculation
 
   // Invoice details
-  invoiceNumber   String?      @unique       // GST invoice number
-  invoiceDate     DateTime?                  // GST invoice date
-  placeOfSupply   String?                    // State for GST
+  invoiceNumber String?   @unique // GST invoice number
+  invoiceDate   DateTime? // GST invoice date
+  placeOfSupply String? // State for GST
 
   // PREMIUM PRICING SYSTEM (v0.22.0) - Itemized Cost Breakdown
-  fabricCost              Float         @default(0)  // Total fabric cost (excluding wastage)
-  fabricWastagePercent    Float         @default(0)  // Wastage percentage (10-15% typical)
-  fabricWastageAmount     Float         @default(0)  // Wastage amount in rupees
-  accessoriesCost         Float         @default(0)  // Total accessories cost
-  stitchingCost           Float         @default(0)  // Base stitching cost
-  stitchingTier           StitchingTier @default(BASIC)  // BASIC/PREMIUM/LUXURY tier
-  workmanshipPremiums     Float         @default(0)  // Total workmanship premiums
-  designerConsultationFee Float         @default(0)  // Designer consultation charges
+  fabricCost              BigInt        @default(0) // Total fabric cost (excluding wastage)
+  fabricWastagePercent    Float         @default(0) // Wastage percentage (10-15% typical)
+  fabricWastageAmount     BigInt        @default(0) // Wastage amount in rupees
+  accessoriesCost         BigInt        @default(0) // Total accessories cost
+  stitchingCost           BigInt        @default(0) // Base stitching cost
+  stitchingTier           StitchingTier @default(BASIC) // BASIC/PREMIUM/LUXURY tier
+  workmanshipPremiums     BigInt        @default(0) // Total workmanship premiums
+  designerConsultationFee BigInt        @default(0) // Designer consultation charges
 
   // Workmanship Premium Flags and Costs
-  isHandStitched          Boolean       @default(false)
-  handStitchingCost       Float         @default(0)  // +30-40% or fixed amount
+  isHandStitched    Boolean @default(false)
+  handStitchingCost BigInt  @default(0) // +30-40% or fixed amount
 
-  isFullCanvas            Boolean       @default(false)
-  fullCanvasCost          Float         @default(0)  // +₹3,000-₹5,000
+  isFullCanvas   Boolean @default(false)
+  fullCanvasCost BigInt  @default(0) // +₹3,000-₹5,000
 
-  isRushOrder             Boolean       @default(false)
-  rushOrderCost           Float         @default(0)  // +50% of base cost
+  isRushOrder   Boolean @default(false)
+  rushOrderCost BigInt  @default(0) // +50% of base cost
 
-  hasComplexDesign        Boolean       @default(false)
-  complexDesignCost       Float         @default(0)  // +20-30% or fixed amount
+  hasComplexDesign  Boolean @default(false)
+  complexDesignCost BigInt  @default(0) // +20-30% or fixed amount
 
-  additionalFittings      Int           @default(0)  // Beyond standard 2 fittings
-  additionalFittingsCost  Float         @default(0)  // +₹1,500/fitting
+  additionalFittings     Int    @default(0) // Beyond standard 2 fittings
+  additionalFittingsCost BigInt @default(0) // +₹1,500/fitting
 
-  hasPremiumLining        Boolean       @default(false)
-  premiumLiningCost       Float         @default(0)  // +₹2,000-₹5,000
+  hasPremiumLining  Boolean @default(false)
+  premiumLiningCost BigInt  @default(0) // +₹2,000-₹5,000
 
   // Manual Override Fields (for custom pricing adjustments)
-  isFabricCostOverridden      Boolean   @default(false)
-  fabricCostOverride          Float?    // Override value if different from calculated
-  fabricCostOverrideReason    String?   // Mandatory reason for override
+  isFabricCostOverridden   Boolean @default(false)
+  fabricCostOverride       BigInt? // Override value if different from calculated
+  fabricCostOverrideReason String? // Mandatory reason for override
 
-  isStitchingCostOverridden   Boolean   @default(false)
-  stitchingCostOverride       Float?    // Override value
-  stitchingCostOverrideReason String?   // Mandatory reason for override
+  isStitchingCostOverridden   Boolean @default(false)
+  stitchingCostOverride       BigInt? // Override value
+  stitchingCostOverrideReason String? // Mandatory reason for override
 
-  isAccessoriesCostOverridden Boolean   @default(false)
-  accessoriesCostOverride     Float?    // Override value
+  isAccessoriesCostOverridden   Boolean @default(false)
+  accessoriesCostOverride       BigInt? // Override value
   accessoriesCostOverrideReason String? // Mandatory reason for override
 
-  pricingNotes                String?   @db.Text  // Complete pricing notes and adjustments
+  pricingNotes String? @db.Text // Complete pricing notes and adjustments
 
-  notes           String?   // Customer instructions and special requests
-  tailorNotes     String?   // Tailor's observations and modifications (separate from customer notes)
-  active          Boolean      @default(true)
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  notes       String? // Customer instructions and special requests
+  tailorNotes String? // Tailor's observations and modifications (separate from customer notes)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Relations
-  customer        Customer     @relation(fields: [customerId], references: [id])
-  user            User         @relation(fields: [userId], references: [id])
-  measurement     Measurement? @relation(fields: [measurementId], references: [id])
-  items           OrderItem[]
-  stockMovements  StockMovement[]
+  customer                Customer                 @relation(fields: [customerId], references: [id])
+  user                    User                     @relation(fields: [userId], references: [id])
+  measurement             Measurement?             @relation(fields: [measurementId], references: [id])
+  items                   OrderItem[]
+  stockMovements          StockMovement[]
   accessoryStockMovements AccessoryStockMovement[]
-  history         OrderHistory[]
-  installments    PaymentInstallment[]
-  whatsappMessages WhatsAppMessage[]
+  history                 OrderHistory[]
+  installments            PaymentInstallment[]
+  whatsappMessages        WhatsAppMessage[]
 
   @@index([orderNumber])
   @@index([customerId])
@@ -460,21 +471,24 @@ model Order {
 }
 
 model OrderHistory {
-  id              String    @id @default(cuid())
-  orderId         String
-  userId          String    // Who made the change
-  changeType      String    // STATUS_UPDATE, ORDER_EDIT, ITEM_ADDED, ITEM_REMOVED, etc.
-  fieldName       String?   // Field that was changed (status, deliveryDate, etc.)
-  oldValue        String?   // Previous value (JSON string for complex data)
-  newValue        String?   // New value (JSON string for complex data)
-  description     String    // Human-readable description of the change
-  createdAt       DateTime  @default(now())
+  id          String   @id @default(cuid())
+  orderId     String
+  orderItemId String? // Set for item-level events (ITEM_STATUS_UPDATE)
+  userId      String // Who made the change
+  changeType  String // STATUS_UPDATE, ITEM_STATUS_UPDATE, ORDER_EDIT, ITEM_ADDED, ITEM_REMOVED, etc.
+  fieldName   String? // Field that was changed (status, deliveryDate, etc.)
+  oldValue    String? // Previous value (JSON string for complex data)
+  newValue    String? // New value (JSON string for complex data)
+  description String // Human-readable description of the change
+  createdAt   DateTime @default(now())
 
   // Relations
-  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  user            User      @relation(fields: [userId], references: [id])
+  order     Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderItem OrderItem? @relation(fields: [orderItemId], references: [id], onDelete: SetNull)
+  user      User       @relation(fields: [userId], references: [id])
 
   @@index([orderId])
+  @@index([orderItemId])
   @@index([createdAt])
 }
 
@@ -487,24 +501,24 @@ enum InstallmentStatus {
 }
 
 model PaymentInstallment {
-  id                  String            @id @default(cuid())
-  orderId             String
-  order               Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
-  installmentNumber   Int               // 1, 2, 3, etc.
-  installmentAmount   Float             // Expected installment payment amount
-  dueDate             DateTime
-  paidDate            DateTime?
-  paidAmount          Float             @default(0)  // Actual amount paid for this installment
+  installmentNumber Int // 1, 2, 3, etc.
+  installmentAmount BigInt // Expected installment payment amount
+  dueDate           DateTime
+  paidDate          DateTime?
+  paidAmount        BigInt    @default(0) // Actual amount paid for this installment
 
-  paymentMode         PaymentMode?
-  transactionRef      String?           // Transaction ID or cheque number
+  paymentMode    PaymentMode?
+  transactionRef String? // Transaction ID or cheque number
 
-  status              InstallmentStatus @default(PENDING)
-  notes               String?
+  status InstallmentStatus @default(PENDING)
+  notes  String?
 
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([orderId])
   @@index([dueDate])
@@ -513,58 +527,65 @@ model PaymentInstallment {
 }
 
 model OrderItem {
-  id                String    @id @default(cuid())
-  orderId           String
-  garmentPatternId  String
-  clothInventoryId  String
-  measurementId     String?   // Which measurement was used for this item
-  assignedTailorId  String?   // Which tailor is assigned to this item
+  id               String  @id @default(cuid())
+  orderId          String
+  garmentPatternId String
+  clothInventoryId String
+  measurementId    String? // Which measurement was used for this item
+  assignedTailorId String? // Which tailor is assigned to this item
 
-  quantityOrdered   Int       @default(1)  // Number of garments ordered by customer
-  bodyType          BodyType  @default(REGULAR)
+  quantityOrdered Int      @default(1) // Number of garments ordered by customer
+  bodyType        BodyType @default(REGULAR)
+
+  // Production stage of this garment (NEW → READY); DELIVERED/CANCELLED follow the order
+  status          OrderStatus @default(NEW)
+  statusUpdatedAt DateTime?
 
   // Material calculations (fabric usage)
-  estimatedMeters   Float     // Calculated based on pattern and body type
-  actualMetersUsed  Float?    // Recorded after cutting
-  wastageMeters     Float?    // Fabric wastage: Actual - Estimated (in meters)
+  estimatedMeters  Float // Calculated based on pattern and body type
+  actualMetersUsed Float? // Recorded after cutting
+  wastageMeters    Float? // Fabric wastage: Actual - Estimated (in meters)
 
-  pricePerUnit      Float
-  totalPrice        Float
+  pricePerUnit BigInt
+  totalPrice   BigInt
 
-  notes             String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  order             Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  garmentPattern    GarmentPattern @relation(fields: [garmentPatternId], references: [id])
-  clothInventory    ClothInventory @relation(fields: [clothInventoryId], references: [id])
-  measurement       Measurement? @relation(fields: [measurementId], references: [id])
-  assignedTailor    User?     @relation("OrderItemAssignedTailor", fields: [assignedTailorId], references: [id])
-  designUploads     DesignUpload[]
+  order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  garmentPattern GarmentPattern @relation(fields: [garmentPatternId], references: [id])
+  clothInventory ClothInventory @relation(fields: [clothInventoryId], references: [id])
+  measurement    Measurement?   @relation(fields: [measurementId], references: [id])
+  assignedTailor User?          @relation("OrderItemAssignedTailor", fields: [assignedTailorId], references: [id])
+  designUploads  DesignUpload[]
+  history        OrderHistory[]
 
   @@index([orderId])
   @@index([measurementId])
   @@index([assignedTailorId])
+  @@index([status])
+  @@index([assignedTailorId, status])
 }
 
 model StockMovement {
-  id                  String            @id @default(cuid())
-  clothInventoryId    String
-  orderId             String?
-  userId              String
+  id               String  @id @default(cuid())
+  clothInventoryId String
+  orderId          String?
+  userId           String
 
-  type                StockMovementType
-  quantityMeters      Float             // Fabric quantity moved in meters (positive for additions, negative for reductions)
-  balanceAfterMeters  Float             // Stock balance after this movement in meters
+  type               StockMovementType
+  quantityMeters     Float // Fabric quantity moved in meters (positive for additions, negative for reductions)
+  balanceAfterMeters Float // Stock balance after this movement in meters
 
-  notes               String?
-  createdAt           DateTime          @default(now())
+  notes     String?
+  createdAt DateTime @default(now())
 
   // Relations
-  clothInventory      ClothInventory    @relation(fields: [clothInventoryId], references: [id])
-  order               Order?            @relation(fields: [orderId], references: [id])
-  user                User              @relation(fields: [userId], references: [id])
+  clothInventory ClothInventory @relation(fields: [clothInventoryId], references: [id])
+  order          Order?         @relation(fields: [orderId], references: [id])
+  user           User           @relation(fields: [userId], references: [id])
 
   @@index([clothInventoryId])
   @@index([orderId])
@@ -572,22 +593,22 @@ model StockMovement {
 }
 
 model AccessoryStockMovement {
-  id                    String                @id @default(cuid())
-  accessoryInventoryId  String
-  orderId               String?
-  userId                String
+  id                   String  @id @default(cuid())
+  accessoryInventoryId String
+  orderId              String?
+  userId               String
 
-  type                  StockMovementType
-  quantityUnits         Int                   // Accessory quantity moved in units (positive for additions, negative for reductions)
-  balanceAfterUnits     Int                   // Stock balance after this movement in units
+  type              StockMovementType
+  quantityUnits     Int // Accessory quantity moved in units (positive for additions, negative for reductions)
+  balanceAfterUnits Int // Stock balance after this movement in units
 
-  notes                 String?
-  createdAt             DateTime              @default(now())
+  notes     String?
+  createdAt DateTime @default(now())
 
   // Relations
-  accessoryInventory    AccessoryInventory    @relation(fields: [accessoryInventoryId], references: [id])
-  order                 Order?                @relation(fields: [orderId], references: [id])
-  user                  User                  @relation(fields: [userId], references: [id])
+  accessoryInventory AccessoryInventory @relation(fields: [accessoryInventoryId], references: [id])
+  order              Order?             @relation(fields: [orderId], references: [id])
+  user               User               @relation(fields: [userId], references: [id])
 
   @@index([accessoryInventoryId])
   @@index([orderId])
@@ -595,7 +616,7 @@ model AccessoryStockMovement {
 }
 
 model Supplier {
-  id            String    @id @default(cuid())
+  id            String   @id @default(cuid())
   name          String
   contactPerson String?
   email         String?
@@ -605,34 +626,34 @@ model Supplier {
   state         String?
   pincode       String?
   gstin         String?
-  rating        Float     @default(0)
+  rating        Float    @default(0)
   notes         String?
-  active        Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   // Relations
-  clothInventory      ClothInventory[]
-  accessoryInventory  AccessoryInventory[]
-  supplierPrices      SupplierPrice[]
-  purchaseOrders      PurchaseOrder[]
+  clothInventory     ClothInventory[]
+  accessoryInventory AccessoryInventory[]
+  supplierPrices     SupplierPrice[]
+  purchaseOrders     PurchaseOrder[]
 
   @@index([active])
 }
 
 model SupplierPrice {
-  id              String    @id @default(cuid())
-  supplierId      String
+  id               String    @id @default(cuid())
+  supplierId       String
   clothInventoryId String
-  pricePerMeter   Float
-  effectiveFrom   DateTime  @default(now())
-  effectiveTo     DateTime?
-  active          Boolean   @default(true)
-  createdAt       DateTime  @default(now())
+  pricePerMeter    BigInt
+  effectiveFrom    DateTime  @default(now())
+  effectiveTo      DateTime?
+  active           Boolean   @default(true)
+  createdAt        DateTime  @default(now())
 
   // Relations
-  supplier        Supplier        @relation(fields: [supplierId], references: [id], onDelete: Cascade)
-  clothInventory  ClothInventory  @relation(fields: [clothInventoryId], references: [id])
+  supplier       Supplier       @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  clothInventory ClothInventory @relation(fields: [clothInventoryId], references: [id])
 
   @@index([supplierId])
   @@index([clothInventoryId])
@@ -640,42 +661,43 @@ model SupplierPrice {
 }
 
 model PurchaseOrder {
-  id            String    @id @default(cuid())
-  poNumber      String    @unique
-  supplierId    String
-  orderDate     DateTime  @default(now())
-  expectedDate  DateTime?
-  receivedDate  DateTime?
+  id           String    @id @default(cuid())
+  poNumber     String    @unique
+  supplierId   String
+  orderDate    DateTime  @default(now())
+  expectedDate DateTime?
+  receivedDate DateTime?
 
-  totalAmount   Float
-  paidAmount    Float     @default(0)
-  balanceAmount Float
+  totalAmount   BigInt
+  paidAmount    BigInt @default(0)
+  balanceAmount BigInt
 
   // GST fields
-  subTotal        Float     @default(0)
-  gstRate         Float     @default(0)
-  cgst            Float     @default(0)
-  sgst            Float     @default(0)
-  igst            Float     @default(0)
-  gstAmount       Float     @default(0)
+  subTotal  BigInt @default(0)
+  gstRate   Float  @default(0)
+  cgst      BigInt @default(0)
+  sgst      BigInt @default(0)
+  igst      BigInt @default(0)
+  gstAmount BigInt @default(0)
 
   // Input Tax Credit tracking
-  isInputTaxCredit Boolean  @default(true)  // Eligible for ITC
-  itcClaimed      Boolean   @default(false) // ITC claimed in returns
+  isInputTaxCredit Boolean @default(true) // Eligible for ITC
+  itcClaimed       Boolean @default(false) // ITC claimed in returns
 
   // Invoice details
   supplierInvoiceNumber String?
   supplierInvoiceDate   DateTime?
 
-  status        String    @default("PENDING") // PENDING is legacy; active flow uses PENDING_APPROVAL, APPROVED, PARTIAL, RECEIVED, CANCELLED
+  status        String   @default("PENDING") // PENDING is legacy; active flow uses PENDING_APPROVAL, APPROVED, PARTIAL, RECEIVED, CANCELLED
+  autoGenerated Boolean  @default(false) // Drafted by the automatic reorder check (lib/reorder.ts)
   notes         String?
-  active        Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   // Relations
-  supplier      Supplier  @relation(fields: [supplierId], references: [id])
-  items         POItem[]
+  supplier Supplier @relation(fields: [supplierId], references: [id])
+  items    POItem[]
 
   @@index([poNumber])
   @@index([supplierId])
@@ -683,84 +705,92 @@ model PurchaseOrder {
 }
 
 model POItem {
-  id                String    @id @default(cuid())
-  purchaseOrderId   String
-  itemName          String
-  itemType          String    // CLOTH, ACCESSORY
-  orderedQuantity   Float     // Quantity ordered from supplier (in meters for cloth, units for accessories)
-  unit              String    // meters, pieces
-  pricePerUnit      Float
-  totalPrice        Float
-  receivedQuantity  Float     @default(0)  // Quantity actually received
-  createdAt         DateTime  @default(now())
+  id                   String   @id @default(cuid())
+  purchaseOrderId      String
+  itemName             String
+  itemType             String // CLOTH, ACCESSORY
+  orderedQuantity      Float // Quantity ordered from supplier (in meters for cloth, units for accessories)
+  unit                 String // meters, pieces
+  pricePerUnit         BigInt
+  totalPrice           BigInt
+  receivedQuantity     Float    @default(0) // Quantity actually received
+  // Inventory item this line restocks (exactly one, matching itemType). Null only on legacy lines
+  // that could not be matched by name; those are linked when first received.
+  clothInventoryId     String?
+  accessoryInventoryId String?
+  createdAt            DateTime @default(now())
 
   // Relations
-  purchaseOrder     PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  purchaseOrder      PurchaseOrder       @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  clothInventory     ClothInventory?     @relation(fields: [clothInventoryId], references: [id], onDelete: SetNull)
+  accessoryInventory AccessoryInventory? @relation(fields: [accessoryInventoryId], references: [id], onDelete: SetNull)
 
   @@index([purchaseOrderId])
+  @@index([clothInventoryId])
+  @@index([accessoryInventoryId])
 }
 
 model Alert {
-  id            String        @id @default(cuid())
-  type          AlertType
-  severity      AlertSeverity
-  title         String
-  message       String
-  relatedId     String?       // ID of related entity (inventory, order, etc.)
-  relatedType   String?       // Type of related entity ('cloth', 'accessory', 'order', etc.)
-  isRead        Boolean       @default(false)
-  isDismissed   Boolean       @default(false)
-  dismissedUntil DateTime?    // When the alert should reappear (null = not dismissed)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id             String        @id @default(cuid())
+  type           AlertType
+  severity       AlertSeverity
+  title          String
+  message        String
+  relatedId      String? // ID of related entity (inventory, order, etc.)
+  relatedType    String? // Type of related entity ('cloth', 'accessory', 'order', etc.)
+  isRead         Boolean       @default(false)
+  isDismissed    Boolean       @default(false)
+  dismissedUntil DateTime? // When the alert should reappear (null = not dismissed)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
+  @@unique([relatedId, relatedType, type, isDismissed]) // Prevent duplicate alerts for same item
   @@index([isRead])
   @@index([isDismissed])
   @@index([dismissedUntil])
   @@index([createdAt])
   @@index([severity])
-  @@unique([relatedId, relatedType, type, isDismissed]) // Prevent duplicate alerts for same item
 }
 
 model Settings {
-  id            String    @id @default(cuid())
-  key           String    @unique
-  value         String
-  description   String?
-  updatedAt     DateTime  @updatedAt
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime @updatedAt
 
   @@index([key])
 }
 
 model UploadHistory {
-  id              String    @id @default(cuid())
-  userId          String    // Who uploaded
-  filename        String    // Original filename
-  totalRecords    Int       // Total records in upload
-  successCount    Int       // Successfully uploaded
-  failureCount    Int       // Failed records
-  duplicateCount  Int       // Duplicates found
-  skippedCount    Int       // Skipped due to corruption
+  id             String @id @default(cuid())
+  userId         String // Who uploaded
+  filename       String // Original filename
+  totalRecords   Int // Total records in upload
+  successCount   Int // Successfully uploaded
+  failureCount   Int // Failed records
+  duplicateCount Int // Duplicates found
+  skippedCount   Int // Skipped due to corruption
 
-  status          String    @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, FAILED, CANCELLED
+  status String @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, FAILED, CANCELLED
 
   // Detailed results
-  successDetails  Json?     // Array of successfully uploaded record IDs
-  failureDetails  Json?     // Array of failure messages with row numbers
-  duplicateDetails Json?    // Array of duplicate records with confirmation status
+  successDetails   Json? // Array of successfully uploaded record IDs
+  failureDetails   Json? // Array of failure messages with row numbers
+  duplicateDetails Json? // Array of duplicate records with confirmation status
 
   // Summary report
-  summary         String?   // Human-readable summary
+  summary String? // Human-readable summary
 
   // Timing
-  startedAt       DateTime  @default(now())
-  completedAt     DateTime?
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  user            User      @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([status])
@@ -768,37 +798,37 @@ model UploadHistory {
 }
 
 model Expense {
-  id              String          @id @default(cuid())
-  category        ExpenseCategory
-  description     String
-  amount          Float                      // Amount before GST
-  gstAmount       Float           @default(0)
-  gstRate         Float           @default(0)
-  totalAmount     Float                      // amount + gstAmount
+  id          String          @id @default(cuid())
+  category    ExpenseCategory
+  description String
+  amount      BigInt // Amount before GST
+  gstAmount   BigInt          @default(0)
+  gstRate     Float           @default(0)
+  totalAmount BigInt // amount + gstAmount
 
-  expenseDate     DateTime        @default(now())
-  vendorName      String?
-  vendorGstin     String?
-  invoiceNumber   String?
+  expenseDate   DateTime @default(now())
+  vendorName    String?
+  vendorGstin   String?
+  invoiceNumber String?
 
-  paymentMode     PaymentMode     @default(CASH)
-  paidBy          String                     // User ID
-  paidByUser      User            @relation(fields: [paidBy], references: [id])
+  paymentMode PaymentMode @default(CASH)
+  paidBy      String // User ID
+  paidByUser  User        @relation(fields: [paidBy], references: [id])
 
   // Tax deduction tracking
-  tdsAmount       Float           @default(0)  // TDS deducted (if applicable)
-  tdsRate         Float           @default(0)  // TDS rate %
+  tdsAmount BigInt @default(0) // TDS deducted (if applicable)
+  tdsRate   Float  @default(0) // TDS rate %
 
   // Recurring expense support
-  isRecurring     Boolean         @default(false)
-  recurringPeriod String?                    // MONTHLY, QUARTERLY, YEARLY
+  isRecurring     Boolean @default(false)
+  recurringPeriod String? // MONTHLY, QUARTERLY, YEARLY
 
-  notes           String?
-  attachments     Json?                      // Store file paths/URLs
+  notes       String?
+  attachments Json? // Store file paths/URLs
 
-  active          Boolean         @default(true)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([category])
   @@index([expenseDate])
@@ -809,62 +839,73 @@ model Expense {
 // Singleton row holding shop identity, localization, tax and production configuration.
 // Read via lib/settings.ts#getAppSettings(); edited in Admin Settings (manage_settings).
 model BusinessSettings {
-  id              String   @id @default(cuid())
-  businessName    String   @default("My Tailor Shop")
-  tagline         String?
-  gstin           String?  @unique           // Tax registration number (GSTIN / VAT no. / EIN)
-  state           String?                     // Shop's state/region (decides intra- vs inter-region tax)
-  address         String?
-  city            String?
-  pincode         String?
-  country         String   @default("India")
-  phone           String?
-  email           String?
-  website         String?
+  id           String  @id @default(cuid())
+  businessName String  @default("My Tailor Shop")
+  tagline      String?
+  gstin        String? @unique // Tax registration number (GSTIN / VAT no. / EIN)
+  state        String? // Shop's state/region (decides intra- vs inter-region tax)
+  address      String?
+  city         String?
+  pincode      String?
+  country      String  @default("India")
+  phone        String?
+  email        String?
+  website      String?
 
   // Localization
-  currencyCode     String  @default("INR")          // ISO 4217 code used for all amounts
-  locale           String  @default("en-IN")        // BCP 47 tag; drives number and date formats
-  timeZone         String  @default("Asia/Kolkata") // IANA time zone for displayed dates
-  phoneCountryCode String  @default("91")           // Prefix added to local numbers (WhatsApp)
-  postalCodeLabel  String  @default("Pincode")      // e.g. Pincode, ZIP code, Postcode
+  currencyCode String @default("INR") // ISO 4217 code amounts are recorded in (never converted)
+  locale       String @default("en-IN") // BCP 47 tag; drives number and date formats
+  timeZone     String @default("Asia/Kolkata") // IANA time zone for displayed dates
+  phoneRegion  String @default("IN") // ISO 3166 country for numbers entered without +code
+
+  // Optional second currency shown next to amounts, converted with a rate the shop enters.
+  // exchangeRate = units of currencyCode per 1 unit of secondaryCurrencyCode (e.g. 112.5 INR per GBP).
+  secondaryCurrencyCode  String?
+  exchangeRate           Float?
+  exchangeRateUpdatedAt  DateTime?
+  showSecondaryOnInvoice Boolean   @default(false)
+  postalCodeLabel        String    @default("Pincode") // e.g. Pincode, ZIP code, Postcode
 
   // Tax
-  taxMode         String   @default("SPLIT")  // SPLIT (CGST+SGST / IGST) | SINGLE (VAT/Sales tax) | NONE
-  taxName         String   @default("GST")    // Label shown on invoices, e.g. GST, VAT, Sales Tax
-  taxIdLabel      String   @default("GSTIN")  // Label for registration numbers, e.g. GSTIN, VAT No.
-  fabricGstRate   Float    @default(5)       // Default tax rate for fabrics
-  garmentGstRate  Float    @default(12)      // Default tax rate applied to orders
+  taxMode        String @default("SPLIT") // SPLIT (CGST+SGST / IGST) | SINGLE (VAT/Sales tax) | NONE
+  taxName        String @default("GST") // Label shown on invoices, e.g. GST, VAT, Sales Tax
+  taxIdLabel     String @default("GSTIN") // Label for registration numbers, e.g. GSTIN, VAT No.
+  fabricGstRate  Float  @default(5) // Default tax rate for fabrics
+  garmentGstRate Float  @default(12) // Default tax rate applied to orders
 
   // Financial year settings
-  fyStartMonth    Int      @default(4)       // April = 4 (Indian FY)
+  fyStartMonth Int @default(4) // April = 4 (Indian FY)
 
   // Invoice settings
-  invoicePrefix   String   @default("INV")
-  invoiceCounter  Int      @default(1)
-  invoiceFooter   String?
+  invoicePrefix  String  @default("INV")
+  invoiceCounter Int     @default(1)
+  invoiceFooter  String?
 
   // Production (Master Tailor workload planning)
-  maxActiveItemsPerTailor Int @default(8)    // Capacity used for tailor utilisation
-  tailorDailyTarget       Int @default(5)    // Garments a tailor is expected to finish per day
+  maxActiveItemsPerTailor Int @default(8) // Capacity used for tailor utilisation
+  tailorDailyTarget       Int @default(5) // Garments a tailor is expected to finish per day
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  // Inventory: when true the reorder check drafts purchase orders (pending approval) for items
+  // at or below their minimum; reorder alerts are raised either way
+  autoReorderEnabled Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([gstin])
 }
 
 // Security-relevant changes (users, roles, settings, assignments) for accountability.
 model AuditLog {
-  id          String   @id @default(cuid())
-  userId      String?
-  action      String   // e.g. USER_CREATED, USER_ROLE_CHANGED, SETTINGS_UPDATED, TAILOR_ASSIGNED
-  entityType  String   // e.g. User, BusinessSettings, OrderItem
-  entityId    String?
-  details     Json?
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String // e.g. USER_CREATED, USER_ROLE_CHANGED, SETTINGS_UPDATED, TAILOR_ASSIGNED
+  entityType String // e.g. User, BusinessSettings, OrderItem
+  entityId   String?
+  details    Json?
+  createdAt  DateTime @default(now())
 
-  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
   @@index([entityType, entityId])
@@ -872,23 +913,23 @@ model AuditLog {
 }
 
 model DesignUpload {
-  id              String              @id @default(cuid())
-  orderItemId     String
+  id          String @id @default(cuid())
+  orderItemId String
 
-  fileName        String              // Original filename
-  fileType        String              // MIME type (image/jpeg, application/pdf, etc.)
-  filePath        String              // Storage path relative to uploads directory
-  fileSize        Int                 // Size in bytes
+  fileName String // Original filename
+  fileType String // MIME type (image/jpeg, application/pdf, etc.)
+  filePath String // Storage path relative to uploads directory
+  fileSize Int // Size in bytes
 
-  category        DesignFileCategory  @default(SKETCH)
-  description     String?
+  category    DesignFileCategory @default(SKETCH)
+  description String?
 
-  uploadedBy      String              // User ID
-  uploadedAt      DateTime            @default(now())
+  uploadedBy String // User ID
+  uploadedAt DateTime @default(now())
 
   // Relations
-  orderItem       OrderItem           @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
-  user            User                @relation(fields: [uploadedBy], references: [id])
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [uploadedBy], references: [id])
 
   @@index([orderItemId])
   @@index([uploadedBy])
@@ -898,10 +939,10 @@ model DesignUpload {
 // WhatsApp Integration Models
 model WhatsAppMessage {
   id            String    @id @default(cuid())
-  recipient     String    // Phone number (E.164 format)
+  recipient     String // Phone number (E.164 format)
   customerId    String?
   orderId       String?
-  messageType   String    // ORDER_CONFIRMATION, ORDER_READY, PAYMENT_REMINDER, CUSTOM, etc.
+  messageType   String // ORDER_CONFIRMATION, ORDER_READY, PAYMENT_REMINDER, CUSTOM, etc.
   templateName  String?
   content       String    @db.Text
   status        String    @default("PENDING") // PENDING, SENT, DELIVERED, READ, FAILED
@@ -909,13 +950,13 @@ model WhatsAppMessage {
   deliveredAt   DateTime?
   readAt        DateTime?
   failureReason String?
-  metadata      Json?     // Additional data (variables used, API response, etc.)
+  metadata      Json? // Additional data (variables used, API response, etc.)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   // Relations
-  customer      Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  order         Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  order    Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
 
   @@index([customerId])
   @@index([orderId])
@@ -925,15 +966,15 @@ model WhatsAppMessage {
 }
 
 model WhatsAppTemplate {
-  id            String    @id @default(cuid())
-  name          String    @unique
-  category      String    // TRANSACTIONAL, MARKETING, UTILITY
-  language      String    @default("en")
-  content       String    @db.Text
-  variables     Json      // Array of variable placeholders (e.g., ["customer_name", "order_number"])
-  active        Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id        String   @id @default(cuid())
+  name      String   @unique
+  category  String // TRANSACTIONAL, MARKETING, UTILITY
+  language  String   @default("en")
+  content   String   @db.Text
+  variables Json // Array of variable placeholders (e.g., ["customer_name", "order_number"])
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([name])
   @@index([active])

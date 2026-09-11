@@ -1,0 +1,148 @@
+-- Store every amount as a whole number of minor units (paise/cents, 2 decimal places).
+-- DOUBLE PRECISION -> BIGINT, value x 100, rounded half away from zero via NUMERIC (ROUND on a
+-- double would round half to even). Application code keeps using decimals: lib/db.ts converts
+-- at the Prisma boundary (lib/money.ts, lib/money-codec.ts).
+
+-- ClothInventory
+ALTER TABLE "ClothInventory"
+  ALTER COLUMN "pricePerMeter" SET DATA TYPE BIGINT USING ROUND("pricePerMeter"::NUMERIC * 100)::BIGINT;
+
+-- AccessoryInventory
+ALTER TABLE "AccessoryInventory"
+  ALTER COLUMN "pricePerUnit" SET DATA TYPE BIGINT USING ROUND("pricePerUnit"::NUMERIC * 100)::BIGINT;
+
+-- GarmentPattern
+ALTER TABLE "GarmentPattern"
+  ALTER COLUMN "basicStitchingCharge" DROP DEFAULT,
+  ALTER COLUMN "premiumStitchingCharge" DROP DEFAULT,
+  ALTER COLUMN "luxuryStitchingCharge" DROP DEFAULT,
+  ALTER COLUMN "basicStitchingCharge" SET DATA TYPE BIGINT USING ROUND("basicStitchingCharge"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "premiumStitchingCharge" SET DATA TYPE BIGINT USING ROUND("premiumStitchingCharge"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "luxuryStitchingCharge" SET DATA TYPE BIGINT USING ROUND("luxuryStitchingCharge"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "basicStitchingCharge" SET DEFAULT 150000,
+  ALTER COLUMN "premiumStitchingCharge" SET DEFAULT 300000,
+  ALTER COLUMN "luxuryStitchingCharge" SET DEFAULT 500000;
+
+-- Order
+ALTER TABLE "Order"
+  ALTER COLUMN "advancePaid" DROP DEFAULT,
+  ALTER COLUMN "discount" DROP DEFAULT,
+  ALTER COLUMN "subTotal" DROP DEFAULT,
+  ALTER COLUMN "cgst" DROP DEFAULT,
+  ALTER COLUMN "sgst" DROP DEFAULT,
+  ALTER COLUMN "igst" DROP DEFAULT,
+  ALTER COLUMN "gstAmount" DROP DEFAULT,
+  ALTER COLUMN "taxableAmount" DROP DEFAULT,
+  ALTER COLUMN "fabricCost" DROP DEFAULT,
+  ALTER COLUMN "fabricWastageAmount" DROP DEFAULT,
+  ALTER COLUMN "accessoriesCost" DROP DEFAULT,
+  ALTER COLUMN "stitchingCost" DROP DEFAULT,
+  ALTER COLUMN "workmanshipPremiums" DROP DEFAULT,
+  ALTER COLUMN "designerConsultationFee" DROP DEFAULT,
+  ALTER COLUMN "handStitchingCost" DROP DEFAULT,
+  ALTER COLUMN "fullCanvasCost" DROP DEFAULT,
+  ALTER COLUMN "rushOrderCost" DROP DEFAULT,
+  ALTER COLUMN "complexDesignCost" DROP DEFAULT,
+  ALTER COLUMN "additionalFittingsCost" DROP DEFAULT,
+  ALTER COLUMN "premiumLiningCost" DROP DEFAULT,
+  ALTER COLUMN "totalAmount" SET DATA TYPE BIGINT USING ROUND("totalAmount"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "advancePaid" SET DATA TYPE BIGINT USING ROUND("advancePaid"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "discount" SET DATA TYPE BIGINT USING ROUND("discount"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "balanceAmount" SET DATA TYPE BIGINT USING ROUND("balanceAmount"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "subTotal" SET DATA TYPE BIGINT USING ROUND("subTotal"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "cgst" SET DATA TYPE BIGINT USING ROUND("cgst"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "sgst" SET DATA TYPE BIGINT USING ROUND("sgst"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "igst" SET DATA TYPE BIGINT USING ROUND("igst"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "gstAmount" SET DATA TYPE BIGINT USING ROUND("gstAmount"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "taxableAmount" SET DATA TYPE BIGINT USING ROUND("taxableAmount"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "fabricCost" SET DATA TYPE BIGINT USING ROUND("fabricCost"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "fabricWastageAmount" SET DATA TYPE BIGINT USING ROUND("fabricWastageAmount"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "accessoriesCost" SET DATA TYPE BIGINT USING ROUND("accessoriesCost"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "stitchingCost" SET DATA TYPE BIGINT USING ROUND("stitchingCost"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "workmanshipPremiums" SET DATA TYPE BIGINT USING ROUND("workmanshipPremiums"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "designerConsultationFee" SET DATA TYPE BIGINT USING ROUND("designerConsultationFee"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "handStitchingCost" SET DATA TYPE BIGINT USING ROUND("handStitchingCost"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "fullCanvasCost" SET DATA TYPE BIGINT USING ROUND("fullCanvasCost"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "rushOrderCost" SET DATA TYPE BIGINT USING ROUND("rushOrderCost"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "complexDesignCost" SET DATA TYPE BIGINT USING ROUND("complexDesignCost"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "additionalFittingsCost" SET DATA TYPE BIGINT USING ROUND("additionalFittingsCost"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "premiumLiningCost" SET DATA TYPE BIGINT USING ROUND("premiumLiningCost"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "fabricCostOverride" SET DATA TYPE BIGINT USING ROUND("fabricCostOverride"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "stitchingCostOverride" SET DATA TYPE BIGINT USING ROUND("stitchingCostOverride"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "accessoriesCostOverride" SET DATA TYPE BIGINT USING ROUND("accessoriesCostOverride"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "advancePaid" SET DEFAULT 0,
+  ALTER COLUMN "discount" SET DEFAULT 0,
+  ALTER COLUMN "subTotal" SET DEFAULT 0,
+  ALTER COLUMN "cgst" SET DEFAULT 0,
+  ALTER COLUMN "sgst" SET DEFAULT 0,
+  ALTER COLUMN "igst" SET DEFAULT 0,
+  ALTER COLUMN "gstAmount" SET DEFAULT 0,
+  ALTER COLUMN "taxableAmount" SET DEFAULT 0,
+  ALTER COLUMN "fabricCost" SET DEFAULT 0,
+  ALTER COLUMN "fabricWastageAmount" SET DEFAULT 0,
+  ALTER COLUMN "accessoriesCost" SET DEFAULT 0,
+  ALTER COLUMN "stitchingCost" SET DEFAULT 0,
+  ALTER COLUMN "workmanshipPremiums" SET DEFAULT 0,
+  ALTER COLUMN "designerConsultationFee" SET DEFAULT 0,
+  ALTER COLUMN "handStitchingCost" SET DEFAULT 0,
+  ALTER COLUMN "fullCanvasCost" SET DEFAULT 0,
+  ALTER COLUMN "rushOrderCost" SET DEFAULT 0,
+  ALTER COLUMN "complexDesignCost" SET DEFAULT 0,
+  ALTER COLUMN "additionalFittingsCost" SET DEFAULT 0,
+  ALTER COLUMN "premiumLiningCost" SET DEFAULT 0;
+
+-- PaymentInstallment
+ALTER TABLE "PaymentInstallment"
+  ALTER COLUMN "paidAmount" DROP DEFAULT,
+  ALTER COLUMN "installmentAmount" SET DATA TYPE BIGINT USING ROUND("installmentAmount"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "paidAmount" SET DATA TYPE BIGINT USING ROUND("paidAmount"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "paidAmount" SET DEFAULT 0;
+
+-- OrderItem
+ALTER TABLE "OrderItem"
+  ALTER COLUMN "pricePerUnit" SET DATA TYPE BIGINT USING ROUND("pricePerUnit"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "totalPrice" SET DATA TYPE BIGINT USING ROUND("totalPrice"::NUMERIC * 100)::BIGINT;
+
+-- SupplierPrice
+ALTER TABLE "SupplierPrice"
+  ALTER COLUMN "pricePerMeter" SET DATA TYPE BIGINT USING ROUND("pricePerMeter"::NUMERIC * 100)::BIGINT;
+
+-- PurchaseOrder
+ALTER TABLE "PurchaseOrder"
+  ALTER COLUMN "paidAmount" DROP DEFAULT,
+  ALTER COLUMN "subTotal" DROP DEFAULT,
+  ALTER COLUMN "cgst" DROP DEFAULT,
+  ALTER COLUMN "sgst" DROP DEFAULT,
+  ALTER COLUMN "igst" DROP DEFAULT,
+  ALTER COLUMN "gstAmount" DROP DEFAULT,
+  ALTER COLUMN "totalAmount" SET DATA TYPE BIGINT USING ROUND("totalAmount"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "paidAmount" SET DATA TYPE BIGINT USING ROUND("paidAmount"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "balanceAmount" SET DATA TYPE BIGINT USING ROUND("balanceAmount"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "subTotal" SET DATA TYPE BIGINT USING ROUND("subTotal"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "cgst" SET DATA TYPE BIGINT USING ROUND("cgst"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "sgst" SET DATA TYPE BIGINT USING ROUND("sgst"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "igst" SET DATA TYPE BIGINT USING ROUND("igst"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "gstAmount" SET DATA TYPE BIGINT USING ROUND("gstAmount"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "paidAmount" SET DEFAULT 0,
+  ALTER COLUMN "subTotal" SET DEFAULT 0,
+  ALTER COLUMN "cgst" SET DEFAULT 0,
+  ALTER COLUMN "sgst" SET DEFAULT 0,
+  ALTER COLUMN "igst" SET DEFAULT 0,
+  ALTER COLUMN "gstAmount" SET DEFAULT 0;
+
+-- POItem
+ALTER TABLE "POItem"
+  ALTER COLUMN "pricePerUnit" SET DATA TYPE BIGINT USING ROUND("pricePerUnit"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "totalPrice" SET DATA TYPE BIGINT USING ROUND("totalPrice"::NUMERIC * 100)::BIGINT;
+
+-- Expense
+ALTER TABLE "Expense"
+  ALTER COLUMN "gstAmount" DROP DEFAULT,
+  ALTER COLUMN "tdsAmount" DROP DEFAULT,
+  ALTER COLUMN "amount" SET DATA TYPE BIGINT USING ROUND("amount"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "gstAmount" SET DATA TYPE BIGINT USING ROUND("gstAmount"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "totalAmount" SET DATA TYPE BIGINT USING ROUND("totalAmount"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "tdsAmount" SET DATA TYPE BIGINT USING ROUND("tdsAmount"::NUMERIC * 100)::BIGINT,
+  ALTER COLUMN "gstAmount" SET DEFAULT 0,
+  ALTER COLUMN "tdsAmount" SET DEFAULT 0;
+
