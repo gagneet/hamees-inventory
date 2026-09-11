@@ -23,6 +23,9 @@ import {
   PlusCircle,
   ExternalLink,
   Loader2,
+  KanbanSquare,
+  UserCog,
+  BarChart3,
 } from 'lucide-react';
 import { hasPermission, type UserRole } from '@/lib/permissions';
 import { cn } from '@/lib/utils';
@@ -39,7 +42,8 @@ interface QuickAction {
   label: string;
   href: string;
   icon: React.ElementType;
-  permission?: Parameters<typeof hasPermission>[1];
+  /** Shown when the role has this permission (or any of them, for a list) */
+  permission?: Parameters<typeof hasPermission>[1] | Parameters<typeof hasPermission>[1][];
 }
 
 const QUICK_ACTIONS: QuickAction[] = [
@@ -50,6 +54,10 @@ const QUICK_ACTIONS: QuickAction[] = [
   { label: 'View Orders', href: '/orders', icon: ShoppingBag, permission: 'view_orders' },
   { label: 'View Customers', href: '/customers', icon: Users, permission: 'view_customers' },
   { label: 'View Inventory', href: '/inventory', icon: Package, permission: 'view_inventory' },
+  { label: 'Production Board', href: '/orders/production', icon: KanbanSquare, permission: 'view_orders' },
+  { label: 'Tailor Workload', href: '/production/tailors', icon: UserCog, permission: 'view_production' },
+  { label: 'Production Report', href: '/reports/production', icon: BarChart3, permission: 'view_production_reports' },
+  { label: 'Reports', href: '/reports', icon: BarChart3, permission: ['view_financial_reports', 'view_expense_reports', 'view_customer_reports'] },
 ];
 
 interface CommandPaletteProps {
@@ -66,7 +74,9 @@ export function CommandPalette({ open, onOpenChange, userRole }: CommandPaletteP
   const abortRef = useRef<AbortController | null>(null);
 
   const visibleActions = QUICK_ACTIONS.filter(
-    (a) => !a.permission || (userRole && hasPermission(userRole, a.permission))
+    (a) =>
+      !a.permission ||
+      (userRole && (Array.isArray(a.permission) ? a.permission : [a.permission]).some((p) => hasPermission(userRole, p)))
   );
 
   const search = useCallback(async (q: string) => {
@@ -78,26 +88,39 @@ export function CommandPalette({ open, onOpenChange, userRole }: CommandPaletteP
       return;
     }
 
+    // Only search what the role may see (the APIs enforce this as well)
+    const canSearchCustomers = !!userRole && hasPermission(userRole, 'view_customers');
+    const canSearchOrders = !!userRole && hasPermission(userRole, 'view_orders');
+    if (!canSearchCustomers && !canSearchOrders) {
+      setResults([]);
+      setIsSearching(false);
+      return;
+    }
+
     const controller = new AbortController();
     abortRef.current = controller;
     setIsSearching(true);
 
     try {
       const [cusRes, ordRes] = await Promise.all([
-        fetch(`/api/customers?search=${encodeURIComponent(q)}&limit=5`, { signal: controller.signal }),
-        fetch(`/api/orders?search=${encodeURIComponent(q)}&limit=5`, { signal: controller.signal }),
+        canSearchCustomers
+          ? fetch(`/api/customers?search=${encodeURIComponent(q)}&limit=5`, { signal: controller.signal })
+          : null,
+        canSearchOrders
+          ? fetch(`/api/orders?search=${encodeURIComponent(q)}&limit=5`, { signal: controller.signal })
+          : null,
       ]);
 
       const combined: SearchResult[] = [];
 
-      if (cusRes.ok) {
+      if (cusRes?.ok) {
         const { customers } = await cusRes.json();
         (customers ?? []).forEach((c: { id: string; name: string; phone?: string }) => {
           combined.push({ id: c.id, label: c.name, sublabel: c.phone, href: `/customers/${c.id}`, type: 'customer' });
         });
       }
 
-      if (ordRes.ok) {
+      if (ordRes?.ok) {
         const { orders } = await ordRes.json();
         (orders ?? []).forEach((o: { id: string; orderNumber: string; customer?: { name: string } }) => {
           combined.push({
@@ -117,7 +140,7 @@ export function CommandPalette({ open, onOpenChange, userRole }: CommandPaletteP
       // Only clear spinner if this is still the active request (not superseded by a newer one)
       if (abortRef.current === controller) setIsSearching(false);
     }
-  }, []);
+  }, [userRole]);
 
   // Debounce search
   useEffect(() => {

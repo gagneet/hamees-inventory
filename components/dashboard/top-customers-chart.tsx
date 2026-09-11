@@ -11,7 +11,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts'
-import { formatCurrency } from '@/lib/utils'
+import { formatCompactCurrency, formatCurrency } from '@/lib/utils'
 
 interface TopCustomer {
   id: string
@@ -77,7 +77,7 @@ export function TopCustomersChart({ data }: TopCustomersChartProps) {
           />
           <YAxis
             tick={{ fontSize: 11, fill: '#64748B' }}
-            tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}k`}
+            tickFormatter={(value) => formatCompactCurrency(value)}
           />
           <Tooltip
             content={({ active, payload }) => {

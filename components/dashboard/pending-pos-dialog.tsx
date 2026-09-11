@@ -1,5 +1,6 @@
 'use client'
 
+import { formatCurrency, formatDate } from '@/lib/utils'
 import { useState, useEffect } from 'react'
 import { useFieldVisibility } from '@/hooks/use-field-visibility'
 import {
@@ -14,7 +15,6 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ExternalLink, ShoppingCart, Calendar, Package } from 'lucide-react'
 import Link from 'next/link'
-import { format } from 'date-fns'
 
 interface POItem {
   id: string
@@ -130,7 +130,7 @@ export function PendingPOsDialog({ trigger }: PendingPOsDialogProps) {
           {canView('purchase_order', 'totalAmount') && (
           <div className="p-3 bg-slate-50 rounded-lg text-center">
             <div className="text-2xl font-bold text-slate-900">
-              ₹{stats.totalValue.toFixed(2)}
+              {formatCurrency(stats.totalValue)}
             </div>
             <div className="text-xs text-slate-600">Total Value</div>
           </div>
@@ -197,7 +197,7 @@ export function PendingPOsDialog({ trigger }: PendingPOsDialogProps) {
                           }
                         >
                           {po.expectedDate
-                            ? format(new Date(po.expectedDate), 'dd MMM yyyy')
+                            ? formatDate(po.expectedDate)
                             : 'Not set'}
                         </span>
                       </div>
@@ -212,7 +212,7 @@ export function PendingPOsDialog({ trigger }: PendingPOsDialogProps) {
                   <div className="text-right shrink-0">
                    {canView('purchase_order', 'totalAmount') && (
                    <div className="text-lg font-bold text-slate-900">
-                     ₹{(po.totalAmount ?? 0).toFixed(2)}
+                     {formatCurrency(po.totalAmount ?? 0)}
                    </div>
                    )}
                    <Link href={`/purchase-orders/${po.id}`}>
@@ -242,8 +242,8 @@ export function PendingPOsDialog({ trigger }: PendingPOsDialogProps) {
                             item.pricePerUnit !== undefined &&
                             item.totalPrice !== undefined && (
                               <>
-                                {' '}× ₹{item.pricePerUnit.toFixed(2)} = ₹
-                                {item.totalPrice.toFixed(2)}
+                                {' '}× {formatCurrency(item.pricePerUnit)} ={' '}
+                                {formatCurrency(item.totalPrice)}
                               </>
                             )}
                         </div>

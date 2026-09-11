@@ -7,12 +7,13 @@
  *   Fetches enhanced stats from the API and routes to the correct dashboard
  *   component based on the user's role.
  *
- * @calls GET /api/dashboard/enhanced-stats — returns KPIs, charts, order lists
- * @renders RoleDashboardRouter → OwnerDashboard | TailorDashboard | SalesManagerDashboard |
- *          InventoryManagerDashboard (based on userRole prop from server)
+ * @calls GET /api/dashboard/enhanced-stats — returns KPIs, charts, order lists (shaped per role)
+ * @renders RoleDashboardRouter → OwnerDashboard | TailorDashboard | MasterTailorDashboard |
+ *          SalesManagerDashboard | InventoryManagerDashboard | ViewerDashboard
+ *          (based on userRole prop from server)
  */
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { RoleDashboardRouter } from './role-dashboard-router'
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -26,27 +27,28 @@ export function DashboardClient({ userRole }: DashboardClientProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    async function fetchDashboardData() {
-      try {
-        const response = await fetch('/api/dashboard/enhanced-stats')
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      const response = await fetch('/api/dashboard/enhanced-stats', { cache: 'no-store' })
 
-        if (!response.ok) {
-          throw new Error('Failed to fetch dashboard data')
-        }
-
-        const data = await response.json()
-        setDashboardData(data)
-      } catch (err) {
-        console.error('Error fetching dashboard:', err)
-        setError(err instanceof Error ? err.message : 'Unknown error')
-      } finally {
-        setLoading(false)
+      if (!response.ok) {
+        throw new Error('Failed to fetch dashboard data')
       }
-    }
 
-    fetchDashboardData()
+      const data = await response.json()
+      setDashboardData(data)
+      setError(null)
+    } catch (err) {
+      console.error('Error fetching dashboard:', err)
+      setError(err instanceof Error ? err.message : 'Unknown error')
+    } finally {
+      setLoading(false)
+    }
   }, [])
+
+  useEffect(() => {
+    fetchDashboardData()
+  }, [fetchDashboardData])
 
   if (loading) {
     return (
@@ -85,5 +87,5 @@ export function DashboardClient({ userRole }: DashboardClientProps) {
     )
   }
 
-  return <RoleDashboardRouter userRole={userRole} dashboardData={dashboardData} />
+  return <RoleDashboardRouter userRole={userRole} dashboardData={dashboardData} onRefresh={fetchDashboardData} />
 }

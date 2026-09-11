@@ -1,5 +1,6 @@
 'use client'
 
+import { formatCurrency } from '@/lib/utils'
 import { useState, useEffect } from 'react'
 import { useFieldVisibility } from '@/hooks/use-field-visibility'
 import {
@@ -356,7 +357,7 @@ export function CreatePODialog({ trigger, criticalFabrics = [] }: CreatePODialog
 
                     {canEnterPOPricesOnCreate && (
                       <div className="text-right text-sm font-medium">
-                        Total: ₹{(item.quantity * item.pricePerUnit).toFixed(2)}
+                        Total: {formatCurrency(item.quantity * item.pricePerUnit)}
                       </div>
                     )}
                   </div>
@@ -385,7 +386,7 @@ export function CreatePODialog({ trigger, criticalFabrics = [] }: CreatePODialog
                   Total PO Amount:
                 </span>
                 <span className="text-2xl font-bold text-blue-900">
-                  ₹{totalAmount.toFixed(2)}
+                  {formatCurrency(totalAmount)}
                 </span>
               </div>
             </div>

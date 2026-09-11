@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts'
-import { formatCurrency } from '@/lib/utils'
+import { formatCompactCurrency, formatCurrency } from '@/lib/utils'
 import { TrendingUp, TrendingDown } from 'lucide-react'
 
 interface RevenueForecastData {
@@ -90,7 +90,7 @@ export function RevenueForecastChart({ data }: RevenueForecastChartProps) {
                 fontSize={12}
                 tickLine={false}
                 axisLine={false}
-                tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}k`}
+                tickFormatter={(value) => formatCompactCurrency(value)}
               />
               <Tooltip
                 cursor={{ fill: '#f1f5f9' }}
