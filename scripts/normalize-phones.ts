@@ -9,6 +9,7 @@
  * counted as "invalid"; fix those by hand in the app (the forms show which ones are invalid).
  * Safe to re-run: numbers already in E.164 are not touched.
  */
+import 'dotenv/config' // DATABASE_URL from .env
 import { Pool } from 'pg'
 import { createPrismaClient } from '../lib/prisma-client'
 import { normalizePhone, toRegion } from '../lib/phone'
