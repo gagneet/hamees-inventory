@@ -5,27 +5,18 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount)
-}
-
-export function formatDate(date: Date | string): string {
-  return new Intl.DateTimeFormat('en-IN', {
-    dateStyle: 'medium',
-  }).format(new Date(date))
-}
-
-export function formatDateTime(date: Date | string): string {
-  return new Intl.DateTimeFormat('en-IN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(date))
-}
+// Currency/number/date formatting follows the shop's configured currency, locale and
+// time zone (Admin Settings → Business & Localization). See lib/locale.ts.
+export {
+  formatCurrency,
+  formatCompactCurrency,
+  currencySymbol,
+  formatNumber,
+  formatPercent,
+  formatDate,
+  formatDateTime,
+  formatDateWith,
+} from './locale'
 
 export function generateOrderNumber(): string {
   const timestamp = Date.now()
