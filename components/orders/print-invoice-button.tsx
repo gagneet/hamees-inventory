@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { taxLines } from '@/lib/tax'
 import { escapeHtml } from '@/lib/html-escape'
+import { indicativeTotalNote, normalizeLocaleConfig } from '@/lib/locale'
 import { useAppSettings } from '@/components/providers/settings-provider'
 import type { AppSettings } from '@/lib/app-settings'
 
@@ -147,6 +148,22 @@ function sellerBlock(settings: AppSettings): string {
 export function generateInvoiceHTML(order: InvoiceOrder, settings: AppSettings): string {
   const esc = escapeHtml
   const money = (n: number) => esc(formatCurrency(n))
+  // Optional indicative total in the secondary currency (display only; the invoice is payable in
+  // the main currency). Built from the settings passed in, not the process-wide locale.
+  const indicativeNote = settings.showSecondaryOnInvoice
+    ? indicativeTotalNote(
+        order.totalAmount,
+        normalizeLocaleConfig({
+          currency: settings.currency,
+          locale: settings.locale,
+          timeZone: settings.timeZone,
+          secondaryCurrency: settings.secondaryCurrency,
+          exchangeRate: settings.exchangeRate,
+          exchangeRateUpdatedAt: settings.exchangeRateUpdatedAt,
+        }),
+        order.items.length > 1 ? 'Indicative order total' : 'Indicative total'
+      )
+    : null
   const orderDate = formatDate(order.orderDate, 'medium')
   const deliveryDate = formatDate(order.deliveryDate, 'medium')
   const taxCfg = { mode: settings.taxMode, name: settings.taxName }
@@ -303,6 +320,9 @@ export function generateInvoiceHTML(order: InvoiceOrder, settings: AppSettings):
         </div>
 
         <div style="clear: both;"></div>
+        ${indicativeNote ? `
+        <div style="text-align: right; font-size: 9px; font-style: italic; color: #555; margin-top: 4px;">${esc(indicativeNote)}</div>
+        ` : ''}
 
         <!-- Payments Received Section -->
         ${order.paymentInstallments && order.paymentInstallments.length > 0 ? `

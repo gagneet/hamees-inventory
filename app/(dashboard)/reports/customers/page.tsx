@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/breadcrumb'
 import { Home, Users, TrendingUp, Star, AlertCircle } from 'lucide-react'
 import { formatCurrency as formatMoney, formatDate as formatShopDate } from '@/lib/utils'
+import { Money } from '@/components/ui/money'
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -251,7 +252,7 @@ export default function CustomerReportPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-2xl font-bold text-slate-900">{formatCurrency(summary.avgLifetimeValue)}</p>
+                <p className="text-2xl font-bold text-slate-900"><Money amount={Number(summary.avgLifetimeValue)} decimals={0} /></p>
                 <p className="text-xs text-slate-500 mt-1">Avg order: {formatCurrency(summary.avgOrderValue)}</p>
               </CardContent>
             </Card>

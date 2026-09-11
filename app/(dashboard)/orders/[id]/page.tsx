@@ -37,6 +37,7 @@ import {
 } from '@/components/ui/breadcrumb'
 import { Home, ArrowLeft, ShoppingBag, User, Calendar, DollarSign, Phone, Mail, Ruler } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { Money } from '@/components/ui/money'
 import { currencySymbol, getActiveLocaleConfig } from '@/lib/locale'
 import DashboardLayout from '@/components/DashboardLayout'
 import { OrderActions } from '@/components/orders/order-actions'
@@ -627,20 +628,20 @@ export default async function OrderDetailPage({
                 <div className="flex justify-between">
                   <span className="text-slate-600">Total Amount:</span>
                   <span className="font-semibold text-slate-900">
-                    {formatCurrency(order.totalAmount)}
+                    <Money amount={order.totalAmount} align="end" />
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-600">Advance Paid:</span>
                   <span className="font-semibold text-green-600">
-                    {formatCurrency(order.advancePaid)}
+                    <Money amount={order.advancePaid} align="end" />
                   </span>
                 </div>
                 {balancePayments > 0 && (
                   <div className="flex justify-between">
                     <span className="text-slate-600">Balance Paid:</span>
                     <span className="font-semibold text-green-600">
-                      {formatCurrency(balancePayments)}
+                      <Money amount={balancePayments} align="end" />
                     </span>
                   </div>
                 )}
@@ -648,7 +649,7 @@ export default async function OrderDetailPage({
                   <div className="flex justify-between">
                     <span className="text-slate-600">Discount:</span>
                     <span className="font-semibold text-yellow-600">
-                      {formatCurrency(order.discount)}
+                      <Money amount={order.discount} align="end" />
                     </span>
                   </div>
                 )}
@@ -664,7 +665,7 @@ export default async function OrderDetailPage({
                   <span className={`font-semibold text-lg ${
                     isArrears ? 'text-red-600' : (order.balanceAmount > 0.01 ? 'text-orange-600' : 'text-green-600')
                   }`}>
-                    {formatCurrency(Math.max(0, order.balanceAmount))}
+                    <Money amount={Math.max(0, order.balanceAmount)} align="end" />
                     {isArrears && (
                       <span className="text-xs ml-2 px-2 py-0.5 bg-red-100 text-red-700 rounded">ARREARS</span>
                     )}

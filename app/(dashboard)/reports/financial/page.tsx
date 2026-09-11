@@ -34,6 +34,7 @@ import {
   Legend,
 } from 'recharts'
 import { formatCurrency, currencySymbol } from '@/lib/utils'
+import { Money } from '@/components/ui/money'
 
 export default function FinancialReportPage() {
   const [data, setData] = useState<any>(null)
@@ -171,13 +172,13 @@ export default function FinancialReportPage() {
             <div className="p-4 bg-green-50 rounded-lg border border-green-200">
               <p className="text-sm font-medium text-green-800">Revenue</p>
               <p className="text-2xl font-bold text-green-900">
-                {formatCurrency(data.summary.thisMonthRevenue)}
+                <Money amount={data.summary.thisMonthRevenue} />
               </p>
             </div>
             <div className="p-4 bg-red-50 rounded-lg border border-red-200">
               <p className="text-sm font-medium text-red-800">Expenses</p>
               <p className="text-2xl font-bold text-red-900">
-                {formatCurrency(data.summary.thisMonthExpenses)}
+                <Money amount={data.summary.thisMonthExpenses} />
               </p>
             </div>
             <div className={`p-4 rounded-lg border ${isProfitable ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'}`}>
@@ -186,7 +187,7 @@ export default function FinancialReportPage() {
               </p>
               <div className="flex items-center gap-2">
                 <p className={`text-2xl font-bold ${isProfitable ? 'text-blue-900' : 'text-orange-900'}`}>
-                  {formatCurrency(Math.abs(data.summary.thisMonthProfit))}
+                  <Money amount={Math.abs(data.summary.thisMonthProfit)} />
                 </p>
                 {isProfitable
                   ? <TrendingUp className="h-5 w-5 text-blue-600" />
@@ -213,19 +214,19 @@ export default function FinancialReportPage() {
             <div>
               <p className="text-sm text-slate-600">Total Revenue</p>
               <p className="text-xl font-bold text-green-600">
-                {formatCurrency(data.yearToDate.revenue)}
+                <Money amount={data.yearToDate.revenue} />
               </p>
             </div>
             <div>
               <p className="text-sm text-slate-600">Total Expenses</p>
               <p className="text-xl font-bold text-red-600">
-                {formatCurrency(data.yearToDate.expenses)}
+                <Money amount={data.yearToDate.expenses} />
               </p>
             </div>
             <div>
               <p className="text-sm text-slate-600">Net Profit</p>
               <p className={`text-xl font-bold ${data.yearToDate.profit >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
-                {formatCurrency(data.yearToDate.profit)}
+                <Money amount={data.yearToDate.profit} />
               </p>
             </div>
           </div>
@@ -264,7 +265,7 @@ export default function FinancialReportPage() {
             <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
               <span className="text-sm font-medium">Cash Received (Month)</span>
               <span className="text-lg font-bold text-green-600">
-                {formatCurrency(data.summary.cashReceived)}
+                <Money amount={data.summary.cashReceived} align="end" />
               </span>
             </div>
             <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
@@ -272,7 +273,7 @@ export default function FinancialReportPage() {
                 Outstanding Payments ({data.summary.outstandingCount})
               </span>
               <span className="text-lg font-bold text-orange-600">
-                {formatCurrency(data.summary.outstandingPayments)}
+                <Money amount={data.summary.outstandingPayments} align="end" />
               </span>
             </div>
           </CardContent>
@@ -283,7 +284,7 @@ export default function FinancialReportPage() {
             <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
               <span className="text-sm font-medium">Inventory Value</span>
               <span className="text-lg font-bold text-blue-600">
-                {formatCurrency(data.summary.inventoryValue)}
+                <Money amount={data.summary.inventoryValue} align="end" />
               </span>
             </div>
           </CardContent>

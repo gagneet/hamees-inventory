@@ -41,6 +41,7 @@ import {
 } from '@/components/ui/dialog'
 import DashboardLayout from '@/components/DashboardLayout'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { Money } from '@/components/ui/money'
 import { useFieldVisibility } from '@/hooks/use-field-visibility'
 import { hasPermission } from '@/lib/permissions'
 
@@ -631,16 +632,16 @@ export default function PurchaseOrderDetailPage({
               <>
                 <div>
                   <p className="text-sm text-slate-500">Total Amount</p>
-                  <p className="font-bold text-lg">{formatCurrency(purchaseOrder.totalAmount)}</p>
+                  <p className="font-bold text-lg"><Money amount={purchaseOrder.totalAmount} /></p>
                 </div>
                 <div>
                   <p className="text-sm text-slate-500">Paid Amount</p>
-                  <p className="text-green-600">{formatCurrency(purchaseOrder.paidAmount)}</p>
+                  <p className="text-green-600"><Money amount={purchaseOrder.paidAmount} /></p>
                 </div>
                 <div>
                   <p className="text-sm text-slate-500">Balance Amount</p>
                   <p className={purchaseOrder.balanceAmount > 0 ? 'text-red-600 font-semibold' : ''}>
-                    {formatCurrency(purchaseOrder.balanceAmount)}
+                    <Money amount={purchaseOrder.balanceAmount} />
                   </p>
                 </div>
               </>
@@ -802,19 +803,19 @@ export default function PurchaseOrderDetailPage({
                 <div>
                   <p className="text-slate-600">Total Amount</p>
                   <p className="font-semibold text-slate-900">
-                    {formatCurrency(purchaseOrder.totalAmount)}
+                    <Money amount={purchaseOrder.totalAmount} />
                   </p>
                 </div>
                 <div>
                   <p className="text-slate-600">Already Paid</p>
                   <p className="font-semibold text-green-600">
-                    {formatCurrency(purchaseOrder.paidAmount)}
+                    <Money amount={purchaseOrder.paidAmount} />
                   </p>
                 </div>
                 <div className="col-span-2 pt-2 border-t border-blue-300">
                   <p className="text-slate-600">Balance Due</p>
                   <p className="font-bold text-lg text-red-600">
-                    {formatCurrency(purchaseOrder.balanceAmount)}
+                    <Money amount={purchaseOrder.balanceAmount} />
                   </p>
                 </div>
               </div>
