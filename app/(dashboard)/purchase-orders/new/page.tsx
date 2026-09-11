@@ -1,9 +1,20 @@
 'use client'
 
+/**
+ * @featuretrace Purchase Orders → New
+ * @page /purchase-orders/new
+ * @description Every line picks an active inventory item (components/purchase-orders/po-line-editor.tsx);
+ *   the server derives the line name and unit. Pre-fill via ?supplierId=&itemType=CLOTH|ACCESSORY&itemId=&quantity=
+ *   (used by reorder suggestions, alerts and the inventory detail pages). Only the owner enters prices at
+ *   creation; other roles' POs wait for approval with prices.
+ * @calls POST /api/purchase-orders — shows any supplier-mismatch warnings it returns
+ */
+
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { Home, Plus, Trash2 } from 'lucide-react'
+import { Home, Plus } from 'lucide-react'
+import { toast } from 'sonner'
 import {
   Card,
   CardContent,
@@ -20,7 +31,6 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { DatePicker } from '@/components/ui/date-picker'
 import {
@@ -35,20 +45,22 @@ import DashboardLayout from '@/components/DashboardLayout'
 import { formatCurrency } from '@/lib/utils'
 import { useFieldVisibility } from '@/hooks/use-field-visibility'
 import { PhoneText } from '@/components/ui/phone-input'
+import {
+  POLineEditor,
+  lineProblem,
+  linesToPayload,
+  linesTotal,
+  newLineDraft,
+  takenKeysExcept,
+  useInventoryOptions,
+  type POLineDraft,
+} from '@/components/purchase-orders/po-line-editor'
 
 interface Supplier {
   id: string
   name: string
   phone: string
   email: string | null
-}
-
-interface POItem {
-  itemName: string
-  itemType: 'CLOTH' | 'ACCESSORY'
-  orderedQuantity: number
-  unit: string
-  pricePerUnit: number
 }
 
 function NewPurchaseOrderContent() {
@@ -65,89 +77,58 @@ function NewPurchaseOrderContent() {
     notes: '',
   })
 
-  const [items, setItems] = useState<POItem[]>([
-    {
-      itemName: searchParams.get('itemName') || '',
-      itemType: (searchParams.get('itemType') as 'CLOTH' | 'ACCESSORY') || 'CLOTH',
-      orderedQuantity: parseFloat(searchParams.get('quantity') || '0') || 0,
-      unit: searchParams.get('unit') || 'meters',
-      pricePerUnit: parseFloat(searchParams.get('pricePerUnit') || '0') || 0,
-    },
-  ])
+  const [lines, setLines] = useState<POLineDraft[]>(() => {
+    const quantity = Number(searchParams.get('quantity'))
+    return [
+      newLineDraft({
+        itemType: searchParams.get('itemType') === 'ACCESSORY' ? 'ACCESSORY' : 'CLOTH',
+        itemId: searchParams.get('itemId') || '',
+        quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : null,
+      }),
+    ]
+  })
+
+  const { options, loading: optionsLoading } = useInventoryOptions(formData.supplierId)
 
   useEffect(() => {
-    fetchSuppliers()
+    fetch('/api/suppliers')
+      .then((response) => response.json())
+      .then((data) => setSuppliers(data.suppliers || []))
+      .catch((error) => console.error('Error fetching suppliers:', error))
   }, [])
 
-  const fetchSuppliers = async () => {
-    try {
-      const response = await fetch('/api/suppliers')
-      const data = await response.json()
-      setSuppliers(data.suppliers || [])
-    } catch (error) {
-      console.error('Error fetching suppliers:', error)
-    }
-  }
-
-  const addItem = () => {
-    setItems([
-      ...items,
-      {
-        itemName: '',
-        itemType: 'CLOTH',
-        orderedQuantity: 0,
-        unit: 'meters',
-        pricePerUnit: 0,
-      },
-    ])
-  }
-
-  const removeItem = (index: number) => {
-    if (items.length > 1) {
-      setItems(items.filter((_, i) => i !== index))
-    }
-  }
-
-  const updateItem = (index: number, field: keyof POItem, value: any) => {
-    const newItems = [...items]
-    newItems[index] = { ...newItems[index], [field]: value }
-    setItems(newItems)
-  }
-
-  const calculateTotal = () => {
-    if (!canEnterPOPricesOnCreate) return 0
-    return items.reduce((sum, item) => sum + item.orderedQuantity * item.pricePerUnit, 0)
-  }
+  const updateLine = (line: POLineDraft) => setLines((current) => current.map((l) => (l.key === line.key ? line : l)))
+  const removeLine = (key: string) => setLines((current) => current.filter((l) => l.key !== key))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
+    const problem = lines.map((line) => lineProblem(line, options)).find(Boolean)
+    if (problem) {
+      toast.error(problem)
+      return
+    }
 
+    setLoading(true)
     try {
       const response = await fetch('/api/purchase-orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          items: items
-            .filter((item) => item.itemName && item.orderedQuantity > 0)
-            .map((item) => ({
-              ...item,
-              quantity: item.orderedQuantity,
-              pricePerUnit: canEnterPOPricesOnCreate ? item.pricePerUnit : undefined,
-            })),
+          expectedDate: formData.expectedDate || null,
+          notes: formData.notes || null,
+          items: linesToPayload(lines, options, canEnterPOPricesOnCreate),
         }),
       })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || 'Failed to create purchase order')
 
-      if (!response.ok) {
-        throw new Error('Failed to create purchase order')
-      }
-
-      const data = await response.json()
+      for (const warning of data.warnings ?? []) toast.warning(warning)
+      toast.success(`Purchase order ${data.purchaseOrder.poNumber} created`)
       router.push(`/purchase-orders/${data.purchaseOrder.id}`)
     } catch (error) {
       console.error('Error creating purchase order:', error)
-      alert('Failed to create purchase order')
+      toast.error(error instanceof Error ? error.message : 'Failed to create purchase order')
     } finally {
       setLoading(false)
     }
@@ -192,12 +173,10 @@ function NewPurchaseOrderContent() {
               <Label htmlFor="supplier">Supplier *</Label>
               <Select
                 value={formData.supplierId}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, supplierId: value })
-                }
+                onValueChange={(value) => setFormData({ ...formData, supplierId: value })}
                 required
               >
-                <SelectTrigger>
+                <SelectTrigger id="supplier">
                   <SelectValue placeholder="Select a supplier" />
                 </SelectTrigger>
                 <SelectContent>
@@ -235,116 +214,36 @@ function NewPurchaseOrderContent() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>Order Items</CardTitle>
-                <CardDescription>Add items to this purchase order</CardDescription>
+                <CardDescription>
+                  Pick the fabric or accessory each line restocks. Quantities default to the suggested reorder
+                  quantity.
+                </CardDescription>
               </div>
-              <Button type="button" variant="outline" size="sm" onClick={addItem}>
+              <Button type="button" variant="outline" size="sm" onClick={() => setLines((current) => [...current, newLineDraft()])}>
                 <Plus className="mr-2 h-4 w-4" />
                 Add Item
               </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {items.map((item, index) => (
-              <div
-                key={index}
-                className="grid gap-4 p-4 border rounded-lg relative bg-slate-50"
-              >
-                {items.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="absolute top-2 right-2"
-                    onClick={() => removeItem(index)}
-                  >
-                    <Trash2 className="h-4 w-4 text-red-600" />
-                  </Button>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label>Item Name *</Label>
-                    <Input
-                      value={item.itemName}
-                      onChange={(e) => updateItem(index, 'itemName', e.target.value)}
-                      placeholder="e.g., Premium Cotton Fabric"
-                      required
-                    />
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label>Item Type *</Label>
-                    <Select
-                      value={item.itemType}
-                      onValueChange={(value) => updateItem(index, 'itemType', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="CLOTH">Cloth/Fabric</SelectItem>
-                        <SelectItem value="ACCESSORY">Accessory</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label>Quantity *</Label>
-                    <Input
-                      type="number"
-                      value={item.orderedQuantity || ''}
-                      onChange={(e) =>
-                        updateItem(index, 'orderedQuantity', parseFloat(e.target.value) || 0)
-                      }
-                      step="0.01"
-                      min="0"
-                      required
-                    />
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label>Unit *</Label>
-                    <Select
-                      value={item.unit}
-                      onValueChange={(value) => updateItem(index, 'unit', value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="meters">Meters</SelectItem>
-                        <SelectItem value="pieces">Pieces</SelectItem>
-                        <SelectItem value="kg">Kilograms</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {canEnterPOPricesOnCreate && (
-                    <>
-                      <div className="grid gap-2">
-                        <Label>Price per Unit *</Label>
-                        <Input
-                          type="number"
-                          value={item.pricePerUnit || ''}
-                          onChange={(e) =>
-                            updateItem(index, 'pricePerUnit', parseFloat(e.target.value) || 0)
-                          }
-                          step="0.01"
-                          min="0"
-                          required
-                        />
-                      </div>
-
-                      <div className="grid gap-2">
-                        <Label>Total Price</Label>
-                        <div className="p-2 bg-slate-100 rounded-md font-semibold">
-                          {formatCurrency(item.orderedQuantity * item.pricePerUnit)}
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
+            {lines.map((line, index) => (
+              <POLineEditor
+                key={line.key}
+                index={index}
+                line={line}
+                options={options}
+                optionsLoading={optionsLoading}
+                supplierId={formData.supplierId}
+                canEnterPrices={canEnterPOPricesOnCreate}
+                takenKeys={takenKeysExcept(lines, line.key)}
+                onChange={updateLine}
+                onRemove={lines.length > 1 ? () => removeLine(line.key) : undefined}
+                onItemSelected={(option) => {
+                  if (!formData.supplierId && option.supplierId) {
+                    setFormData((current) => ({ ...current, supplierId: option.supplierId! }))
+                  }
+                }}
+              />
             ))}
           </CardContent>
         </Card>
@@ -378,13 +277,11 @@ function NewPurchaseOrderContent() {
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <span className="text-slate-600">Total Items:</span>
-                  <span className="font-semibold">{items.length}</span>
+                  <span className="font-semibold">{lines.length}</span>
                 </div>
                 <div className="flex justify-between text-lg">
                   <span className="font-semibold">Total Amount:</span>
-                  <span className="font-bold text-blue-600">
-                    {formatCurrency(calculateTotal())}
-                  </span>
+                  <span className="font-bold text-blue-600">{formatCurrency(linesTotal(lines, options))}</span>
                 </div>
               </div>
             </CardContent>
@@ -396,7 +293,7 @@ function NewPurchaseOrderContent() {
           <Button type="button" variant="outline" asChild>
             <Link href="/purchase-orders">Cancel</Link>
           </Button>
-          <Button type="submit" disabled={loading || isLoading || !formData.supplierId}>
+          <Button type="submit" disabled={loading || isLoading || optionsLoading || !formData.supplierId}>
             {loading ? 'Creating...' : 'Create Purchase Order'}
           </Button>
         </div>

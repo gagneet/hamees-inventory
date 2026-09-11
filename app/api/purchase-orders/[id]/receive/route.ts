@@ -6,6 +6,7 @@ import { hasFinancialAccess } from '@/lib/field-acl'
 import { actorFromSession } from '@/lib/authz'
 import { addAccessoryStock, changeClothStock, roundMeters } from '@/lib/stock'
 import { lockPurchaseOrder, roundMoney } from '@/lib/order-finance'
+import { poItemInventoryInclude } from '@/lib/purchase-order-items'
 import { z } from 'zod'
 
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
@@ -40,10 +41,11 @@ function appendNote(existingNotes: string | null, note: string | null | undefine
 /**
  * POST /api/purchase-orders/[id]/receive
  * Record goods received against a PO's own lines (optionally with a payment).
- * Each line must belong to this PO; quantity is capped at ordered − already received;
- * fabric lines may only credit fabric stock and accessory lines accessory stock.
- * PO lines store no inventory link, so the item to credit comes from the request (manage_inventory
- * only); every receipt writes a stock movement naming the PO and line, so it can be traced.
+ * Each line must belong to this PO; quantity is capped at ordered − already received.
+ * Stock is credited to the line's linked inventory item. Only a legacy line with no link may name an
+ * item in the request (fabric for CLOTH lines, accessory for ACCESSORY lines); that links the line
+ * permanently. Naming a different item for an already-linked line is rejected (400).
+ * Every receipt writes a stock movement naming the PO and line, so it can be traced.
  */
 export async function POST(
   request: Request,
@@ -103,36 +105,65 @@ export async function POST(
           )
         }
 
-        if (line.clothInventoryId && line.accessoryInventoryId) {
+        const requestedCloth = line.clothInventoryId || null
+        const requestedAccessory = line.accessoryInventoryId || null
+        if (requestedCloth && requestedAccessory) {
           throw new ReceiveError(`${poItem.itemName}: choose either a fabric or an accessory to credit, not both`)
         }
-        if (line.clothInventoryId && !isCloth) {
+        if (requestedCloth && !isCloth) {
           throw new ReceiveError(`${poItem.itemName} is not a fabric line`)
         }
-        if (line.accessoryInventoryId && isCloth) {
+        if (requestedAccessory && isCloth) {
           throw new ReceiveError(`${poItem.itemName} is not an accessory line`)
         }
 
-        if (quantity <= 0) continue
-        receivedNow.set(poItem.id, quantity)
+        // The line's own link decides what is credited; the request may only link a legacy line
+        const linkedId = isCloth ? poItem.clothInventoryId : poItem.accessoryInventoryId
+        const requestedId = isCloth ? requestedCloth : requestedAccessory
+        if (linkedId && requestedId && requestedId !== linkedId) {
+          throw new ReceiveError(`${poItem.itemName} is already linked to a different inventory item`)
+        }
+        const newLink = !linkedId && requestedId ? requestedId : null
+        if (newLink) {
+          const target = isCloth
+            ? await tx.clothInventory.findUnique({ where: { id: newLink }, select: { active: true } })
+            : await tx.accessoryInventory.findUnique({ where: { id: newLink }, select: { active: true } })
+          if (!target || !target.active) {
+            throw new ReceiveError(`${poItem.itemName}: the ${isCloth ? 'fabric' : 'accessory'} to link was not found or is inactive`)
+          }
+        }
+        const targetId = linkedId ?? newLink
+        if (!targetId && quantity > 0) {
+          throw new ReceiveError(
+            `${poItem.itemName} is not linked to inventory: choose the ${isCloth ? 'fabric' : 'accessory'} to credit`
+          )
+        }
+
+        if (quantity <= 0 && !newLink) continue
+        if (quantity > 0) receivedNow.set(poItem.id, quantity)
 
         // Optimistic guard: fails if another receipt updated this line concurrently
         const updated = await tx.pOItem.updateMany({
           where: { id: poItem.id, purchaseOrderId: id, receivedQuantity: poItem.receivedQuantity },
-          data: { receivedQuantity: roundMeters(poItem.receivedQuantity + quantity) },
+          data: {
+            receivedQuantity: roundMeters(poItem.receivedQuantity + Math.max(0, quantity)),
+            ...(newLink && (isCloth ? { clothInventoryId: newLink } : { accessoryInventoryId: newLink })),
+          },
         })
         if (updated.count === 0) {
           throw new ReceiveError('This purchase order was updated by someone else. Refresh and try again.', 409)
         }
 
-        if (line.clothInventoryId) {
-          const levels = await changeClothStock(tx, line.clothInventoryId, quantity, {
+        if (quantity <= 0 || !targetId) continue
+
+        if (isCloth) {
+          const levels = await changeClothStock(tx, targetId, quantity, {
             countAsPurchase: true,
             label: poItem.itemName,
           })
           await tx.stockMovement.create({
             data: {
-              clothInventoryId: line.clothInventoryId,
+              clothInventoryId: targetId,
               userId: actor.id,
               type: 'PURCHASE',
               quantityMeters: quantity,
@@ -140,12 +171,12 @@ export async function POST(
               notes: `Purchase Order ${purchaseOrder.poNumber} received (${poItem.itemName})`,
             },
           })
-        } else if (line.accessoryInventoryId) {
-          const levels = await addAccessoryStock(tx, line.accessoryInventoryId, quantity)
+        } else {
+          const levels = await addAccessoryStock(tx, targetId, quantity)
           if (!levels) throw new ReceiveError(`${poItem.itemName}: accessory not found`, 404)
           await tx.accessoryStockMovement.create({
             data: {
-              accessoryInventoryId: line.accessoryInventoryId,
+              accessoryInventoryId: targetId,
               userId: actor.id,
               type: 'PURCHASE',
               quantityUnits: quantity,
@@ -195,7 +226,7 @@ export async function POST(
       where: { id },
       include: {
         supplier: true,
-        items: true,
+        items: { include: poItemInventoryInclude },
       },
     })
 

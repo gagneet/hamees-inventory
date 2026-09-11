@@ -1,33 +1,67 @@
 /**
  * @featuretrace Purchase Order Approval
  * FEATURETRACE:
- *   feature: purchase_order_non_owner_price_privacy
+ *   feature: purchase_order_non_owner_price_privacy, purchase_order_inventory_links
  *   owner_area: purchase-orders
  *   entry_points: POST /api/purchase-orders, UI /purchase-orders/new, CreatePODialog
  *   upstream_callers: app/(dashboard)/purchase-orders/new/page.tsx, components/dashboard/create-po-dialog.tsx
- *   downstream_dependencies: Prisma PurchaseOrder/POItem, field ACL filtering, NextAuth role
+ *   downstream_dependencies: Prisma PurchaseOrder/POItem, ClothInventory/AccessoryInventory, field ACL filtering,
+ *     NextAuth role, lib/purchase-order-items (line names, PO number), lib/reorder (after())
  *   related_tests: tests/unit/api/purchase-orders.test.ts, tests/integration/acl-filtering.test.ts
- *   change_risk: medium - status controls whether PO can be approved, paid, or received
+ *   change_risk: medium - status controls whether PO can be approved, paid, or received; links drive stock receipts
  */
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission, requirePermission } from '@/lib/api-permissions'
 import { filterApiResponse } from '@/lib/api-filter-response'
+import { multiplyMoney, sumMoney } from '@/lib/money'
+import { roundMeters } from '@/lib/stock'
+import {
+  PO_LINE_UNIT,
+  accessoryLineName,
+  clothLineName,
+  nextPoNumber,
+  poItemInventoryInclude,
+} from '@/lib/purchase-order-items'
+import { runReorderCheckQuietly } from '@/lib/reorder'
 import { z } from 'zod'
 import type { UserRole } from '@prisma/client'
 
+/**
+ * A line names the inventory item it restocks: clothInventoryId for CLOTH, accessoryInventoryId for
+ * ACCESSORY. itemName and unit are derived from that item; values sent by the client are ignored.
+ */
 const purchaseOrderItemSchema = z
   .object({
-    itemName: z.string().min(1),
     itemType: z.enum(['CLOTH', 'ACCESSORY']),
+    clothInventoryId: z.string().min(1).nullish(),
+    accessoryInventoryId: z.string().min(1).nullish(),
     quantity: z.number().positive().optional(),
     orderedQuantity: z.number().positive().optional(),
-    unit: z.string().min(1),
     pricePerUnit: z.number().nonnegative().optional(),
+    itemName: z.string().optional(),
+    unit: z.string().optional(),
   })
   .refine((item) => item.quantity !== undefined || item.orderedQuantity !== undefined, {
     message: 'Quantity is required',
     path: ['quantity'],
+  })
+  .superRefine((item, ctx) => {
+    const isCloth = item.itemType === 'CLOTH'
+    if (!(isCloth ? item.clothInventoryId : item.accessoryInventoryId)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [isCloth ? 'clothInventoryId' : 'accessoryInventoryId'],
+        message: `Choose the ${isCloth ? 'fabric' : 'accessory'} this line restocks`,
+      })
+    }
+    if (isCloth ? item.accessoryInventoryId : item.clothInventoryId) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [isCloth ? 'accessoryInventoryId' : 'clothInventoryId'],
+        message: isCloth ? 'A fabric line cannot link an accessory' : 'An accessory line cannot link a fabric',
+      })
+    }
   })
 
 function getInitialPurchaseOrderStatus(role: UserRole): 'APPROVED' | 'PENDING_APPROVAL' {
@@ -37,11 +71,17 @@ function getInitialPurchaseOrderStatus(role: UserRole): 'APPROVED' | 'PENDING_AP
 const purchaseOrderSchema = z.object({
   supplierId: z.string().min(1),
   expectedDate: z.string().nullish(),
-  items: z.array(purchaseOrderItemSchema).min(1),
+  items: z.array(purchaseOrderItemSchema).min(1).max(200),
   notes: z.string().nullish(),
 })
 
 const PO_STATUSES = new Set(['PENDING_APPROVAL', 'PENDING', 'APPROVED', 'PARTIAL', 'RECEIVED', 'CANCELLED'])
+
+type Issue = { path: (string | number)[]; message: string }
+
+function validationError(issues: Issue[]) {
+  return NextResponse.json({ error: issues[0].message, details: issues }, { status: 400 })
+}
 
 export async function GET(request: Request) {
   try {
@@ -72,7 +112,7 @@ export async function GET(request: Request) {
             email: true,
           },
         },
-        items: true,
+        items: { include: poItemInventoryInclude },
       },
       orderBy: {
         createdAt: 'desc',
@@ -103,29 +143,93 @@ export async function POST(request: Request) {
     const isOwner = session.user.role === 'OWNER'
 
     if (isOwner && items.some((item) => item.pricePerUnit === undefined)) {
-      return NextResponse.json(
-        { error: 'Validation failed', details: [{ path: ['items', 'pricePerUnit'], message: 'Price per unit is required' }] },
-        { status: 400 }
-      )
+      return validationError([{ path: ['items', 'pricePerUnit'], message: 'Price per unit is required' }])
     }
 
-    const normalizedItems = items.map((item) => ({
-      itemName: item.itemName,
-      itemType: item.itemType,
-      quantity: item.quantity ?? item.orderedQuantity ?? 0,
-      unit: item.unit,
-      pricePerUnit: isOwner ? item.pricePerUnit ?? 0 : 0,
-    }))
+    const supplier = await prisma.supplier.findUnique({ where: { id: supplierId }, select: { id: true, active: true } })
+    if (!supplier || !supplier.active) {
+      return validationError([{ path: ['supplierId'], message: 'Supplier not found or inactive' }])
+    }
 
-    // Calculate totals
-    const totalAmount = normalizedItems.reduce(
-      (sum, item) => sum + item.quantity * item.pricePerUnit,
-      0
-    )
+    const clothIds = [...new Set(items.flatMap((item) => (item.itemType === 'CLOTH' && item.clothInventoryId ? [item.clothInventoryId] : [])))]
+    const accessoryIds = [
+      ...new Set(items.flatMap((item) => (item.itemType === 'ACCESSORY' && item.accessoryInventoryId ? [item.accessoryInventoryId] : []))),
+    ]
+    const supplierSelect = { select: { id: true, name: true } } as const
+    const [cloths, accessories] = await Promise.all([
+      clothIds.length > 0
+        ? prisma.clothInventory.findMany({
+            where: { id: { in: clothIds } },
+            select: { id: true, sku: true, name: true, brand: true, color: true, active: true, supplierId: true, supplierRel: supplierSelect },
+          })
+        : [],
+      accessoryIds.length > 0
+        ? prisma.accessoryInventory.findMany({
+            where: { id: { in: accessoryIds } },
+            select: { id: true, sku: true, name: true, color: true, active: true, supplierId: true, supplierRel: supplierSelect },
+          })
+        : [],
+    ])
+    const clothById = new Map((cloths ?? []).map((c) => [c.id, c]))
+    const accessoryById = new Map((accessories ?? []).map((a) => [a.id, a]))
 
-    // Generate PO number
-    const poCount = await prisma.purchaseOrder.count()
-    const poNumber = `PO-${new Date().getFullYear()}-${String(poCount + 1).padStart(4, '0')}`
+    const issues: Issue[] = []
+    const warnings: string[] = []
+    const seen = new Set<string>()
+    const lines = items.flatMap((item, index) => {
+      const isCloth = item.itemType === 'CLOTH'
+      const linkField = isCloth ? 'clothInventoryId' : 'accessoryInventoryId'
+      const linkId = (isCloth ? item.clothInventoryId : item.accessoryInventoryId)!
+      const record = isCloth ? clothById.get(linkId) : accessoryById.get(linkId)
+
+      if (!record || !record.active) {
+        issues.push({
+          path: ['items', index, linkField],
+          message: `Line ${index + 1}: ${isCloth ? 'fabric' : 'accessory'} not found or no longer active`,
+        })
+        return []
+      }
+      if (seen.has(`${item.itemType}:${linkId}`)) {
+        issues.push({ path: ['items', index, linkField], message: `Line ${index + 1}: ${record.name} is already on this purchase order` })
+        return []
+      }
+      seen.add(`${item.itemType}:${linkId}`)
+
+      const requested = item.quantity ?? item.orderedQuantity ?? 0
+      const quantity = isCloth ? roundMeters(requested) : requested
+      if (!isCloth && !Number.isInteger(quantity)) {
+        issues.push({ path: ['items', index, 'quantity'], message: `Line ${index + 1}: accessory quantities must be whole units` })
+        return []
+      }
+      if (quantity <= 0) {
+        issues.push({ path: ['items', index, 'quantity'], message: `Line ${index + 1}: quantity must be greater than zero` })
+        return []
+      }
+
+      const itemName = isCloth ? clothLineName(clothById.get(linkId)!) : accessoryLineName(record)
+      if (record.supplierId && record.supplierId !== supplierId) {
+        warnings.push(`${itemName} is usually supplied by ${record.supplierRel?.name ?? 'another supplier'}`)
+      }
+
+      const pricePerUnit = isOwner ? item.pricePerUnit ?? 0 : 0
+      return [
+        {
+          itemName,
+          itemType: item.itemType,
+          orderedQuantity: quantity,
+          unit: PO_LINE_UNIT[item.itemType],
+          pricePerUnit,
+          totalPrice: multiplyMoney(pricePerUnit, quantity),
+          clothInventoryId: isCloth ? linkId : null,
+          accessoryInventoryId: isCloth ? null : linkId,
+        },
+      ]
+    })
+
+    if (issues.length > 0) return validationError(issues)
+
+    const totalAmount = sumMoney(lines.map((line) => line.totalPrice))
+    const poNumber = await nextPoNumber(prisma)
 
     // Create purchase order with items
     const purchaseOrder = await prisma.purchaseOrder.create({
@@ -134,35 +238,30 @@ export async function POST(request: Request) {
         supplierId,
         expectedDate: expectedDate ? new Date(expectedDate) : null,
         totalAmount,
+        subTotal: totalAmount,
         balanceAmount: totalAmount,
         notes: notes || null,
         status: getInitialPurchaseOrderStatus(session.user.role),
-        items: {
-          create: normalizedItems.map((item) => ({
-            itemName: item.itemName,
-            itemType: item.itemType,
-            orderedQuantity: item.quantity,
-            unit: item.unit,
-            pricePerUnit: item.pricePerUnit,
-            totalPrice: item.quantity * item.pricePerUnit,
-          })),
-        },
+        items: { create: lines },
       },
       include: {
         supplier: true,
-        items: true,
+        items: { include: poItemInventoryInclude },
       },
     })
+
+    // New on-order quantities can resolve reorder alerts
+    after(() => runReorderCheckQuietly({ trigger: 'purchase_order_changed', userId: session.user.id }))
 
     // FEATURETRACE: Apply ACL field filtering to response
     const userRole = session.user.role as any
     const filtered = filterApiResponse(purchaseOrder, userRole, 'purchase_order')
 
-    return NextResponse.json({ purchaseOrder: filtered }, { status: 201 })
+    return NextResponse.json({ purchaseOrder: filtered, warnings }, { status: 201 })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation failed', details: error.issues },
+        { error: error.issues[0]?.message ?? 'Validation failed', details: error.issues },
         { status: 400 }
       )
     }

@@ -19,6 +19,7 @@ const SETTINGS_TABS: { value: SettingsSection; label: string }[] = [
   { value: 'localization', label: 'Currency & Locale' },
   { value: 'tax', label: 'Tax & Invoices' },
   { value: 'production', label: 'Production' },
+  { value: 'inventory', label: 'Inventory' },
 ]
 
 export default function AdminSettingsPage() {

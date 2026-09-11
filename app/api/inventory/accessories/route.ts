@@ -12,6 +12,7 @@ const accessoryInventorySchema = z.object({
   currentStock: z.number().int().nonnegative().nullish(),
   pricePerUnit: z.number().nonnegative().nullish(),
   minimumStockUnits: z.number().int().nonnegative().nullish(),
+  reorderQuantity: z.number().int().positive().nullish(),
   supplierId: z.string().nullish(),
 })
 
@@ -111,6 +112,7 @@ export async function POST(request: NextRequest) {
         currentStock: data.currentStock || 0,
         pricePerUnit: data.pricePerUnit || 0,
         minimumStockUnits: data.minimumStockUnits || 0,
+        ...(data.reorderQuantity && { reorderQuantity: data.reorderQuantity }),
         ...(data.supplierId && { supplierId: data.supplierId }),
       },
       include: {

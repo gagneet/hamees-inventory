@@ -54,7 +54,8 @@ const typeLabels: Record<string, string> = {
   LOW_STOCK: 'Low Stock',
   CRITICAL_STOCK: 'Critical Stock',
   ORDER_DELAYED: 'Order Delayed',
-  REORDER_REMINDER: 'Payment Reminder',
+  REORDER_REMINDER: 'Reorder',
+  PAYMENT_REMINDER: 'Payment Reminder',
 }
 
 export function AlertCard({ alert }: AlertCardProps) {
@@ -78,9 +79,9 @@ export function AlertCard({ alert }: AlertCardProps) {
     if (alert.relatedType === 'order' && alert.relatedId) {
       router.push(`/orders/${alert.relatedId}`)
     } else if (alert.relatedType === 'cloth' && alert.relatedId) {
-      router.push('/inventory')
+      router.push(alert.type === 'REORDER_REMINDER' ? `/inventory/cloth/${alert.relatedId}` : '/inventory')
     } else if (alert.relatedType === 'accessory' && alert.relatedId) {
-      router.push('/inventory')
+      router.push(alert.type === 'REORDER_REMINDER' ? `/inventory/accessories/${alert.relatedId}` : '/inventory')
     }
   }
 

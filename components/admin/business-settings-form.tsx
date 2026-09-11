@@ -13,7 +13,7 @@
 import { createContext, useContext, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Globe2, Receipt, Scissors, Store } from 'lucide-react'
+import { Boxes, Globe2, Receipt, Scissors, Store } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -37,7 +37,7 @@ import {
 import { regionName } from '@/lib/phone'
 import { computeTax, taxLines, type TaxMode } from '@/lib/tax'
 
-export type SettingsSection = 'business' | 'localization' | 'tax' | 'production'
+export type SettingsSection = 'business' | 'localization' | 'tax' | 'production' | 'inventory'
 
 type FormState = Omit<AppSettings, 'taxRate' | 'maxActiveItemsPerTailor' | 'tailorDailyTarget' | 'exchangeRate'> & {
   taxRate: string
@@ -552,6 +552,48 @@ export function BusinessSettingsForm({ section }: { section: SettingsSection }) 
               )}
             </div>
           )}
+          {saveBar}
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (section === 'inventory') {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Boxes className="h-5 w-5" /> Inventory &amp; reordering</CardTitle>
+          <CardDescription>
+            The reorder check runs after orders, fabric changes and stock edits, with the alert check, and from
+            Purchase Orders → Run reorder check.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-start gap-3 rounded-lg border p-4">
+            <input
+              id="autoReorderEnabled"
+              type="checkbox"
+              className="mt-1 h-4 w-4 rounded border-slate-300"
+              checked={form.autoReorderEnabled}
+              onChange={(e) => set('autoReorderEnabled', e.target.checked)}
+            />
+            <div className="space-y-1">
+              <Label htmlFor="autoReorderEnabled">Draft purchase orders automatically</Label>
+              <p className="text-sm text-slate-600">
+                When a fabric or accessory&apos;s available stock plus what is already on order falls to its minimum,
+                add it to a draft purchase order for its supplier (one draft per supplier). Drafts wait for approval
+                like any other purchase order; nothing is sent to suppliers.
+              </p>
+            </div>
+          </div>
+          <ul className="list-disc pl-5 text-sm text-slate-600 space-y-1">
+            <li>With this off, the check still raises a Reorder alert for each item, naming the quantity and supplier.</li>
+            <li>
+              The quantity is the item&apos;s reorder quantity, or enough to reach twice the minimum; fabric is rounded up
+              to whole meters.
+            </li>
+            <li>Items without a supplier get an alert only. An item already on a draft is not added again.</li>
+          </ul>
           {saveBar}
         </CardContent>
       </Card>

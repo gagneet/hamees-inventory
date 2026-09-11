@@ -1,7 +1,14 @@
 'use client'
 
+/**
+ * @featuretrace Create PO dialog (inventory manager dashboard)
+ * @description Same inventory-linked lines as /purchase-orders/new (components/purchase-orders/po-line-editor.tsx).
+ *   Critical fabrics open pre-filled (about three months of usage, at least 50 m each); when no supplier is
+ *   chosen, the first pre-filled fabric's usual supplier is suggested.
+ */
+
 import { formatCurrency } from '@/lib/utils'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useFieldVisibility } from '@/hooks/use-field-visibility'
 import {
   Dialog,
@@ -23,23 +30,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ShoppingCart, Plus, X, AlertTriangle } from 'lucide-react'
+import { ShoppingCart, Plus, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
+import {
+  POLineEditor,
+  lineProblem,
+  linesToPayload,
+  linesTotal,
+  newLineDraft,
+  resolveLine,
+  takenKeysExcept,
+  useInventoryOptions,
+  type POLineDraft,
+} from '@/components/purchase-orders/po-line-editor'
 
 interface Supplier {
   id: string
   name: string
   phone: string | null
   email: string | null
-}
-
-interface POItem {
-  itemName: string
-  itemType: 'CLOTH' | 'ACCESSORY'
-  quantity: number
-  unit: string
-  pricePerUnit: number
 }
 
 interface CriticalFabric {
@@ -67,24 +77,14 @@ export function CreatePODialog({ trigger, criticalFabrics = [] }: CreatePODialog
   const [supplierId, setSupplierId] = useState('')
   const [expectedDate, setExpectedDate] = useState('')
   const [notes, setNotes] = useState('')
-  const [items, setItems] = useState<POItem[]>([])
+  const [lines, setLines] = useState<POLineDraft[]>([])
 
-  useEffect(() => {
-    if (open) {
-      fetchSuppliers()
-      // Pre-populate items with critical fabrics if provided
-      if (criticalFabrics.length > 0 && items.length === 0) {
-        const prefilledItems = criticalFabrics.map((fabric) => ({
-          itemName: fabric.name,
-          itemType: 'CLOTH' as const,
-          quantity: Math.max(fabric.usageRate * 3, 50), // 3 months supply or 50m minimum
-          unit: 'meters',
-          pricePerUnit: 0,
-        }))
-        setItems(prefilledItems)
-      }
-    }
-  }, [open])
+  const { options, loading: optionsLoading } = useInventoryOptions(supplierId)
+  // Suggest the usual supplier of the first pre-filled item until one is chosen
+  const suggestedSupplierId = supplierId
+    ? ''
+    : (lines.map((line) => resolveLine(line, options).option?.supplierId).find(Boolean) ?? '')
+  const effectiveSupplierId = supplierId || suggestedSupplierId
 
   async function fetchSuppliers() {
     try {
@@ -98,83 +98,63 @@ export function CreatePODialog({ trigger, criticalFabrics = [] }: CreatePODialog
     }
   }
 
-  function addItem() {
-    setItems([
-      ...items,
-      {
-        itemName: '',
-        itemType: 'CLOTH',
-        quantity: 0,
-        unit: 'meters',
-        pricePerUnit: 0,
-      },
-    ])
+  function handleOpenChange(next: boolean) {
+    setOpen(next)
+    if (!next) return
+    fetchSuppliers()
+    // Pre-populate lines with critical fabrics (about 3 months of usage, 50 m minimum)
+    if (criticalFabrics.length > 0 && lines.length === 0) {
+      setLines(
+        criticalFabrics.map((fabric) =>
+          newLineDraft({ itemType: 'CLOTH', itemId: fabric.id, quantity: Math.ceil(Math.max(fabric.usageRate * 3, 50)) })
+        )
+      )
+    }
   }
 
-  function removeItem(index: number) {
-    setItems(items.filter((_, i) => i !== index))
-  }
-
-  function updateItem(index: number, field: keyof POItem, value: any) {
-    const newItems = [...items]
-    newItems[index] = { ...newItems[index], [field]: value }
-    setItems(newItems)
-  }
+  const updateLine = (line: POLineDraft) => setLines((current) => current.map((l) => (l.key === line.key ? line : l)))
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
-    if (!supplierId) {
+    if (!effectiveSupplierId) {
       toast.error('Please select a supplier')
       return
     }
-
-    if (items.length === 0) {
+    if (lines.length === 0) {
       toast.error('Please add at least one item')
       return
     }
-
-    // Validate items
-    const invalidItems = items.filter(
-      (item) =>
-        !item.itemName ||
-        item.quantity <= 0 ||
-        (canEnterPOPricesOnCreate && item.pricePerUnit < 0)
-    )
-
-    if (invalidItems.length > 0) {
-      toast.error('Please fill all item details correctly')
+    const problem = lines.map((line) => lineProblem(line, options)).find(Boolean)
+    if (problem) {
+      toast.error(problem)
       return
     }
 
     setLoading(true)
-
     try {
       const response = await fetch('/api/purchase-orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          supplierId,
+          supplierId: effectiveSupplierId,
           expectedDate: expectedDate || null,
-          items: items.map((item) => ({
-            ...item,
-            pricePerUnit: canEnterPOPricesOnCreate ? item.pricePerUnit : undefined,
-          })),
+          items: linesToPayload(lines, options, canEnterPOPricesOnCreate),
           notes: notes || null,
         }),
       })
 
-      const data = await response.json()
+      const data = await response.json().catch(() => ({}))
 
       if (response.ok) {
+        for (const warning of data.warnings ?? []) toast.warning(warning)
         toast.success('Purchase order created successfully')
         setOpen(false)
         // Reset form
         setSupplierId('')
         setExpectedDate('')
         setNotes('')
-        setItems([])
-        // Refresh page or navigate to PO detail
+        setLines([])
         router.push(`/purchase-orders/${data.purchaseOrder.id}`)
       } else {
         toast.error(data.error || 'Failed to create purchase order')
@@ -187,12 +167,8 @@ export function CreatePODialog({ trigger, criticalFabrics = [] }: CreatePODialog
     }
   }
 
-  const totalAmount = canEnterPOPricesOnCreate
-    ? items.reduce((sum, item) => sum + item.quantity * item.pricePerUnit, 0)
-    : 0
-
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -216,8 +192,8 @@ export function CreatePODialog({ trigger, criticalFabrics = [] }: CreatePODialog
           {/* Supplier Selection */}
           <div className="space-y-2">
             <Label htmlFor="supplier">Supplier *</Label>
-            <Select value={supplierId} onValueChange={setSupplierId}>
-              <SelectTrigger>
+            <Select value={effectiveSupplierId} onValueChange={setSupplierId}>
+              <SelectTrigger id="supplier">
                 <SelectValue placeholder="Select supplier" />
               </SelectTrigger>
               <SelectContent>
@@ -229,6 +205,9 @@ export function CreatePODialog({ trigger, criticalFabrics = [] }: CreatePODialog
                 ))}
               </SelectContent>
             </Select>
+            {suggestedSupplierId && (
+              <p className="text-xs text-slate-500">Suggested from the items&apos; usual supplier — change it if needed.</p>
+            )}
           </div>
 
           {/* Expected Date */}
@@ -246,13 +225,13 @@ export function CreatePODialog({ trigger, criticalFabrics = [] }: CreatePODialog
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label>Items *</Label>
-              <Button type="button" variant="outline" size="sm" onClick={addItem}>
+              <Button type="button" variant="outline" size="sm" onClick={() => setLines((current) => [...current, newLineDraft()])}>
                 <Plus className="h-4 w-4 mr-1" />
                 Add Item
               </Button>
             </div>
 
-            {items.length === 0 ? (
+            {lines.length === 0 ? (
               <div className="p-8 text-center text-slate-500 border-2 border-dashed rounded-lg">
                 <ShoppingCart className="h-12 w-12 mx-auto mb-2 opacity-30" />
                 <p>No items added yet</p>
@@ -260,108 +239,26 @@ export function CreatePODialog({ trigger, criticalFabrics = [] }: CreatePODialog
                   type="button"
                   variant="outline"
                   className="mt-2"
-                  onClick={addItem}
+                  onClick={() => setLines([newLineDraft()])}
                 >
                   Add First Item
                 </Button>
               </div>
             ) : (
               <div className="space-y-3">
-                {items.map((item, index) => (
-                  <div
-                    key={index}
-                    className="p-4 border rounded-lg bg-slate-50 space-y-3"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-slate-600">
-                        Item {index + 1}
-                      </span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeItem(index)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="col-span-2">
-                        <Label className="text-xs">Item Name *</Label>
-                        <Input
-                          value={item.itemName}
-                          onChange={(e) =>
-                            updateItem(index, 'itemName', e.target.value)
-                          }
-                          placeholder="e.g., Premium Cotton Blue"
-                        />
-                      </div>
-
-                      <div>
-                        <Label className="text-xs">Type *</Label>
-                        <Select
-                          value={item.itemType}
-                          onValueChange={(value) =>
-                            updateItem(index, 'itemType', value)
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="CLOTH">Cloth</SelectItem>
-                            <SelectItem value="ACCESSORY">Accessory</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div>
-                        <Label className="text-xs">Unit *</Label>
-                        <Input
-                          value={item.unit}
-                          onChange={(e) => updateItem(index, 'unit', e.target.value)}
-                          placeholder="e.g., meters, pieces"
-                        />
-                      </div>
-
-                      <div>
-                        <Label className="text-xs">Quantity *</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={item.quantity || ''}
-                          onChange={(e) =>
-                            updateItem(index, 'quantity', parseFloat(e.target.value) || 0)
-                          }
-                        />
-                      </div>
-
-                      {canEnterPOPricesOnCreate && (
-                        <div>
-                          <Label className="text-xs">Price per Unit *</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={item.pricePerUnit || ''}
-                            onChange={(e) =>
-                              updateItem(
-                                index,
-                                'pricePerUnit',
-                                parseFloat(e.target.value) || 0
-                              )
-                            }
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    {canEnterPOPricesOnCreate && (
-                      <div className="text-right text-sm font-medium">
-                        Total: {formatCurrency(item.quantity * item.pricePerUnit)}
-                      </div>
-                    )}
-                  </div>
+                {lines.map((line, index) => (
+                  <POLineEditor
+                    key={line.key}
+                    index={index}
+                    line={line}
+                    options={options}
+                    optionsLoading={optionsLoading}
+                    supplierId={effectiveSupplierId}
+                    canEnterPrices={canEnterPOPricesOnCreate}
+                    takenKeys={takenKeysExcept(lines, line.key)}
+                    onChange={updateLine}
+                    onRemove={() => setLines((current) => current.filter((l) => l.key !== line.key))}
+                  />
                 ))}
               </div>
             )}
@@ -380,14 +277,14 @@ export function CreatePODialog({ trigger, criticalFabrics = [] }: CreatePODialog
           </div>
 
           {/* Total Amount */}
-          {items.length > 0 && canEnterPOPricesOnCreate && (
+          {lines.length > 0 && canEnterPOPricesOnCreate && (
             <div className="p-4 bg-blue-50 rounded-lg">
               <div className="flex justify-between items-center">
                 <span className="text-sm font-medium text-blue-900">
                   Total PO Amount:
                 </span>
                 <span className="text-2xl font-bold text-blue-900">
-                  {formatCurrency(totalAmount)}
+                  {formatCurrency(linesTotal(lines, options))}
                 </span>
               </div>
             </div>
@@ -403,7 +300,7 @@ export function CreatePODialog({ trigger, criticalFabrics = [] }: CreatePODialog
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={loading || isLoading}>
+            <Button type="submit" disabled={loading || isLoading || optionsLoading}>
               {loading ? 'Creating...' : 'Create Purchase Order'}
             </Button>
           </div>

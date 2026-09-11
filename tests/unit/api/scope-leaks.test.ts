@@ -54,7 +54,7 @@ describe('payment-reminder alerts are invisible to non-financial roles', () => {
       const res = await call()
 
       expect(res.status).toBe(404)
-      expect(JSON.stringify(db.alert.findFirst.mock.calls[0][0].where)).toContain('REORDER_REMINDER')
+      expect(JSON.stringify(db.alert.findFirst.mock.calls[0][0].where)).toContain('PAYMENT_REMINDER')
       expect(db.alert.update).not.toHaveBeenCalled()
     })
   }
@@ -67,18 +67,18 @@ describe('payment-reminder alerts are invisible to non-financial roles', () => {
     const res = await dismissAlert(new Request('http://localhost/api/alerts/a1/dismiss', { method: 'POST' }), params('a1'))
 
     expect(res.status).toBe(200)
-    expect(JSON.stringify(db.alert.findFirst.mock.calls[0][0].where)).not.toContain('REORDER_REMINDER')
+    expect(JSON.stringify(db.alert.findFirst.mock.calls[0][0].where)).not.toContain('PAYMENT_REMINDER')
   })
 
   it('mark-all-read only touches alerts the role can see', async () => {
     actAs('INVENTORY_MANAGER')
     db.alert.updateMany.mockResolvedValue({ count: 3 })
     expect((await markAllRead()).status).toBe(200)
-    expect(JSON.stringify(db.alert.updateMany.mock.calls[0][0].where)).toContain('REORDER_REMINDER')
+    expect(JSON.stringify(db.alert.updateMany.mock.calls[0][0].where)).toContain('PAYMENT_REMINDER')
 
     actAs('OWNER')
     await markAllRead()
-    expect(JSON.stringify(db.alert.updateMany.mock.calls[1][0].where)).not.toContain('REORDER_REMINDER')
+    expect(JSON.stringify(db.alert.updateMany.mock.calls[1][0].where)).not.toContain('PAYMENT_REMINDER')
   })
 
   it('dashboard alerts are scoped and the unread count is a real count', async () => {
@@ -89,8 +89,8 @@ describe('payment-reminder alerts are invisible to non-financial roles', () => {
 
     expect(result.unread).toBe(12)
     expect(result.recent).toHaveLength(5)
-    expect(JSON.stringify(db.alert.count.mock.calls[0][0].where)).toContain('REORDER_REMINDER')
-    expect(JSON.stringify(db.alert.findMany.mock.calls[0][0].where)).toContain('REORDER_REMINDER')
+    expect(JSON.stringify(db.alert.count.mock.calls[0][0].where)).toContain('PAYMENT_REMINDER')
+    expect(JSON.stringify(db.alert.findMany.mock.calls[0][0].where)).toContain('PAYMENT_REMINDER')
   })
 })
 
