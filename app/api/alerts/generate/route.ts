@@ -4,13 +4,12 @@ import { generateStockAlerts, cleanupOldAlerts } from '@/lib/generate-alerts'
 
 /**
  * POST /api/alerts/generate
- * Manually trigger alert generation for low/critical stock
- * Permission: view_inventory or manage_inventory
+ * Manually trigger alert generation for low/critical stock and pending payments
+ * Permission: manage_alerts
  */
 export async function POST() {
   try {
-    // Check permissions - any role that can view inventory can trigger alerts
-    const { error } = await requireAnyPermission(['view_inventory', 'manage_inventory'])
+    const { error } = await requireAnyPermission(['manage_alerts'])
     if (error) {
       return error
     }

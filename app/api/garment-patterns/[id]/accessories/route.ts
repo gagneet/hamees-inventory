@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { requireAuth } from '@/lib/api-permissions'
+import { requireAnyPermission } from '@/lib/api-permissions'
 
 // GET /api/garment-patterns/[id]/accessories - Get all accessories required for a garment pattern
 export async function GET(
@@ -8,7 +8,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { session, error } = await requireAuth()
+    const { error } = await requireAnyPermission(['view_garment_types', 'view_orders', 'create_order'])
     if (error) return error
 
     const { id } = await params

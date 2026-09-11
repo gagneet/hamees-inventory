@@ -10,9 +10,8 @@
  *   change_risk: medium - status controls whether PO can be approved, paid, or received
  */
 import { NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
-import { requireAnyPermission } from '@/lib/api-permissions'
+import { requireAnyPermission, requirePermission } from '@/lib/api-permissions'
 import { filterApiResponse } from '@/lib/api-filter-response'
 import { z } from 'zod'
 import type { UserRole } from '@prisma/client'
@@ -42,19 +41,24 @@ const purchaseOrderSchema = z.object({
   notes: z.string().nullish(),
 })
 
+const PO_STATUSES = new Set(['PENDING_APPROVAL', 'PENDING', 'APPROVED', 'PARTIAL', 'RECEIVED', 'CANCELLED'])
+
 export async function GET(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { session, error } = await requirePermission('view_purchase_orders')
+    if (error) return error
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
     const supplierId = searchParams.get('supplierId')
 
     const where: any = { active: true }
-    if (status) where.status = status
+    if (status) {
+      if (!PO_STATUSES.has(status)) {
+        return NextResponse.json({ error: 'Invalid status filter' }, { status: 400 })
+      }
+      where.status = status
+    }
     if (supplierId) where.supplierId = supplierId
 
     const purchaseOrders = await prisma.purchaseOrder.findMany({

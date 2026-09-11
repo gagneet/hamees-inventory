@@ -1,168 +1,184 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { requireAnyPermission } from '@/lib/api-permissions'
+import { requirePermission } from '@/lib/api-permissions'
+import { filterApiResponse } from '@/lib/api-filter-response'
+import { hasFinancialAccess } from '@/lib/field-acl'
+import { actorFromSession } from '@/lib/authz'
+import { addAccessoryStock, changeClothStock, roundMeters } from '@/lib/stock'
+import { lockPurchaseOrder, roundMoney } from '@/lib/order-finance'
 import { z } from 'zod'
-import { StockMovementType } from '@/lib/types'
 
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
-type PurchaseOrder = Awaited<ReturnType<typeof getPurchaseOrder>>
-type POItem = NonNullable<PurchaseOrder>['items'][number]
-
-async function getPurchaseOrder(id: string) {
-  return await prisma.purchaseOrder.findUnique({
-    where: { id },
-    include: { items: true },
-  })
-}
 
 const receiveSchema = z.object({
-  items: z.array(
-    z.object({
-      id: z.string(),
-      receivedQuantity: z.number().nonnegative(),
-      clothInventoryId: z.string().nullish(),
-      accessoryInventoryId: z.string().nullish(),
-    })
-  ),
+  items: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        receivedQuantity: z.number().nonnegative(),
+        clothInventoryId: z.string().nullish(),
+        accessoryInventoryId: z.string().nullish(),
+      })
+    )
+    .max(500),
   paidAmount: z.number().nonnegative().optional(),
-  notes: z.string().nullish(),
+  notes: z.string().max(2000).nullish(),
 })
+
+/** Validation failure detected against the purchase order (reported as 4xx). */
+class ReceiveError extends Error {
+  constructor(message: string, public status = 400) {
+    super(message)
+  }
+}
 
 function appendNote(existingNotes: string | null, note: string | null | undefined): string | null {
   if (!note) return existingNotes
   return [existingNotes, note].filter(Boolean).join('\n')
 }
 
+/**
+ * POST /api/purchase-orders/[id]/receive
+ * Record goods received against a PO's own lines (optionally with a payment).
+ * Each line must belong to this PO; quantity is capped at ordered − already received;
+ * fabric lines may only credit fabric stock and accessory lines accessory stock.
+ * PO lines store no inventory link, so the item to credit comes from the request (manage_inventory
+ * only); every receipt writes a stock movement naming the PO and line, so it can be traced.
+ */
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { session, error } = await requireAnyPermission(['manage_inventory'])
+  const { session, error } = await requirePermission('manage_inventory')
   if (error) return error
+  const actor = actorFromSession(session)
+  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const { id } = await params
     const body = await request.json()
     const { items, paidAmount, notes } = receiveSchema.parse(body)
 
-    const purchaseOrder = await getPurchaseOrder(id)
-
-    if (!purchaseOrder) {
-      return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 })
+    if ((paidAmount ?? 0) > 0 && !hasFinancialAccess(actor.role, 'purchase_order')) {
+      return NextResponse.json({ error: 'Your role cannot record supplier payments' }, { status: 403 })
     }
 
-    if (purchaseOrder.status === 'CANCELLED') {
-      return NextResponse.json(
-        { error: 'Cannot receive cancelled purchase order' },
-        { status: 400 }
-      )
-    }
-
-    if (!['APPROVED', 'PARTIAL'].includes(purchaseOrder.status)) {
-      return NextResponse.json(
-        { error: 'Purchase order must be approved before receiving items' },
-        { status: 400 }
-      )
+    const lineIds = items.map((item) => item.id)
+    if (new Set(lineIds).size !== lineIds.length) {
+      return NextResponse.json({ error: 'Each purchase order line can only appear once' }, { status: 400 })
     }
 
     await prisma.$transaction(async (tx: TransactionClient) => {
-      // Update PO items with received quantities
-      for (const item of items) {
-        const poItem = purchaseOrder.items.find((i: POItem) => i.id === item.id)
-        if (!poItem) continue
+      // Lock the PO row, then read: a concurrent receipt or payment waits here, so quantity caps
+      // and the paid amount are checked against current values
+      await lockPurchaseOrder(tx, id)
+      const purchaseOrder = await tx.purchaseOrder.findUnique({
+        where: { id },
+        include: { items: true },
+      })
 
-        // Add to existing received quantity instead of replacing
-        const newReceivedQuantity = poItem.receivedQuantity + item.receivedQuantity
+      if (!purchaseOrder) throw new ReceiveError('Purchase order not found', 404)
+      if (purchaseOrder.status === 'CANCELLED') throw new ReceiveError('Cannot receive cancelled purchase order')
+      if (!['APPROVED', 'PARTIAL'].includes(purchaseOrder.status)) {
+        throw new ReceiveError('Purchase order must be approved before receiving items')
+      }
 
-        await tx.pOItem.update({
-          where: { id: item.id },
-          data: {
-            receivedQuantity: newReceivedQuantity,
-          },
-        })
+      const poItems = new Map(purchaseOrder.items.map((item) => [item.id, item]))
+      const receivedNow = new Map<string, number>()
 
-        // If cloth item and inventory ID provided, update stock
-        if (item.clothInventoryId && item.receivedQuantity > 0) {
-          const cloth = await tx.clothInventory.findUnique({
-            where: { id: item.clothInventoryId },
-          })
+      for (const line of items) {
+        const poItem = poItems.get(line.id)
+        if (!poItem) throw new ReceiveError('One or more lines are not part of this purchase order')
 
-          if (cloth) {
-            const newStock = cloth.currentStock + item.receivedQuantity
-
-            await tx.clothInventory.update({
-              where: { id: item.clothInventoryId },
-              data: {
-                currentStock: newStock,
-                totalPurchased: cloth.totalPurchased + item.receivedQuantity,
-              },
-            })
-
-            // Create stock movement
-            await tx.stockMovement.create({
-              data: {
-                clothInventoryId: item.clothInventoryId,
-                userId: session.user.id,
-                type: 'PURCHASE',
-                quantityMeters: item.receivedQuantity,
-                balanceAfterMeters: newStock,
-                notes: `Purchase Order ${purchaseOrder.poNumber} received`,
-              },
-            })
-          }
+        const isCloth = poItem.itemType === 'CLOTH'
+        const quantity = isCloth ? roundMeters(line.receivedQuantity) : line.receivedQuantity
+        if (!isCloth && !Number.isInteger(quantity)) {
+          throw new ReceiveError(`${poItem.itemName}: accessory quantities must be whole units`)
         }
 
-        // If accessory item and inventory ID provided, update stock
-        if (item.accessoryInventoryId && item.receivedQuantity > 0) {
-          const accessory = await tx.accessoryInventory.findUnique({
-            where: { id: item.accessoryInventoryId },
+        const outstanding = poItem.orderedQuantity - poItem.receivedQuantity
+        if (quantity > outstanding + 0.0005) {
+          throw new ReceiveError(
+            `${poItem.itemName}: cannot receive ${quantity} ${poItem.unit}; only ${roundMeters(Math.max(0, outstanding))} outstanding`
+          )
+        }
+
+        if (line.clothInventoryId && line.accessoryInventoryId) {
+          throw new ReceiveError(`${poItem.itemName}: choose either a fabric or an accessory to credit, not both`)
+        }
+        if (line.clothInventoryId && !isCloth) {
+          throw new ReceiveError(`${poItem.itemName} is not a fabric line`)
+        }
+        if (line.accessoryInventoryId && isCloth) {
+          throw new ReceiveError(`${poItem.itemName} is not an accessory line`)
+        }
+
+        if (quantity <= 0) continue
+        receivedNow.set(poItem.id, quantity)
+
+        // Optimistic guard: fails if another receipt updated this line concurrently
+        const updated = await tx.pOItem.updateMany({
+          where: { id: poItem.id, purchaseOrderId: id, receivedQuantity: poItem.receivedQuantity },
+          data: { receivedQuantity: roundMeters(poItem.receivedQuantity + quantity) },
+        })
+        if (updated.count === 0) {
+          throw new ReceiveError('This purchase order was updated by someone else. Refresh and try again.', 409)
+        }
+
+        if (line.clothInventoryId) {
+          const levels = await changeClothStock(tx, line.clothInventoryId, quantity, {
+            countAsPurchase: true,
+            label: poItem.itemName,
           })
-
-          if (accessory) {
-            const newStock = accessory.currentStock + Math.round(item.receivedQuantity)
-
-            await tx.accessoryInventory.update({
-              where: { id: item.accessoryInventoryId },
-              data: {
-                currentStock: newStock,
-              },
-            })
-          }
+          await tx.stockMovement.create({
+            data: {
+              clothInventoryId: line.clothInventoryId,
+              userId: actor.id,
+              type: 'PURCHASE',
+              quantityMeters: quantity,
+              balanceAfterMeters: levels.currentStock,
+              notes: `Purchase Order ${purchaseOrder.poNumber} received (${poItem.itemName})`,
+            },
+          })
+        } else if (line.accessoryInventoryId) {
+          const levels = await addAccessoryStock(tx, line.accessoryInventoryId, quantity)
+          if (!levels) throw new ReceiveError(`${poItem.itemName}: accessory not found`, 404)
+          await tx.accessoryStockMovement.create({
+            data: {
+              accessoryInventoryId: line.accessoryInventoryId,
+              userId: actor.id,
+              type: 'PURCHASE',
+              quantityUnits: quantity,
+              balanceAfterUnits: levels.currentStock,
+              notes: `Purchase Order ${purchaseOrder.poNumber} received (${poItem.itemName})`,
+            },
+          })
         }
       }
 
-      // Check every PO item, not only the submitted rows, before marking the PO complete.
-      const receivedQuantityByItemId = new Map(
-        items.map((item) => [item.id, item.receivedQuantity])
+      // Status considers every PO line, not only the submitted rows
+      const totalReceived = (itemId: string, already: number) => already + (receivedNow.get(itemId) ?? 0)
+      const allFullyReceived = purchaseOrder.items.every(
+        (poItem) => totalReceived(poItem.id, poItem.receivedQuantity) >= poItem.orderedQuantity - 0.0005
       )
+      const anyReceived = purchaseOrder.items.some((poItem) => totalReceived(poItem.id, poItem.receivedQuantity) > 0)
 
-      const allFullyReceived = purchaseOrder.items.every((poItem: POItem) => {
-        const totalReceived = poItem.receivedQuantity + (receivedQuantityByItemId.get(poItem.id) ?? 0)
-        return totalReceived >= poItem.orderedQuantity
-      })
-
-      const anyReceived = purchaseOrder.items.some((poItem: POItem) => {
-        const totalReceived = poItem.receivedQuantity + (receivedQuantityByItemId.get(poItem.id) ?? 0)
-        return totalReceived > 0
-      })
-
-      // Calculate new payment amounts (ADD instead of REPLACE)
-      const additionalPayment = paidAmount !== undefined ? paidAmount : 0
-      const newPaidAmount = purchaseOrder.paidAmount + additionalPayment
-      const newBalanceAmount = purchaseOrder.totalAmount - newPaidAmount
-
-      // Check if payment is complete (allow for floating point errors)
+      // Payments add to what was already paid, never beyond the balance
+      const additionalPayment = roundMoney(paidAmount ?? 0)
+      if (additionalPayment > purchaseOrder.balanceAmount + 0.01) {
+        throw new ReceiveError('Payment amount exceeds the purchase order balance')
+      }
+      const newPaidAmount = roundMoney(purchaseOrder.paidAmount + additionalPayment)
+      const newBalanceAmount = roundMoney(purchaseOrder.totalAmount - newPaidAmount)
       const paymentComplete = newBalanceAmount <= 0.01
 
-      // Determine status based on BOTH items received AND payment complete
       let newStatus = purchaseOrder.status
       if (allFullyReceived && paymentComplete) {
-        newStatus = 'RECEIVED' // Both items and payment complete
+        newStatus = 'RECEIVED'
       } else if (anyReceived || newPaidAmount > 0) {
-        newStatus = 'PARTIAL' // Partial receipt or partial payment
+        newStatus = 'PARTIAL'
       }
 
-      // Update purchase order
       await tx.purchaseOrder.update({
         where: { id },
         data: {
@@ -183,13 +199,19 @@ export async function POST(
       },
     })
 
-    return NextResponse.json({ purchaseOrder: updatedPO })
+    return NextResponse.json({ purchaseOrder: filterApiResponse(updatedPO, actor.role, 'purchase_order') })
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Validation failed', details: error.issues },
         { status: 400 }
       )
+    }
+    if (error instanceof ReceiveError) {
+      return NextResponse.json({ error: error.message }, { status: error.status })
+    }
+    if (error instanceof Error && error.name === 'InsufficientStockError') {
+      return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
     console.error('Error receiving purchase order:', error)

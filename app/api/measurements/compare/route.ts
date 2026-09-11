@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
+import { actorFromSession, measurementScope } from '@/lib/authz'
 import { z } from 'zod'
 
 const compareSchema = z.object({
@@ -9,16 +10,18 @@ const compareSchema = z.object({
 })
 
 export async function POST(request: Request) {
-  const { error } = await requireAnyPermission(['view_customers'])
+  const { session, error } = await requireAnyPermission(['view_customers'])
   if (error) return error
+  const actor = actorFromSession(session)
+  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const body = await request.json()
     const { measurementId1, measurementId2 } = compareSchema.parse(body)
 
     const [measurement1, measurement2] = await Promise.all([
-      prisma.measurement.findUnique({ where: { id: measurementId1 } }),
-      prisma.measurement.findUnique({ where: { id: measurementId2 } }),
+      prisma.measurement.findFirst({ where: { id: measurementId1, ...measurementScope(actor) } }),
+      prisma.measurement.findFirst({ where: { id: measurementId2, ...measurementScope(actor) } }),
     ])
 
     if (!measurement1 || !measurement2) {

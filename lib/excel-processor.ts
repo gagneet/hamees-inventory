@@ -6,7 +6,19 @@ import {
   UploadResult,
   DuplicateCheck
 } from './excel-upload'
-import bcrypt from 'bcryptjs'
+
+/**
+ * Stock levels are never taken from a spreadsheet for existing items: they are maintained by
+ * orders, purchase-order receipts and audited adjustments (lib/stock.ts). New items may set an
+ * opening stock; nothing starts reserved.
+ */
+const STOCK_FIELDS = ['currentStock', 'reserved', 'totalPurchased'] as const
+
+function withoutStockFields<T extends Record<string, any>>(data: T): Omit<T, (typeof STOCK_FIELDS)[number]> {
+  const copy: Record<string, any> = { ...data }
+  for (const field of STOCK_FIELDS) delete copy[field]
+  return copy as Omit<T, (typeof STOCK_FIELDS)[number]>
+}
 
 interface ProcessOptions {
   userId: string
@@ -121,9 +133,21 @@ export async function processExcelUpload(
     // Step 4: Process inserts/updates with safe-fail
     console.log('Step 4: Processing data inserts/updates...')
 
+    // User accounts are never imported from spreadsheets: an upload could otherwise
+    // create privileged users or overwrite existing passwords/roles. Manage users in Admin Settings.
+    const userSheet = parsedSheets.find(s => s.tableName === 'User')
+    if (userSheet && userSheet.rows.length > 0) {
+      result.skippedCount += userSheet.rows.length
+      result.failureDetails.push({
+        table: 'User',
+        row: 0,
+        error: 'User import is disabled. Manage users in Admin Settings.',
+        data: null
+      })
+    }
+
     // Process in dependency order
     const processingOrder = [
-      'User',
       'Supplier',
       'ClothInventory',
       'AccessoryInventory',
@@ -236,26 +260,8 @@ async function insertOrUpdateRecord(
   const { id, createdAt, updatedAt, ...insertData } = data
 
   switch (tableName) {
-    case 'User': {
-      // Hash password if it's not already hashed
-      if (insertData.password && !insertData.password.startsWith('$2a$')) {
-        insertData.password = await bcrypt.hash(insertData.password, 10)
-      }
-
-      if (overwrite) {
-        const existing = await prisma.user.findUnique({ where: { email: insertData.email } })
-        if (existing) {
-          await prisma.user.update({
-            where: { id: existing.id },
-            data: insertData
-          })
-          return existing.id
-        }
-      }
-
-      const user = await prisma.user.create({ data: insertData })
-      return user.id
-    }
+    // 'User' is deliberately not handled: user accounts are never created or modified from a
+    // spreadsheet (roles, active flag and passwords are managed in Admin Settings, audited).
 
     case 'Supplier': {
       if (overwrite) {
@@ -295,13 +301,13 @@ async function insertOrUpdateRecord(
         if (existing) {
           await prisma.clothInventory.update({
             where: { id: existing.id },
-            data: insertData
+            data: withoutStockFields(insertData)
           })
           return existing.id
         }
       }
 
-      const cloth = await prisma.clothInventory.create({ data: insertData })
+      const cloth = await prisma.clothInventory.create({ data: { ...insertData, reserved: 0 } })
       return cloth.id
     }
 
@@ -327,13 +333,13 @@ async function insertOrUpdateRecord(
         if (existing) {
           await prisma.accessoryInventory.update({
             where: { id: existing.id },
-            data: insertData
+            data: withoutStockFields(insertData)
           })
           return existing.id
         }
       }
 
-      const accessory = await prisma.accessoryInventory.create({ data: insertData })
+      const accessory = await prisma.accessoryInventory.create({ data: { ...insertData, reserved: 0 } })
       return accessory.id
     }
 

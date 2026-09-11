@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requirePermission } from '@/lib/api-permissions'
+import { hasFinancialAccess } from '@/lib/field-acl'
 import { prisma } from '@/lib/db'
 
 type ClothInventoryItem = Awaited<ReturnType<typeof getClothInventory>>[number]
@@ -37,10 +38,9 @@ async function getAccessoryInventory() {
 
 export async function GET(request: Request) {
   try {
-    const session = await auth()
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { session, error } = await requirePermission('view_inventory')
+    if (error) return error
+    const showCost = hasFinancialAccess(session.user.role, 'inventory')
 
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type') // 'low' or 'critical'
@@ -96,8 +96,10 @@ export async function GET(request: Request) {
       reserved: item.reserved,
       minimum: item.minimumStockMeters,
       unit: 'meters',
-      pricePerUnit: item.pricePerMeter,
-      value: item.currentStock * item.pricePerMeter,
+      ...(showCost && {
+        pricePerUnit: item.pricePerMeter,
+        value: item.currentStock * item.pricePerMeter,
+      }),
     }))
 
     // Format accessory items
@@ -113,8 +115,10 @@ export async function GET(request: Request) {
       reserved: 0,
       minimum: item.minimumStockUnits,
       unit: 'pieces',
-      pricePerUnit: item.pricePerUnit,
-      value: item.currentStock * item.pricePerUnit,
+      ...(showCost && {
+        pricePerUnit: item.pricePerUnit,
+        value: item.currentStock * item.pricePerUnit,
+      }),
     }))
 
     // Combine and sort by available stock (lowest first)

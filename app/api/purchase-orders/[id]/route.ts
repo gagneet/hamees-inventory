@@ -10,9 +10,10 @@
  *   change_risk: medium - approval writes item prices and enables receiving/payment
  */
 import { NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
-import { requireAnyPermission } from '@/lib/api-permissions'
+import { requireAnyPermission, requirePermission } from '@/lib/api-permissions'
+import { getAppSettings } from '@/lib/settings'
+import { formatDate } from '@/lib/locale'
 import { filterApiResponse } from '@/lib/api-filter-response'
 import { z } from 'zod'
 
@@ -38,7 +39,7 @@ function appendApprovalNote(
 ): string | null {
   if (!notes) return existingNotes
 
-  const approvalNote = `[${new Date().toLocaleDateString('en-IN')}] Approved by ${approver || 'Unknown approver'}: ${notes}`
+  const approvalNote = `[${formatDate(new Date())}] Approved by ${approver || 'Unknown approver'}: ${notes}`
   return [existingNotes, approvalNote].filter(Boolean).join('\n')
 }
 
@@ -47,10 +48,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { session, error } = await requirePermission('view_purchase_orders')
+    if (error) return error
 
     const { id } = await params
 
@@ -136,6 +135,8 @@ export async function PATCH(
 
     const totalAmount = updatedItems.reduce((sum, item) => sum + item.totalPrice, 0)
     const balanceAmount = totalAmount - purchaseOrder.paidAmount
+
+    await getAppSettings() // locale for the approval note date
 
     const updatedPO = await prisma.$transaction(async (tx) => {
       for (const item of updatedItems) {

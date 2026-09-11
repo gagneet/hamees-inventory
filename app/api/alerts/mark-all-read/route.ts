@@ -1,18 +1,17 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { requirePermission } from '@/lib/api-permissions'
+import { alertVisibilityScope } from '@/lib/alert-scope'
 
-export async function POST(request: Request) {
+export async function POST() {
   try {
-    const session = await auth()
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { session, error } = await requirePermission('manage_alerts')
+    if (error) return error
 
+    // Only alerts this role can see are marked read
     await prisma.alert.updateMany({
       where: {
-        isRead: false,
-        isDismissed: false,
+        AND: [{ isRead: false, isDismissed: false }, alertVisibilityScope(session.user.role)],
       },
       data: {
         isRead: true,

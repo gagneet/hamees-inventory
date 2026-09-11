@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requireAnyPermission, requirePermission } from '@/lib/api-permissions'
+import { filterApiResponse } from '@/lib/api-filter-response'
 import { prisma } from '@/lib/db'
+import { roundMeters } from '@/lib/stock'
 import { z } from 'zod'
+
+type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 
 const clothInventorySchema = z.object({
   sku: z.string().nullish(),
@@ -12,9 +16,9 @@ const clothInventorySchema = z.object({
   colorHex: z.string().nullish().default('#000000'),
   pattern: z.string().nullish(),
   quality: z.string().nullish(),
-  pricePerMeter: z.number().nullish(),
-  currentStock: z.number().nullish(),
-  minimumStockMeters: z.number().nullish(),
+  pricePerMeter: z.number().nonnegative().nullish(),
+  currentStock: z.number().nonnegative().nullish(),
+  minimumStockMeters: z.number().nonnegative().nullish(),
   supplier: z.string().nullish(),
   supplierId: z.string().nullish(),
   location: z.string().nullish(),
@@ -22,20 +26,19 @@ const clothInventorySchema = z.object({
 })
 
 // GET all cloth inventory
+// Order takers (create_order) need the fabric list for the order form; prices are filtered by role.
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth()
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { session, error } = await requireAnyPermission(['view_inventory', 'create_order'])
+    if (error) return error
 
     const { searchParams } = new URL(request.url)
     const lowStock = searchParams.get('lowStock') === 'true'
     const search = searchParams.get('search')
 
     // Pagination parameters
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '25')
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
+    const limit = Math.min(500, Math.max(1, parseInt(searchParams.get('limit') || '25') || 25))
     const skip = (page - 1) * limit
 
     const where: any = {}
@@ -74,10 +77,11 @@ export async function GET(request: NextRequest) {
     })
 
     const totalPages = Math.ceil(totalItems / limit)
+    const visibleItems = filterApiResponse(items, session.user.role, 'inventory')
 
     return NextResponse.json({
-      items,
-      clothInventory: items,
+      items: visibleItems,
+      clothInventory: visibleItems,
       pagination: {
         page,
         limit,
@@ -97,10 +101,8 @@ export async function GET(request: NextRequest) {
 // POST create new cloth inventory item
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth()
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { session, error } = await requirePermission('add_inventory')
+    if (error) return error
 
     const body = await request.json()
     const data = clothInventorySchema.parse(body)
@@ -120,7 +122,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Use transaction to ensure atomicity
-    const result = await prisma.$transaction(async (tx: any) => {
+    const initialStock = roundMeters(data.currentStock || 0)
+
+    const result = await prisma.$transaction(async (tx: TransactionClient) => {
       const clothItem = await tx.clothInventory.create({
         data: {
           sku,
@@ -132,9 +136,9 @@ export async function POST(request: NextRequest) {
           pattern: data.pattern || 'Plain',
           quality: data.quality || 'Standard',
           pricePerMeter: data.pricePerMeter || 0,
-          currentStock: data.currentStock || 0,
+          currentStock: initialStock,
           reserved: 0,
-          totalPurchased: data.currentStock || 0,
+          totalPurchased: initialStock,
           minimumStockMeters: data.minimumStockMeters || 0,
           supplier: data.supplier || 'Unknown',
           ...(data.supplierId && { supplierId: data.supplierId }),
@@ -147,13 +151,13 @@ export async function POST(request: NextRequest) {
       })
 
       // Create stock movement for initial stock
-      if (data.currentStock && data.currentStock > 0) {
+      if (initialStock > 0) {
         await tx.stockMovement.create({
           data: {
             clothInventoryId: clothItem.id,
             type: 'PURCHASE',
-            quantity: data.currentStock,
-            balanceAfter: data.currentStock,
+            quantityMeters: initialStock,
+            balanceAfterMeters: initialStock,
             userId: user.id, // Use verified user ID
             notes: 'Initial stock',
           },

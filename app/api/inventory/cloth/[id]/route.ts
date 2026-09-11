@@ -3,6 +3,9 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
 import { hasPermission, type UserRole } from '@/lib/permissions'
+import { requirePermission } from '@/lib/api-permissions'
+import { filterApiResponse } from '@/lib/api-filter-response'
+import { changeClothStock, InsufficientStockError, roundMeters } from '@/lib/stock'
 
 // Type for Prisma transaction client
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
@@ -15,9 +18,9 @@ const updateClothSchema = z.object({
   colorHex: z.string().optional(),
   pattern: z.string().optional(),
   quality: z.string().optional(),
-  pricePerMeter: z.number().optional(),
-  currentStock: z.number().optional(),
-  minimumStockMeters: z.number().optional(),
+  pricePerMeter: z.number().nonnegative().optional(),
+  currentStock: z.number().nonnegative().optional(),
+  minimumStockMeters: z.number().nonnegative().optional(),
   location: z.string().nullish(),
   notes: z.string().nullish(),
   // Phase 1 Enhancement Fields
@@ -43,10 +46,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { session, error } = await requirePermission('view_inventory')
+    if (error) return error
 
     const { id } = await params
 
@@ -65,7 +66,7 @@ export async function GET(
       return NextResponse.json({ error: 'Item not found' }, { status: 404 })
     }
 
-    return NextResponse.json(item)
+    return NextResponse.json(filterApiResponse(item, session.user.role, 'inventory'))
   } catch (error) {
     console.error('Error fetching cloth item:', error)
     return NextResponse.json(
@@ -107,29 +108,21 @@ export async function PATCH(
       return NextResponse.json({ error: 'Item not found' }, { status: 404 })
     }
 
-    // Check if stock is changing
-    const stockChanged = updateData.currentStock !== undefined &&
-                        updateData.currentStock !== existingItem.currentStock
+    // Stock changes go through the guarded delta helper (never below reserved, no float residue)
+    const { currentStock: requestedStock, ...fieldUpdates } = updateData
+    const quantityChange =
+      requestedStock !== undefined ? roundMeters(requestedStock - existingItem.currentStock) : 0
+    const stockChanged = quantityChange !== 0
 
     // Clean up data: remove undefined/null values to avoid Prisma type issues
     const cleanedData = Object.fromEntries(
-      Object.entries(updateData).filter(([_, value]) => value !== undefined && value !== null)
+      Object.entries(fieldUpdates).filter(([_, value]) => value !== undefined && value !== null)
     )
 
     // Update item and create stock movement if needed (in transaction)
     const updatedItem = await prisma.$transaction(async (tx: TransactionClient) => {
-      // Update the cloth item
-      const updated = await tx.clothInventory.update({
-        where: { id },
-        data: cleanedData,
-        include: {
-          supplierRel: true,
-        },
-      })
-
-      // Create stock movement record if stock changed
-      if (stockChanged && updateData.currentStock !== undefined) {
-        const quantityChange = updateData.currentStock - existingItem.currentStock
+      if (stockChanged) {
+        const levels = await changeClothStock(tx, id, quantityChange, { label: existingItem.name })
 
         await tx.stockMovement.create({
           data: {
@@ -137,22 +130,31 @@ export async function PATCH(
             userId: session.user.id,
             type: 'ADJUSTMENT',
             quantityMeters: quantityChange,
-            balanceAfterMeters: updateData.currentStock,
-            notes: _auditNote || `Stock adjusted from ${existingItem.currentStock}m to ${updateData.currentStock}m`,
+            balanceAfterMeters: levels.currentStock,
+            notes: _auditNote || `Stock adjusted from ${existingItem.currentStock}m to ${levels.currentStock}m`,
           },
         })
       }
 
-      return updated
+      return tx.clothInventory.update({
+        where: { id },
+        data: cleanedData,
+        include: {
+          supplierRel: true,
+        },
+      })
     })
 
-    return NextResponse.json(updatedItem)
+    return NextResponse.json(filterApiResponse(updatedItem, session.user.role as UserRole, 'inventory'))
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Validation failed', details: error.issues },
         { status: 400 }
       )
+    }
+    if (error instanceof InsufficientStockError) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
     console.error('Error updating cloth item:', error)

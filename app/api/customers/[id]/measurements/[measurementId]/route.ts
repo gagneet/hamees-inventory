@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
+import { actorFromSession, requireCustomerAccess } from '@/lib/authz'
 import { z } from 'zod'
 
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
@@ -41,11 +42,16 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string; measurementId: string }> }
 ) {
-  const { error } = await requireAnyPermission(['view_customers'])
+  const { session, error } = await requireAnyPermission(['view_customers'])
   if (error) return error
+  const actor = actorFromSession(session)
+  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const { id, measurementId } = await params
+
+    const denied = await requireCustomerAccess(actor, id)
+    if (denied) return denied
 
     const measurement = await prisma.measurement.findUnique({
       where: { id: measurementId, customerId: id },
@@ -93,11 +99,16 @@ export async function PATCH(
 ) {
   const { session, error } = await requireAnyPermission(['manage_measurements'])
   if (error) return error
+  const actor = actorFromSession(session)
+  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const { id, measurementId } = await params
     const body = await request.json()
     const validatedData = measurementUpdateSchema.parse(body)
+
+    const denied = await requireCustomerAccess(actor, id)
+    if (denied) return denied
 
     // Verify measurement exists and belongs to this customer
     const existingMeasurement = await prisma.measurement.findUnique({
@@ -124,7 +135,7 @@ export async function PATCH(
       const newMeasurement = await tx.measurement.create({
         data: {
           customerId: id,
-          userId: session!.user.id,
+          userId: actor.id,
           garmentType: validatedData.garmentType || existingMeasurement.garmentType,
           bodyType: validatedData.bodyType ?? existingMeasurement.bodyType,
           // Standard fields
@@ -191,11 +202,16 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string; measurementId: string }> }
 ) {
-  const { error } = await requireAnyPermission(['delete_measurement'])
+  const { session, error } = await requireAnyPermission(['delete_measurement'])
   if (error) return error
+  const actor = actorFromSession(session)
+  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const { id, measurementId } = await params
+
+    const denied = await requireCustomerAccess(actor, id)
+    if (denied) return denied
 
     // Verify measurement exists and belongs to this customer
     const measurement = await prisma.measurement.findUnique({

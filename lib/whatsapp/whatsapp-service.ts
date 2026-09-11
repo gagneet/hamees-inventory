@@ -1,4 +1,6 @@
 import { prisma } from '@/lib/db'
+import { getAppSettings, toInternationalPhone } from '@/lib/settings'
+import { formatCurrency, formatDate } from '@/lib/locale'
 
 export interface WhatsAppMessagePayload {
   to: string
@@ -28,8 +30,8 @@ export class WhatsAppService {
    */
   async sendTemplateMessage(payload: WhatsAppMessagePayload): Promise<string> {
     try {
-      // Normalize phone number (remove +, spaces, etc.)
-      const to = this.normalizePhoneNumber(payload.to)
+      // Normalize phone number to international digits using the shop's country code
+      const to = await this.normalizePhoneNumber(payload.to)
 
       // Get template if specified
       const template = payload.templateName
@@ -46,7 +48,7 @@ export class WhatsAppService {
       let messageContent = payload.body || template?.content || ''
       if (template && payload.variables) {
         Object.entries(payload.variables).forEach(([key, value]) => {
-          messageContent = messageContent.replace(`{{${key}}}`, value)
+          messageContent = messageContent.split(`{{${key}}}`).join(value)
         })
       }
 
@@ -130,18 +132,12 @@ export class WhatsAppService {
   }
 
   /**
-   * Normalize phone number to E.164 format
+   * Normalize phone number to international digits (E.164 without '+'),
+   * adding the shop's configured country code when missing.
    */
-  private normalizePhoneNumber(phone: string): string {
-    // Remove all non-numeric characters
-    let cleaned = phone.replace(/\D/g, '')
-
-    // Add country code if missing (assuming India +91)
-    if (!cleaned.startsWith('91') && cleaned.length === 10) {
-      cleaned = '91' + cleaned
-    }
-
-    return cleaned
+  private async normalizePhoneNumber(phone: string): Promise<string> {
+    const settings = await getAppSettings()
+    return toInternationalPhone(phone, settings.phoneCountryCode)
   }
 
   /**
@@ -161,6 +157,7 @@ export class WhatsAppService {
     })
 
     if (!order) throw new Error('Order not found')
+    await getAppSettings() // primes currency / locale / time zone for formatting
 
     const itemsList = order.items
       .map((item) => `- ${item.garmentPattern.name} (${item.quantityOrdered})`)
@@ -172,10 +169,10 @@ export class WhatsAppService {
       variables: {
         customer_name: order.customer.name,
         order_number: order.orderNumber,
-        delivery_date: order.deliveryDate.toLocaleDateString('en-IN'),
-        total_amount: `₹${order.totalAmount.toLocaleString('en-IN')}`,
-        advance_paid: `₹${order.advancePaid.toLocaleString('en-IN')}`,
-        balance: `₹${order.balanceAmount.toLocaleString('en-IN')}`,
+        delivery_date: formatDate(order.deliveryDate),
+        total_amount: formatCurrency(order.totalAmount),
+        advance_paid: formatCurrency(order.advancePaid),
+        balance: formatCurrency(order.balanceAmount),
         items: itemsList,
       },
       type: 'ORDER_CONFIRMATION',
@@ -196,6 +193,7 @@ export class WhatsAppService {
     })
 
     if (!order) throw new Error('Order not found')
+    await getAppSettings()
 
     await this.sendTemplateMessage({
       to: order.customer.phone,
@@ -203,7 +201,7 @@ export class WhatsAppService {
       variables: {
         customer_name: order.customer.name,
         order_number: order.orderNumber,
-        balance: `₹${order.balanceAmount.toLocaleString('en-IN')}`,
+        balance: formatCurrency(order.balanceAmount),
       },
       type: 'ORDER_READY',
       customerId: order.customerId,
@@ -223,6 +221,7 @@ export class WhatsAppService {
     })
 
     if (!order) throw new Error('Order not found')
+    await getAppSettings()
 
     await this.sendTemplateMessage({
       to: order.customer.phone,
@@ -230,8 +229,8 @@ export class WhatsAppService {
       variables: {
         customer_name: order.customer.name,
         order_number: order.orderNumber,
-        balance: `₹${order.balanceAmount.toLocaleString('en-IN')}`,
-        delivery_date: order.deliveryDate.toLocaleDateString('en-IN'),
+        balance: formatCurrency(order.balanceAmount),
+        delivery_date: formatDate(order.deliveryDate),
       },
       type: 'PAYMENT_REMINDER',
       customerId: order.customerId,
