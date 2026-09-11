@@ -13,10 +13,11 @@
  */
 
 import type { BusinessSettings } from '@prisma/client'
+import { isSupportedCountry } from 'libphonenumber-js'
 import { prisma } from '@/lib/db'
-import { normalizeLocaleConfig, setActiveLocaleConfig } from '@/lib/locale'
+import { isValidCurrency, normalizeLocaleConfig, setActiveLocaleConfig } from '@/lib/locale'
 import { TAX_MODES, type TaxMode } from '@/lib/tax'
-import { DEFAULT_APP_SETTINGS, type AppSettings } from '@/lib/app-settings'
+import { callingCodeForRegion, DEFAULT_APP_SETTINGS, DEFAULT_PHONE_REGION, type AppSettings } from '@/lib/app-settings'
 
 export { DEFAULT_APP_SETTINGS, taxConfigFrom, toInternationalPhone } from '@/lib/app-settings'
 export type { AppSettings } from '@/lib/app-settings'
@@ -27,6 +28,15 @@ export const SETTINGS_ROW_ID = 'default'
 export function settingsFromRow(row: BusinessSettings): AppSettings {
   const locale = normalizeLocaleConfig({ currency: row.currencyCode, locale: row.locale, timeZone: row.timeZone })
   const taxMode = (TAX_MODES as string[]).includes(row.taxMode) ? (row.taxMode as TaxMode) : 'SPLIT'
+  const phoneRegion = isSupportedCountry(row.phoneRegion) ? row.phoneRegion : DEFAULT_PHONE_REGION
+  // A secondary currency is only shown with a usable rate, and never the same as the main one
+  const secondaryUsable =
+    !!row.secondaryCurrencyCode &&
+    row.secondaryCurrencyCode !== locale.currency &&
+    isValidCurrency(row.secondaryCurrencyCode) &&
+    typeof row.exchangeRate === 'number' &&
+    Number.isFinite(row.exchangeRate) &&
+    row.exchangeRate > 0
   return {
     businessName: row.businessName,
     tagline: row.tagline,
@@ -43,8 +53,14 @@ export function settingsFromRow(row: BusinessSettings): AppSettings {
     currency: locale.currency,
     locale: locale.locale,
     timeZone: locale.timeZone,
-    phoneCountryCode: row.phoneCountryCode,
+    phoneRegion,
+    phoneCountryCode: callingCodeForRegion(phoneRegion),
     postalCodeLabel: row.postalCodeLabel,
+
+    secondaryCurrency: secondaryUsable ? row.secondaryCurrencyCode : null,
+    exchangeRate: secondaryUsable ? row.exchangeRate : null,
+    exchangeRateUpdatedAt: secondaryUsable ? row.exchangeRateUpdatedAt?.toISOString() ?? null : null,
+    showSecondaryOnInvoice: row.showSecondaryOnInvoice,
 
     taxMode,
     taxName: row.taxName,
@@ -55,6 +71,8 @@ export function settingsFromRow(row: BusinessSettings): AppSettings {
 
     maxActiveItemsPerTailor: row.maxActiveItemsPerTailor,
     tailorDailyTarget: row.tailorDailyTarget,
+
+    autoReorderEnabled: row.autoReorderEnabled,
   }
 }
 

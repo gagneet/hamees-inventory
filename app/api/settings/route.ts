@@ -7,6 +7,7 @@
 
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
+import { isSupportedCountry } from 'libphonenumber-js'
 import { prisma } from '@/lib/db'
 import { requireAuth, requirePermission } from '@/lib/api-permissions'
 import { DEFAULT_APP_SETTINGS, getAppSettings, invalidateAppSettings, SETTINGS_ROW_ID, type AppSettings } from '@/lib/settings'
@@ -55,8 +56,25 @@ const settingsSchema = z
       .refine(isValidCurrency, 'Unknown ISO 4217 currency code'),
     locale: z.string().trim().refine(isValidLocale, 'Unsupported locale'),
     timeZone: z.string().trim().refine(isValidTimeZone, 'Unknown IANA time zone'),
-    phoneCountryCode: z.string().trim().regex(/^\d{1,4}$/, 'Country code must be 1-4 digits'),
+    phoneRegion: z
+      .string()
+      .trim()
+      .transform((v) => v.toUpperCase())
+      .refine((v) => isSupportedCountry(v), 'Unknown country for phone numbers'),
     postalCodeLabel: z.string().trim().min(1).max(30),
+
+    // Display-only second currency: amounts are divided by exchangeRate (main-currency units per
+    // 1 secondary unit). Null clears it.
+    secondaryCurrency: z
+      .string()
+      .trim()
+      .transform((v) => v.toUpperCase())
+      .refine(isValidCurrency, 'Unknown ISO 4217 currency code')
+      .nullable(),
+    exchangeRate: z.number().positive('Exchange rate must be greater than 0').max(1e9).nullable(),
+    showSecondaryOnInvoice: z.boolean(),
+
+    autoReorderEnabled: z.boolean(),
 
     taxMode: z.enum(TAX_MODES as [string, ...string[]]),
     taxName: z.string().trim().min(1).max(20),
@@ -119,7 +137,8 @@ export async function PUT(request: Request) {
             code: 'CURRENCY_CHANGE_NEEDS_CONFIRMATION',
             error:
               `Existing amounts are not converted. ${recordCount} records with amounts would be relabelled ` +
-              `from ${currentCurrency} to ${input.currency}. Confirm only if those amounts were entered in ${input.currency}.`,
+              `from ${currentCurrency} to ${input.currency}. Confirm only if those amounts were entered in ${input.currency}. ` +
+              `To show amounts in ${input.currency} as well, keep ${currentCurrency} and set ${input.currency} as the secondary currency with an exchange rate.`,
             recordCount,
             from: currentCurrency,
             to: input.currency,
@@ -128,6 +147,21 @@ export async function PUT(request: Request) {
         )
       }
     }
+
+    // The secondary currency needs a rate and must differ from the main currency
+    const nextCurrency = input.currency ?? currentCurrency
+    const nextSecondary = input.secondaryCurrency !== undefined ? input.secondaryCurrency : before.secondaryCurrency
+    const nextRate = input.exchangeRate !== undefined ? input.exchangeRate : before.exchangeRate
+    if (nextSecondary && nextSecondary === nextCurrency) {
+      return NextResponse.json({ error: 'The secondary currency must differ from the main currency' }, { status: 400 })
+    }
+    if (nextSecondary && !(nextRate && nextRate > 0)) {
+      return NextResponse.json({ error: `Enter how many ${nextCurrency} one ${nextSecondary} is worth` }, { status: 400 })
+    }
+    const rateChanges =
+      (input.secondaryCurrency !== undefined && input.secondaryCurrency !== before.secondaryCurrency) ||
+      (input.exchangeRate !== undefined && input.exchangeRate !== before.exchangeRate)
+    const clearsSecondary = input.secondaryCurrency === null
 
     // Map API field names onto BusinessSettings columns
     const data = {
@@ -145,8 +179,14 @@ export async function PUT(request: Request) {
       ...(input.currency !== undefined && { currencyCode: input.currency }),
       ...(input.locale !== undefined && { locale: input.locale }),
       ...(input.timeZone !== undefined && { timeZone: input.timeZone }),
-      ...(input.phoneCountryCode !== undefined && { phoneCountryCode: input.phoneCountryCode }),
+      ...(input.phoneRegion !== undefined && { phoneRegion: input.phoneRegion }),
       ...(input.postalCodeLabel !== undefined && { postalCodeLabel: input.postalCodeLabel }),
+      ...(input.secondaryCurrency !== undefined && { secondaryCurrencyCode: input.secondaryCurrency }),
+      ...(input.exchangeRate !== undefined && { exchangeRate: input.exchangeRate }),
+      ...(clearsSecondary && { exchangeRate: null }),
+      ...(rateChanges && { exchangeRateUpdatedAt: clearsSecondary ? null : new Date() }),
+      ...(input.showSecondaryOnInvoice !== undefined && { showSecondaryOnInvoice: input.showSecondaryOnInvoice }),
+      ...(input.autoReorderEnabled !== undefined && { autoReorderEnabled: input.autoReorderEnabled }),
       ...(input.taxMode !== undefined && { taxMode: input.taxMode }),
       ...(input.taxName !== undefined && { taxName: input.taxName }),
       ...(input.taxIdLabel !== undefined && { taxIdLabel: input.taxIdLabel }),
