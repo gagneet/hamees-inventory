@@ -247,7 +247,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
            </CardHeader>
            <CardContent>
              <div className="text-2xl font-bold text-green-600">
-               <Money amount={generalStats.revenue.thisMonth} compact />
+               <Money amount={generalStats.revenue.thisMonth} />
              </div>
              <p className="text-xs text-muted-foreground mt-1">
                {generalStats.revenue.growth >= 0 ? '+' : ''}
@@ -269,7 +269,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
            </CardHeader>
            <CardContent>
              <div className="text-2xl font-bold text-cyan-600">
-               <Money amount={stats.cashCollectedThisMonth} compact />
+               <Money amount={stats.cashCollectedThisMonth} />
              </div>
              <p className="text-xs text-muted-foreground mt-1">
                {cashGrowth >= 0 ? '+' : ''}
@@ -291,7 +291,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
            </CardHeader>
            <CardContent>
              <div className="text-2xl font-bold text-red-600">
-               <Money amount={stats.expensesThisMonth} compact />
+               <Money amount={stats.expensesThisMonth} />
              </div>
              <p className="text-xs text-muted-foreground mt-1">
                {expenseGrowth >= 0 ? '+' : ''}
@@ -313,7 +313,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
            </CardHeader>
            <CardContent>
              <div className={`text-2xl font-bold ${netRevenue >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
-               <Money amount={netRevenue} compact />
+               <Money amount={netRevenue} />
              </div>
              <p className="text-xs text-muted-foreground mt-1">
                Revenue minus expenses
@@ -334,7 +334,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
            </CardHeader>
            <CardContent>
              <div className="text-2xl font-bold text-amber-600">
-               <Money amount={stats.outstandingPayments} compact />
+               <Money amount={stats.outstandingPayments} />
              </div>
              <p className="text-xs text-muted-foreground mt-1">
                Balance due from customers
