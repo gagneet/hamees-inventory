@@ -139,8 +139,34 @@ mkdir -p "$LOG_DIR"
 
 # ── Step 1: Install dependencies and generate the Prisma client ──────────────
 log "Step 1/6: Installing dependencies and generating the Prisma client..."
-pnpm install --frozen-lockfile 2>&1 | tail -5
-run_prisma generate || die "prisma generate failed"
+# Skip the install when node_modules was installed from exactly this lockfile. Besides saving
+# time, this avoids pnpm's "remove and recreate node_modules" path (e.g. when it was installed
+# by another user/store), which aborts without a TTY and must never run under the live app.
+if [[ -f node_modules/.pnpm/lock.yaml ]] && cmp -s pnpm-lock.yaml node_modules/.pnpm/lock.yaml; then
+  success "Dependencies already match pnpm-lock.yaml — skipping install"
+else
+  INSTALL_STATUS=0
+  pnpm install --frozen-lockfile 2>&1 | tail -5 || INSTALL_STATUS=$?
+  (( INSTALL_STATUS == 0 )) || die "pnpm install failed — nothing was changed. If pnpm asked to recreate node_modules, run 'pnpm install' interactively as the user that owns node_modules/.pnpm, then deploy again."
+fi
+# The Prisma client is generated inside node_modules. Skip regeneration when it was already
+# generated from this schema: the client keeps a `prisma format`-ed copy of the schema it was
+# built from, so format a temporary copy of ours and compare byte for byte.
+GENERATED_SCHEMA="$(node -p "require('path').join(require('path').dirname(require.resolve('.prisma/client/default', {paths: [require.resolve('@prisma/client')]})), 'schema.prisma')" 2>/dev/null || true)"
+SCHEMA_TMP_DIR="$(mktemp -d)"
+cp prisma/schema.prisma "$SCHEMA_TMP_DIR/schema.prisma"
+CLIENT_CURRENT=0
+if [[ -n "$GENERATED_SCHEMA" && -f "$GENERATED_SCHEMA" ]] \
+  && run_prisma format --schema "$SCHEMA_TMP_DIR/schema.prisma" >/dev/null \
+  && cmp -s "$SCHEMA_TMP_DIR/schema.prisma" "$GENERATED_SCHEMA"; then
+  CLIENT_CURRENT=1
+fi
+rm -rf "$SCHEMA_TMP_DIR"
+if (( CLIENT_CURRENT )); then
+  success "Prisma client already generated from this schema — skipping generate"
+else
+  run_prisma generate || die "prisma generate failed — nothing was changed. If node_modules is owned by another user, run 'pnpm exec prisma generate' as that user, then deploy again."
+fi
 run_prisma validate || die "prisma validate failed"
 success "Dependencies installed, Prisma client generated"
 
