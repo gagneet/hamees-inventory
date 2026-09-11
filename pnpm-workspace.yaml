@@ -3,3 +3,9 @@ packages:
 ignoredBuiltDependencies:
   - sharp
   - unrs-resolver
+# Packages allowed to run install scripts (pnpm 10 skips them by default).
+# Prisma needs its engines; esbuild needs its platform binary.
+onlyBuiltDependencies:
+  - '@prisma/engines'
+  - esbuild
+  - prisma

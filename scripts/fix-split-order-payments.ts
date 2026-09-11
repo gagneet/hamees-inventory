@@ -127,7 +127,7 @@ async function main() {
     console.log('\n🔧 Applying fixes...\n')
 
     // Execute the SQL migration
-    const sqlPath = join(process.cwd(), 'prisma/migrations/fix_payment_installments_after_split.sql')
+    const sqlPath = join(process.cwd(), 'prisma/manual-sql/fix_payment_installments_after_split.sql')
     const sql = readFileSync(sqlPath, 'utf8')
 
     // Split SQL into individual statements and execute
