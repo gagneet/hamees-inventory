@@ -9,6 +9,7 @@ import { actorFromSession, requireOrderAccess } from '@/lib/authz'
 import { getAppSettings, taxConfigFrom } from '@/lib/settings'
 import { recomputeOrderTax } from '@/lib/tax'
 import { isLegacyAdvanceInstallment, lockOrder, safeInstallmentNote } from '@/lib/order-finance'
+import { deriveOrderStatus, syncOrderStatus } from '@/lib/item-status'
 
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 
@@ -272,7 +273,8 @@ export async function POST(
           customerId: originalOrder.customerId,
           userId: actor.id,
           measurementId: originalOrder.measurementId,
-          status: originalOrder.status, // Same status as original
+          // Items keep their own stages; the new order starts at the least advanced of them
+          status: deriveOrderStatus(itemsToSplit) ?? originalOrder.status,
           priority: originalOrder.priority,
           deliveryDate: deliveryDate ? new Date(deliveryDate) : originalOrder.deliveryDate,
 
@@ -426,6 +428,9 @@ export async function POST(
           balanceAmount: roundCurrency(remainingTotalAmount - remainingDiscount - remainingPaidTotal),
         },
       })
+
+      // The remaining items may all be further along than the ones that left
+      await syncOrderStatus(tx, id, actor.id, 'after split')
 
       // Create order history for original order
       await tx.orderHistory.create({
