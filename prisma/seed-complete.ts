@@ -503,7 +503,8 @@ async function main() {
           advancePaid: advancePaid,
           balanceAmount: balanceAmount,
           items: {
-            create: itemsData,
+            // Items carry their own stage; the order's is derived from them
+            create: itemsData.map((item) => ({ ...item, status })),
           },
           createdAt: orderDate,
           updatedAt: orderDate,

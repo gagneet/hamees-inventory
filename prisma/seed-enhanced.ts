@@ -518,6 +518,7 @@ async function main() {
               {
                 garmentPatternId: pattern.id,
                 clothInventoryId: cloth.id,
+                status, // items carry their own stage; the order's is derived from them
                 quantityOrdered: 1,
                 bodyType,
                 estimatedMeters,
