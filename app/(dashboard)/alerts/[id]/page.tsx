@@ -21,7 +21,8 @@ import {
 } from '@/components/ui/breadcrumb'
 import { AlertTriangle, Home, Package, ShoppingCart, X } from 'lucide-react'
 import DashboardLayout from '@/components/DashboardLayout'
-import { formatCurrency, formatDateTime } from '@/lib/utils'
+import { formatDateTime } from '@/lib/utils'
+import { Money } from '@/components/ui/money'
 import { useSession } from 'next-auth/react'
 import { hasPermission, type UserRole } from '@/lib/permissions'
 import { useFieldVisibility } from '@/hooks/use-field-visibility'
@@ -39,18 +40,28 @@ interface AlertData {
 }
 
 interface RelatedItem {
+  /** Fabric or accessory — the API returns both in this one shape */
+  kind: 'cloth' | 'accessory'
+  unit: 'm' | 'pcs'
   id: string
+  sku: string
   name: string
   type: string
   currentStock: number
   reserved: number
   minimum: number
-  pricePerMeter?: number
+  /** Price per meter / per unit; absent for roles without inventory cost access */
+  unitPrice?: number
   supplierRel?: {
     id: string
     name: string
     phone: string
   } | null
+}
+
+/** Meters with two decimals, accessories as whole pieces */
+function formatQuantity(item: RelatedItem, value: number) {
+  return item.kind === 'cloth' ? `${value.toFixed(2)}m` : `${Math.round(value)} pcs`
 }
 
 export default function AlertDetailPage({
@@ -66,7 +77,7 @@ export default function AlertDetailPage({
     !!session?.user?.role && hasPermission(session.user.role as UserRole, 'manage_purchase_orders')
   // The API strips pricePerMeter for roles without inventory cost access; hide the field rather than show 0
   const { canView } = useFieldVisibility()
-  const canViewPrice = canView('inventory', 'pricePerMeter')
+  const canViewPrice = canView('inventory', 'pricePerMeter') || canView('inventory', 'pricePerUnit')
   const [alertId, setAlertId] = useState<string | null>(null)
   const [alertData, setAlertData] = useState<AlertData | null>(null)
   const [relatedItem, setRelatedItem] = useState<RelatedItem | null>(null)
@@ -254,28 +265,30 @@ export default function AlertDetailPage({
                     ? 'text-red-600'
                     : 'text-green-600'
                 }`}>
-                  {relatedItem.currentStock.toFixed(2)}m
+                  {formatQuantity(relatedItem, relatedItem.currentStock)}
                   {relatedItem.reserved > 0 && (
                     <span className="text-sm text-slate-500 ml-2">
-                      ({relatedItem.reserved.toFixed(2)}m reserved)
+                      ({formatQuantity(relatedItem, relatedItem.reserved)} reserved)
                     </span>
                   )}
                 </p>
               </div>
               <div>
                 <p className="text-sm font-medium text-slate-500">Minimum Required</p>
-                <p className="text-lg">{relatedItem.minimum.toFixed(2)}m</p>
+                <p className="text-lg">{formatQuantity(relatedItem, relatedItem.minimum)}</p>
               </div>
               <div>
                 <p className="text-sm font-medium text-slate-500">Available Stock</p>
                 <p className="text-lg font-semibold">
-                  {(relatedItem.currentStock - relatedItem.reserved).toFixed(2)}m
+                  {formatQuantity(relatedItem, relatedItem.currentStock - relatedItem.reserved)}
                 </p>
               </div>
-              {canViewPrice && typeof relatedItem.pricePerMeter === 'number' && (
+              {canViewPrice && typeof relatedItem.unitPrice === 'number' && (
                 <div>
-                  <p className="text-sm font-medium text-slate-500">Price per Meter</p>
-                  <p className="text-lg">{formatCurrency(relatedItem.pricePerMeter)}</p>
+                  <p className="text-sm font-medium text-slate-500">
+                    {relatedItem.kind === 'cloth' ? 'Price per Meter' : 'Price per Unit'}
+                  </p>
+                  <p className="text-lg"><Money amount={relatedItem.unitPrice} secondary="inline" /></p>
                 </div>
               )}
               {relatedItem.supplierRel && (
@@ -300,7 +313,7 @@ export default function AlertDetailPage({
                   asChild
                 >
                   <Link
-                    href={`/purchase-orders/new?supplierId=${relatedItem.supplierRel.id}&itemType=CLOTH&itemId=${relatedItem.id}`}
+                    href={`/purchase-orders/new?supplierId=${relatedItem.supplierRel.id}&itemType=${relatedItem.kind === 'cloth' ? 'CLOTH' : 'ACCESSORY'}&itemId=${relatedItem.id}`}
                   >
                     <ShoppingCart className="mr-2 h-5 w-5" />
                     Create Purchase Order
@@ -308,7 +321,7 @@ export default function AlertDetailPage({
                 </Button>
               )}
               <Button variant="outline" asChild>
-                <Link href={`/inventory/cloth/${relatedItem.id}`}>
+                <Link href={`/inventory/${relatedItem.kind === 'cloth' ? 'cloth' : 'accessories'}/${relatedItem.id}`}>
                   <Package className="mr-2 h-4 w-4" />
                   View Full Details
                 </Link>
