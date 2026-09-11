@@ -13,13 +13,13 @@
  */
 
 import type { BusinessSettings } from '@prisma/client'
-import { isSupportedCountry } from 'libphonenumber-js'
+import { isSupportedCountry } from '@/lib/phone'
 import { prisma } from '@/lib/db'
 import { isValidCurrency, normalizeLocaleConfig, setActiveLocaleConfig } from '@/lib/locale'
 import { TAX_MODES, type TaxMode } from '@/lib/tax'
 import { callingCodeForRegion, DEFAULT_APP_SETTINGS, DEFAULT_PHONE_REGION, type AppSettings } from '@/lib/app-settings'
 
-export { DEFAULT_APP_SETTINGS, taxConfigFrom, toInternationalPhone } from '@/lib/app-settings'
+export { DEFAULT_APP_SETTINGS, taxConfigFrom } from '@/lib/app-settings'
 export type { AppSettings } from '@/lib/app-settings'
 
 /** Fixed id of the singleton settings row (created by the release migration). */

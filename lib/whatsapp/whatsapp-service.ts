@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db'
-import { getAppSettings, toInternationalPhone } from '@/lib/settings'
+import { getAppSettings } from '@/lib/settings'
+import { whatsappDigits } from '@/lib/phone'
 import { formatCurrency, formatDate } from '@/lib/locale'
 
 export interface WhatsAppMessagePayload {
@@ -132,12 +133,15 @@ export class WhatsAppService {
   }
 
   /**
-   * Normalize phone number to international digits (E.164 without '+'),
-   * adding the shop's configured country code when missing.
+   * Normalize phone number to international digits (E.164 without '+'); numbers stored without a
+   * country code are read in the shop's phone region. Invalid numbers are refused rather than
+   * guessed, so a message is never sent to the wrong person.
    */
   private async normalizePhoneNumber(phone: string): Promise<string> {
     const settings = await getAppSettings()
-    return toInternationalPhone(phone, settings.phoneCountryCode)
+    const digits = whatsappDigits(phone, settings.phoneRegion)
+    if (!digits) throw new Error('Recipient phone number is not a valid international number')
+    return digits
   }
 
   /**
