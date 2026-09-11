@@ -100,8 +100,6 @@ yarn-error.log*
 next-env.d.ts
 
 # prisma
-prisma/migrations/**
-!prisma/migrations/.gitkeep
 
 # uploads
 /uploads/
@@ -121,3 +119,14 @@ prisma/migrations/**
 *.log
 package-lock.json
 next-env.d.ts
+backups/
+
+# verification builds (NEXT_DIST_DIR)
+/.next-verify/
+
+# local Claude Code settings (may contain credentials)
+.claude/settings.local.json
+
+# deploy staging build / rollback copy (scripts/deploy.sh)
+/.next-staging/
+/.next-prev/
