@@ -97,7 +97,7 @@ async function main() {
       )
     }
     if (totals.invalid > 0) {
-      console.log(`${totals.invalid} number(s) could not be parsed and were left unchanged; correct them in the app.`)
+      console.log(`${totals.invalid} number(s) could not be parsed and were left unchanged; correct them in the app (customers, shop settings) or through the Excel import (suppliers).`)
     }
   } finally {
     await prisma.$disconnect()
