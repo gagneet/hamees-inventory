@@ -8,6 +8,7 @@ import { Bell, AlertTriangle, Info, X, Clock } from 'lucide-react'
 import { formatDateWith } from '@/lib/utils'
 import { useSession } from 'next-auth/react'
 import { hasPermission, type UserRole } from '@/lib/permissions'
+import { alertItemKind } from '@/lib/alert-scope'
 
 interface AlertCardProps {
   alert: {
@@ -76,12 +77,12 @@ export function AlertCard({ alert }: AlertCardProps) {
     }
 
     // Navigate to related item
+    const itemKind = alertItemKind(alert.relatedType)
     if (alert.relatedType === 'order' && alert.relatedId) {
       router.push(`/orders/${alert.relatedId}`)
-    } else if (alert.relatedType === 'cloth' && alert.relatedId) {
-      router.push(alert.type === 'REORDER_REMINDER' ? `/inventory/cloth/${alert.relatedId}` : '/inventory')
-    } else if (alert.relatedType === 'accessory' && alert.relatedId) {
-      router.push(alert.type === 'REORDER_REMINDER' ? `/inventory/accessories/${alert.relatedId}` : '/inventory')
+    } else if (itemKind && alert.relatedId) {
+      const section = itemKind === 'cloth' ? 'cloth' : 'accessories'
+      router.push(alert.type === 'REORDER_REMINDER' ? `/inventory/${section}/${alert.relatedId}` : '/inventory')
     }
   }
 

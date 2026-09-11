@@ -708,7 +708,7 @@ async function main() {
       title: 'Low Stock Alert - Cloth',
       message: 'Brocade Silk is running low. Current: 65m, Minimum: 15m',
       relatedId: clothInventory[9].id,
-      relatedType: 'ClothInventory',
+      relatedType: 'cloth',
     },
   })
   console.log('✅ Alerts created\n')

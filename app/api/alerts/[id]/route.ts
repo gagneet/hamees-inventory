@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db'
 import { requirePermission } from '@/lib/api-permissions'
 import { hasPermission } from '@/lib/permissions'
 import { filterObjectByRole } from '@/lib/field-acl'
-import { alertVisibilityScope } from '@/lib/alert-scope'
+import { alertItemKind, alertVisibilityScope } from '@/lib/alert-scope'
 
 export async function GET(
   request: Request,
@@ -42,11 +42,7 @@ export async function GET(
     }
     const supplierRel = { select: { id: true, name: true, phone: true, email: true } } as const
     const kind: RelatedItem['kind'] | null =
-      alert.relatedType === 'accessory'
-        ? 'accessory'
-        : alert.relatedType === 'cloth' || alert.relatedType === 'INVENTORY'
-          ? 'cloth'
-          : null
+      alertItemKind(alert.relatedType)
 
     let relatedItem: RelatedItem | null = null
     if (kind === 'cloth' && alert.relatedId) {

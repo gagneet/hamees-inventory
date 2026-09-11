@@ -11,3 +11,19 @@ export function alertVisibilityScope(role: UserRole): Prisma.AlertWhereInput {
   if (hasFinancialAccess(role, 'order')) return {}
   return { NOT: { type: 'PAYMENT_REMINDER' } }
 }
+
+/**
+ * Which inventory table an alert's relatedId points at. Alerts written before 0.32.0 (and by the
+ * older seeds) stored the Prisma model name, so both spellings resolve to the same kind.
+ */
+const ALERT_ITEM_KINDS: Record<string, 'cloth' | 'accessory'> = {
+  cloth: 'cloth',
+  INVENTORY: 'cloth',
+  ClothInventory: 'cloth',
+  accessory: 'accessory',
+  AccessoryInventory: 'accessory',
+}
+
+export function alertItemKind(relatedType: string | null | undefined): 'cloth' | 'accessory' | null {
+  return (relatedType && ALERT_ITEM_KINDS[relatedType]) || null
+}

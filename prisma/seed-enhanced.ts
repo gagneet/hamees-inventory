@@ -585,7 +585,7 @@ async function main() {
         title: `${severity === 'HIGH' ? 'Critical' : 'Low'} Stock Alert - Cloth`,
         message: `${item.name} is running ${severity === 'HIGH' ? 'critically' : ''} low. Available: ${available}m, Minimum: ${item.minimumStockMeters}m`,
         relatedId: item.id,
-        relatedType: 'ClothInventory',
+        relatedType: 'cloth',
       },
     })
   }
@@ -604,7 +604,7 @@ async function main() {
         title: `${severity === 'HIGH' ? 'Critical' : 'Low'} Stock Alert - Accessory`,
         message: `${item.name} is running ${severity === 'HIGH' ? 'critically' : ''} low. Available: ${item.currentStock} pcs, Minimum: ${item.minimumStockUnits} pcs`,
         relatedId: item.id,
-        relatedType: 'AccessoryInventory',
+        relatedType: 'accessory',
       },
     })
   }

@@ -3,7 +3,7 @@
  * without order financial access; reorder reminders (REORDER_REMINDER) carry no amounts and stay visible.
  */
 import { describe, it, expect } from 'vitest'
-import { alertVisibilityScope } from '@/lib/alert-scope'
+import { alertItemKind, alertVisibilityScope } from '@/lib/alert-scope'
 import { hasFinancialAccess } from '@/lib/field-acl'
 import type { UserRole } from '@/lib/permissions'
 
@@ -30,5 +30,22 @@ describe('alertVisibilityScope', () => {
     for (const role of ROLES) {
       expect(JSON.stringify(alertVisibilityScope(role))).not.toContain('REORDER_REMINDER')
     }
+  })
+})
+
+describe('alertItemKind', () => {
+  it('maps both the current and the older relatedType spellings', () => {
+    expect(alertItemKind('cloth')).toBe('cloth')
+    expect(alertItemKind('INVENTORY')).toBe('cloth')
+    expect(alertItemKind('ClothInventory')).toBe('cloth')
+    expect(alertItemKind('accessory')).toBe('accessory')
+    expect(alertItemKind('AccessoryInventory')).toBe('accessory')
+  })
+
+  it('is null for alerts that do not point at a stock item', () => {
+    expect(alertItemKind('order')).toBeNull()
+    expect(alertItemKind(null)).toBeNull()
+    expect(alertItemKind(undefined)).toBeNull()
+    expect(alertItemKind('')).toBeNull()
   })
 })

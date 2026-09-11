@@ -96,6 +96,14 @@ describe('GET /api/alerts/[id] related item', () => {
     expect((await (await get()).json()).relatedItem).toMatchObject({ kind: 'cloth', minimum: 10 })
   })
 
+  it('still reads the model names older alerts stored', async () => {
+    db.alert.findFirst.mockResolvedValue(alertRow({ relatedType: 'ClothInventory' }))
+    expect((await (await get()).json()).relatedItem).toMatchObject({ kind: 'cloth', minimum: 10 })
+
+    db.alert.findFirst.mockResolvedValue(alertRow({ relatedType: 'AccessoryInventory', relatedId: 'a1' }))
+    expect((await (await get()).json()).relatedItem).toMatchObject({ kind: 'accessory', minimum: 50 })
+  })
+
   it('hides the price from roles without inventory cost access', async () => {
     actAs('TAILOR')
     db.alert.findFirst.mockResolvedValue(alertRow())

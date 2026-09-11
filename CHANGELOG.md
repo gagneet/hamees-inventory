@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - The **Inventory Item Details** card on an alert crashed (it read a `minimum` the API never sent) and never loaded accessories; fabric and accessory alerts now both show stock, minimum and supplier, in meters or pieces, and link to the right inventory page.
+- Older stock alerts (stored with the table name, e.g. `ClothInventory`) showed no item details and did not open the item when clicked; both spellings now resolve to the same item.
 - Creating a purchase order retries when another request (or the reorder check) takes the same purchase-order number, instead of failing.
 - The inventory create forms sent the wrong minimum-stock field name, so a new item's minimum was ignored.
 
