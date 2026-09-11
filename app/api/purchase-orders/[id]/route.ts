@@ -9,12 +9,15 @@
  *   related_tests: tests/unit/api/purchase-orders.test.ts
  *   change_risk: medium - approval writes item prices and enables receiving/payment
  */
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission, requirePermission } from '@/lib/api-permissions'
 import { getAppSettings } from '@/lib/settings'
 import { formatDate } from '@/lib/locale'
 import { filterApiResponse } from '@/lib/api-filter-response'
+import { multiplyMoney, subtractMoney, sumMoney } from '@/lib/money'
+import { poItemInventoryInclude } from '@/lib/purchase-order-items'
+import { runReorderCheckQuietly } from '@/lib/reorder'
 import { z } from 'zod'
 
 const approvePurchaseOrderSchema = z.object({
@@ -57,7 +60,7 @@ export async function GET(
       where: { id },
       include: {
         supplier: true,
-        items: true,
+        items: { include: poItemInventoryInclude },
       },
     })
 
@@ -129,12 +132,12 @@ export async function PATCH(
       return {
         id: item.id,
         pricePerUnit,
-        totalPrice: item.orderedQuantity * pricePerUnit,
+        totalPrice: multiplyMoney(pricePerUnit, item.orderedQuantity),
       }
     })
 
-    const totalAmount = updatedItems.reduce((sum, item) => sum + item.totalPrice, 0)
-    const balanceAmount = totalAmount - purchaseOrder.paidAmount
+    const totalAmount = sumMoney(updatedItems.map((item) => item.totalPrice))
+    const balanceAmount = subtractMoney(totalAmount, purchaseOrder.paidAmount)
 
     await getAppSettings() // locale for the approval note date
 
@@ -154,6 +157,7 @@ export async function PATCH(
         data: {
           status: 'APPROVED',
           totalAmount,
+          subTotal: totalAmount,
           balanceAmount,
           notes: appendApprovalNote(
             purchaseOrder.notes,
@@ -163,7 +167,7 @@ export async function PATCH(
         },
         include: {
           supplier: true,
-          items: true,
+          items: { include: poItemInventoryInclude },
         },
       })
     })
@@ -218,6 +222,9 @@ export async function DELETE(
       where: { id },
       data: { active: false, status: 'CANCELLED' },
     })
+
+    // Its quantities are no longer on order: the reorder check may need to raise alerts again
+    after(() => runReorderCheckQuietly({ trigger: 'purchase_order_changed', userId: session.user.id }))
 
     return NextResponse.json({ success: true })
   } catch (error) {
