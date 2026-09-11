@@ -2,13 +2,16 @@
  * FEATURETRACE: Production report (Master Tailor / Owner)
  *
  * Throughput, turnaround and on-time delivery per tailor for a date range.
- *   - An order "completes production" at its FIRST transition to READY (or DELIVERED when READY
- *     was skipped), taken from OrderHistory STATUS_UPDATE events; orders with no history fall
- *     back to Order.completedDate.
+ *   - An item "completes production" at its FIRST move to READY (OrderHistory ITEM_STATUS_UPDATE).
+ *     Items without item-level history (finished before per-item status, or delivered without
+ *     passing READY) use their order's first READY/DELIVERED STATUS_UPDATE; orders with no
+ *     history at all fall back to Order.completedDate.
  *   - Completed items are attributed to each item's current assignee.
  *   - Turnaround = completion − order date (days). On time = completed by the end of the
  *     delivery date.
- *   - Stage durations = time between consecutive status events of orders completed in range.
+ *   - Stage durations = time between consecutive status events of each completed item (its
+ *     ITEM_STATUS_UPDATE events), or of its order when the item has no item-level history.
+ *   - Backlog counts items by their own stage.
  * No financial data is read or returned.
  */
 
@@ -76,11 +79,13 @@ export type CompletedItemInput = {
 
 export type BacklogItemInput = {
   assignedTailorId: string | null
-  orderStatus: string
+  /** The item's own production stage */
+  status: string
   deliveryDate: Date
 }
 
-export type StatusEventInput = { orderId: string; newValue: string | null; createdAt: Date }
+/** A status event of an order, or of one item when orderItemId is set. */
+export type StatusEventInput = { orderId: string; orderItemId?: string | null; newValue: string | null; createdAt: Date }
 
 export interface TailorReportRow {
   id: string | null
@@ -150,7 +155,7 @@ export function buildProductionReport(input: {
   let backlog = 0
   let overdue = 0
   for (const item of input.backlog) {
-    if (!isActiveProductionStatus(item.orderStatus)) continue
+    if (!isActiveProductionStatus(item.status)) continue
     const a = bucket(item.assignedTailorId)
     a.backlog++
     backlog++
@@ -196,15 +201,17 @@ export function buildProductionReport(input: {
     if (dailyMap.has(key)) dailyMap.set(key, dailyMap.get(key)! + 1)
   }
 
-  // Average time spent in each production stage
-  const eventsByOrder = new Map<string, StatusEventInput[]>()
+  // Average time spent in each production stage, per item track (or order track for legacy data).
+  // Every track starts in NEW at its order's date.
+  const tracks = new Map<string, { orderId: string; events: StatusEventInput[] }>()
   for (const e of input.statusEvents) {
-    const list = eventsByOrder.get(e.orderId) ?? []
-    list.push(e)
-    eventsByOrder.set(e.orderId, list)
+    const key = e.orderItemId ? `item:${e.orderItemId}` : `order:${e.orderId}`
+    const track = tracks.get(key) ?? { orderId: e.orderId, events: [] }
+    track.events.push(e)
+    tracks.set(key, track)
   }
   const stageDurations = new Map<string, number[]>()
-  for (const [orderId, events] of eventsByOrder) {
+  for (const { orderId, events } of tracks.values()) {
     events.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
     let stage = 'NEW'
     let enteredAt = input.orderDates[orderId]
@@ -247,36 +254,42 @@ export function buildProductionReport(input: {
 
 export async function loadProductionReport(range: ReportRange, now = new Date()): Promise<ProductionReport> {
   const COMPLETION = ['READY', 'DELIVERED']
+  const inRangeDates = { gte: range.from, lte: range.to }
 
-  // 1. Orders with a completion event in range, then their FIRST completion overall
+  // 1. Orders with a completion event in range (the order, or one of its items, reaching READY),
+  //    then every status event of those orders to find each FIRST completion overall
   const inRange =
     (await prisma.orderHistory.findMany({
       where: {
-        changeType: 'STATUS_UPDATE',
-        newValue: { in: COMPLETION },
-        createdAt: { gte: range.from, lte: range.to },
+        createdAt: inRangeDates,
+        OR: [
+          { changeType: 'STATUS_UPDATE', newValue: { in: COMPLETION } },
+          { changeType: 'ITEM_STATUS_UPDATE', newValue: 'READY' },
+        ],
       },
       select: { orderId: true },
     })) ?? []
   const candidateIds = [...new Set(inRange.map((e) => e.orderId))]
 
-  const statusEvents =
+  const events =
     candidateIds.length > 0
       ? ((await prisma.orderHistory.findMany({
-          where: { orderId: { in: candidateIds }, changeType: 'STATUS_UPDATE' },
-          select: { orderId: true, newValue: true, createdAt: true },
+          where: { orderId: { in: candidateIds }, changeType: { in: ['STATUS_UPDATE', 'ITEM_STATUS_UPDATE'] } },
+          select: { orderId: true, orderItemId: true, changeType: true, newValue: true, createdAt: true },
           orderBy: { createdAt: 'asc' },
         })) ?? [])
       : []
 
-  const completedAt = new Map<string, Date>()
-  for (const e of statusEvents) {
-    if (e.newValue && COMPLETION.includes(e.newValue) && !completedAt.has(e.orderId)) {
-      completedAt.set(e.orderId, e.createdAt)
+  const orderCompletedAt = new Map<string, Date>()
+  const itemCompletedAt = new Map<string, Date>()
+  const itemsWithHistory = new Set<string>()
+  for (const e of events) {
+    if (e.changeType === 'ITEM_STATUS_UPDATE' && e.orderItemId) {
+      itemsWithHistory.add(e.orderItemId)
+      if (e.newValue === 'READY' && !itemCompletedAt.has(e.orderItemId)) itemCompletedAt.set(e.orderItemId, e.createdAt)
+    } else if (e.changeType === 'STATUS_UPDATE' && e.newValue && COMPLETION.includes(e.newValue)) {
+      if (!orderCompletedAt.has(e.orderId)) orderCompletedAt.set(e.orderId, e.createdAt)
     }
-  }
-  for (const [orderId, at] of completedAt) {
-    if (at < range.from || at > range.to) completedAt.delete(orderId)
   }
 
   // 2. Fallback: delivered orders without any status history (imported / legacy data)
@@ -284,20 +297,21 @@ export async function loadProductionReport(range: ReportRange, now = new Date())
     (await prisma.order.findMany({
       where: {
         status: 'DELIVERED',
-        completedDate: { gte: range.from, lte: range.to },
-        history: { none: { changeType: 'STATUS_UPDATE' } },
+        completedDate: inRangeDates,
+        history: { none: { changeType: { in: ['STATUS_UPDATE', 'ITEM_STATUS_UPDATE'] } } },
       },
       select: { id: true, completedDate: true },
     })) ?? []
-  for (const o of legacy) if (o.completedDate) completedAt.set(o.id, o.completedDate)
+  for (const o of legacy) if (o.completedDate) orderCompletedAt.set(o.id, o.completedDate)
 
-  const completedOrderIds = [...completedAt.keys()]
+  const orderIds = [...new Set([...candidateIds, ...orderCompletedAt.keys()])]
 
-  const [completedItems, backlogItems, tailorUsers] = await Promise.all([
-    completedOrderIds.length > 0
+  const [orderItems, backlogItems, tailorUsers] = await Promise.all([
+    orderIds.length > 0
       ? prisma.orderItem.findMany({
-          where: { orderId: { in: completedOrderIds } },
+          where: { orderId: { in: orderIds } },
           select: {
+            id: true,
             orderId: true,
             assignedTailorId: true,
             quantityOrdered: true,
@@ -306,8 +320,11 @@ export async function loadProductionReport(range: ReportRange, now = new Date())
         })
       : Promise.resolve([]),
     prisma.orderItem.findMany({
-      where: { order: { status: { in: [...PRODUCTION_ORDER_STATUSES] } } },
-      select: { assignedTailorId: true, order: { select: { status: true, deliveryDate: true } } },
+      where: {
+        status: { in: [...PRODUCTION_ORDER_STATUSES] },
+        order: { status: { in: [...PRODUCTION_ORDER_STATUSES] } },
+      },
+      select: { assignedTailorId: true, status: true, order: { select: { deliveryDate: true } } },
     }),
     prisma.user.findMany({
       where: { role: { in: ASSIGNABLE_TAILOR_ROLES } },
@@ -316,13 +333,28 @@ export async function loadProductionReport(range: ReportRange, now = new Date())
     }),
   ])
 
-  const completed: CompletedItemInput[] = (completedItems ?? []).map((i) => ({
+  // Each item completes at its own first READY, else when its order did
+  const completedItems = (orderItems ?? []).flatMap((i) => {
+    const at = itemCompletedAt.get(i.id) ?? orderCompletedAt.get(i.orderId)
+    return at && at >= range.from && at <= range.to ? [{ ...i, completedAt: at }] : []
+  })
+
+  const completed: CompletedItemInput[] = completedItems.map((i) => ({
     assignedTailorId: i.assignedTailorId,
     quantity: i.quantityOrdered,
     orderDate: i.order.orderDate,
     deliveryDate: i.order.deliveryDate,
-    completedAt: completedAt.get(i.orderId)!,
+    completedAt: i.completedAt,
   }))
+
+  // Stage timelines: an item's own events when it has any, else its order's (once per order)
+  const itemTracks = new Set(completedItems.filter((i) => itemsWithHistory.has(i.id)).map((i) => i.id))
+  const orderTracks = new Set(completedItems.filter((i) => !itemsWithHistory.has(i.id)).map((i) => i.orderId))
+  const statusEvents: StatusEventInput[] = events.filter((e) =>
+    e.changeType === 'ITEM_STATUS_UPDATE'
+      ? !!e.orderItemId && itemTracks.has(e.orderItemId)
+      : orderTracks.has(e.orderId)
+  )
 
   // Anyone who completed work but is no longer a tailor still gets a named row
   const knownIds = new Set((tailorUsers ?? []).map((u) => u.id))
@@ -336,7 +368,7 @@ export async function loadProductionReport(range: ReportRange, now = new Date())
       : []
 
   const orderDates: Record<string, Date> = {}
-  for (const i of completedItems ?? []) orderDates[i.orderId] = i.order.orderDate
+  for (const i of completedItems) orderDates[i.orderId] = i.order.orderDate
 
   return buildProductionReport({
     range,
@@ -345,10 +377,10 @@ export async function loadProductionReport(range: ReportRange, now = new Date())
     completed,
     backlog: (backlogItems ?? []).map((i) => ({
       assignedTailorId: i.assignedTailorId,
-      orderStatus: i.order.status,
+      status: i.status,
       deliveryDate: i.order.deliveryDate,
     })),
-    statusEvents: statusEvents.filter((e) => completedAt.has(e.orderId)),
+    statusEvents,
     orderDates,
   })
 }

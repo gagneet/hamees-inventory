@@ -6,11 +6,13 @@
  *   - GET /api/dashboard/enhanced-stats (production section, roles with view_production)
  *   - /production/tailors page
  *
- * Item "status" is the parent order's status (items have no status of their own).
+ * Each item is counted by its OWN production stage (OrderItem.status, lib/item-status.ts);
+ * the parent order only decides whether the item is still in production (open order).
  * Capacity comes from BusinessSettings.maxActiveItemsPerTailor; the daily target from
- * BusinessSettings.tailorDailyTarget. "Completed today" counts items whose order moved to
- * READY today (OrderHistory STATUS_UPDATE events), attributed to the item's assignee.
- * No financial data is read or returned.
+ * BusinessSettings.tailorDailyTarget. "Completed today" counts items moved to READY today
+ * (OrderHistory ITEM_STATUS_UPDATE events), plus — for orders finished before items had their
+ * own status — items of orders that moved to READY today without any item-level history.
+ * Completions are attributed to the item's assignee. No financial data is read or returned.
  */
 
 import type { Prisma } from '@prisma/client'
@@ -33,6 +35,7 @@ export type RawTailor = { id: string; name: string; role: string }
 export type RawWorkloadItem = {
   id: string
   orderId: string
+  status: string
   quantityOrdered: number
   notes: string | null
   assignedTailorId: string | null
@@ -50,6 +53,7 @@ export type RawWorkloadItem = {
 export const workloadItemSelect = {
   id: true,
   orderId: true,
+  status: true,
   quantityOrdered: true,
   notes: true,
   assignedTailorId: true,
@@ -79,6 +83,7 @@ export function toWorkloadItem(raw: RawWorkloadItem, now: Date): WorkloadItem {
     id: raw.id,
     orderId: raw.orderId,
     orderNumber: raw.order.orderNumber,
+    status: raw.status,
     orderStatus: raw.order.status,
     priority: raw.order.priority,
     deliveryDate: raw.order.deliveryDate.toISOString(),
@@ -89,7 +94,7 @@ export function toWorkloadItem(raw: RawWorkloadItem, now: Date): WorkloadItem {
     assignedTailorId: raw.assignedTailorId,
     assignedTailorName: raw.assignedTailor?.name ?? null,
     daysLeft,
-    isOverdue: daysLeft < 0 && isActiveProductionStatus(raw.order.status),
+    isOverdue: daysLeft < 0 && isActiveProductionStatus(raw.status),
   }
 }
 
@@ -142,11 +147,13 @@ export function buildProductionOverview(input: {
   let readyItems = 0
 
   for (const raw of input.items) {
+    // Items of delivered / cancelled orders never appear in the workload
+    if (!(PRODUCTION_ORDER_STATUSES as readonly string[]).includes(raw.order.status)) continue
     const item = toWorkloadItem(raw, now)
-    const active = isActiveProductionStatus(item.orderStatus)
+    const active = isActiveProductionStatus(item.status)
     if (active) activeItems++
-    else if (item.orderStatus === 'READY') readyItems++
-    else continue // terminal orders never appear in the workload
+    else if (item.status === 'READY') readyItems++
+    else continue
 
     if (item.isOverdue) overdue.push(item)
 
@@ -160,7 +167,7 @@ export function buildProductionOverview(input: {
     tailor.items.push(item)
     if (active) {
       tailor.activeCount++
-      tailor.byStatus[item.orderStatus as ActiveProductionStatus]++
+      tailor.byStatus[item.status as ActiveProductionStatus]++
       if (item.isOverdue) tailor.overdueCount++
       if (item.daysLeft === 0) tailor.dueTodayCount++
     } else {
@@ -198,24 +205,44 @@ export function buildProductionOverview(input: {
   }
 }
 
-/** Order ids that moved to READY since `since` (production finished). */
-async function ordersReadySince(since: Date): Promise<string[]> {
-  const events =
-    (await prisma.orderHistory.findMany({
-      where: { changeType: 'STATUS_UPDATE', newValue: 'READY', createdAt: { gte: since } },
+/**
+ * Items that reached READY since `since`: item-level events, plus every item of an order that
+ * moved to READY without item-level history (orders finished before per-item status).
+ */
+async function itemsReadySince(since: Date): Promise<Prisma.OrderItemWhereInput | null> {
+  const [itemEvents, legacyOrderEvents] = await Promise.all([
+    prisma.orderHistory.findMany({
+      where: { changeType: 'ITEM_STATUS_UPDATE', newValue: 'READY', createdAt: { gte: since }, orderItemId: { not: null } },
+      select: { orderItemId: true },
+    }),
+    prisma.orderHistory.findMany({
+      where: {
+        changeType: 'STATUS_UPDATE',
+        newValue: 'READY',
+        createdAt: { gte: since },
+        order: { history: { none: { changeType: 'ITEM_STATUS_UPDATE' } } },
+      },
       select: { orderId: true },
-    })) ?? []
-  return [...new Set(events.map((e) => e.orderId))]
+    }),
+  ])
+  const itemIds = [...new Set((itemEvents ?? []).map((e) => e.orderItemId).filter((id): id is string => !!id))]
+  const orderIds = [...new Set((legacyOrderEvents ?? []).map((e) => e.orderId))]
+  if (itemIds.length === 0 && orderIds.length === 0) return null
+
+  const or: Prisma.OrderItemWhereInput[] = []
+  if (itemIds.length > 0) or.push({ id: { in: itemIds } })
+  if (orderIds.length > 0) or.push({ orderId: { in: orderIds } })
+  return { OR: or }
 }
 
-/** Items completed (order moved to READY) today, grouped by assignee. */
+/** Items completed (moved to READY) today, grouped by assignee. */
 export async function completedItemsTodayByTailor(now = new Date()): Promise<Record<string, number>> {
-  const orderIds = await ordersReadySince(shopStartOfDay(now))
-  if (orderIds.length === 0) return {}
+  const ready = await itemsReadySince(shopStartOfDay(now))
+  if (!ready) return {}
   const groups =
     (await prisma.orderItem.groupBy({
       by: ['assignedTailorId'],
-      where: { orderId: { in: orderIds }, assignedTailorId: { not: null } },
+      where: { AND: [ready, { assignedTailorId: { not: null } }] },
       _count: { id: true },
     })) ?? []
   const out: Record<string, number> = {}
@@ -227,9 +254,9 @@ export async function completedItemsTodayByTailor(now = new Date()): Promise<Rec
 
 /** Items completed today matching `itemWhere` (e.g. one tailor's items). */
 export async function countCompletedItemsToday(itemWhere: Prisma.OrderItemWhereInput, now = new Date()): Promise<number> {
-  const orderIds = await ordersReadySince(shopStartOfDay(now))
-  if (orderIds.length === 0) return 0
-  return (await prisma.orderItem.count({ where: { AND: [{ orderId: { in: orderIds } }, itemWhere] } })) ?? 0
+  const ready = await itemsReadySince(shopStartOfDay(now))
+  if (!ready) return 0
+  return (await prisma.orderItem.count({ where: { AND: [ready, itemWhere] } })) ?? 0
 }
 
 export async function loadAssignableTailors(): Promise<RawTailor[]> {
@@ -247,7 +274,10 @@ export async function loadProductionOverview(now = new Date()): Promise<Producti
   const [tailors, items, completedByTailor] = await Promise.all([
     loadAssignableTailors(),
     prisma.orderItem.findMany({
-      where: { order: { status: { in: [...PRODUCTION_ORDER_STATUSES] } } },
+      where: {
+        status: { in: [...PRODUCTION_ORDER_STATUSES] },
+        order: { status: { in: [...PRODUCTION_ORDER_STATUSES] } },
+      },
       select: workloadItemSelect,
     }),
     completedItemsTodayByTailor(now),

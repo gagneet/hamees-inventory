@@ -4,17 +4,19 @@
  * order-derived query is AND-scoped with the actor's order scope (lib/authz.ts).
  */
 
-import type { Prisma } from '@prisma/client'
+import type { OrderStatus, Prisma } from '@prisma/client'
 import { addDays, differenceInDays, endOfMonth, format, startOfMonth, subMonths } from 'date-fns'
 import { shopStartOfDay } from '@/lib/locale'
 import { prisma } from '@/lib/db'
-import { canSeeAllOrders, orderScope, scopedWhere, type Actor } from '@/lib/authz'
+import { canSeeAllOrders, orderItemScope, orderScope, scopedWhere, type Actor } from '@/lib/authz'
 import { alertVisibilityScope } from '@/lib/alert-scope'
 import { countCompletedItemsToday } from '@/app/api/production/_lib/workload'
 import { sumFromMinor } from '@/lib/money'
 
 const OPEN_ORDER: Prisma.OrderWhereInput = { status: { notIn: ['DELIVERED', 'CANCELLED'] } }
-const IN_PRODUCTION: Prisma.OrderWhereInput = { status: { in: ['CUTTING', 'STITCHING', 'FINISHING'] } }
+/** Item stages (OrderItem.status) where a garment is being worked on. */
+const IN_PRODUCTION_STAGES: OrderStatus[] = ['CUTTING', 'STITCHING', 'FINISHING']
+const UNFINISHED_STAGES: OrderStatus[] = ['NEW', 'MATERIAL_SELECTED', 'CUTTING', 'STITCHING', 'FINISHING']
 
 export type MonthWindow = { start: Date; end: Date }
 
@@ -48,6 +50,16 @@ export async function buildTailorSection(actor: Actor, now: Date, dailyTarget: n
     ? undefined
     : { assignedTailorId: actor.id }
 
+  // Items are counted by their own stage (lib/item-status.ts); a tailor's deadlines are the open
+  // orders where one of THEIR garments is still unfinished
+  const inProductionItems = scopedWhere<Prisma.OrderItemWhereInput>(
+    { status: { in: IN_PRODUCTION_STAGES }, order: OPEN_ORDER },
+    ownItems ?? {}
+  )
+  const openWork: Prisma.OrderWhereInput = ownItems
+    ? { AND: [OPEN_ORDER, { items: { some: { ...ownItems, status: { in: UNFINISHED_STAGES } } } }] }
+    : OPEN_ORDER
+
   const orderSelect = {
     id: true,
     orderNumber: true,
@@ -55,7 +67,7 @@ export async function buildTailorSection(actor: Actor, now: Date, dailyTarget: n
     status: true,
     priority: true,
     customer: { select: { name: true } },
-    items: { where: ownItems, select: { garmentPattern: { select: { name: true } } } },
+    items: { where: ownItems, select: { status: true, garmentPattern: { select: { name: true } } } },
   } satisfies Prisma.OrderSelect
 
   const todayStart = shopStartOfDay(now)
@@ -64,26 +76,26 @@ export async function buildTailorSection(actor: Actor, now: Date, dailyTarget: n
   const [inProgressOrders, dueTodayOrders, overdueOrders, upcomingDeadlines, workloadByGarment, completedToday] =
     await Promise.all([
       prisma.order.findMany({
-        where: scopedWhere<Prisma.OrderWhereInput>(IN_PRODUCTION, scope),
+        where: scopedWhere<Prisma.OrderWhereInput>({ items: { some: inProductionItems } }, scope),
         select: orderSelect,
         orderBy: { deliveryDate: 'asc' },
       }),
       prisma.order.findMany({
         where: scopedWhere<Prisma.OrderWhereInput>(
-          { AND: [OPEN_ORDER, { deliveryDate: { gte: todayStart, lt: tomorrowStart } }] },
+          { AND: [openWork, { deliveryDate: { gte: todayStart, lt: tomorrowStart } }] },
           scope
         ),
         select: orderSelect,
         orderBy: { deliveryDate: 'asc' },
       }),
       prisma.order.findMany({
-        where: scopedWhere<Prisma.OrderWhereInput>({ AND: [OPEN_ORDER, { deliveryDate: { lt: todayStart } }] }, scope),
+        where: scopedWhere<Prisma.OrderWhereInput>({ AND: [openWork, { deliveryDate: { lt: todayStart } }] }, scope),
         select: orderSelect,
         orderBy: { deliveryDate: 'asc' },
       }),
       prisma.order.findMany({
         where: scopedWhere<Prisma.OrderWhereInput>(
-          { AND: [OPEN_ORDER, { deliveryDate: { gte: now, lte: addDays(now, 7) } }] },
+          { AND: [openWork, { deliveryDate: { gte: now, lte: addDays(now, 7) } }] },
           scope
         ),
         select: orderSelect,
@@ -92,7 +104,7 @@ export async function buildTailorSection(actor: Actor, now: Date, dailyTarget: n
       }),
       prisma.orderItem.groupBy({
         by: ['garmentPatternId'],
-        where: scopedWhere<Prisma.OrderItemWhereInput>({ order: IN_PRODUCTION }, ownItems ?? {}),
+        where: inProductionItems,
         _count: { id: true },
       }),
       countCompletedItemsToday(ownItems ?? {}, now),
@@ -101,7 +113,8 @@ export async function buildTailorSection(actor: Actor, now: Date, dailyTarget: n
   const names = await patternNames((workloadByGarment ?? []).map((w) => w.garmentPatternId))
 
   return {
-    inProgress: inProgressOrders.length,
+    // Garments (not orders) in cutting, stitching or finishing
+    inProgress: (workloadByGarment ?? []).reduce((sum, w) => sum + w._count.id, 0),
     inProgressList: inProgressOrders,
     dueToday: dueTodayOrders.length,
     dueTodayList: dueTodayOrders,
@@ -228,7 +241,12 @@ export async function buildSalesSection(
         select: salesOrderSelect,
         orderBy: { orderDate: 'desc' },
       }),
-      prisma.order.groupBy({ by: ['status'], where: scope, _count: { status: true } }),
+      // Production pipeline: garments of open orders by their own stage
+      prisma.orderItem.groupBy({
+        by: ['status'],
+        where: scopedWhere<Prisma.OrderItemWhereInput>({ order: OPEN_ORDER }, orderItemScope(actor)),
+        _count: { status: true },
+      }),
       prisma.customer.findMany({
         select: {
           id: true,

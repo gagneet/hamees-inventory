@@ -20,7 +20,8 @@ import { auth } from '@/lib/auth'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { prisma } from '@/lib/db'
-import { actorFromSession, orderScope, scopedWhere } from '@/lib/authz'
+import { actorFromSession, canSeeAllOrders, orderScope, scopedWhere } from '@/lib/authz'
+import { itemProgress } from '@/lib/item-status'
 import { hasFinancialAccess, isFinancialField } from '@/lib/field-acl'
 import { hasPermission, type UserRole } from '@/lib/permissions'
 import { getAppSettings } from '@/lib/settings'
@@ -53,6 +54,7 @@ import { OrderItemDetailDialog } from '@/components/orders/order-item-detail-dia
 import { AssignTailorDialog } from '@/components/orders/assign-tailor-dialog'
 import { SendWhatsAppButton } from '@/components/orders/send-whatsapp-button'
 import { OrderItemMeasurements } from '@/components/orders/order-item-measurements'
+import { ItemStatusControl } from '@/components/orders/item-status-control'
 
 async function getOrderDetails(id: string, scope: Prisma.OrderWhereInput) {
   try {
@@ -238,6 +240,12 @@ export default async function OrderDetailPage({
   const isClosed = order.status === 'DELIVERED' || order.status === 'CANCELLED'
   const history = redactHistory(order.history, showOrderFinancials)
 
+  // Garments move through production on their own; the order's stage is derived from them
+  // (least advanced item — lib/item-status.ts)
+  const seesAllOrders = canSeeAllOrders(actor)
+  const progress = itemProgress(order.items)
+  const canBulkMove = seesAllOrders || order.items.every((item: OrderItem) => item.assignedTailorId === actor.id)
+
   const statusColors: Record<string, { bg: string; text: string; border: string }> = {
     NEW: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
     MATERIAL_SELECTED: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
@@ -335,11 +343,19 @@ export default async function OrderDetailPage({
             </p>
           </div>
         </div>
-        <Badge
-          className={`px-3 py-1 text-sm ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border} border`}
-        >
-          {statusLabels[order.status]}
-        </Badge>
+        <div className="flex flex-col items-end gap-1">
+          <Badge
+            className={`px-3 py-1 text-sm ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border} border`}
+            title={isClosed ? undefined : 'Derived from the items: the least advanced garment'}
+          >
+            {statusLabels[order.status]}
+          </Badge>
+          {!isClosed && progress.total > 1 && (
+            <p className="text-xs text-slate-500">
+              {progress.ready} of {progress.total} items ready
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Main Content */}
@@ -375,6 +391,17 @@ export default async function OrderDetailPage({
                             <p className="text-xs text-slate-500 font-mono mt-1">
                               SKU: {item.clothInventory.sku}
                             </p>
+                            <div className="mt-2">
+                              <ItemStatusControl
+                                orderId={order.id}
+                                itemId={item.id}
+                                status={item.status}
+                                canMove={
+                                  canUpdateStatus && !isClosed && (seesAllOrders || item.assignedTailorId === actor.id)
+                                }
+                                canMoveAnyStage={seesAllOrders}
+                              />
+                            </div>
                           </div>
                         </div>
                         </div>
@@ -738,6 +765,8 @@ export default async function OrderDetailPage({
                 totalAmount={showOrderFinancials ? order.totalAmount : 0}
                 balanceAmount={showOrderFinancials ? order.balanceAmount : 0}
                 canUpdateStatus={canUpdateStatus}
+                itemProgress={progress}
+                canBulkMove={canBulkMove}
                 canEditOrder={canEditOrder}
                 canRecordPayment={canRecordPayment && showOrderFinancials}
                 showFinancials={showOrderFinancials}

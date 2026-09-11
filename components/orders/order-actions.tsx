@@ -40,6 +40,10 @@ interface OrderActionsProps {
   balanceAmount: number
   /** Explicit capability flags (preferred). When omitted they are derived from userRole. */
   canUpdateStatus?: boolean
+  /** Garments READY vs in production — the order's stage is derived from its items */
+  itemProgress?: { ready: number; total: number }
+  /** May move every item to one production stage (roles that see all orders, or a tailor holding every item) */
+  canBulkMove?: boolean
   canEditOrder?: boolean
   /** Advance and discount edits (record_payment) */
   canRecordPayment?: boolean
@@ -75,6 +79,8 @@ export function OrderActions({
   totalAmount,
   balanceAmount,
   canUpdateStatus,
+  itemProgress,
+  canBulkMove = true,
   canEditOrder,
   canRecordPayment,
   showFinancials,
@@ -87,9 +93,14 @@ export function OrderActions({
   const allowFinancials = showFinancials ?? (role ? hasFinancialAccess(role, 'order') : false)
   const allowPayments = (canRecordPayment ?? (role ? hasPermission(role, 'record_payment') : false)) && allowFinancials
   const isClosed = isDelivered || TERMINAL_STATUSES.includes(currentStatus)
-  const availableStatuses = statusOptions.filter(
-    (option) => allowEdit || !TERMINAL_STATUSES.includes(option.value) || option.value === currentStatus
-  )
+  // Delivery / cancellation are order-level (update_order); a production stage here moves every item
+  const availableStatuses = statusOptions.filter((option) => {
+    if (option.value === currentStatus) return true
+    if (TERMINAL_STATUSES.includes(option.value)) return allowEdit
+    return canBulkMove
+  })
+  const canChangeStatus = availableStatuses.some((option) => option.value !== currentStatus)
+  const notAllReady = !!itemProgress && itemProgress.total > 0 && itemProgress.ready < itemProgress.total
 
   const formatLocalDate = (date: Date) =>
     `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
@@ -148,6 +159,13 @@ export function OrderActions({
   const handleStatusUpdate = async () => {
     if (newStatus === currentStatus) {
       alert('Please select a different status')
+      return
+    }
+    if (
+      newStatus === 'DELIVERED' &&
+      notAllReady &&
+      !confirm(`Only ${itemProgress!.ready} of ${itemProgress!.total} items are ready. Deliver the whole order anyway?`)
+    ) {
       return
     }
 
@@ -245,7 +263,7 @@ export function OrderActions({
   return (
     <div className="flex flex-wrap gap-2">
       {/* Update Status Dialog */}
-      {allowStatus && (
+      {allowStatus && canChangeStatus && (
       <Dialog open={statusDialogOpen} onOpenChange={setStatusDialogOpen}>
         <DialogTrigger asChild>
           <Button variant="default" disabled={isClosed}>
@@ -257,7 +275,8 @@ export function OrderActions({
           <DialogHeader>
             <DialogTitle>Update Order Status</DialogTitle>
             <DialogDescription>
-              Change the current status of this order
+              Deliver or cancel the order, or move every item to one stage. Single garments are moved
+              from the item list or the production board.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -278,6 +297,18 @@ export function OrderActions({
               {!allowEdit && (
                 <p className="text-xs text-slate-500 mt-1">
                   Delivery and cancellation are handled by the front office.
+                </p>
+              )}
+              {newStatus === 'DELIVERED' && newStatus !== currentStatus && notAllReady && (
+                <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded p-2 mt-2">
+                  Only {itemProgress!.ready} of {itemProgress!.total} items are ready. Delivering now marks every
+                  item as delivered.
+                </p>
+              )}
+              {newStatus !== currentStatus && !TERMINAL_STATUSES.includes(newStatus) && (itemProgress?.total ?? 0) > 1 && (
+                <p className="text-xs text-slate-600 mt-2">
+                  This moves all {itemProgress!.total} items to{' '}
+                  {statusOptions.find((option) => option.value === newStatus)?.label ?? newStatus}.
                 </p>
               )}
             </div>

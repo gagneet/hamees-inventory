@@ -3,21 +3,22 @@
 /**
  * @featuretrace Tailor Kanban Board
  * @component TailorKanban
- * @description Drag-free production pipeline board. Shows active orders (NEW → CUTTING →
- *   STITCHING → FINISHING → READY) as swimlane columns with one-click status advance.
- *   Tailors can move any order to the next stage without navigating to the order detail page.
+ * @description Drag-free production board with ONE CARD PER GARMENT (order item). Each item
+ *   moves through NEW → CUTTING → STITCHING → FINISHING → READY on its own, so two tailors
+ *   working on the same order never move each other's work. The order's status is derived
+ *   from its items (least advanced stage — lib/item-status.ts).
  *
- * @reads  orders: KanbanOrder[] — passed as prop; fetched by parent server component (production/page.tsx) via prisma.order.findMany()
- * @calls  PATCH /api/orders/:id/status — one-click advance to next status
+ * @reads  items: KanbanItem[] — passed as prop; fetched by the server page (production/page.tsx)
+ * @calls  PATCH /api/orders/:id/items/:itemId/status — one-click advance of one item
  * @calls  router.refresh() — re-renders server data after update
  *
  * @statuses NEW (incl. MATERIAL_SELECTED) → CUTTING → STITCHING → FINISHING → READY
- *   DELIVERED and CANCELLED are excluded from the board (handled in order detail)
+ *   DELIVERED and CANCELLED are order-level and handled in the order detail page
  *
- * @scope The server page scopes orders (and items) to the user: TAILOR sees only their own items.
- * @assign Per-item assignee chips; assign / change controls only when canAssign (assign_tailors).
+ * @scope The server page scopes items to the user: TAILOR sees only items assigned to them.
+ * @assign Assignee chip per card; assign / change control only when canAssign (assign_tailors).
  *
- * @layout Horizontal scroll on mobile; equal-width columns on desktop (lg:grid-cols-5)
+ * @layout Horizontal scroll on mobile; equal-width columns on desktop (grid-cols-5)
  */
 
 import React, { useState, useCallback } from 'react'
@@ -40,29 +41,34 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { shopStartOfDay } from '@/lib/locale'
+import type { ProductionStage } from '@/lib/item-status'
 import { AssignTailorDialog } from '@/components/orders/assign-tailor-dialog'
 
 // ── Types ─────────────────────────────────────────────────────────
 
-export type KanbanOrder = {
+export type KanbanItem = {
   id: string
-  orderNumber: string
-  status: 'NEW' | 'MATERIAL_SELECTED' | 'CUTTING' | 'STITCHING' | 'FINISHING' | 'READY'
-  priority: string
-  deliveryDate: string | Date
-  customer: { name: string; phone: string }
-  items: Array<{
+  /** The garment's own production stage */
+  status: ProductionStage
+  bodyType?: string | null
+  garmentPattern: { name: string }
+  clothInventory: { name: string; color: string; colorHex?: string | null }
+  assignedTailor?: { id: string; name: string } | null
+  order: {
     id: string
-    garmentPattern: { name: string }
-    clothInventory: { name: string; color: string; colorHex?: string | null }
-    bodyType?: string | null
-    assignedTailor?: { id: string; name: string } | null
-  }>
+    orderNumber: string
+    priority: string
+    deliveryDate: string | Date
+    customer: { name: string }
+    /** Garments of the whole order that are READY, and how many it has in production */
+    readyCount: number
+    itemCount: number
+  }
 }
 
 interface TailorKanbanProps {
-  orders: KanbanOrder[]
-  canAdvance?: boolean  // false for VIEWER; true for TAILOR and above
+  items: KanbanItem[]
+  canAdvance?: boolean  // update_order_status (the page only passes a tailor their own items)
   canAssign?: boolean   // assign_tailors: OWNER, ADMIN, SALES_MANAGER, MASTER_TAILOR
 }
 
@@ -72,8 +78,8 @@ type StatusKey = 'NEW' | 'CUTTING' | 'STITCHING' | 'FINISHING' | 'READY'
 
 const COLUMNS: {
   status: StatusKey
-  /** Order statuses shown in this column (NEW also holds MATERIAL_SELECTED). */
-  statuses: KanbanOrder['status'][]
+  /** Item stages shown in this column (NEW also holds MATERIAL_SELECTED). */
+  statuses: ProductionStage[]
   label: string
   icon: React.ElementType
   color: string
@@ -173,10 +179,10 @@ function DeliveryBadge({ deliveryDate }: { deliveryDate: string | Date }) {
   )
 }
 
-// ── Kanban card ───────────────────────────────────────────────────
+// ── Kanban card (one garment) ─────────────────────────────────────
 
-function OrderCard({
-  order,
+function ItemCard({
+  item,
   nextStatus,
   nextLabel,
   canAdvance,
@@ -184,17 +190,18 @@ function OrderCard({
   onAdvance,
   advancing,
 }: {
-  order: KanbanOrder
+  item: KanbanItem
   nextStatus: StatusKey | null
   nextLabel: string | null
   canAdvance: boolean
   canAssign: boolean
-  onAdvance: (orderId: string, status: StatusKey) => void
+  onAdvance: (item: KanbanItem, status: StatusKey) => void
   advancing: boolean
 }) {
-  const garmentNames = order.items.map(i => i.garmentPattern.name).join(', ')
+  const { order } = item
   const days = getDaysLeft(order.deliveryDate)
   const isUrgent = order.priority === 'URGENT' || days <= 1
+  const garment = `${item.garmentPattern.name}${item.bodyType ? ` · ${item.bodyType}` : ''}`
 
   return (
     <Card
@@ -202,70 +209,67 @@ function OrderCard({
         'shadow-sm hover:shadow-md transition-shadow',
         isUrgent && 'border-red-300 ring-1 ring-red-200',
       )}
-      aria-label={`Order ${order.orderNumber} — ${garmentNames}`}
+      aria-label={`${item.garmentPattern.name} — order ${order.orderNumber}`}
     >
       <CardContent className="p-3 space-y-2">
-        {/* Order number + customer */}
+        {/* Garment + urgency */}
         <div className="flex items-start justify-between gap-1">
-          <Link
-            href={`/orders/${order.id}`}
-            className="text-sm font-semibold text-slate-800 hover:text-blue-600 hover:underline truncate"
-          >
-            {order.orderNumber}
-          </Link>
+          <p className="text-sm font-semibold text-slate-800 truncate" title={garment}>{garment}</p>
           <div className="flex items-center gap-1 shrink-0">
-            {isUrgent && (
-              <AlertCircle className="h-3.5 w-3.5 text-red-500" />
-            )}
+            {isUrgent && <AlertCircle className="h-3.5 w-3.5 text-red-500" />}
             {order.priority === 'URGENT' && (
               <Badge className="text-[9px] py-0 px-1 bg-red-500 text-white">URGENT</Badge>
             )}
           </div>
         </div>
 
-        <p className="text-xs text-slate-600 truncate">{order.customer.name}</p>
+        {/* Order number + customer */}
+        <div className="flex items-center justify-between gap-2 text-xs">
+          <Link
+            href={`/orders/${order.id}`}
+            className="font-medium text-slate-600 hover:text-blue-600 hover:underline truncate"
+          >
+            {order.orderNumber}
+          </Link>
+          <span className="text-slate-500 truncate">{order.customer.name}</span>
+        </div>
 
-        {/* Garment items with assignee */}
-        <ul className="space-y-1" title={garmentNames}>
-          {order.items.map(item => (
-            <li key={item.id} className="flex items-center justify-between gap-1 text-[10px]">
-              <span className="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded truncate">
-                {item.garmentPattern.name}
-                {item.bodyType ? ` · ${item.bodyType}` : ''}
-              </span>
-              <span className="flex items-center gap-1 shrink-0">
-                <span className={item.assignedTailor ? 'text-slate-500 truncate max-w-[80px]' : 'text-amber-700'}>
-                  {item.assignedTailor ? `👤 ${item.assignedTailor.name}` : 'Unassigned'}
-                </span>
-                {canAssign && (
-                  <AssignTailorDialog
-                    variant="compact"
-                    orderId={order.id}
-                    itemId={item.id}
-                    currentTailorId={item.assignedTailor?.id ?? null}
-                    currentTailorName={item.assignedTailor?.name ?? null}
-                    garmentName={item.garmentPattern.name}
-                  />
-                )}
-              </span>
-            </li>
-          ))}
-        </ul>
-
-        {/* Fabric summary with colour swatch */}
-        <p className="text-[10px] text-slate-400 truncate flex items-center gap-1">
-          {order.items[0]?.clothInventory.colorHex && (
-            <span
-              className="inline-block w-2.5 h-2.5 rounded-full border border-slate-200 shrink-0"
-              style={{ backgroundColor: order.items[0].clothInventory.colorHex }}
+        {/* Assignee */}
+        <div className="flex items-center justify-between gap-1 text-[10px]">
+          <span className={item.assignedTailor ? 'text-slate-500 truncate' : 'text-amber-700'}>
+            {item.assignedTailor ? `👤 ${item.assignedTailor.name}` : 'Unassigned'}
+          </span>
+          {canAssign && (
+            <AssignTailorDialog
+              variant="compact"
+              orderId={order.id}
+              itemId={item.id}
+              currentTailorId={item.assignedTailor?.id ?? null}
+              currentTailorName={item.assignedTailor?.name ?? null}
+              garmentName={item.garmentPattern.name}
             />
           )}
-          {order.items[0]?.clothInventory.name}
-          {order.items.length > 1 ? ` +${order.items.length - 1} more` : ''}
+        </div>
+
+        {/* Fabric with colour swatch */}
+        <p className="text-[10px] text-slate-400 truncate flex items-center gap-1">
+          {item.clothInventory.colorHex && (
+            <span
+              className="inline-block w-2.5 h-2.5 rounded-full border border-slate-200 shrink-0"
+              style={{ backgroundColor: item.clothInventory.colorHex }}
+            />
+          )}
+          {item.clothInventory.name} ({item.clothInventory.color})
         </p>
 
-        {/* Delivery indicator */}
-        <DeliveryBadge deliveryDate={order.deliveryDate} />
+        <div className="flex flex-wrap items-center gap-1.5">
+          <DeliveryBadge deliveryDate={order.deliveryDate} />
+          {order.itemCount > 1 && (
+            <span className="text-[10px] text-slate-500">
+              {order.readyCount} of {order.itemCount} items ready
+            </span>
+          )}
+        </div>
       </CardContent>
 
       {/* Advance button */}
@@ -275,7 +279,7 @@ function OrderCard({
             size="sm"
             variant="ghost"
             disabled={advancing}
-            onClick={() => onAdvance(order.id, nextStatus)}
+            onClick={() => onAdvance(item, nextStatus)}
             className="w-full h-7 text-xs font-medium text-blue-600 hover:bg-blue-50 hover:text-blue-700 gap-1"
           >
             {advancing
@@ -292,59 +296,68 @@ function OrderCard({
 
 // ── Main Kanban board ─────────────────────────────────────────────
 
-export function TailorKanban({ orders, canAdvance = true, canAssign = false }: TailorKanbanProps) {
+/** Move one item and keep the "x of y ready" hint of its order's other cards in step. */
+function applyMove(items: KanbanItem[], moved: KanbanItem, status: ProductionStage): KanbanItem[] {
+  const delta = (status === 'READY' ? 1 : 0) - (moved.status === 'READY' ? 1 : 0)
+  return items.map((i) => {
+    if (i.order.id !== moved.order.id) return i
+    const order = delta ? { ...i.order, readyCount: i.order.readyCount + delta } : i.order
+    return i.id === moved.id ? { ...i, status, order } : { ...i, order }
+  })
+}
+
+export function TailorKanban({ items, canAdvance = true, canAssign = false }: TailorKanbanProps) {
   const router = useRouter()
-  // Track which order IDs are currently being advanced
+  // Item ids currently being advanced
   const [advancing, setAdvancing] = useState<Set<string>>(new Set())
   // Local optimistic state — move cards immediately, roll back on error
-  const [localOrders, setLocalOrders] = useState<KanbanOrder[]>(orders)
+  const [localItems, setLocalItems] = useState<KanbanItem[]>(items)
 
   // Keep local state in sync when parent re-renders (after router.refresh)
-  React.useEffect(() => { setLocalOrders(orders) }, [orders])
+  React.useEffect(() => { setLocalItems(items) }, [items])
 
-  const handleAdvance = useCallback(async (orderId: string, newStatus: StatusKey) => {
-    // Optimistic update — move card immediately
-    const previousOrders = localOrders
-    setLocalOrders(prev =>
-      prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o)
-    )
-    setAdvancing(prev => new Set(prev).add(orderId))
+  const handleAdvance = useCallback(async (item: KanbanItem, newStatus: StatusKey) => {
+    const previousItems = localItems
+    setLocalItems(prev => applyMove(prev, item, newStatus))
+    setAdvancing(prev => new Set(prev).add(item.id))
 
     try {
-      const res = await fetch(`/api/orders/${orderId}/status`, {
+      const res = await fetch(`/api/orders/${item.order.id}/items/${item.id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({ status: newStatus }),
       })
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data.error ?? 'Update failed')
-      }
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error ?? 'Update failed')
 
       const columnLabel = COLUMNS.find(c => c.status === newStatus)?.label ?? newStatus
-      toast.success(`Order moved to ${columnLabel}`)
+      toast.success(
+        data.orderStatus === 'READY' && newStatus === 'READY'
+          ? `${item.garmentPattern.name} ready — order ${item.order.orderNumber} is complete`
+          : `${item.garmentPattern.name} moved to ${columnLabel}`
+      )
       router.refresh()
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Roll back on failure
-      setLocalOrders(previousOrders)
-      toast.error(err.message ?? 'Failed to update status')
+      setLocalItems(previousItems)
+      toast.error(err instanceof Error ? err.message : 'Failed to update status')
     } finally {
       setAdvancing(prev => {
         const next = new Set(prev)
-        next.delete(orderId)
+        next.delete(item.id)
         return next
       })
     }
-  }, [localOrders, router])
+  }, [localItems, router])
 
   return (
     <div className="w-full overflow-x-auto pb-4">
       <div className="grid grid-cols-5 gap-3 min-w-[900px]">
         {COLUMNS.map(col => {
           const Icon = col.icon
-          const colOrders = localOrders.filter(o => col.statuses.includes(o.status))
+          const colItems = localItems.filter(i => col.statuses.includes(i.status))
           return (
             <div key={col.status} className="flex flex-col gap-2">
               {/* Column header */}
@@ -358,29 +371,29 @@ export function TailorKanban({ orders, canAdvance = true, canAssign = false }: T
                 </span>
                 <span className={cn(
                   'text-xs font-bold px-2 py-0.5 rounded-full',
-                  colOrders.length > 0 ? 'bg-white shadow-sm' : 'bg-transparent opacity-40',
+                  colItems.length > 0 ? 'bg-white shadow-sm' : 'bg-transparent opacity-40',
                   col.color
                 )}>
-                  {colOrders.length}
+                  {colItems.length}
                 </span>
               </div>
 
               {/* Cards */}
               <div className="flex flex-col gap-2 min-h-[200px]">
-                {colOrders.length === 0 ? (
+                {colItems.length === 0 ? (
                   <div className="flex items-center justify-center h-24 text-xs text-slate-400 border-2 border-dashed border-slate-200 rounded-lg">
-                    No orders
+                    No items
                   </div>
                 ) : (
-                  colOrders.map(order => (
-                    <OrderCard
-                      key={order.id}
-                      order={order}
+                  colItems.map(item => (
+                    <ItemCard
+                      key={item.id}
+                      item={item}
                       nextStatus={col.nextStatus}
                       nextLabel={col.nextLabel}
                       canAdvance={canAdvance}
                       canAssign={canAssign}
-                      advancing={advancing.has(order.id)}
+                      advancing={advancing.has(item.id)}
                       onAdvance={handleAdvance}
                     />
                   ))

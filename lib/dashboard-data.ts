@@ -328,10 +328,10 @@ export async function getDashboardData(
   const [inProgressOrders, ordersToday, overdueOrders] = await Promise.all([
     // Orders in progress (stitching phase) - full details
     prisma.order.findMany({
+      // Open orders with a garment being worked on (items move through stages on their own)
       where: {
-        status: {
-          in: ['CUTTING', 'STITCHING', 'FINISHING'],
-        },
+        status: { notIn: ['DELIVERED', 'CANCELLED'] },
+        items: { some: { status: { in: ['CUTTING', 'STITCHING', 'FINISHING'] } } },
       },
       select: {
         id: true,
@@ -443,11 +443,8 @@ export async function getDashboardData(
   const workloadByGarment = await prisma.orderItem.groupBy({
     by: ['garmentPatternId'],
     where: {
-      order: {
-        status: {
-          in: ['CUTTING', 'STITCHING', 'FINISHING'],
-        },
-      },
+      status: { in: ['CUTTING', 'STITCHING', 'FINISHING'] },
+      order: { status: { notIn: ['DELIVERED', 'CANCELLED'] } },
     },
     _count: {
       id: true,
@@ -637,9 +634,10 @@ export async function getDashboardData(
       },
     }),
 
-    // Order status funnel (pipeline)
-    prisma.order.groupBy({
+    // Production pipeline: garments of open orders by their own stage
+    prisma.orderItem.groupBy({
       by: ['status'],
+      where: { order: { status: { notIn: ['DELIVERED', 'CANCELLED'] } } },
       _count: {
         status: true,
       },

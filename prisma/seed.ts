@@ -562,6 +562,7 @@ async function main() {
             garmentPatternId: pattern.id,
             clothInventoryId: cloth.id,
             assignedTailorId: randomChoice([tailor.id, null]),
+            status, // items carry their own stage; the order's is derived from them
             quantityOrdered: 1,  // NEW FIELD NAME
             bodyType: bodyType,
             estimatedMeters: estimatedMeters,

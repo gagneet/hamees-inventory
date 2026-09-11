@@ -3,7 +3,8 @@ import { after } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
 import { filterApiResponse } from '@/lib/api-filter-response'
-import { actorFromSession, checkStatusTransition, notFound, orderScope } from '@/lib/authz'
+import { actorFromSession, canSeeAllOrders, checkStatusTransition, notFound, orderScope } from '@/lib/authz'
+import { checkItemStatusTransition, isTerminalStatus } from '@/lib/item-status'
 import { hasPermission } from '@/lib/permissions'
 import {
   consumeAccessoryStock,
@@ -85,6 +86,26 @@ export async function PATCH(
       return NextResponse.json({ error: transition.reason }, { status: transition.status })
     }
 
+    // A production move here is a bulk move of every item. Roles that see all orders may do it;
+    // a tailor only when every item is theirs, and each item must pass the per-item rules
+    // (lib/item-status.ts), so a tailor can't jump an item back several stages this way.
+    const isProductionMove = !isTerminalStatus(status)
+    if (isProductionMove && !canSeeAllOrders(actor)) {
+      if (order.items.some((item) => item.assignedTailorId !== actor.id)) {
+        return NextResponse.json(
+          { error: 'Some items of this order are assigned to other tailors; move your own items instead' },
+          { status: 403 }
+        )
+      }
+      for (const item of order.items) {
+        if (item.status === status) continue
+        const itemCheck = checkItemStatusTransition(actor, item, status, order.status)
+        if (!itemCheck.ok) {
+          return NextResponse.json({ error: itemCheck.reason }, { status: itemCheck.status })
+        }
+      }
+    }
+
     // Order notes are customer-facing order details: only roles that can edit orders replace
     // them. A note sent with a status change by other roles (e.g. a tailor) goes into the history.
     const canEditNotes = hasPermission(actor.role, 'update_order')
@@ -94,13 +115,37 @@ export async function PATCH(
     const reportedWastage = wastage ? shareAcrossItems(order.items, wastage) : null
 
     // Guarded status write: only succeeds if nobody changed the status since we read it,
-    // so stock is never consumed/released twice by concurrent requests.
+    // so stock is never consumed/released twice by concurrent requests. Every item follows the
+    // order: delivery/cancellation closes all garments, a bulk stage move sets them all.
     const claimStatus = async (tx: TransactionClient, data: Record<string, unknown>) => {
       const result = await tx.order.updateMany({
         where: { id, status: order.status },
         data: { status, ...(notes && canEditNotes ? { notes } : {}), ...data },
       })
       if (result.count === 0) throw new StatusConflictError()
+
+      await tx.orderItem.updateMany({
+        where: { orderId: id },
+        data: { status, statusUpdatedAt: new Date() },
+      })
+      if (isProductionMove) {
+        // Per-item history so stage durations stay continuous for items moved in bulk
+        const moved = order.items.filter((item) => item.status !== status)
+        if (moved.length > 0) {
+          await tx.orderHistory.createMany({
+            data: moved.map((item) => ({
+              orderId: id,
+              orderItemId: item.id,
+              userId: actor.id,
+              changeType: 'ITEM_STATUS_UPDATE',
+              fieldName: 'status',
+              oldValue: item.status,
+              newValue: status,
+              description: `Item moved from ${item.status} to ${status} with the whole order`,
+            })),
+          })
+        }
+      }
     }
 
     const recordHistory = (tx: TransactionClient, description: string) =>

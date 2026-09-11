@@ -65,10 +65,10 @@ describe('buildProductionReport', () => {
       { assignedTailorId: null, quantity: 1, orderDate: new Date('2026-09-02T10:00:00'), deliveryDate: new Date('2026-09-10'), completedAt: new Date('2026-09-03T10:00:00') },
     ],
     backlog: [
-      { assignedTailorId: 'meena', orderStatus: 'STITCHING', deliveryDate: new Date('2026-09-01') }, // overdue
-      { assignedTailorId: 'meena', orderStatus: 'CUTTING', deliveryDate: new Date('2026-09-20') },
-      { assignedTailorId: 'meena', orderStatus: 'READY', deliveryDate: new Date('2026-09-01') }, // finished → not backlog
-      { assignedTailorId: null, orderStatus: 'NEW', deliveryDate: new Date('2026-09-20') },
+      { assignedTailorId: 'meena', status: 'STITCHING', deliveryDate: new Date('2026-09-01') }, // overdue
+      { assignedTailorId: 'meena', status: 'CUTTING', deliveryDate: new Date('2026-09-20') },
+      { assignedTailorId: 'meena', status: 'READY', deliveryDate: new Date('2026-09-01') }, // finished → not backlog
+      { assignedTailorId: null, status: 'NEW', deliveryDate: new Date('2026-09-20') },
     ],
     statusEvents: [
       { orderId: 'o1', newValue: 'CUTTING', createdAt: new Date('2026-09-02T10:00:00') },
@@ -111,5 +111,26 @@ describe('buildProductionReport', () => {
     expect(stage('CUTTING')).toMatchObject({ avgDays: 1, samples: 1 })
     expect(stage('STITCHING')).toMatchObject({ avgDays: 2, samples: 1 })
     expect(stage('FINISHING')).toMatchObject({ avgDays: null, samples: 0 })
+  })
+
+  it('times each garment on its own track when items have their own history', () => {
+    const r = buildProductionReport({
+      range,
+      now,
+      tailors,
+      completed: [],
+      backlog: [],
+      statusEvents: [
+        // Same order, two garments: a is cut after 1 day, b after 3 days
+        { orderId: 'o2', orderItemId: 'a', newValue: 'CUTTING', createdAt: new Date('2026-09-02T10:00:00') },
+        { orderId: 'o2', orderItemId: 'b', newValue: 'CUTTING', createdAt: new Date('2026-09-04T10:00:00') },
+        { orderId: 'o2', orderItemId: 'a', newValue: 'READY', createdAt: new Date('2026-09-03T10:00:00') },
+        { orderId: 'o2', orderItemId: 'b', newValue: 'READY', createdAt: new Date('2026-09-05T10:00:00') },
+      ],
+      orderDates: { o2: new Date('2026-09-01T10:00:00') },
+    })
+    const stage = (s: string) => r.stages.find((x) => x.status === s)!
+    expect(stage('NEW')).toMatchObject({ avgDays: 2, samples: 2 })
+    expect(stage('CUTTING')).toMatchObject({ avgDays: 1, samples: 2 })
   })
 })
