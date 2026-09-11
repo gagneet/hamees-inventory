@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db'
 import { AlertType, AlertSeverity } from '@prisma/client'
 import { getAppSettings } from '@/lib/settings'
 import { formatCurrency, formatDate } from '@/lib/locale'
+import { runReorderCheck, type ReorderRunResult } from '@/lib/reorder'
 
 /**
  * Generate stock alerts for low and critical inventory levels
@@ -274,7 +275,7 @@ export async function generateStockAlerts() {
         relatedId: { in: pendingPaymentOrders.map(o => o.id) },
         relatedType: 'order',
         isDismissed: false,
-        type: AlertType.REORDER_REMINDER, // Reusing REORDER_REMINDER for payment reminders
+        type: AlertType.PAYMENT_REMINDER,
       },
     })
 
@@ -286,7 +287,7 @@ export async function generateStockAlerts() {
         const daysSinceDelivery = Math.floor((now.getTime() - order.deliveryDate.getTime()) / (1000 * 60 * 60 * 24))
         await prisma.alert.create({
           data: {
-            type: AlertType.REORDER_REMINDER,
+            type: AlertType.PAYMENT_REMINDER,
             severity: daysSinceDelivery > 30 ? AlertSeverity.HIGH : AlertSeverity.MEDIUM,
             title: `Pending Payment: ${order.orderNumber}`,
             message: `Order ${order.orderNumber} for ${order.customer.name} has pending balance of ${formatCurrency(order.balanceAmount)}. Delivered ${daysSinceDelivery} day${daysSinceDelivery === 1 ? '' : 's'} ago.`,
@@ -307,10 +308,22 @@ export async function generateStockAlerts() {
       }
     }
 
+    // Stock reorders (REORDER_REMINDER alerts, optional auto-drafted POs); a failure here must not
+    // hide the alerts generated above
+    let reorder: ReorderRunResult | null = null
+    try {
+      reorder = await runReorderCheck({ trigger: 'alerts' })
+      alertsCreated += reorder.alertsCreated
+      alertsResolved += reorder.alertsResolved
+    } catch (error) {
+      console.error('Reorder check failed during alert generation:', error)
+    }
+
     return {
       success: true,
       alertsCreated,
       alertsResolved,
+      reorder,
     }
   } catch (error) {
     console.error('Error generating alerts:', error)

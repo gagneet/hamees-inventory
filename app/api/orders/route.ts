@@ -9,6 +9,7 @@ import { actorFromSession, isAssignableTailor, orderScope, scopedWhere } from '@
 import { formatCurrency } from '@/lib/locale'
 import { orderTax, roundMoney } from '@/lib/order-finance'
 import { InsufficientStockError, reserveAccessoryStock, reserveClothStock } from '@/lib/stock'
+import { runReorderCheckQuietly } from '@/lib/reorder'
 import { z } from 'zod'
 import { OrderStatus, OrderPriority, BodyType, StitchingTier } from '@/lib/types'
 
@@ -751,6 +752,9 @@ export async function POST(request: Request) {
         console.error('Failed to send WhatsApp confirmation:', error)
       }
     })
+
+    // Reservations lower available stock: raise reorder alerts / draft POs as needed
+    after(() => runReorderCheckQuietly({ trigger: 'order_created', userId: actor.id }))
 
     return NextResponse.json({ order: filtered }, { status: 201 })
   } catch (error) {

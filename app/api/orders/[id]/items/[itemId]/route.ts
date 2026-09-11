@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
 import { hasPermission } from '@/lib/permissions'
@@ -10,6 +10,7 @@ import { formatCurrency } from '@/lib/locale'
 import { computeOrderBalance, lockOrder, roundMoney } from '@/lib/order-finance'
 import { InsufficientStockError, releaseClothReservation, reserveClothStock } from '@/lib/stock'
 import { audit } from '@/lib/audit'
+import { runReorderCheckQuietly } from '@/lib/reorder'
 import { z } from 'zod'
 
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
@@ -291,6 +292,11 @@ export async function PATCH(
 
       return updated
     })
+
+    // The reservation moved between fabrics: re-check reorder needs for both
+    if (fabricChanging) {
+      after(() => runReorderCheckQuietly({ trigger: 'order_item_fabric_changed', userId: actor.id }))
+    }
 
     if (tailorChanging) {
       await audit({

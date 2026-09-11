@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
@@ -6,6 +6,8 @@ import { hasPermission, type UserRole } from '@/lib/permissions'
 import { requirePermission } from '@/lib/api-permissions'
 import { filterApiResponse } from '@/lib/api-filter-response'
 import { changeClothStock, InsufficientStockError, roundMeters } from '@/lib/stock'
+import { onOrderFor } from '@/lib/purchase-order-items'
+import { runReorderCheckQuietly } from '@/lib/reorder'
 
 // Type for Prisma transaction client
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
@@ -21,6 +23,8 @@ const updateClothSchema = z.object({
   pricePerMeter: z.number().nonnegative().optional(),
   currentStock: z.number().nonnegative().optional(),
   minimumStockMeters: z.number().nonnegative().optional(),
+  // Meters to order when the item needs a reorder; null = top up to twice the minimum
+  reorderQuantity: z.number().positive().nullable().optional(),
   location: z.string().nullish(),
   notes: z.string().nullish(),
   // Phase 1 Enhancement Fields
@@ -66,7 +70,8 @@ export async function GET(
       return NextResponse.json({ error: 'Item not found' }, { status: 404 })
     }
 
-    return NextResponse.json(filterApiResponse(item, session.user.role, 'inventory'))
+    const onOrder = await onOrderFor(prisma, 'cloth', id)
+    return NextResponse.json(filterApiResponse({ ...item, ...onOrder }, session.user.role, 'inventory'))
   } catch (error) {
     console.error('Error fetching cloth item:', error)
     return NextResponse.json(
@@ -109,7 +114,7 @@ export async function PATCH(
     }
 
     // Stock changes go through the guarded delta helper (never below reserved, no float residue)
-    const { currentStock: requestedStock, ...fieldUpdates } = updateData
+    const { currentStock: requestedStock, reorderQuantity, ...fieldUpdates } = updateData
     const quantityChange =
       requestedStock !== undefined ? roundMeters(requestedStock - existingItem.currentStock) : 0
     const stockChanged = quantityChange !== 0
@@ -138,12 +143,23 @@ export async function PATCH(
 
       return tx.clothInventory.update({
         where: { id },
-        data: cleanedData,
+        data: {
+          ...cleanedData,
+          // null clears it (so it is not filtered out with the other nulls above)
+          ...(reorderQuantity !== undefined && {
+            reorderQuantity: reorderQuantity === null ? null : roundMeters(reorderQuantity),
+          }),
+        },
         include: {
           supplierRel: true,
         },
       })
     })
+
+    // Stock, minimum or reorder quantity may have changed
+    after(() =>
+      runReorderCheckQuietly({ trigger: stockChanged ? 'stock_adjusted' : 'inventory_edited', userId: session.user.id })
+    )
 
     return NextResponse.json(filterApiResponse(updatedItem, session.user.role as UserRole, 'inventory'))
   } catch (error) {
