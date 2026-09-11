@@ -172,6 +172,7 @@ async function main() {
           create: [{
             itemName: cloth.name,
             itemType: 'CLOTH',
+            clothInventoryId: cloth.id,
             orderedQuantity: quantity,
             unit: 'meters',
             pricePerUnit: pricePerMeter,

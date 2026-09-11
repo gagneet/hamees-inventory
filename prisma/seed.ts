@@ -620,6 +620,7 @@ async function main() {
     const paidAmount = randomFloat(30000, Math.min(totalAmount, 100000))
     const balanceAmount = totalAmount - paidAmount
     const isReceived = i < 7
+    const cloth = randomChoice(clothInventory)
 
     await prisma.purchaseOrder.create({
       data: {
@@ -644,8 +645,9 @@ async function main() {
         status: isReceived ? 'RECEIVED' : 'PENDING',
         items: {
           create: [{
-            itemName: randomChoice(clothInventory).name,
+            itemName: cloth.name,
             itemType: 'CLOTH',
+            clothInventoryId: cloth.id,
             orderedQuantity: randomFloat(20, 50),  // NEW FIELD NAME
             unit: 'meters',
             pricePerUnit: randomFloat(300, 800),
