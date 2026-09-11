@@ -3,18 +3,24 @@ import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
 import { filterApiResponse } from '@/lib/api-filter-response'
 import { actorFromSession, orderScope, requireCustomerAccess } from '@/lib/authz'
+import { getAppSettings } from '@/lib/settings'
+import { optionalPhoneSchema, phoneIssueMessage } from '@/lib/phone-schema'
+import { duplicatePhoneBody, findCustomersByPhone, samePhone } from '@/lib/phone-lookup'
 import { z } from 'zod'
 
-const customerUpdateSchema = z.object({
-  name: z.string().trim().min(1).max(120).nullish(),
-  email: z.string().email().nullish(),
-  phone: z.string().trim().max(30).nullish(),
-  address: z.string().max(300).nullish(),
-  city: z.string().max(80).nullish(),
-  state: z.string().max(80).nullish(),
-  pincode: z.string().max(20).nullish(),
-  notes: z.string().max(2000).nullish(),
-})
+const customerUpdateSchema = (phoneRegion: string) =>
+  z.object({
+    name: z.string().trim().min(1).max(120).nullish(),
+    email: z.string().email().nullish(),
+    phone: optionalPhoneSchema(phoneRegion),
+    address: z.string().max(300).nullish(),
+    city: z.string().max(80).nullish(),
+    state: z.string().max(80).nullish(),
+    pincode: z.string().max(20).nullish(),
+    notes: z.string().max(2000).nullish(),
+    /** Confirms a number that another customer already has */
+    allowDuplicatePhone: z.boolean().optional(),
+  })
 
 export async function GET(
   request: Request,
@@ -79,7 +85,8 @@ export async function PATCH(
   try {
     const { id } = await params
     const body = await request.json()
-    const validatedData = customerUpdateSchema.parse(body)
+    const { phoneRegion } = await getAppSettings()
+    const { allowDuplicatePhone, ...validatedData } = customerUpdateSchema(phoneRegion).parse(body)
 
     const denied = await requireCustomerAccess(actor, id)
     if (denied) return denied
@@ -89,9 +96,16 @@ export async function PATCH(
       Object.entries(validatedData).filter(([_, v]) => v !== null && v !== undefined)
     )
 
-    const existing = await prisma.customer.findUnique({ where: { id }, select: { id: true } })
+    const existing = await prisma.customer.findUnique({ where: { id }, select: { id: true, phone: true } })
     if (!existing) {
       return NextResponse.json({ error: 'Customer not found' }, { status: 404 })
+    }
+
+    // Only a changed number is checked, so customers who already share one can still be edited
+    const phone = validatedData.phone
+    if (phone && !allowDuplicatePhone && !samePhone(existing.phone, phone, phoneRegion)) {
+      const [other] = await findCustomersByPhone(phone, phoneRegion, { excludeId: id })
+      if (other) return NextResponse.json(duplicatePhoneBody(other), { status: 409 })
     }
 
     const customer = await prisma.customer.update({
@@ -103,7 +117,7 @@ export async function PATCH(
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Validation failed', details: error.issues },
+        { error: phoneIssueMessage(error) ?? 'Validation failed', details: error.issues },
         { status: 400 }
       )
     }

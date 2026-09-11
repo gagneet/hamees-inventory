@@ -1,5 +1,8 @@
 import ExcelJS from 'exceljs'
 import { prisma } from '@/lib/db'
+import { getAppSettings } from '@/lib/settings'
+import { normalizePhone } from '@/lib/phone'
+import { findCustomersByPhone } from '@/lib/phone-lookup'
 import { z } from 'zod'
 
 // ===== TYPES =====
@@ -197,6 +200,21 @@ const schemaRegistry: Record<string, z.ZodSchema> = {
   'Measurement': measurementSchema
 }
 
+// Tables whose `phone` column is stored in E.164
+const PHONE_TABLES = new Set(['User', 'Supplier', 'Customer'])
+
+/**
+ * Convert a validated row's phone to E.164 (numbers without +code are read in the shop's region).
+ * Returns the error for an invalid number; the row is then reported and skipped.
+ */
+function normalizeRowPhone(tableName: string, row: { phone?: unknown }, phoneRegion: string): string | null {
+  if (!PHONE_TABLES.has(tableName) || row.phone === null || row.phone === undefined || row.phone === '') return null
+  const result = normalizePhone(String(row.phone), phoneRegion)
+  if (!result.ok) return result.error
+  row.phone = result.e164
+  return null
+}
+
 // ===== SHEET NAME TO TABLE MAPPING =====
 
 const sheetToTableMap: Record<string, string> = {
@@ -215,6 +233,7 @@ const sheetToTableMap: Record<string, string> = {
 
 export async function detectDuplicates(tableName: string, data: any[]): Promise<DuplicateCheck[]> {
   const duplicates: DuplicateCheck[] = []
+  const { phoneRegion } = await getAppSettings()
 
   for (let i = 0; i < data.length; i++) {
     const row = data[i]
@@ -257,20 +276,20 @@ export async function detectDuplicates(tableName: string, data: any[]): Promise<
           }
           break
 
-        case 'Customer':
-          existing = await prisma.customer.findFirst({
-            where: {
-              OR: [
-                { phone: row.phone },
-                ...(row.email ? [{ email: row.email }] : [])
-              ]
-            }
-          })
+        case 'Customer': {
+          // row.phone is E.164 (parseExcelFile); stored numbers are compared after normalising
+          const [samePhoneCustomer] = row.phone ? await findCustomersByPhone(row.phone, phoneRegion) : []
+          existing = samePhoneCustomer
+            ? await prisma.customer.findUnique({ where: { id: samePhoneCustomer.id } })
+            : row.email
+              ? await prisma.customer.findFirst({ where: { email: row.email } })
+              : null
           if (existing) {
             if (existing.name !== row.name) conflicts.push('name')
             if (existing.address !== row.address) conflicts.push('address')
           }
           break
+        }
 
         case 'GarmentPattern':
           existing = await prisma.garmentPattern.findFirst({ where: { name: row.name } })
@@ -302,6 +321,7 @@ export async function detectDuplicates(tableName: string, data: any[]): Promise<
 export async function parseExcelFile(buffer: ArrayBuffer | Buffer): Promise<ParsedSheet[]> {
   const workbook = new ExcelJS.Workbook()
   await workbook.xlsx.load(buffer as any)
+  const { phoneRegion } = await getAppSettings()
 
   const parsedSheets: ParsedSheet[] = []
 
@@ -370,6 +390,11 @@ export async function parseExcelFile(buffer: ArrayBuffer | Buffer): Promise<Pars
       // Validate row data
       try {
         const validated = schema.parse(rowData)
+        const phoneError = normalizeRowPhone(tableName, validated as { phone?: unknown }, phoneRegion)
+        if (phoneError) {
+          errors.push({ row: rowNumber, error: `phone: ${phoneError}`, data: rowData })
+          return
+        }
         rows.push(validated)
       } catch (error) {
         if (error instanceof z.ZodError) {

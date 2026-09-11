@@ -1,4 +1,6 @@
 import { prisma } from '@/lib/db'
+import { getAppSettings } from '@/lib/settings'
+import { findCustomersByPhone } from '@/lib/phone-lookup'
 import {
   parseExcelFile,
   detectDuplicates,
@@ -345,9 +347,12 @@ async function insertOrUpdateRecord(
 
     case 'Customer': {
       if (overwrite) {
-        const existing = await prisma.customer.findFirst({
-          where: { OR: [{ phone: insertData.phone }, ...(insertData.email ? [{ email: insertData.email }] : [])] }
-        })
+        // insertData.phone is E.164 (parseExcelFile); stored numbers are compared after normalising
+        const { phoneRegion } = await getAppSettings()
+        const [samePhoneCustomer] = await findCustomersByPhone(insertData.phone, phoneRegion)
+        const existing =
+          samePhoneCustomer ??
+          (insertData.email ? await prisma.customer.findFirst({ where: { email: insertData.email } }) : null)
         if (existing) {
           await prisma.customer.update({
             where: { id: existing.id },
