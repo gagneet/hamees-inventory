@@ -99,10 +99,11 @@ export default async function ClothDetailPage({
 
   const available = cloth.currentStock - cloth.reserved
   const totalValue = cloth.currentStock * cloth.pricePerMeter
-  const { onOrder, openPurchaseOrders } = await onOrderFor(prisma, 'cloth', cloth.id)
+  const { onOrder, awaitingApproval, openPurchaseOrders } = await onOrderFor(prisma, 'cloth', cloth.id)
   const reorder = reorderSuggestion({
     available,
     onOrder,
+    awaitingApproval,
     minimum: cloth.minimumStockMeters,
     reorderQuantity: cloth.reorderQuantity,
   })

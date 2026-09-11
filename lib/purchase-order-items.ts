@@ -14,6 +14,9 @@ export type POItemType = 'CLOTH' | 'ACCESSORY'
 /** Statuses whose outstanding quantities count as "on order". */
 export const OPEN_PO_STATUSES = ['PENDING_APPROVAL', 'PENDING', 'APPROVED', 'PARTIAL'] as const
 
+/** Open statuses still waiting for approval (legacy PENDING included): they don't settle a reorder yet. */
+export const UNAPPROVED_PO_STATUSES = ['PENDING_APPROVAL', 'PENDING'] as const
+
 export const PO_LINE_UNIT: Record<POItemType, 'meters' | 'pieces'> = {
   CLOTH: 'meters',
   ACCESSORY: 'pieces',
@@ -41,7 +44,12 @@ export async function onOrderFor(
   client: Pick<TransactionClient, 'pOItem'>,
   kind: 'cloth' | 'accessory',
   itemId: string
-): Promise<{ onOrder: number; openPurchaseOrders: Array<{ id: string; poNumber: string; status: string; outstanding: number }> }> {
+): Promise<{
+  onOrder: number
+  /** The part of onOrder on purchase orders not yet approved */
+  awaitingApproval: number
+  openPurchaseOrders: Array<{ id: string; poNumber: string; status: string; outstanding: number }>
+}> {
   const lines = await client.pOItem.findMany({
     where: {
       ...(kind === 'cloth' ? { clothInventoryId: itemId } : { accessoryInventoryId: itemId }),
@@ -61,8 +69,13 @@ export async function onOrderFor(
       outstanding: Math.round(Math.max(0, line.orderedQuantity - line.receivedQuantity) * 1000) / 1000,
     }))
     .filter((po) => po.outstanding > 0)
-  const onOrder = Math.round(openPurchaseOrders.reduce((sum, po) => sum + po.outstanding, 0) * 1000) / 1000
-  return { onOrder, openPurchaseOrders }
+  const total = (pos: typeof openPurchaseOrders) => Math.round(pos.reduce((sum, po) => sum + po.outstanding, 0) * 1000) / 1000
+  const unapproved = new Set<string>(UNAPPROVED_PO_STATUSES)
+  return {
+    onOrder: total(openPurchaseOrders),
+    awaitingApproval: total(openPurchaseOrders.filter((po) => unapproved.has(po.status))),
+    openPurchaseOrders,
+  }
 }
 
 /**

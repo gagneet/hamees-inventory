@@ -101,6 +101,27 @@ describe('computeReorderNeeds – on-order netting', () => {
     expect(computeOnOrder(openLines).get('cloth:c1')).toBe(4)
   })
 
+  it('keeps needing a reorder while the covering PO awaits approval, without ordering it twice', () => {
+    for (const status of ['PENDING_APPROVAL', 'PENDING']) {
+      const [need] = computeReorderNeeds({ items: [cloth()], openLines: [line({ status, orderedQuantity: 16 })] })
+      expect(need).toMatchObject({ needsReorder: true, onOrder: 16, awaitingApproval: 16, suggestedQuantity: 0 })
+    }
+  })
+
+  it('orders only the part not already awaiting approval', () => {
+    // 2 × 10 − 4 available − 5 awaiting approval
+    const [need] = computeReorderNeeds({ items: [cloth()], openLines: [line({ status: 'PENDING_APPROVAL', orderedQuantity: 5 })] })
+    expect(need.suggestedQuantity).toBe(11)
+    expect(reorderSuggestion({ available: 4, onOrder: 20, awaitingApproval: 20, minimum: 10, reorderQuantity: 50 })).toEqual({
+      needsReorder: true,
+      quantity: 30,
+    })
+  })
+
+  it('an approved PO settles the reorder', () => {
+    expect(computeReorderNeeds({ items: [cloth()], openLines: [line({ status: 'APPROVED', orderedQuantity: 16 })] })).toEqual([])
+  })
+
   it('keeps fabric and accessory on-order separate', () => {
     const onOrder = computeOnOrder([
       line({ orderedQuantity: 5 }),
@@ -351,6 +372,28 @@ describe('runReorderCheck', () => {
     expect(tx.pOItem.create).not.toHaveBeenCalled()
     expect(tx.purchaseOrder.update).not.toHaveBeenCalled()
     expect(tx.alert.create.mock.calls[0][0].data.message).toContain('PO-2026-0007')
+  })
+
+  it('keeps the alert, and drafts nothing more, while the drafted quantity awaits approval', async () => {
+    const draft = {
+      id: 'po-draft',
+      poNumber: 'PO-2026-0007',
+      paidAmount: 0,
+      items: [{ clothInventoryId: 'c1', accessoryInventoryId: null, totalPrice: 1600 }],
+    }
+    const tx = mockTransaction({ cloth: [clothRow()], draft })
+    tx.pOItem.findMany.mockResolvedValue([
+      { clothInventoryId: 'c1', accessoryInventoryId: null, orderedQuantity: 16, receivedQuantity: 0, purchaseOrder: { status: 'PENDING_APPROVAL' } },
+    ])
+
+    const result = await runReorderCheck({ trigger: 'manual' })
+
+    expect(result).toMatchObject({ needs: 1, alertsCreated: 1, purchaseOrders: [] })
+    expect(tx.purchaseOrder.create).not.toHaveBeenCalled()
+    expect(tx.pOItem.create).not.toHaveBeenCalled()
+    const message = tx.alert.create.mock.calls[0][0].data.message
+    expect(message).toContain('16 meters awaiting approval')
+    expect(message).toContain('Approve draft purchase order PO-2026-0007 to confirm the reorder.')
   })
 
   it('appends new items to the existing draft and recomputes its totals', async () => {

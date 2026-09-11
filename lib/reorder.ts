@@ -4,8 +4,10 @@
  *   computeReorderPositions / computeReorderNeeds — pure: stock position and suggested quantity per item.
  *     available = currentStock − reserved
  *     onOrder   = Σ (ordered − received) over linked lines on open POs (PENDING_APPROVAL, PENDING, APPROVED, PARTIAL)
- *     needs a reorder when available + onOrder ≤ minimum
- *     quantity  = reorderQuantity ?? max(0, 2 × minimum − available − onOrder), rounded up to whole meters / units
+ *     awaiting  = the part of onOrder on POs not yet approved (PENDING_APPROVAL, PENDING)
+ *     needs a reorder when available + (onOrder − awaiting) ≤ minimum — the alert stays until the PO is approved
+ *     quantity  = (reorderQuantity ?? max(0, 2 × minimum − available − approved on order)) − awaiting,
+ *                 rounded up to whole meters / units; 0 means only an approval is outstanding
  *     price     = current SupplierPrice for the fabric from the item's supplier, otherwise the item's own price
  *
  *   runReorderCheck — DB runner, one at a time (transaction-scoped advisory lock; skips when busy):
@@ -28,6 +30,7 @@ import { roundMeters } from '@/lib/stock'
 import {
   OPEN_PO_STATUSES,
   PO_LINE_UNIT,
+  UNAPPROVED_PO_STATUSES,
   accessoryLineName,
   clothLineName,
   nextPoNumber,
@@ -110,10 +113,13 @@ export interface ReorderPosition {
   unit: 'meters' | 'pieces'
   available: number
   onOrder: number
+  /** The part of onOrder on purchase orders not yet approved */
+  awaitingApproval: number
   minimum: number
   reorderQuantity: number | null
+  /** Needs a reorder alert: an approval still counts as not reordered */
   needsReorder: boolean
-  /** Suggested order quantity (whole meters / units); 0 when no reorder is needed */
+  /** Quantity still to put on a PO (whole meters / units); 0 when not needed or when POs awaiting approval cover it */
   suggestedQuantity: number
   supplierId: string | null
   supplierName: string | null
@@ -147,12 +153,12 @@ export function pickSupplierPrice(
   return best ? best.pricePerMeter : null
 }
 
-/** Outstanding quantity per item across open POs (linked lines only). */
-export function computeOnOrder(lines: OpenPOLine[]): Map<string, number> {
-  const open = new Set<string>(OPEN_PO_STATUSES)
-  const onOrder = new Map<string, number>()
+/** Outstanding quantity per item on linked lines of POs in one of `statuses`. */
+function outstandingByItem(lines: OpenPOLine[], statuses: readonly string[]): Map<string, number> {
+  const wanted = new Set<string>(statuses)
+  const totals = new Map<string, number>()
   for (const line of lines) {
-    if (!open.has(line.status)) continue
+    if (!wanted.has(line.status)) continue
     const key = line.clothInventoryId
       ? itemKey('cloth', line.clothInventoryId)
       : line.accessoryInventoryId
@@ -160,9 +166,19 @@ export function computeOnOrder(lines: OpenPOLine[]): Map<string, number> {
         : null
     if (!key) continue
     const outstanding = Math.max(0, line.orderedQuantity - line.receivedQuantity)
-    onOrder.set(key, round3((onOrder.get(key) ?? 0) + outstanding))
+    totals.set(key, round3((totals.get(key) ?? 0) + outstanding))
   }
-  return onOrder
+  return totals
+}
+
+/** Outstanding quantity per item across open POs (linked lines only). */
+export function computeOnOrder(lines: OpenPOLine[]): Map<string, number> {
+  return outstandingByItem(lines, OPEN_PO_STATUSES)
+}
+
+/** The part of computeOnOrder on purchase orders not yet approved. */
+export function computeAwaitingApproval(lines: OpenPOLine[]): Map<string, number> {
+  return outstandingByItem(lines, UNAPPROVED_PO_STATUSES)
 }
 
 /** Severity by physical shortfall: out of stock → CRITICAL, at or below half the minimum → HIGH, else MEDIUM. */
@@ -178,19 +194,25 @@ function wholeQuantity(quantity: number): number {
 }
 
 /**
- * The reorder rule for one item: needed when available + onOrder ≤ minimum; quantity is the item's
- * reorderQuantity, else enough to reach twice the minimum, rounded up to a whole meter / unit.
+ * The reorder rule for one item. `onOrder` is everything outstanding on open POs; `awaitingApproval`
+ * is the part of it on POs not yet approved.
+ *   needed   when available + approved on-order ≤ minimum — a draft doesn't settle it until approved
+ *   quantity = (reorderQuantity, else enough to reach twice the minimum after approved on-order)
+ *              − what already awaits approval, rounded up to a whole meter / unit; 0 = only an approval is due
  */
 export function reorderSuggestion(p: {
   available: number
   onOrder: number
+  awaitingApproval?: number
   minimum: number
   reorderQuantity: number | null
 }): { needsReorder: boolean; quantity: number } {
-  const needsReorder = round3(p.available + p.onOrder) <= p.minimum + EPSILON
+  const pending = Math.min(p.awaitingApproval ?? 0, p.onOrder)
+  const approved = p.onOrder - pending
+  const needsReorder = round3(p.available + approved) <= p.minimum + EPSILON
   const reorderQuantity = p.reorderQuantity && p.reorderQuantity > 0 ? p.reorderQuantity : null
-  const raw = reorderQuantity ?? Math.max(0, 2 * p.minimum - p.available - p.onOrder)
-  return { needsReorder, quantity: needsReorder ? wholeQuantity(raw) : 0 }
+  const target = reorderQuantity ?? Math.max(0, 2 * p.minimum - p.available - approved)
+  return { needsReorder, quantity: needsReorder ? wholeQuantity(Math.max(0, target - pending)) : 0 }
 }
 
 /**
@@ -204,16 +226,19 @@ export function computeReorderPositions(
 ): ReorderPosition[] {
   const now = input.now ?? new Date()
   const onOrderMap = computeOnOrder(input.openLines)
+  const awaitingMap = computeAwaitingApproval(input.openLines)
   const prices = input.supplierPrices ?? []
 
   return input.items.map((item) => {
     const isCloth = item.kind === 'cloth'
     const available = isCloth ? round3(item.currentStock - item.reserved) : item.currentStock - item.reserved
     const onOrder = onOrderMap.get(itemKey(item.kind, item.id)) ?? 0
+    const awaitingApproval = awaitingMap.get(itemKey(item.kind, item.id)) ?? 0
     const reorderQuantity = item.reorderQuantity && item.reorderQuantity > 0 ? item.reorderQuantity : null
     const { needsReorder, quantity: suggestedQuantity } = reorderSuggestion({
       available,
       onOrder,
+      awaitingApproval,
       minimum: item.minimum,
       reorderQuantity,
     })
@@ -234,6 +259,7 @@ export function computeReorderPositions(
       onOrder,
       minimum: item.minimum,
       reorderQuantity,
+      awaitingApproval,
       needsReorder,
       suggestedQuantity,
       supplierId: item.supplierId,
@@ -245,11 +271,12 @@ export function computeReorderPositions(
   })
 }
 
-/** Items that need a reorder and have something to order. */
+/**
+ * Items that need a reorder (each keeps an alert). suggestedQuantity is 0 when purchase orders awaiting
+ * approval already cover the item — then only the approval is outstanding and nothing more is drafted.
+ */
 export function computeReorderNeeds(input: ReorderInput): ReorderNeed[] {
-  return computeReorderPositions(input).filter(
-    (p): p is ReorderNeed => p.needsReorder && p.suggestedQuantity > 0
-  )
+  return computeReorderPositions(input).filter((p): p is ReorderNeed => p.needsReorder)
 }
 
 // ── DB runner ────────────────────────────────────────────────────────────────
@@ -399,12 +426,20 @@ const fmtQty = (n: number) => String(round3(n))
 
 function alertText(need: ReorderNeed, draftPoNumber: string | undefined) {
   const unit = need.unit
+  const approved = round3(need.onOrder - need.awaitingApproval)
+  const supplier = need.supplierName ? ` from ${need.supplierName}.` : ' — no supplier linked.'
+  const action =
+    need.suggestedQuantity > 0
+      ? `. Reorder ${fmtQty(need.suggestedQuantity)} ${unit}${supplier}` +
+        (draftPoNumber ? ` On draft purchase order ${draftPoNumber}, awaiting approval.` : '')
+      : draftPoNumber
+        ? `. Approve draft purchase order ${draftPoNumber} to confirm the reorder.`
+        : '. Approve the purchase order awaiting approval to confirm the reorder.'
   const parts = [
     `${need.lineName}: available ${fmtQty(need.available)} ${unit}, minimum ${fmtQty(need.minimum)} ${unit}`,
-    need.onOrder > 0 ? `, ${fmtQty(need.onOrder)} ${unit} already on order` : '',
-    `. Reorder ${fmtQty(need.suggestedQuantity)} ${unit}`,
-    need.supplierName ? ` from ${need.supplierName}.` : ' — no supplier linked.',
-    draftPoNumber ? ` On draft purchase order ${draftPoNumber}, awaiting approval.` : '',
+    approved > 0 ? `, ${fmtQty(approved)} ${unit} already on order` : '',
+    need.awaitingApproval > 0 ? `, ${fmtQty(need.awaitingApproval)} ${unit} awaiting approval` : '',
+    action,
   ]
   return { title: `Reorder: ${need.name}`, message: parts.join('') }
 }
@@ -467,7 +502,8 @@ export async function runReorderCheck(opts: {
             if (line.accessoryInventoryId) onDraft.add(itemKey('accessory', line.accessoryInventoryId))
           }
 
-          const toAdd = group.filter((need) => !onDraft.has(itemKey(need.kind, need.id)))
+          // Items whose shortfall is already covered by POs awaiting approval only need that approval
+          const toAdd = group.filter((need) => need.suggestedQuantity > 0 && !onDraft.has(itemKey(need.kind, need.id)))
           if (draft) {
             for (const need of group) {
               if (onDraft.has(itemKey(need.kind, need.id))) draftPoByItem.set(itemKey(need.kind, need.id), draft.poNumber)

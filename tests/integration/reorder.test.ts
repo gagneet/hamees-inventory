@@ -216,7 +216,7 @@ describe('runReorderCheck (database)', () => {
     expect(auditRows.map((row) => row.action)).toEqual(['PURCHASE_ORDER_AUTO_CREATED'])
   })
 
-  it('adds nothing on a second run', async () => {
+  it('adds nothing on a second run and keeps the alerts until the draft is approved', async () => {
     const result = await runReorderCheck({ trigger: 'alerts' })
 
     expect(result.status).toBe('completed')
@@ -225,7 +225,23 @@ describe('runReorderCheck (database)', () => {
     expect(drafts).toHaveLength(1)
     expect(drafts[0].items).toHaveLength(2)
 
-    // Stock on the draft now covers the drafted items; the orphan still needs a reorder
+    // The draft covers the drafted items' quantity, but only an approval settles the reorder
+    const alerts = await prisma.alert.findMany({
+      where: { type: 'REORDER_REMINDER', relatedId: { in: [clothId, accessoryId, orphanClothId] } },
+    })
+    expect(alerts.map((a) => a.relatedId).sort()).toEqual([clothId, accessoryId, orphanClothId].sort())
+    expect(alerts.find((a) => a.relatedId === clothId)?.message).toContain(
+      `Approve draft purchase order ${drafts[0].poNumber} to confirm the reorder.`
+    )
+  })
+
+  it('clears the alerts of drafted items once the draft is approved', async () => {
+    const [draft] = await testSupplierDrafts()
+    await prisma.purchaseOrder.update({ where: { id: draft.id }, data: { status: 'APPROVED' } })
+
+    const result = await runReorderCheck({ trigger: 'purchase_order_changed' })
+
+    expect(result.purchaseOrders.filter((po) => po.supplierId === supplierId)).toEqual([])
     const alerts = await prisma.alert.findMany({
       where: { type: 'REORDER_REMINDER', relatedId: { in: [clothId, accessoryId, orphanClothId] } },
     })

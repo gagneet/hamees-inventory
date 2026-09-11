@@ -57,10 +57,11 @@ export default async function AccessoryDetailPage({
   const canRaisePO = hasPermission(role, 'manage_purchase_orders')
 
   const totalValue = accessory.currentStock * accessory.pricePerUnit
-  const { onOrder, openPurchaseOrders } = await onOrderFor(prisma, 'accessory', accessory.id)
+  const { onOrder, awaitingApproval, openPurchaseOrders } = await onOrderFor(prisma, 'accessory', accessory.id)
   const reorder = reorderSuggestion({
     available: accessory.currentStock - accessory.reserved,
     onOrder,
+    awaitingApproval,
     minimum: accessory.minimumStockUnits,
     reorderQuantity: accessory.reorderQuantity,
   })
