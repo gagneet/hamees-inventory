@@ -43,7 +43,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import DashboardLayout from '@/components/DashboardLayout'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
+import { Money } from '@/components/ui/money'
 import { useFieldVisibility } from '@/hooks/use-field-visibility'
 import { hasPermission } from '@/lib/permissions'
 
@@ -201,7 +202,7 @@ export default function PurchaseOrdersPage() {
                 <CardTitle className="text-sm font-medium">Total Value</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{formatCurrency(stats.totalValue)}</div>
+                <div className="text-2xl font-bold"><Money amount={stats.totalValue} /></div>
               </CardContent>
             </Card>
             <Card>
@@ -210,7 +211,7 @@ export default function PurchaseOrdersPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-red-600">
-                  {formatCurrency(stats.totalBalance)}
+                  <Money amount={stats.totalBalance} />
                 </div>
               </CardContent>
             </Card>
@@ -283,10 +284,10 @@ export default function PurchaseOrdersPage() {
                     </div>
                     {canViewPOPrices && (
                       <div className="text-right">
-                        <p className="text-lg font-bold">{formatCurrency(po.totalAmount ?? 0)}</p>
+                        <p className="text-lg font-bold"><Money amount={po.totalAmount ?? 0} align="end" /></p>
                         {(po.balanceAmount ?? 0) > 0 && (
                           <p className="text-sm text-red-600">
-                            Balance: {formatCurrency(po.balanceAmount ?? 0)}
+                            Balance: <Money amount={po.balanceAmount ?? 0} secondary="inline" />
                           </p>
                         )}
                       </div>

@@ -83,7 +83,14 @@ type CacheEntry = { at: number; value: AppSettings }
 type GlobalWithSettings = typeof globalThis & { [CACHE_KEY]?: CacheEntry }
 
 function prime(value: AppSettings): AppSettings {
-  setActiveLocaleConfig({ currency: value.currency, locale: value.locale, timeZone: value.timeZone })
+  setActiveLocaleConfig({
+    currency: value.currency,
+    locale: value.locale,
+    timeZone: value.timeZone,
+    secondaryCurrency: value.secondaryCurrency,
+    exchangeRate: value.exchangeRate,
+    exchangeRateUpdatedAt: value.exchangeRateUpdatedAt,
+  })
   return value
 }
 

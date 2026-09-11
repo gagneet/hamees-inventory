@@ -26,6 +26,7 @@ import {
   Cell,
 } from 'recharts'
 import { formatDate, formatCurrency, currencySymbol } from '@/lib/utils'
+import { Money } from '@/components/ui/money'
 
 const CATEGORY_COLORS: Record<string, string> = {
   RENT: '#3B82F6',
@@ -138,7 +139,7 @@ export default function ExpenseReportPage() {
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold">
-                {formatCurrency(data.summary.totalExpenses)}
+                <Money amount={data.summary.totalExpenses} />
               </p>
             </CardContent>
           </Card>
@@ -149,7 +150,7 @@ export default function ExpenseReportPage() {
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold">
-                {formatCurrency(data.summary.thisMonth)}
+                <Money amount={data.summary.thisMonth} />
               </p>
               <p className="text-xs text-slate-600">
                 {data.summary.growth >= 0 ? '+' : ''}
@@ -173,8 +174,7 @@ export default function ExpenseReportPage() {
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold">
-                {formatCurrency((
-                  data.summary.totalExpenses / data.expensesByMonth.length), { decimals: 0 })}
+                <Money amount={data.summary.totalExpenses / data.expensesByMonth.length} decimals={0} />
               </p>
             </CardContent>
           </Card>
