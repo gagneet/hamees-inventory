@@ -229,26 +229,40 @@ export async function POST(request: Request) {
     if (issues.length > 0) return validationError(issues)
 
     const totalAmount = sumMoney(lines.map((line) => line.totalPrice))
-    const poNumber = await nextPoNumber(prisma)
 
-    // Create purchase order with items
-    const purchaseOrder = await prisma.purchaseOrder.create({
-      data: {
-        poNumber,
-        supplierId,
-        expectedDate: expectedDate ? new Date(expectedDate) : null,
-        totalAmount,
-        subTotal: totalAmount,
-        balanceAmount: totalAmount,
-        notes: notes || null,
-        status: getInitialPurchaseOrderStatus(session.user.role),
-        items: { create: lines },
-      },
-      include: {
-        supplier: true,
-        items: { include: poItemInventoryInclude },
-      },
-    })
+    // poNumber is unique and the automatic reorder check creates POs too, so another request can
+    // take the number between generating and inserting it: try again with the next one.
+    const createWithNumber = async (poNumber: string) =>
+      prisma.purchaseOrder.create({
+        data: {
+          poNumber,
+          supplierId,
+          expectedDate: expectedDate ? new Date(expectedDate) : null,
+          totalAmount,
+          subTotal: totalAmount,
+          balanceAmount: totalAmount,
+          notes: notes || null,
+          status: getInitialPurchaseOrderStatus(session.user.role),
+          items: { create: lines },
+        },
+        include: {
+          supplier: true,
+          items: { include: poItemInventoryInclude },
+        },
+      })
+
+    const numberTaken = (error: unknown) =>
+      typeof error === 'object' && error !== null && (error as { code?: string }).code === 'P2002'
+
+    let purchaseOrder: Awaited<ReturnType<typeof createWithNumber>> | undefined
+    for (let attempt = 1; attempt <= 3 && !purchaseOrder; attempt++) {
+      try {
+        purchaseOrder = await createWithNumber(await nextPoNumber(prisma))
+      } catch (error) {
+        if (!numberTaken(error) || attempt === 3) throw error
+      }
+    }
+    if (!purchaseOrder) throw new Error('Could not allocate a purchase order number')
 
     // New on-order quantities can resolve reorder alerts
     after(() => runReorderCheckQuietly({ trigger: 'purchase_order_changed', userId: session.user.id }))

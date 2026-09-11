@@ -523,3 +523,36 @@ describe('POST /api/purchase-orders/[id]/receive – inventory links', () => {
     expect(changeClothStock).not.toHaveBeenCalled()
   })
 })
+
+describe('POST /api/purchase-orders – purchase order number collisions', () => {
+  const taken = () => Object.assign(new Error('Unique constraint failed on the fields: (`poNumber`)'), { code: 'P2002' })
+
+  beforeEach(() => {
+    actAs('OWNER')
+    db.supplier.findUnique.mockResolvedValue({ id: 'sup-1', active: true })
+    db.clothInventory.findMany.mockResolvedValue([clothRecord()])
+    db.accessoryInventory.findMany.mockResolvedValue([accessoryRecord()])
+    db.purchaseOrder.count.mockResolvedValue(0)
+    db.purchaseOrder.findMany.mockResolvedValue([])
+  })
+
+  it('retries with the next number when another request took it', async () => {
+    db.purchaseOrder.create
+      .mockRejectedValueOnce(taken())
+      .mockImplementationOnce(async ({ data }: { data: any }) => ({ id: 'po-new', ...data, items: data.items.create }))
+
+    const res = await createPO({ items: [clothLine()] })
+
+    expect(res.status).toBe(201)
+    expect(db.purchaseOrder.create).toHaveBeenCalledTimes(2)
+  })
+
+  it('gives up after three attempts', async () => {
+    db.purchaseOrder.create.mockRejectedValue(taken())
+
+    const res = await createPO({ items: [clothLine()] })
+
+    expect(res.status).toBe(500)
+    expect(db.purchaseOrder.create).toHaveBeenCalledTimes(3)
+  })
+})
