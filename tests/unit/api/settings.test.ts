@@ -100,4 +100,88 @@ describe('PUT /api/settings', () => {
     const res = await put({ currency: 'INR', locale: 'en-GB' })
     expect(res.status).toBe(200)
   })
+
+  it('suggests the secondary currency when refusing a relabel', async () => {
+    setRecordCounts(26)
+    const body = await (await put({ currency: 'GBP' })).json()
+    expect(body.error).toContain('set GBP as the secondary currency with an exchange rate')
+  })
+})
+
+describe('PUT /api/settings — secondary currency', () => {
+  const RATE_SET_AT = new Date('2026-09-01T10:00:00Z')
+
+  /** A shop already showing GBP next to INR at 112.5 */
+  function withSecondary() {
+    m(prisma.businessSettings.findFirst).mockResolvedValue({
+      id: 'default',
+      currencyCode: 'INR',
+      secondaryCurrencyCode: 'GBP',
+      exchangeRate: 112.5,
+      exchangeRateUpdatedAt: RATE_SET_AT,
+      showSecondaryOnInvoice: true,
+    })
+  }
+
+  const updateData = () => m(prisma.businessSettings.update).mock.calls[0][0].data
+
+  it('rejects a secondary currency equal to the main currency', async () => {
+    const res = await put({ secondaryCurrency: 'INR', exchangeRate: 1 })
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/must differ from the main currency/)
+    expect(prisma.businessSettings.update).not.toHaveBeenCalled()
+  })
+
+  it('rejects a secondary currency that would equal a new main currency', async () => {
+    withSecondary()
+    const res = await put({ currency: 'GBP', acknowledgeNoConversion: true })
+    expect(res.status).toBe(400)
+    expect(prisma.businessSettings.update).not.toHaveBeenCalled()
+  })
+
+  it('rejects a secondary currency without an exchange rate', async () => {
+    const res = await put({ secondaryCurrency: 'GBP' })
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe('Enter how many INR one GBP is worth')
+
+    const resNull = await put({ secondaryCurrency: 'GBP', exchangeRate: null })
+    expect(resNull.status).toBe(400)
+    expect(prisma.businessSettings.update).not.toHaveBeenCalled()
+  })
+
+  it('saves a secondary currency with its rate and stamps the rate date', async () => {
+    const res = await put({ secondaryCurrency: 'gbp', exchangeRate: 112.5 })
+    expect(res.status).toBe(200)
+    expect(updateData()).toMatchObject({ secondaryCurrencyCode: 'GBP', exchangeRate: 112.5, exchangeRateUpdatedAt: expect.any(Date) })
+  })
+
+  it('clearing the secondary currency clears the rate and its date', async () => {
+    withSecondary()
+    const res = await put({ secondaryCurrency: null })
+    expect(res.status).toBe(200)
+    expect(updateData()).toMatchObject({ secondaryCurrencyCode: null, exchangeRate: null, exchangeRateUpdatedAt: null })
+  })
+
+  it('clears the rate even if a stale rate is sent with the cleared currency', async () => {
+    withSecondary()
+    await put({ secondaryCurrency: null, exchangeRate: 110 })
+    expect(updateData()).toMatchObject({ secondaryCurrencyCode: null, exchangeRate: null, exchangeRateUpdatedAt: null })
+  })
+
+  it('a rate change sets exchangeRateUpdatedAt', async () => {
+    withSecondary()
+    const res = await put({ exchangeRate: 110 })
+    expect(res.status).toBe(200)
+    const data = updateData()
+    expect(data.exchangeRate).toBe(110)
+    expect(data.exchangeRateUpdatedAt).toBeInstanceOf(Date)
+    expect(data.exchangeRateUpdatedAt.getTime()).toBeGreaterThan(RATE_SET_AT.getTime())
+  })
+
+  it('saving the form with an unchanged rate keeps the original rate date', async () => {
+    withSecondary()
+    const res = await put({ secondaryCurrency: 'GBP', exchangeRate: 112.5, businessName: 'Hamees' })
+    expect(res.status).toBe(200)
+    expect(updateData()).not.toHaveProperty('exchangeRateUpdatedAt')
+  })
 })
