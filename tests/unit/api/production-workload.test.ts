@@ -8,11 +8,21 @@ import { buildProductionOverview, type RawWorkloadItem } from '@/app/api/product
 const now = new Date('2026-09-11T10:00:00')
 
 let seq = 0
-function rawItem(opts: { tailor?: string | null; tailorName?: string; status?: string; dueInDays?: number; priority?: string }): RawWorkloadItem {
+/** `status` is the item's own stage; the order's defaults to the same (as for single-item orders). */
+function rawItem(opts: {
+  tailor?: string | null
+  tailorName?: string
+  status?: string
+  orderStatus?: string
+  orderId?: string
+  dueInDays?: number
+  priority?: string
+}): RawWorkloadItem {
   seq++
   return {
     id: `item-${seq}`,
-    orderId: `order-${seq}`,
+    orderId: opts.orderId ?? `order-${seq}`,
+    status: opts.status ?? 'STITCHING',
     quantityOrdered: 1,
     notes: null,
     assignedTailorId: opts.tailor ?? null,
@@ -20,7 +30,7 @@ function rawItem(opts: { tailor?: string | null; tailorName?: string; status?: s
     garmentPattern: { name: 'Shirt' },
     order: {
       orderNumber: `ORD-${seq}`,
-      status: opts.status ?? 'STITCHING',
+      status: opts.orderStatus ?? opts.status ?? 'STITCHING',
       priority: opts.priority ?? 'NORMAL',
       deliveryDate: addDays(now, opts.dueInDays ?? 5),
       customer: { name: 'Customer' },
@@ -81,6 +91,31 @@ describe('buildProductionOverview', () => {
     expect(o.overdue.map((i) => i.daysLeft)).toEqual([-2])
     expect(meena.items[0].priority).toBe('URGENT')
     expect(meena.items[1].daysLeft).toBe(-4)
+  })
+
+  it('counts each item by its own stage, not the order status', () => {
+    // One order, derived status CUTTING (its least advanced item); garments at different stages
+    const items = [
+      rawItem({ tailor: 'ravi', orderId: 'o-multi', status: 'CUTTING', orderStatus: 'CUTTING' }),
+      rawItem({ tailor: 'meena', orderId: 'o-multi', status: 'FINISHING', orderStatus: 'CUTTING' }),
+      rawItem({ tailor: 'meena', orderId: 'o-multi', status: 'READY', orderStatus: 'CUTTING' }),
+    ]
+    const o = buildProductionOverview({ tailors, items, completedByTailor: {}, now, maxActiveItemsPerTailor: 8, dailyTarget: 5 })
+    const ravi = o.tailors.find((t) => t.id === 'ravi')!
+    const meena = o.tailors.find((t) => t.id === 'meena')!
+    expect(ravi.byStatus.CUTTING).toBe(1)
+    expect(meena.byStatus.FINISHING).toBe(1)
+    expect(meena.byStatus.CUTTING).toBe(0)
+    expect(meena.activeCount).toBe(1)
+    expect(meena.readyCount).toBe(1)
+    expect(o.totals).toMatchObject({ activeItems: 2, readyItems: 1 })
+    expect(meena.items.find((i) => i.status === 'READY')?.orderStatus).toBe('CUTTING')
+  })
+
+  it('does not flag a finished item as overdue even when its order is late', () => {
+    const items = [rawItem({ tailor: 'ravi', status: 'READY', orderStatus: 'STITCHING', dueInDays: -3 })]
+    const o = buildProductionOverview({ tailors, items, completedByTailor: {}, now, maxActiveItemsPerTailor: 8, dailyTarget: 5 })
+    expect(o.overdue).toHaveLength(0)
   })
 
   it('ignores items on delivered or cancelled orders', () => {

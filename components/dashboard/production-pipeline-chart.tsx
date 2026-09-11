@@ -21,13 +21,14 @@ const STATUS_COLORS: Record<string, string> = {
   READY: '#10B981', // Green
 }
 
+// Bars count garments (order items) by their own production stage
 const STATUS_LABELS: Record<string, string> = {
-  NEW: 'New Orders',
+  NEW: 'New',
   MATERIAL_SELECTED: 'Material Selected',
   CUTTING: 'Cutting',
   STITCHING: 'Stitching',
   FINISHING: 'Finishing',
-  READY: 'Ready for Pickup',
+  READY: 'Ready',
 }
 
 export function ProductionPipelineChart({ data }: ProductionPipelineChartProps) {
@@ -60,7 +61,7 @@ export function ProductionPipelineChart({ data }: ProductionPipelineChartProps) 
             border: '1px solid #e2e8f0',
             borderRadius: '6px',
           }}
-          formatter={(value) => [value, 'Orders']}
+          formatter={(value) => [value, 'Items']}
         />
         <Bar dataKey="count" radius={[0, 4, 4, 0]} cursor="pointer">
           {chartData.map((entry, index) => (

@@ -68,7 +68,8 @@ export function WorkloadItemRow({
   leading?: React.ReactNode
   action?: React.ReactNode
 }) {
-  const active = item.orderStatus !== 'READY'
+  // The garment's own stage (orders with several items move item by item)
+  const active = item.status !== 'READY'
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2">
       {leading}
@@ -99,7 +100,7 @@ export function WorkloadItemRow({
         {item.notes && <p className="mt-1 text-xs text-slate-600 line-clamp-2">📝 {item.notes}</p>}
       </div>
       <div className="flex items-center gap-2">
-        <StatusBadge status={item.orderStatus} />
+        <StatusBadge status={item.status} />
         <DueBadge daysLeft={item.daysLeft} active={active} />
         {action}
       </div>
