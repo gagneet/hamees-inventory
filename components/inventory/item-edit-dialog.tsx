@@ -27,6 +27,7 @@ interface ClothItem {
   currentStock: number
   reserved: number
   minimumStockMeters: number
+  reorderQuantity?: number | null
   supplier: string
   location?: string
   supplierRel?: { name: string; id: string }
@@ -41,6 +42,7 @@ interface AccessoryItem {
   currentStock: number
   pricePerUnit: number
   minimumStockUnits: number
+  reorderQuantity?: number | null
   supplier: string
   supplierRel?: { name: string; id: string }
 }
@@ -100,7 +102,7 @@ export function ItemEditDialog({ isOpen, onClose, itemType, item, userRole }: It
     }
   }
 
-  const handleFieldChange = (field: string, value: string | number) => {
+  const handleFieldChange = (field: string, value: string | number | null) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
@@ -270,6 +272,22 @@ export function ItemEditDialog({ isOpen, onClose, itemType, item, userRole }: It
               </div>
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="edit-reorderQuantity">Reorder quantity (meters)</Label>
+              <Input
+                id="edit-reorderQuantity"
+                type="number"
+                step="0.01"
+                min="0"
+                value={(formData as ClothItem).reorderQuantity ?? ''}
+                onChange={(e) => handleFieldChange('reorderQuantity', parseFloat(e.target.value) || null)}
+                placeholder="Empty: top up to twice the minimum"
+              />
+              <p className="text-xs text-slate-500">
+                Ordered when available plus on-order stock falls to the minimum.
+              </p>
+            </div>
+
             {/* Price and Location */}
             {showPricing && (
               <div className="grid grid-cols-2 gap-4">
@@ -427,6 +445,22 @@ export function ItemEditDialog({ isOpen, onClose, itemType, item, userRole }: It
                 required
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="edit-acc-reorderQuantity">Reorder quantity (units)</Label>
+            <Input
+              id="edit-acc-reorderQuantity"
+              type="number"
+              step="1"
+              min="0"
+              value={(formData as AccessoryItem).reorderQuantity ?? ''}
+              onChange={(e) => handleFieldChange('reorderQuantity', parseInt(e.target.value) || null)}
+              placeholder="Empty: top up to twice the minimum"
+            />
+            <p className="text-xs text-slate-500">
+              Ordered when available plus on-order stock falls to the minimum.
+            </p>
           </div>
 
           {/* Price */}

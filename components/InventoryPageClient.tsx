@@ -366,7 +366,8 @@ export default function InventoryPageClient() {
           quality: data.quality,
           pricePerMeter: parseFloat(data.pricePerMeter as string),
           currentStock: parseFloat(data.currentStock as string),
-          minimum: parseFloat(data.minimum as string),
+          minimumStockMeters: parseFloat(data.minimum as string),
+          reorderQuantity: parseFloat(data.reorderQuantity as string) || null,
           supplier: data.supplier,
           location: data.location || null,
         }),
@@ -403,7 +404,8 @@ export default function InventoryPageClient() {
           color: data.color || null,
           currentStock: parseInt(data.currentStock as string),
           pricePerUnit: parseFloat(data.pricePerUnit as string),
-          minimum: parseInt(data.minimum as string),
+          minimumStockUnits: parseInt(data.minimum as string),
+          reorderQuantity: parseInt(data.reorderQuantity as string) || null,
         }),
       })
       if (!response.ok) throw new Error('Failed to create accessory item')
@@ -578,6 +580,11 @@ export default function InventoryPageClient() {
                         </div>
                       </div>
 
+                      <div className="space-y-2">
+                        <Label htmlFor="reorderQuantity">Reorder quantity (meters)</Label>
+                        <Input id="reorderQuantity" name="reorderQuantity" type="number" step="0.01" min="0" placeholder="Empty: top up to twice the minimum" />
+                      </div>
+
                       {/* Hide pricing fields for Tailor */}
                       {canEnterPrices && (
                         <div className="grid grid-cols-2 gap-4">
@@ -638,6 +645,11 @@ export default function InventoryPageClient() {
                           <Label htmlFor="acc-minimum">Min Stock *</Label>
                           <Input id="acc-minimum" name="minimum" type="number" step="1" required />
                         </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="acc-reorderQuantity">Reorder quantity (units)</Label>
+                        <Input id="acc-reorderQuantity" name="reorderQuantity" type="number" step="1" min="0" placeholder="Empty: top up to twice the minimum" />
                       </div>
 
                       {/* Hide pricing for Tailor */}

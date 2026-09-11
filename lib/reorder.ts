@@ -178,6 +178,22 @@ function wholeQuantity(quantity: number): number {
 }
 
 /**
+ * The reorder rule for one item: needed when available + onOrder ≤ minimum; quantity is the item's
+ * reorderQuantity, else enough to reach twice the minimum, rounded up to a whole meter / unit.
+ */
+export function reorderSuggestion(p: {
+  available: number
+  onOrder: number
+  minimum: number
+  reorderQuantity: number | null
+}): { needsReorder: boolean; quantity: number } {
+  const needsReorder = round3(p.available + p.onOrder) <= p.minimum + EPSILON
+  const reorderQuantity = p.reorderQuantity && p.reorderQuantity > 0 ? p.reorderQuantity : null
+  const raw = reorderQuantity ?? Math.max(0, 2 * p.minimum - p.available - p.onOrder)
+  return { needsReorder, quantity: needsReorder ? wholeQuantity(raw) : 0 }
+}
+
+/**
  * Stock position and suggested order for every item.
  * `priceSupplierId` prices fabric from that supplier instead of each item's own supplier
  * (the PO picker passes the PO's supplier).
@@ -194,11 +210,13 @@ export function computeReorderPositions(
     const isCloth = item.kind === 'cloth'
     const available = isCloth ? round3(item.currentStock - item.reserved) : item.currentStock - item.reserved
     const onOrder = onOrderMap.get(itemKey(item.kind, item.id)) ?? 0
-    const needsReorder = round3(available + onOrder) <= item.minimum + EPSILON
-
     const reorderQuantity = item.reorderQuantity && item.reorderQuantity > 0 ? item.reorderQuantity : null
-    const rawQuantity = reorderQuantity ?? Math.max(0, 2 * item.minimum - available - onOrder)
-    const suggestedQuantity = needsReorder ? wholeQuantity(rawQuantity) : 0
+    const { needsReorder, quantity: suggestedQuantity } = reorderSuggestion({
+      available,
+      onOrder,
+      minimum: item.minimum,
+      reorderQuantity,
+    })
 
     const supplierPrice = isCloth
       ? pickSupplierPrice(prices, item.id, opts.priceSupplierId ?? item.supplierId, now)

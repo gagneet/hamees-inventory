@@ -161,7 +161,9 @@ export default function AlertDetailPage({
 
   const config = severityConfig[alertData.severity as keyof typeof severityConfig]
 
-  const isLowStock = alertData.type === 'LOW_STOCK' || alertData.type === 'CRITICAL_STOCK'
+  // Stock alerts, including reorder alerts, show the related inventory item and a pre-filled PO link
+  const isLowStock =
+    alertData.type === 'LOW_STOCK' || alertData.type === 'CRITICAL_STOCK' || alertData.type === 'REORDER_REMINDER'
 
   return (
     <DashboardLayout>
@@ -297,7 +299,7 @@ export default function AlertDetailPage({
                   asChild
                 >
                   <Link
-                    href={`/purchase-orders/new?supplierId=${relatedItem.supplierRel.id}&itemId=${relatedItem.id}&itemName=${encodeURIComponent(relatedItem.name)}`}
+                    href={`/purchase-orders/new?supplierId=${relatedItem.supplierRel.id}&itemType=CLOTH&itemId=${relatedItem.id}`}
                   >
                     <ShoppingCart className="mr-2 h-5 w-5" />
                     Create Purchase Order

@@ -71,7 +71,35 @@ interface PurchaseOrder {
     unit: string
     pricePerUnit?: number
     totalPrice?: number
+    clothInventoryId?: string | null
+    accessoryInventoryId?: string | null
+    clothInventory?: LinkedItem | null
+    accessoryInventory?: LinkedItem | null
   }>
+}
+
+interface LinkedItem {
+  id: string
+  sku: string
+  name: string
+  color: string | null
+  active: boolean
+}
+
+type POLine = PurchaseOrder['items'][number]
+
+/** The inventory item a PO line restocks (legacy lines may have none until received). */
+function linkedItemOf(item: POLine): { href: string; label: string } | null {
+  if (item.clothInventory) {
+    return { href: `/inventory/cloth/${item.clothInventory.id}`, label: `${item.clothInventory.name} (${item.clothInventory.sku})` }
+  }
+  if (item.accessoryInventory) {
+    return {
+      href: `/inventory/accessories/${item.accessoryInventory.id}`,
+      label: `${item.accessoryInventory.name} (${item.accessoryInventory.sku})`,
+    }
+  }
+  return null
 }
 
 interface ClothInventory {
@@ -161,11 +189,12 @@ export default function PurchaseOrderDetailPage({
         }))
       )
 
-      // Initialize receive data
+      // Initialize receive data: quantities received now start at 0; linked lines credit their own item,
+      // so an inventory item is only chosen for legacy unlinked lines
       setReceiveData({
         items: data.purchaseOrder.items.map((item: any) => ({
           id: item.id,
-          receivedQuantity: item.receivedQuantity || 0,
+          receivedQuantity: 0,
           clothInventoryId: null,
           accessoryInventoryId: null,
         })),
@@ -181,7 +210,7 @@ export default function PurchaseOrderDetailPage({
 
   const fetchClothInventory = async () => {
     try {
-      const response = await fetch('/api/inventory/cloth')
+      const response = await fetch('/api/inventory/cloth?limit=500')
       const data = await response.json()
       setClothInventory(data.items || data.clothInventory || [])
     } catch (error) {
@@ -191,7 +220,7 @@ export default function PurchaseOrderDetailPage({
 
   const fetchAccessoryInventory = async () => {
     try {
-      const response = await fetch('/api/inventory/accessories')
+      const response = await fetch('/api/inventory/accessories?limit=500')
       const data = await response.json()
       setAccessoryInventory(data.items || data.accessories || [])
     } catch (error) {
@@ -202,6 +231,15 @@ export default function PurchaseOrderDetailPage({
   const handleReceive = async () => {
     if (!resolvedParams || !purchaseOrder) return
 
+    const unlinkedWithoutItem = purchaseOrder.items.find((item) => {
+      const entry = receiveData.items.find((i) => i.id === item.id)
+      return !linkedItemOf(item) && (entry?.receivedQuantity ?? 0) > 0 && !entry?.clothInventoryId && !entry?.accessoryInventoryId
+    })
+    if (unlinkedWithoutItem) {
+      alert(`Choose the inventory item to credit for ${unlinkedWithoutItem.itemName}.`)
+      return
+    }
+
     setReceiving(true)
     try {
       const response = await fetch(`/api/purchase-orders/${resolvedParams.id}/receive`, {
@@ -211,7 +249,8 @@ export default function PurchaseOrderDetailPage({
       })
 
       if (!response.ok) {
-        throw new Error('Failed to receive purchase order')
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to receive purchase order')
       }
 
       setShowReceiveDialog(false)
@@ -219,7 +258,7 @@ export default function PurchaseOrderDetailPage({
       alert('Purchase order received successfully!')
     } catch (error) {
       console.error('Error receiving purchase order:', error)
-      alert('Failed to receive purchase order')
+      alert(error instanceof Error ? error.message : 'Failed to receive purchase order')
     } finally {
       setReceiving(false)
     }
@@ -426,17 +465,26 @@ export default function PurchaseOrderDetailPage({
                 <DialogHeader>
                   <DialogTitle className="text-slate-900">Receive Purchase Order</DialogTitle>
                   <DialogDescription>
-                    Enter received quantities and link items to inventory
+                    Enter the quantities received now. Each line credits its linked inventory item.
                   </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-4">
-                  {purchaseOrder.items.map((item, index) => {
+                  {purchaseOrder.items.map((item) => {
                     const receiveItem = receiveData.items.find((i) => i.id === item.id)
+                    const linked = linkedItemOf(item)
 
                     return (
                       <div key={item.id} className="border border-slate-200 p-4 rounded-lg bg-slate-50">
-                        <h4 className="font-semibold mb-2 text-slate-900">{item.itemName}</h4>
+                        <h4 className="font-semibold mb-1 text-slate-900">{item.itemName}</h4>
+                        {linked && (
+                          <p className="text-xs text-slate-600 mb-2">
+                            Credits{' '}
+                            <Link href={linked.href} className="text-blue-600 hover:underline">
+                              {linked.label}
+                            </Link>
+                          </p>
+                        )}
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <Label className="text-slate-700">Ordered Quantity</Label>
@@ -454,7 +502,7 @@ export default function PurchaseOrderDetailPage({
                             <Label className="text-slate-700">Received Now *</Label>
                             <Input
                               type="number"
-                              step="0.01"
+                              step={item.itemType === 'ACCESSORY' ? '1' : '0.01'}
                               min="0"
                               max={item.orderedQuantity - item.receivedQuantity}
                               value={receiveItem?.receivedQuantity || 0}
@@ -467,9 +515,9 @@ export default function PurchaseOrderDetailPage({
                               }
                             />
                           </div>
-                          {item.itemType === 'CLOTH' && (
+                          {!linked && item.itemType === 'CLOTH' && (
                             <div>
-                              <Label className="text-slate-700">Link to Inventory Item</Label>
+                              <Label className="text-slate-700">Fabric to credit * (links this line)</Label>
                               <Select
                                 value={receiveItem?.clothInventoryId || ''}
                                 onValueChange={(value) =>
@@ -489,9 +537,9 @@ export default function PurchaseOrderDetailPage({
                               </Select>
                             </div>
                           )}
-                          {item.itemType === 'ACCESSORY' && (
+                          {!linked && item.itemType === 'ACCESSORY' && (
                             <div>
-                              <Label className="text-slate-700">Link to Inventory Item</Label>
+                              <Label className="text-slate-700">Accessory to credit * (links this line)</Label>
                               <Select
                                 value={receiveItem?.accessoryInventoryId || ''}
                                 onValueChange={(value) =>
@@ -661,6 +709,7 @@ export default function PurchaseOrderDetailPage({
               <thead className="border-b">
                 <tr className="text-left text-sm text-slate-500">
                   <th className="pb-2">Item Name</th>
+                  <th className="pb-2">Inventory Item</th>
                   <th className="pb-2">Type</th>
                   <th className="pb-2 text-right">Quantity</th>
                   <th className="pb-2 text-right">Received</th>
@@ -674,9 +723,22 @@ export default function PurchaseOrderDetailPage({
                 </tr>
               </thead>
               <tbody>
-                {purchaseOrder.items.map((item) => (
+                {purchaseOrder.items.map((item) => {
+                  const linked = linkedItemOf(item)
+                  return (
                   <tr key={item.id} className="border-b">
                     <td className="py-3 font-medium">{item.itemName}</td>
+                    <td className="py-3 text-sm">
+                      {linked ? (
+                        <Link href={linked.href} className="text-blue-600 hover:underline">
+                          {linked.label}
+                        </Link>
+                      ) : (
+                        <Badge variant="outline" className="text-amber-700 border-amber-300">
+                          Not linked — choose when receiving
+                        </Badge>
+                      )}
+                    </td>
                     <td className="py-3">{item.itemType}</td>
                     <td className="py-3 text-right">{item.orderedQuantity}</td>
                     <td className="py-3 text-right">
@@ -702,7 +764,8 @@ export default function PurchaseOrderDetailPage({
                       </>
                     )}
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
