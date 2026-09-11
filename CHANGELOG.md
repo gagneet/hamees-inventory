@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.32.0] - 2026-09-11 — Exact money, per-item production, stock reorder, international phones
+
+### Changed
+- **Production status is per garment** — each order item moves through the stages on its own, so a tailor moving their card moves only their garment. The production board shows one card per item; the order page has a stage control per item. The order's status is derived from its items (the least advanced stage), so it becomes READY — and the customer is notified — only when every garment is ready. Tailors can move only their own items, and back by at most one stage; delivery and cancellation stay order-level. Workload, the tailor dashboard, the pipeline chart and the production report count items. Existing items take their order's current status.
+- **Amounts are stored as whole minor units** — all 49 amount columns (orders, items, installments, purchase orders and lines, supplier prices, inventory prices, garment stitching charges, expenses) are `BigInt` counts of paise/cents instead of floating-point numbers, so totals, taxes and balances add up exactly. The Prisma client converts at the database boundary (`lib/prisma-client.ts`), so pages, APIs and exports still work with decimal amounts. The migration rounds each stored value to the nearest paisa; values carrying floating-point residue move by less than half a paisa.
+- Tax, balances, installment sums and cost splits use exact minor-unit arithmetic (`lib/money.ts`); report and dashboard sums convert aggregate results explicitly.
+- Payment-reminder alerts have their own `PAYMENT_REMINDER` type; `REORDER_REMINDER` now means a stock reorder. Existing alerts are migrated.
+- **Deploy** — `scripts/deploy.sh` builds the release in a temporary copy before touching anything, shows a read-only plan (pending migrations, dependency and Prisma client changes) and stops the app while those are applied, because the running server loads the Prisma client from `node_modules`. A failure before anything live changed starts the old app again; otherwise it prints recovery steps, including restoring the backup when migrations ran.
+- Scripts, seeds and integration tests create clients with `createPrismaClient()`. One-off money fix scripts from 2025–26 moved to `scripts/archived/` (they assume floating-point columns).
+
+### Added
+- **International phone numbers** — customer, shop and imported numbers are validated for their country and stored in E.164 (+91…, +44…, +1…). Customer and settings forms use a phone input with a country picker; numbers are shown in the shop's national format (international format for other countries) with `tel:` links. Admin Settings' phone country code became a phone region (country), migrated from the old code. WhatsApp sends only to valid numbers. A number already used by another customer asks for confirmation instead of blocking (families share numbers). `scripts/normalize-phones.ts` converts existing numbers (dry run by default, `--apply` to write, prints counts only) — run it once after deploying so search finds older numbers.
+- **Secondary currency (display-only)** — Admin Settings → Currency & Locale: choose a second currency and enter the exchange rate. Order, customer, purchase-order and expense totals, the owner dashboard, reports and (optionally) the invoice show the indicative converted amount below the real one, with the rate and the date it was set in a tooltip. Stored amounts are never converted.
+- **Master Tailor demo account** — the seeds create `master@hameesattire.com` (a placeholder to rename to the real person). `scripts/create-master-tailor.ts` adds one to a live shop that has none, with a random password printed once, and records it in the audit log.
+
+### Known limitations
+- One exchange rate applies to all amounts, including historic ones; rates are not stored per record.
+- Login rate limiting is in memory (one app instance). The Content-Security-Policy does not restrict scripts yet. Customer-report segments use fixed thresholds (50,000 / 20,000) in the shop's currency.
+
 ## [0.31.0] - 2026-09-11 — Release hardening
 
 ### Security
