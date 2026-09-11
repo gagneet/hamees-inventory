@@ -46,6 +46,7 @@ import DashboardLayout from '@/components/DashboardLayout'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { useFieldVisibility } from '@/hooks/use-field-visibility'
 import { hasPermission } from '@/lib/permissions'
+import { PhoneText } from '@/components/ui/phone-input'
 
 interface PurchaseOrder {
   id: string
@@ -330,7 +331,7 @@ export default function PurchaseOrdersPage() {
                     )}
                     <div>
                       <p className="text-slate-500">Contact</p>
-                      <p className="font-medium">{po.supplier.phone}</p>
+                      <p className="font-medium"><PhoneText value={po.supplier.phone} /></p>
                     </div>
                   </div>
 

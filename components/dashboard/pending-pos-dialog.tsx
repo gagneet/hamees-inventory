@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { PhoneText } from '@/components/ui/phone-input'
 import { ExternalLink, ShoppingCart, Calendar, Package } from 'lucide-react'
 import Link from 'next/link'
 
@@ -182,7 +183,7 @@ export function PendingPOsDialog({ trigger }: PendingPOsDialogProps) {
                     </div>
                     <div className="text-xs text-slate-600 mb-2">
                       Supplier: {po.supplier.name}
-                      {po.supplier.phone && ` • ${po.supplier.phone}`}
+                      {po.supplier.phone && <> • <PhoneText value={po.supplier.phone} /></>}
                     </div>
 
                     <div className="flex items-center gap-4 text-xs">

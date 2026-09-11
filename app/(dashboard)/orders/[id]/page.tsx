@@ -52,6 +52,7 @@ import { OrderItemDetailDialog } from '@/components/orders/order-item-detail-dia
 import { AssignTailorDialog } from '@/components/orders/assign-tailor-dialog'
 import { SendWhatsAppButton } from '@/components/orders/send-whatsapp-button'
 import { OrderItemMeasurements } from '@/components/orders/order-item-measurements'
+import { PhoneText } from '@/components/ui/phone-input'
 
 async function getOrderDetails(id: string, scope: Prisma.OrderWhereInput) {
   try {
@@ -583,7 +584,7 @@ export default async function OrderDetailPage({
                 </div>
                 <div className="flex items-center gap-2 text-slate-700">
                   <Phone className="h-4 w-4" />
-                  <span>{order.customer.phone}</span>
+                  <span><PhoneText value={order.customer.phone} /></span>
                 </div>
                 {order.customer.email && (
                   <div className="flex items-center gap-2 text-slate-700">

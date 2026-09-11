@@ -34,6 +34,7 @@ import { Textarea } from '@/components/ui/textarea'
 import DashboardLayout from '@/components/DashboardLayout'
 import { formatCurrency } from '@/lib/utils'
 import { useFieldVisibility } from '@/hooks/use-field-visibility'
+import { PhoneText } from '@/components/ui/phone-input'
 
 interface Supplier {
   id: string
@@ -202,7 +203,7 @@ function NewPurchaseOrderContent() {
                 <SelectContent>
                   {suppliers.map((supplier) => (
                     <SelectItem key={supplier.id} value={supplier.id}>
-                      {supplier.name} - {supplier.phone}
+                      {supplier.name} - <PhoneText value={supplier.phone} />
                     </SelectItem>
                   ))}
                 </SelectContent>

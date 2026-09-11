@@ -18,6 +18,7 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import DashboardLayout from '@/components/DashboardLayout'
 import { CustomerMeasurementsSection } from '@/components/customer-measurements-section'
 import { CustomerEditDialog } from '@/components/customer-edit-dialog'
+import { PhoneText } from '@/components/ui/phone-input'
 
 interface CustomerDetailClientProps {
   customer: {
@@ -174,7 +175,7 @@ export function CustomerDetailClient({
                   <Phone className="h-5 w-5 text-slate-500" />
                   <div>
                     <p className="text-sm text-slate-500">Phone</p>
-                    <p className="font-medium text-slate-900">{customer.phone}</p>
+                    <p className="font-medium text-slate-900"><PhoneText value={customer.phone} /></p>
                   </div>
                 </div>
                 {customer.email && (

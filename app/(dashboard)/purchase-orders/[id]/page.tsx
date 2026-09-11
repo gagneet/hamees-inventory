@@ -43,6 +43,7 @@ import DashboardLayout from '@/components/DashboardLayout'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { useFieldVisibility } from '@/hooks/use-field-visibility'
 import { hasPermission } from '@/lib/permissions'
+import { PhoneText } from '@/components/ui/phone-input'
 
 interface PurchaseOrder {
   id: string
@@ -585,7 +586,7 @@ export default function PurchaseOrderDetailPage({
             </div>
             <div>
               <p className="text-sm text-slate-500">Phone</p>
-              <p>{purchaseOrder.supplier.phone}</p>
+              <p><PhoneText value={purchaseOrder.supplier.phone} /></p>
             </div>
             {purchaseOrder.supplier.email && (
               <div>
