@@ -188,23 +188,28 @@ BUILD_START=$(date +%s)
 VERIFY_DIR="$(mktemp -d "${TMPDIR:-/tmp}/hamees-verify.XXXXXX")"
 rsync -a --exclude '/node_modules' --exclude '/.next' --exclude '/.next-*' --exclude '/backups' \
   --exclude '/logs' --exclude '/.git' "$APP_DIR/" "$VERIFY_DIR/"
+VERIFY_LOG="$LOG_DIR/deploy-verify-build.log"
 VERIFY_OK=1
 (
   set -euo pipefail
   trap - ERR
   cd "$VERIFY_DIR"
   # No database for the copy: new code must not touch the live database before it is backed up
-  # and migrated (anything that needs the DB at build time fails to connect instead)
+  # and migrated. Pages that read settings at build time log "DatabaseNotReachable" and fall back
+  # to defaults — expected here, and this build is thrown away
   export DATABASE_URL="postgresql://verify-build@127.0.0.1:9/no-database"
-  CI=true pnpm install --frozen-lockfile --prefer-offline 2>&1 | tail -n 3
-  pnpm exec prisma generate 2>&1 | tail -n 2
-  pnpm exec prisma validate 2>&1 | tail -n 1
-  pnpm run build 2>&1
-) || VERIFY_OK=0
+  CI=true pnpm install --frozen-lockfile --prefer-offline
+  pnpm exec prisma generate
+  pnpm exec prisma validate
+  pnpm run build
+) > "$VERIFY_LOG" 2>&1 || VERIFY_OK=0
 rm -rf "$VERIFY_DIR"
 VERIFY_DIR=""
-(( VERIFY_OK )) || die "Verification build failed — nothing was changed (database, node_modules and running app untouched). Check the output above."
-success "Verification build passed in $(( $(date +%s) - BUILD_START ))s"
+if (( ! VERIFY_OK )); then
+  grep -v -E 'DatabaseNotReachable|Failed to load business settings|prisma:error|at F\.onError|^\s*$' "$VERIFY_LOG" | tail -n 40 >&2 || true
+  die "Verification build failed — nothing was changed (database, node_modules and running app untouched). Full output: $VERIFY_LOG"
+fi
+success "Verification build passed in $(( $(date +%s) - BUILD_START ))s (output: $VERIFY_LOG)"
 
 # ── Step 2: Plan (read-only) ─────────────────────────────────────────────────
 log "Step 2/7: Checking what this release changes..."
