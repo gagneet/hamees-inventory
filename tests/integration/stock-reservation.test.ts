@@ -12,22 +12,20 @@
  * Run with: pnpm test tests/integration/stock-reservation.test.ts
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
-import { PrismaClient } from '@prisma/client'
-import { PrismaPg } from '@prisma/adapter-pg'
 import { Pool } from 'pg'
+import { createPrismaClient, type AppPrismaClient } from '@/lib/prisma-client'
 
 const TEST_PREFIX = 'TEST_VITEST_'
 const TEST_SKU_PREFIX = 'CLT-TEST-VITEST-'
 
 let pool: Pool
-let prisma: PrismaClient
+let prisma: AppPrismaClient
 
 // ── DB connection ──────────────────────────────────────────────────────────
 beforeAll(() => {
   const connectionString = process.env.DATABASE_URL!
   pool = new Pool({ connectionString })
-  const adapter = new PrismaPg(pool)
-  prisma = new PrismaClient({ adapter })
+  prisma = createPrismaClient({ pool })
 })
 
 // ── Global cleanup — runs even if tests fail ───────────────────────────────

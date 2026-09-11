@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db'
 import { startOfMonth, endOfMonth, subMonths, subDays, format, addDays, differenceInDays } from 'date-fns'
 import { shopEndOfDay, shopStartOfDay } from '@/lib/locale'
 import { generateStockAlerts } from '@/lib/generate-alerts'
+import { sumFromMinor } from '@/lib/money'
 
 /**
  * Date range presets for dashboard filtering
@@ -239,7 +240,7 @@ export async function getDashboardData(
 
     revenueByMonth.push({
       month: format(monthStart, 'MMM yyyy'),
-      revenue: revenue._sum.totalAmount || 0,
+      revenue: sumFromMinor(revenue._sum.totalAmount),
     })
   }
 
@@ -711,9 +712,9 @@ export async function getDashboardData(
   // NOTE: Expense tracking not yet integrated with date range filtering
   // The /api/expenses route handles expense data separately
   const financialStats = {
-    revenue: revenueCurrentPeriod._sum.totalAmount || 0,
+    revenue: sumFromMinor(revenueCurrentPeriod._sum.totalAmount),
     expenses: 0, // Expenses are tracked separately - see /api/expenses
-    profit: revenueCurrentPeriod._sum.totalAmount || 0, // Profit = Revenue when expenses not integrated
+    profit: sumFromMinor(revenueCurrentPeriod._sum.totalAmount), // Profit = Revenue when expenses not integrated
     outstandingPayments: await prisma.order.aggregate({
       where: {
         balanceAmount: {
@@ -733,12 +734,12 @@ export async function getDashboardData(
       : ordersCurrentPeriod > 0 ? 100 : 0
 
   const revenueGrowth =
-    (revenuePreviousPeriod._sum.totalAmount || 0) > 0
-      ? (((revenueCurrentPeriod._sum.totalAmount || 0) -
-          (revenuePreviousPeriod._sum.totalAmount || 0)) /
-          (revenuePreviousPeriod._sum.totalAmount || 0)) *
+    (sumFromMinor(revenuePreviousPeriod._sum.totalAmount)) > 0
+      ? (((sumFromMinor(revenueCurrentPeriod._sum.totalAmount)) -
+          (sumFromMinor(revenuePreviousPeriod._sum.totalAmount))) /
+          (sumFromMinor(revenuePreviousPeriod._sum.totalAmount))) *
         100
-      : (revenueCurrentPeriod._sum.totalAmount || 0) > 0 ? 100 : 0
+      : (sumFromMinor(revenueCurrentPeriod._sum.totalAmount)) > 0 ? 100 : 0
 
   // Return consolidated data
   return {
@@ -765,8 +766,8 @@ export async function getDashboardData(
         growth: orderGrowth,
       },
       revenue: {
-        currentPeriod: revenueCurrentPeriod._sum.totalAmount || 0,
-        previousPeriod: revenuePreviousPeriod._sum.totalAmount || 0,
+        currentPeriod: sumFromMinor(revenueCurrentPeriod._sum.totalAmount),
+        previousPeriod: sumFromMinor(revenuePreviousPeriod._sum.totalAmount),
         growth: revenueGrowth,
         byMonth: revenueByMonth,
       },

@@ -17,14 +17,14 @@
  * Stock reservation/consumption helpers are in lib/stock.ts.
  */
 
-import { prisma } from '@/lib/db'
 import { getAppSettings, taxConfigFrom } from '@/lib/settings'
 import { computeTax, type TaxBreakdown } from '@/lib/tax'
+import { moneyEquals, roundMoney, subtractMoney, sumMoney } from '@/lib/money'
+import type { AppPrismaClient, TransactionClient } from '@/lib/prisma-client'
 
-type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
-type Db = typeof prisma | TransactionClient
+type Db = AppPrismaClient | TransactionClient
 
-export const roundMoney = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
+export { roundMoney }
 
 /** Note prefix carried by the legacy duplicate-advance installments. */
 export const LEGACY_ADVANCE_NOTE_PREFIX = 'Advance payment'
@@ -37,7 +37,7 @@ export function isLegacyAdvanceInstallment(installment: InstallmentLike, advance
     installment.installmentNumber === 1 &&
     advancePaid > 0 &&
     (installment.notes ?? '').trimStart().startsWith(LEGACY_ADVANCE_NOTE_PREFIX) &&
-    Math.abs((installment.paidAmount ?? 0) - advancePaid) < 0.01
+    moneyEquals(installment.paidAmount ?? 0, advancePaid)
   )
 }
 
@@ -49,12 +49,10 @@ export function safeInstallmentNote(note: string | null | undefined): string | n
 
 /** Σ paidAmount of an order's installments, leaving out a legacy duplicate of the advance. */
 export function sumInstallmentPayments(installments: InstallmentLike[], advancePaid: number): number {
-  return roundMoney(
-    installments.reduce(
-      (sum, installment) =>
-        isLegacyAdvanceInstallment(installment, advancePaid) ? sum : sum + (installment.paidAmount ?? 0),
-      0
-    )
+  return sumMoney(
+    installments
+      .filter((installment) => !isLegacyAdvanceInstallment(installment, advancePaid))
+      .map((installment) => installment.paidAmount ?? 0)
   )
 }
 
@@ -72,7 +70,7 @@ export async function computeOrderBalance(
   order: { id: string; totalAmount: number; advancePaid: number; discount: number }
 ): Promise<number> {
   const paid = await installmentsPaid(db, order)
-  return roundMoney(order.totalAmount - order.advancePaid - order.discount - paid)
+  return subtractMoney(order.totalAmount, order.advancePaid, order.discount, paid)
 }
 
 /**
@@ -85,7 +83,7 @@ export async function syncLegacyAdvanceInstallment(
   oldAdvance: number,
   newAdvance: number
 ): Promise<void> {
-  if (Math.abs(oldAdvance - newAdvance) < 0.005) return
+  if (moneyEquals(oldAdvance, newAdvance)) return
   const first = await tx.paymentInstallment.findFirst({
     where: { orderId, installmentNumber: 1 },
     select: { id: true, installmentNumber: true, paidAmount: true, notes: true },

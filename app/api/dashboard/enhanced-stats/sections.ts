@@ -11,6 +11,7 @@ import { prisma } from '@/lib/db'
 import { canSeeAllOrders, orderScope, scopedWhere, type Actor } from '@/lib/authz'
 import { alertVisibilityScope } from '@/lib/alert-scope'
 import { countCompletedItemsToday } from '@/app/api/production/_lib/workload'
+import { sumFromMinor } from '@/lib/money'
 
 const OPEN_ORDER: Prisma.OrderWhereInput = { status: { notIn: ['DELIVERED', 'CANCELLED'] } }
 const IN_PRODUCTION: Prisma.OrderWhereInput = { status: { in: ['CUTTING', 'STITCHING', 'FINISHING'] } }
@@ -36,7 +37,7 @@ export async function deliveredRevenue(window: MonthWindow): Promise<number> {
     where: { status: 'DELIVERED', completedDate: { gte: window.start, lte: window.end } },
     _sum: { totalAmount: true },
   })
-  return result?._sum.totalAmount || 0
+  return sumFromMinor(result?._sum.totalAmount)
 }
 
 // ── Tailor workbench (scoped to the actor's assigned items) ──────────────────
@@ -363,9 +364,9 @@ export async function buildFinancialSection(now: Date) {
 
   const pos = paidPurchaseOrders ?? []
   const totalExpensesThisMonth =
-    (expensesThisMonth?._sum.totalAmount || 0) + poPaymentsBetween(pos, thisMonth.start, thisMonth.end)
+    (sumFromMinor(expensesThisMonth?._sum.totalAmount)) + poPaymentsBetween(pos, thisMonth.start, thisMonth.end)
   const totalExpensesLastMonth =
-    (expensesLastMonth?._sum.totalAmount || 0) + poPaymentsBetween(pos, lastMonth.start, lastMonth.end)
+    (sumFromMinor(expensesLastMonth?._sum.totalAmount)) + poPaymentsBetween(pos, lastMonth.start, lastMonth.end)
 
   // Revenue vs expenses for the last 6 months
   const financialTrend = await Promise.all(
@@ -380,7 +381,7 @@ export async function buildFinancialSection(now: Date) {
           _sum: { totalAmount: true },
         }),
       ])
-      const totalExpenses = (expenses?._sum.totalAmount || 0) + poPaymentsBetween(pos, monthStart, monthEnd)
+      const totalExpenses = (sumFromMinor(expenses?._sum.totalAmount)) + poPaymentsBetween(pos, monthStart, monthEnd)
       return {
         month: format(monthStart, 'MMM yyyy'),
         revenue,
@@ -446,7 +447,7 @@ export async function buildFinancialSection(now: Date) {
       type: cloth?.type || 'Unknown',
       color: cloth?.color || 'Unknown',
       colorHex: cloth?.colorHex || '#94a3b8',
-      revenue: item._sum.totalPrice || 0,
+      revenue: sumFromMinor(item._sum.totalPrice),
     }
   })
 
@@ -454,7 +455,7 @@ export async function buildFinancialSection(now: Date) {
   const garmentTypeRevenueDetails = (revenueByGarmentType ?? []).map((item) => ({
     id: item.garmentPatternId,
     name: garmentNames.get(item.garmentPatternId) || 'Unknown',
-    revenue: item._sum.totalPrice || 0,
+    revenue: sumFromMinor(item._sum.totalPrice),
     orderCount: item._count.id,
   }))
 
@@ -481,10 +482,10 @@ export async function buildFinancialSection(now: Date) {
   return {
     expensesThisMonth: totalExpensesThisMonth,
     expensesLastMonth: totalExpensesLastMonth,
-    cashCollectedThisMonth: cashCollectedThisMonth?._sum.paidAmount || 0,
-    cashCollectedLastMonth: cashCollectedLastMonth?._sum.paidAmount || 0,
+    cashCollectedThisMonth: sumFromMinor(cashCollectedThisMonth?._sum.paidAmount),
+    cashCollectedLastMonth: sumFromMinor(cashCollectedLastMonth?._sum.paidAmount),
     financialTrend,
-    outstandingPayments: outstandingPayments?._sum.balanceAmount || 0,
+    outstandingPayments: sumFromMinor(outstandingPayments?._sum.balanceAmount),
     revenueByFabric: fabricRevenueDetails,
     revenueByGarmentType: garmentTypeRevenueDetails,
     avgFulfillmentTime: Math.round(avgFulfillmentTime),

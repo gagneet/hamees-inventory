@@ -1,18 +1,17 @@
-import { PrismaClient, UserRole, OrderStatus, OrderPriority, BodyType, StockMovementType } from '@prisma/client'
-import { PrismaPg } from '@prisma/adapter-pg'
+import { UserRole, OrderStatus, OrderPriority, BodyType, StockMovementType } from '@prisma/client'
 import { Pool } from 'pg'
 import * as bcrypt from 'bcryptjs'
 import * as dotenv from 'dotenv'
 import { subMonths, subDays, addDays } from 'date-fns'
+import { createPrismaClient } from '../lib/prisma-client'
 
 dotenv.config()
 
 const connectionString = process.env.DATABASE_URL!
 const pool = new Pool({ connectionString })
-const adapter = new PrismaPg(pool)
 
-const prisma = new PrismaClient({
-  adapter,
+const prisma = createPrismaClient({
+  pool,
   log: ['error'],
 })
 

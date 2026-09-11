@@ -14,6 +14,8 @@
  * existing reports continue to work regardless of mode.
  */
 
+import { addMoney, percentOf, roundMoney, subtractMoney } from '@/lib/money'
+
 export type TaxMode = 'SPLIT' | 'SINGLE' | 'NONE'
 
 export const TAX_MODES: TaxMode[] = ['SPLIT', 'SINGLE', 'NONE']
@@ -42,7 +44,8 @@ export interface TaxLine {
   amount: number
 }
 
-const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
+// Exact to the minor unit (lib/money.ts): tax = round(base × rate%), halves split so they add up
+const round2 = roundMoney
 
 function isInterRegion(cfg: TaxConfig, customerRegion?: string | null): boolean {
   if (!cfg.businessRegion || !customerRegion) return false
@@ -65,20 +68,20 @@ export function computeTax(
   }
 
   const rate = Math.max(0, opts.rateOverride ?? cfg.rate)
-  const tax = round2((base * rate) / 100)
+  const tax = percentOf(base, rate)
 
   if (cfg.mode === 'SINGLE') {
-    return { gstRate: rate, cgst: 0, sgst: 0, igst: 0, gstAmount: tax, totalAmount: round2(base + tax) }
+    return { gstRate: rate, cgst: 0, sgst: 0, igst: 0, gstAmount: tax, totalAmount: addMoney(base, tax) }
   }
 
   if (isInterRegion(cfg, opts.customerRegion)) {
-    return { gstRate: rate, cgst: 0, sgst: 0, igst: tax, gstAmount: tax, totalAmount: round2(base + tax) }
+    return { gstRate: rate, cgst: 0, sgst: 0, igst: tax, gstAmount: tax, totalAmount: addMoney(base, tax) }
   }
 
   // Split the total into two halves; put any rounding cent on the second half so the parts sum exactly.
   const cgst = round2(tax / 2)
-  const sgst = round2(tax - cgst)
-  return { gstRate: rate, cgst, sgst, igst: 0, gstAmount: tax, totalAmount: round2(base + tax) }
+  const sgst = subtractMoney(tax, cgst)
+  return { gstRate: rate, cgst, sgst, igst: 0, gstAmount: tax, totalAmount: addMoney(base, tax) }
 }
 
 /** Tax columns stored on an existing order. */
@@ -109,14 +112,14 @@ export function recomputeOrderTax(
     return { gstRate: 0, cgst: 0, sgst: 0, igst: 0, gstAmount: 0, totalAmount: round2(base) }
   }
 
-  const tax = round2((base * rate) / 100)
-  const totalAmount = round2(base + tax)
+  const tax = percentOf(base, rate)
+  const totalAmount = addMoney(base, tax)
   if ((stored.igst ?? 0) > 0) {
     return { gstRate: rate, cgst: 0, sgst: 0, igst: tax, gstAmount: tax, totalAmount }
   }
   if ((stored.cgst ?? 0) > 0 || (stored.sgst ?? 0) > 0) {
     const cgst = round2(tax / 2)
-    return { gstRate: rate, cgst, sgst: round2(tax - cgst), igst: 0, gstAmount: tax, totalAmount }
+    return { gstRate: rate, cgst, sgst: subtractMoney(tax, cgst), igst: 0, gstAmount: tax, totalAmount }
   }
   if ((stored.gstAmount ?? 0) > 0) {
     return { gstRate: rate, cgst: 0, sgst: 0, igst: 0, gstAmount: tax, totalAmount }

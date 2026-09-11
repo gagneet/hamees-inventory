@@ -4,6 +4,7 @@ import { requireAnyPermission } from '@/lib/api-permissions'
 import { filterApiResponse } from '@/lib/api-filter-response'
 import { isLegacyAdvanceInstallment, roundMoney } from '@/lib/order-finance'
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns'
+import { sumFromMinor } from '@/lib/money'
 
 const MAX_MONTHS = 36
 
@@ -41,8 +42,8 @@ export async function GET(request: Request) {
           }),
         ])
 
-        const revenueAmount = revenue._sum.totalAmount || 0
-        const expenseAmount = expenses._sum.totalAmount || 0
+        const revenueAmount = sumFromMinor(revenue._sum.totalAmount)
+        const expenseAmount = sumFromMinor(expenses._sum.totalAmount)
         const profit = revenueAmount - expenseAmount
 
         return {
@@ -90,14 +91,15 @@ export async function GET(request: Request) {
       }),
     ])
 
-    const totalInventoryValue = Number(inventoryValueResult[0]?.totalValue || 0)
+    // currentStock (meters) × pricePerMeter (minor units) → minor units
+    const totalInventoryValue = roundMoney(sumFromMinor(Number(inventoryValueResult[0]?.totalValue || 0)))
     // Legacy rows duplicating an advance are excluded; that advance is counted via Order.advancePaid
     const installmentCash = (installmentsThisMonth ?? []).reduce(
       (sum, installment) =>
         isLegacyAdvanceInstallment(installment, installment.order?.advancePaid ?? 0) ? sum : sum + (installment.paidAmount || 0),
       0
     )
-    const cashReceived = roundMoney(installmentCash + (advancesThisMonth?._sum.advancePaid || 0))
+    const cashReceived = roundMoney(installmentCash + (sumFromMinor(advancesThisMonth?._sum.advancePaid)))
 
     const response = {
       summary: {
@@ -105,7 +107,7 @@ export async function GET(request: Request) {
         thisMonthExpenses: thisMonth?.expenses || 0,
         thisMonthProfit: thisMonth?.profit || 0,
         thisMonthMargin: thisMonth?.margin || 0,
-        outstandingPayments: outstandingPayments._sum.balanceAmount || 0,
+        outstandingPayments: sumFromMinor(outstandingPayments._sum.balanceAmount),
         outstandingCount: outstandingPayments._count,
         inventoryValue: totalInventoryValue,
         cashReceived,

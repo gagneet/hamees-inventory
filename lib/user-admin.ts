@@ -4,11 +4,11 @@
  */
 
 import { z } from 'zod'
-import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db'
+import type { TransactionClient } from '@/lib/prisma-client'
 import { ALL_ROLES, type UserRole } from '@/lib/permissions'
 
-type Db = typeof prisma | Prisma.TransactionClient
+type Db = typeof prisma | TransactionClient
 
 export const roleSchema = z.enum(ALL_ROLES as [UserRole, ...UserRole[]])
 

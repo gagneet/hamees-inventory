@@ -10,21 +10,19 @@
  * Run with: pnpm test tests/integration/auth.test.ts
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { PrismaClient } from '@prisma/client'
-import { PrismaPg } from '@prisma/adapter-pg'
 import { Pool } from 'pg'
 import bcrypt from 'bcryptjs'
+import { createPrismaClient, type AppPrismaClient } from '@/lib/prisma-client'
 
 // ── Real DB connection for integration tests ───────────────────────────────
 // We bypass the global mock by creating our own client instance.
 let pool: Pool
-let prisma: PrismaClient
+let prisma: AppPrismaClient
 
 beforeAll(() => {
   const connectionString = process.env.DATABASE_URL!
   pool = new Pool({ connectionString })
-  const adapter = new PrismaPg(pool)
-  prisma = new PrismaClient({ adapter })
+  prisma = createPrismaClient({ pool })
 })
 
 afterAll(async () => {

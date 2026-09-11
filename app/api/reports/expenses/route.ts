@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
 import { filterApiResponse } from '@/lib/api-filter-response'
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns'
+import { sumFromMinor } from '@/lib/money'
 
 export async function GET(request: Request) {
   const { session, error } = await requireAnyPermission(['view_expense_reports'])
@@ -31,7 +32,7 @@ export async function GET(request: Request) {
 
         return {
           month: format(monthStart, 'MMM yyyy'),
-          amount: expenses._sum.totalAmount || 0,
+          amount: sumFromMinor(expenses._sum.totalAmount),
           count: expenses._count,
         }
       })
@@ -91,7 +92,7 @@ export async function GET(request: Request) {
 
     const categoryData = expensesByCategory.map((item: any) => ({
       category: item.category,
-      amount: item._sum.totalAmount || 0,
+      amount: sumFromMinor(item._sum.totalAmount),
       count: item._count,
     }))
 
@@ -99,18 +100,18 @@ export async function GET(request: Request) {
     const totalExpenses = categoryData.reduce((sum: number, cat: any) => sum + cat.amount, 0)
 
     const growth =
-      (lastMonthExpenses._sum.totalAmount || 0) > 0
-        ? (((thisMonthExpenses._sum.totalAmount || 0) -
-            (lastMonthExpenses._sum.totalAmount || 0)) /
-            (lastMonthExpenses._sum.totalAmount || 1)) *
+      (sumFromMinor(lastMonthExpenses._sum.totalAmount)) > 0
+        ? (((sumFromMinor(thisMonthExpenses._sum.totalAmount)) -
+            (sumFromMinor(lastMonthExpenses._sum.totalAmount))) /
+            ((sumFromMinor(lastMonthExpenses._sum.totalAmount) || 1))) *
           100
         : 0
 
     const response = {
       summary: {
         totalExpenses,
-        thisMonth: thisMonthExpenses._sum.totalAmount || 0,
-        lastMonth: lastMonthExpenses._sum.totalAmount || 0,
+        thisMonth: sumFromMinor(thisMonthExpenses._sum.totalAmount),
+        lastMonth: sumFromMinor(lastMonthExpenses._sum.totalAmount),
         growth: growth.toFixed(1),
         transactionCount: expensesByMonth.reduce((sum, m) => sum + m.count, 0),
       },
