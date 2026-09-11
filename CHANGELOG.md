@@ -22,9 +22,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Secondary currency (display-only)** — Admin Settings → Currency & Locale: choose a second currency and enter the exchange rate. Order, customer, purchase-order and expense totals, the owner dashboard, reports and (optionally) the invoice show the indicative converted amount below the real one, with the rate and the date it was set in a tooltip. Stored amounts are never converted.
 - **Master Tailor demo account** — the seeds create `master@hameesattire.com` (a placeholder to rename to the real person). `scripts/create-master-tailor.ts` adds one to a live shop that has none, with a random password printed once, and records it in the audit log.
 
+### Fixed
+- The **Inventory Item Details** card on an alert crashed (it read a `minimum` the API never sent) and never loaded accessories; fabric and accessory alerts now both show stock, minimum and supplier, in meters or pieces, and link to the right inventory page.
+- Creating a purchase order retries when another request (or the reorder check) takes the same purchase-order number, instead of failing.
+- The inventory create forms sent the wrong minimum-stock field name, so a new item's minimum was ignored.
+
 ### Known limitations
 - One exchange rate applies to all amounts, including historic ones; rates are not stored per record.
-- Reorder alerts for accessories show no item card on the alert page. The receive dialog's item list for legacy unlinked lines loads at most 500 items per type.
+- The receive dialog's item list for legacy unlinked lines loads at most 500 items per type.
 - Supplier phone numbers can only be corrected through the Excel import (there is no supplier edit form).
 - Login rate limiting is in memory (one app instance). The Content-Security-Policy does not restrict scripts yet. Customer-report segments use fixed thresholds (50,000 / 20,000) in the shop's currency.
 
