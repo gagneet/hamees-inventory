@@ -134,7 +134,18 @@ async function main() {
     },
   })
 
-  console.log(`✅ Created 6 users\n`)
+  // Production supervisor: assigns work to tailors and follows their workload (replace with the real person)
+  await prisma.user.create({
+    data: {
+      email: 'master@hameesattire.com',
+      password: hashedPassword,
+      name: 'Master Tailor (Demo)',
+      role: UserRole.MASTER_TAILOR,
+      phone: '+91 98765 43216',
+    },
+  })
+
+  console.log(`✅ Created 7 users\n`)
 
   // 2. Create Suppliers
   console.log('🏭 Creating suppliers...')
@@ -651,6 +662,7 @@ async function main() {
   console.log('   sales@hameesattire.com - Sales and orders')
   console.log('   tailor@hameesattire.com - Order status updates')
   console.log('   viewer@hameesattire.com - Read-only access')
+  console.log('   master@hameesattire.com - Master Tailor: assigns and oversees tailors')
 }
 
 main()
