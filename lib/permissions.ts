@@ -24,6 +24,7 @@ export type Permission =
   | 'delete_order'
   | 'update_order_status'
   | 'record_payment'
+  | 'apply_discount'
   | 'assign_tailors'
   | 'view_production' // Tailor workload board / production oversight
   | 'view_customers'
@@ -84,6 +85,7 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     // NO delete_order
     'update_order_status',
     'record_payment',
+    'apply_discount',
     'assign_tailors',
     'view_production',
     'view_customers',
@@ -128,6 +130,7 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     'delete_order',
     'update_order_status',
     'record_payment',
+    'apply_discount',
     'assign_tailors',
     'view_production',
     'view_customers',

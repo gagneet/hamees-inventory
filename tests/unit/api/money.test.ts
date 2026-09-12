@@ -61,6 +61,14 @@ describe('payment caps', () => {
     id: 'o1',
     orderNumber: 'ORD-1',
     status: 'NEW',
+    // Untaxed order, so total = subTotal − discount and the arithmetic stays readable
+    subTotal: 10000,
+    gstRate: 0,
+    cgst: 0,
+    sgst: 0,
+    igst: 0,
+    gstAmount: 0,
+    taxableAmount: 10000,
     totalAmount: 10000,
     advancePaid: 5000,
     discount: 0,
@@ -70,6 +78,7 @@ describe('payment caps', () => {
     notes: null,
     tailorNotes: null,
     priority: 'NORMAL',
+    customer: { state: null },
   }
   const installment = {
     id: 'i1',
@@ -138,20 +147,37 @@ describe('payment caps', () => {
     expect(prisma.paymentInstallment.create).not.toHaveBeenCalled()
   })
 
-  it('order edits count balance payments when capping advance + discount', async () => {
-    // advance 5000 + discount 3100 + 2000 already paid = 10100 > 10000
+  it('a discount cannot push the re-priced total below the money already received', async () => {
+    // A discount reduces the invoice total; it is not a payment. 10000 − 3100 = 6900, but
+    // 5000 advance + 2000 already paid = 7000 has been received, so the edit is refused.
     const over = await patchOrder(json('http://x/api/orders/o1', 'PATCH', { discount: 3100 }), {
       params: Promise.resolve({ id: 'o1' }),
     })
     expect(over.status).toBe(400)
     expect(prisma.order.update).not.toHaveBeenCalled()
 
+    // 10000 − 3000 = 7000 exactly covers the 7000 received, so the balance clears
     const ok = await patchOrder(json('http://x/api/orders/o1', 'PATCH', { discount: 3000 }), {
       params: Promise.resolve({ id: 'o1' }),
     })
     expect(ok.status).toBe(200)
     expect(prisma.order.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ discount: 3000, balanceAmount: 0 }) })
+      expect.objectContaining({
+        data: expect.objectContaining({
+          discount: 3000,
+          taxableAmount: 7000,
+          totalAmount: 7000,
+          balanceAmount: 0,
+        }),
+      })
     )
+  })
+
+  it('a discount larger than the pre-tax value is refused', async () => {
+    const res = await patchOrder(json('http://x/api/orders/o1', 'PATCH', { discount: 10001 }), {
+      params: Promise.resolve({ id: 'o1' }),
+    })
+    expect(res.status).toBe(400)
+    expect(prisma.order.update).not.toHaveBeenCalled()
   })
 })

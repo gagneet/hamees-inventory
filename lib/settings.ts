@@ -12,12 +12,10 @@
  *   - app/api/settings (GET for any signed-in user, PUT for manage_settings)
  */
 
-import type { BusinessSettings } from '@prisma/client'
-import { isSupportedCountry } from '@/lib/phone'
 import { prisma } from '@/lib/db'
-import { isValidCurrency, normalizeLocaleConfig, setActiveLocaleConfig } from '@/lib/locale'
-import { TAX_MODES, type TaxMode } from '@/lib/tax'
-import { callingCodeForRegion, DEFAULT_APP_SETTINGS, DEFAULT_PHONE_REGION, type AppSettings } from '@/lib/app-settings'
+import { setActiveLocaleConfig } from '@/lib/locale'
+import { DEFAULT_APP_SETTINGS, type AppSettings } from '@/lib/app-settings'
+import { settingsFromRow } from '@/lib/settings-row'
 
 export { DEFAULT_APP_SETTINGS, taxConfigFrom } from '@/lib/app-settings'
 export type { AppSettings } from '@/lib/app-settings'
@@ -25,56 +23,7 @@ export type { AppSettings } from '@/lib/app-settings'
 /** Fixed id of the singleton settings row (created by the release migration). */
 export const SETTINGS_ROW_ID = 'default'
 
-export function settingsFromRow(row: BusinessSettings): AppSettings {
-  const locale = normalizeLocaleConfig({ currency: row.currencyCode, locale: row.locale, timeZone: row.timeZone })
-  const taxMode = (TAX_MODES as string[]).includes(row.taxMode) ? (row.taxMode as TaxMode) : 'SPLIT'
-  const phoneRegion = isSupportedCountry(row.phoneRegion) ? row.phoneRegion : DEFAULT_PHONE_REGION
-  // A secondary currency is only shown with a usable rate, and never the same as the main one
-  const secondaryUsable =
-    !!row.secondaryCurrencyCode &&
-    row.secondaryCurrencyCode !== locale.currency &&
-    isValidCurrency(row.secondaryCurrencyCode) &&
-    typeof row.exchangeRate === 'number' &&
-    Number.isFinite(row.exchangeRate) &&
-    row.exchangeRate > 0
-  return {
-    businessName: row.businessName,
-    tagline: row.tagline,
-    taxId: row.gstin,
-    region: row.state,
-    address: row.address,
-    city: row.city,
-    postalCode: row.pincode,
-    country: row.country,
-    phone: row.phone,
-    email: row.email,
-    website: row.website,
-
-    currency: locale.currency,
-    locale: locale.locale,
-    timeZone: locale.timeZone,
-    phoneRegion,
-    phoneCountryCode: callingCodeForRegion(phoneRegion),
-    postalCodeLabel: row.postalCodeLabel,
-
-    secondaryCurrency: secondaryUsable ? row.secondaryCurrencyCode : null,
-    exchangeRate: secondaryUsable ? row.exchangeRate : null,
-    exchangeRateUpdatedAt: secondaryUsable ? row.exchangeRateUpdatedAt?.toISOString() ?? null : null,
-    showSecondaryOnInvoice: row.showSecondaryOnInvoice,
-
-    taxMode,
-    taxName: row.taxName,
-    taxIdLabel: row.taxIdLabel,
-    taxRate: row.garmentGstRate,
-
-    invoiceFooter: row.invoiceFooter,
-
-    maxActiveItemsPerTailor: row.maxActiveItemsPerTailor,
-    tailorDailyTarget: row.tailorDailyTarget,
-
-    autoReorderEnabled: row.autoReorderEnabled,
-  }
-}
+export { settingsFromRow } from '@/lib/settings-row'
 
 const CACHE_KEY = Symbol.for('hamees.appSettings')
 const CACHE_TTL_MS = 30_000

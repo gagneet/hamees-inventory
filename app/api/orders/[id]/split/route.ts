@@ -7,8 +7,8 @@ import { InstallmentStatus } from '@prisma/client'
 import { filterApiResponse } from '@/lib/api-filter-response'
 import { actorFromSession, requireOrderAccess } from '@/lib/authz'
 import { getAppSettings, taxConfigFrom } from '@/lib/settings'
-import { recomputeOrderTax } from '@/lib/tax'
-import { isLegacyAdvanceInstallment, lockOrder, safeInstallmentNote } from '@/lib/order-finance'
+import { isLegacyAdvanceInstallment, lockOrder, repriceOrder, safeInstallmentNote } from '@/lib/order-finance'
+import { allocateMoney } from '@/lib/money'
 import { deriveOrderStatus, syncOrderStatus } from '@/lib/item-status'
 
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
@@ -67,11 +67,13 @@ class SplitRejected extends Error {
 /**
  * POST /api/orders/[id]/split
  * Moves some items to a new order.
- * - Order-level costs, the discount and every real payment are shared proportionally by item value;
- *   the advance stays with the original order up to its new total, the excess moves.
+ * - Order-level costs and every real payment are shared proportionally by item value; the
+ *   discount is shared on the PRE-TAX value it reduced, so each side is taxed on its own
+ *   discounted value. The advance stays with the original order up to its new total, the
+ *   excess moves.
  * - Items are moved (not recreated), so tailor assignments and design uploads go with them.
  * - Accessory reservations for the moved garments move to the new order.
- * - Tax keeps the original order's rate and structure (recomputeOrderTax).
+ * - Tax keeps the original order's rate and structure (repriceOrder → recomputeOrderTax).
  */
 export async function POST(
   request: Request,
@@ -194,10 +196,18 @@ export async function POST(
         remainingDesignerFee
       ).toFixed(2))
 
+      // DISCOUNT: shared on the PRE-TAX value it reduced, not on post-tax totals, so each side's
+      // tax is charged on its own discounted value. allocateMoney is exact: the two parts add up
+      // to the original discount to the minor unit.
+      const [splitDiscount, remainingDiscount] = allocateMoney(originalOrder.discount || 0, [
+        splitSubTotal,
+        remainingSubTotal,
+      ])
+
       // Tax: both orders keep the original order's rate and structure, whatever the settings are now
       const taxOpts = { customerRegion: originalOrder.customer.state }
-      const splitTax = recomputeOrderTax(splitSubTotal, originalOrder, taxConfig, taxOpts)
-      const remainingTax = recomputeOrderTax(remainingSubTotal, originalOrder, taxConfig, taxOpts)
+      const splitTax = repriceOrder(splitSubTotal, splitDiscount, originalOrder, taxConfig, taxOpts)
+      const remainingTax = repriceOrder(remainingSubTotal, remainingDiscount, originalOrder, taxConfig, taxOpts)
       const splitTotalAmount = splitTax.totalAmount
       const remainingTotalAmount = remainingTax.totalAmount
 
@@ -235,10 +245,6 @@ export async function POST(
 
       const splitPaidTotal = roundCurrency(splitAdvance + sum(paid.split))
       const remainingPaidTotal = roundCurrency(remainingAdvance + sum(paid.remaining))
-
-      const discountRatio = originalOrder.totalAmount > 0 ? splitTotalAmount / originalOrder.totalAmount : 0
-      const splitDiscount = roundCurrency((originalOrder.discount || 0) * discountRatio)
-      const remainingDiscount = roundCurrency((originalOrder.discount || 0) - splitDiscount)
 
       const buildInstallments = (paidAmounts: number[], expectedAmounts: number[]) =>
         realInstallments.map((installment, index) => {
@@ -310,10 +316,10 @@ export async function POST(
           cgst: splitTax.cgst,
           sgst: splitTax.sgst,
           igst: splitTax.igst,
-          taxableAmount: splitSubTotal,
+          taxableAmount: splitTax.taxableAmount,
           advancePaid: splitAdvance,
-          discount: splitDiscount,
-          balanceAmount: roundCurrency(splitTotalAmount - splitDiscount - splitPaidTotal),
+          discount: splitTax.discount,
+          balanceAmount: roundCurrency(splitTotalAmount - splitPaidTotal),
           discountReason: originalOrder.discountReason,
           notes: notes || `Split from order ${originalOrder.orderNumber}`,
         },
@@ -422,10 +428,10 @@ export async function POST(
           cgst: remainingTax.cgst,
           sgst: remainingTax.sgst,
           igst: remainingTax.igst,
-          taxableAmount: remainingSubTotal,
+          taxableAmount: remainingTax.taxableAmount,
           advancePaid: remainingAdvance,
-          discount: remainingDiscount,
-          balanceAmount: roundCurrency(remainingTotalAmount - remainingDiscount - remainingPaidTotal),
+          discount: remainingTax.discount,
+          balanceAmount: roundCurrency(remainingTotalAmount - remainingPaidTotal),
         },
       })
 

@@ -5,9 +5,8 @@ import { hasPermission } from '@/lib/permissions'
 import { filterApiResponse } from '@/lib/api-filter-response'
 import { actorFromSession, canSeeAllOrders, isAssignableTailor, notFound, orderScope } from '@/lib/authz'
 import { getAppSettings, taxConfigFrom } from '@/lib/settings'
-import { recomputeOrderTax } from '@/lib/tax'
 import { formatCurrency } from '@/lib/locale'
-import { computeOrderBalance, lockOrder, roundMoney } from '@/lib/order-finance'
+import { computeOrderBalance, lockOrder, repriceOrder, roundMoney } from '@/lib/order-finance'
 import { InsufficientStockError, releaseClothReservation, reserveClothStock } from '@/lib/stock'
 import { audit } from '@/lib/audit'
 import { runReorderCheckQuietly } from '@/lib/reorder'
@@ -230,16 +229,16 @@ export async function PATCH(
           const subTotal = roundMoney(currentOrder.subTotal + (applyFabric ? fabricDelta : 0) + wastageDelta)
 
           // Keep the order's own rate and tax structure (split / integrated / single / none),
-          // whatever the shop's tax settings are now
-          const tax = recomputeOrderTax(subTotal, currentOrder, taxConfigFrom(settings), {
+          // whatever the shop's tax settings are now. The discount still comes off first: a
+          // smaller subtotal can also cap it.
+          const pricing = repriceOrder(subTotal, currentOrder.discount, currentOrder, taxConfigFrom(settings), {
             customerRegion: currentOrder.customer.state,
           })
 
           const balanceAmount = await computeOrderBalance(tx, {
             id: orderId,
-            totalAmount: tax.totalAmount,
+            totalAmount: pricing.totalAmount,
             advancePaid: currentOrder.advancePaid,
-            discount: currentOrder.discount,
           })
 
           await tx.order.update({
@@ -247,14 +246,15 @@ export async function PATCH(
             data: {
               fabricCost: roundMoney(currentOrder.fabricCost + (applyFabric ? fabricDelta : 0)),
               fabricWastageAmount: roundMoney(currentOrder.fabricWastageAmount + wastageDelta),
-              subTotal,
-              taxableAmount: subTotal,
-              gstRate: tax.gstRate,
-              cgst: tax.cgst,
-              sgst: tax.sgst,
-              igst: tax.igst,
-              gstAmount: tax.gstAmount,
-              totalAmount: tax.totalAmount,
+              subTotal: pricing.subTotal,
+              discount: pricing.discount,
+              taxableAmount: pricing.taxableAmount,
+              gstRate: pricing.gstRate,
+              cgst: pricing.cgst,
+              sgst: pricing.sgst,
+              igst: pricing.igst,
+              gstAmount: pricing.gstAmount,
+              totalAmount: pricing.totalAmount,
               balanceAmount,
             },
           })

@@ -231,6 +231,15 @@ describe('object-level and payment permissions', () => {
     }
   })
 
+  it('only OWNER and ADMIN can apply a discount', () => {
+    // Approving a price reduction is its own responsibility, separate from receipting money —
+    // it happens to sit with the same roles today, but the API checks it independently.
+    for (const role of ALL_ROLES) {
+      const expected = role === 'OWNER' || role === 'ADMIN'
+      expect(hasPermission(role, 'apply_discount'), `${role} apply_discount should be ${expected}`).toBe(expected)
+    }
+  })
+
   it('every role that can view orders, except TAILOR, sees all orders', () => {
     for (const role of ALL_ROLES) {
       if (!hasPermission(role, 'view_orders')) continue

@@ -35,7 +35,7 @@ class InstallmentRejected extends Error {
 async function refreshOrderBalance(tx: TransactionClient, orderId: string) {
   const order = await tx.order.findUnique({
     where: { id: orderId },
-    select: { id: true, totalAmount: true, advancePaid: true, discount: true },
+    select: { id: true, totalAmount: true, advancePaid: true },
   })
   if (!order) return
   const balanceAmount = await computeOrderBalance(tx, order)
@@ -129,7 +129,7 @@ export async function PATCH(
       if (!installment) throw new InstallmentRejected('Installment not found', 404)
       const order = await tx.order.findUnique({
         where: { id: installment.orderId },
-        select: { id: true, status: true, totalAmount: true, advancePaid: true, discount: true },
+        select: { id: true, status: true, totalAmount: true, advancePaid: true },
       })
       if (!order) throw new InstallmentRejected('Installment not found', 404)
       if (order.status === 'CANCELLED') throw new InstallmentRejected('Cannot record payment for a cancelled order')

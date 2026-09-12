@@ -2,10 +2,9 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyExcelApiKey } from '@/lib/excel-api-auth'
 import { generateOrderNumber } from '@/lib/utils'
-import { getAppSettings, taxConfigFrom } from '@/lib/settings'
-import { computeTax } from '@/lib/tax'
+import { getAppSettings } from '@/lib/settings'
 import { formatCurrency } from '@/lib/locale'
-import { roundMoney } from '@/lib/order-finance'
+import { priceNewOrder, roundMoney } from '@/lib/order-finance'
 import { InsufficientStockError, reserveClothStock, roundMeters } from '@/lib/stock'
 import { BodyType } from '@/lib/types'
 import { normalizePhone } from '@/lib/phone'
@@ -256,10 +255,11 @@ export async function POST(request: Request) {
     const fabricCostVal = clothInventory.pricePerMeter * requiredMeters
     const stitchingCostVal = (garmentPattern.basicStitchingCharge ?? 0) * data.quantity
     const totalItemCost = fabricCostVal + stitchingCostVal
-    const settings = await getAppSettings()
-    const subTotal = roundMoney(totalItemCost)
-    const tax = computeTax(subTotal, taxConfigFrom(settings), { customerRegion: customer.state })
-    const { gstRate, gstAmount, cgst, sgst, igst, totalAmount } = tax
+    await getAppSettings() // primes the shop's currency/locale for the messages below
+    // One pricing definition for every order (lib/order-pricing.ts). The Excel macro carries no
+    // discount, so the taxable value is the whole subtotal — but it is derived, never assumed.
+    const pricing = await priceNewOrder(roundMoney(totalItemCost), 0, { customerRegion: customer.state })
+    const { subTotal, gstRate, gstAmount, cgst, sgst, igst, taxableAmount, totalAmount } = pricing
     const advancePaid = roundMoney(data.advancePaid ?? 0)
     if (advancePaid > totalAmount) {
       return NextResponse.json(
@@ -307,7 +307,7 @@ export async function POST(request: Request) {
           subTotal,
           gstRate,
           gstAmount,
-          taxableAmount: subTotal,
+          taxableAmount,
           cgst,
           sgst,
           igst,

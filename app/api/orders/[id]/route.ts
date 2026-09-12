@@ -7,12 +7,16 @@ import { actorFromSession, requireOrderAccess } from '@/lib/authz'
 import { getAppSettings } from '@/lib/settings'
 import { formatCurrency, formatDate } from '@/lib/locale'
 import {
-  computeOrderBalance,
+  clampDiscount,
   installmentsPaid,
   lockOrder,
+  orderBalance,
+  repriceOrder,
   roundMoney,
   syncLegacyAdvanceInstallment,
 } from '@/lib/order-finance'
+import { taxConfigFrom } from '@/lib/settings'
+import { moneyEquals } from '@/lib/money'
 import { z } from 'zod'
 
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
@@ -55,17 +59,22 @@ export async function PATCH(
       return NextResponse.json({ error: 'Order not found' }, { status: 404 })
     }
 
-    // Changing money received or discounts is a payment operation
-    const touchesPayments =
-      (data.advancePaid !== undefined && data.advancePaid !== order.advancePaid) ||
+    // Receipting money and approving a price reduction are separate responsibilities
+    const touchesPayments = data.advancePaid !== undefined && data.advancePaid !== order.advancePaid
+    if (touchesPayments && !hasPermission(actor.role, 'record_payment')) {
+      return NextResponse.json({ error: 'Your role cannot change advance payments' }, { status: 403 })
+    }
+    const touchesDiscount =
       (data.discount !== undefined && data.discount !== order.discount) ||
       (data.discountReason !== undefined && data.discountReason !== order.discountReason)
-    if (touchesPayments && !hasPermission(actor.role, 'record_payment')) {
-      return NextResponse.json({ error: 'Your role cannot change advance payments or discounts' }, { status: 403 })
+    if (touchesDiscount && !hasPermission(actor.role, 'apply_discount')) {
+      return NextResponse.json({ error: 'Your role cannot change discounts' }, { status: 403 })
     }
 
-    // Prime locale formatting with the shop's currency/time zone
-    await getAppSettings()
+    // Prime locale formatting with the shop's currency/time zone; the tax config is the fallback
+    // used when an order's own tax columns show no structure (see lib/tax.ts).
+    const settings = await getAppSettings()
+    const taxConfig = taxConfigFrom(settings)
 
     // Track changes for audit
     const changes: Array<{
@@ -142,9 +151,8 @@ export async function PATCH(
       return NextResponse.json({ message: 'No changes detected' })
     }
 
-    // Calculate new balance if advance or discount changed
+    // Calculate new pricing and balance if advance or discount changed
     const advancePaid = data.advancePaid ?? order.advancePaid
-    const discount = data.discount ?? order.discount
 
     // Update order and create history in a transaction
     await prisma.$transaction(async (tx: TransactionClient) => {
@@ -152,30 +160,68 @@ export async function PATCH(
       await lockOrder(tx, id)
       const current = await tx.order.findUnique({
         where: { id },
-        select: { totalAmount: true, advancePaid: true },
+        select: {
+          subTotal: true,
+          discount: true,
+          totalAmount: true,
+          advancePaid: true,
+          gstRate: true,
+          cgst: true,
+          sgst: true,
+          igst: true,
+          gstAmount: true,
+          taxableAmount: true,
+          customer: { select: { state: true } },
+        },
       })
       if (!current) throw new OrderEditRejected('Order not found')
 
-      // Advance + discount + balance payments already received must not exceed the total
-      const paidViaInstallments = await installmentsPaid(tx, { id, advancePaid: current.advancePaid })
-      if (roundMoney(advancePaid + discount + paidViaInstallments) > current.totalAmount + 0.005) {
+      const requestedDiscount = data.discount ?? current.discount
+      if (requestedDiscount > current.subTotal + 0.005) {
         throw new OrderEditRejected(
-          `Advance payment (${formatCurrency(advancePaid)}) plus discount (${formatCurrency(discount)})` +
+          `Discount (${formatCurrency(requestedDiscount)}) cannot exceed the order value before tax ` +
+            `(${formatCurrency(current.subTotal)})`
+        )
+      }
+      const discount = clampDiscount(requestedDiscount, current.subTotal)
+
+      // The discount reduces the taxable value, so the tax and the total move with it. The order
+      // keeps the rate and structure it was created with, whatever the shop's settings are now.
+      //
+      // Only re-price when the discount actually changes. An order created before v0.32.1 was
+      // taxed on its full subtotal; re-pricing it here would silently restate an already-issued
+      // invoice as a side effect of editing a note. Those orders are corrected deliberately with
+      // scripts/reprice-discounted-orders.ts.
+      const discountChanged = !moneyEquals(discount, current.discount)
+      const pricing = discountChanged
+        ? repriceOrder(current.subTotal, discount, current, taxConfig, {
+            customerRegion: current.customer.state,
+          })
+        : {
+            discount: current.discount,
+            taxableAmount: current.taxableAmount,
+            cgst: current.cgst,
+            sgst: current.sgst,
+            igst: current.igst,
+            gstAmount: current.gstAmount,
+            totalAmount: current.totalAmount,
+          }
+
+      // Advance + balance payments already received must not exceed the (re-priced) total
+      const paidViaInstallments = await installmentsPaid(tx, { id, advancePaid: current.advancePaid })
+      if (roundMoney(advancePaid + paidViaInstallments) > pricing.totalAmount + 0.005) {
+        throw new OrderEditRejected(
+          `Advance payment (${formatCurrency(advancePaid)})` +
             (paidViaInstallments > 0 ? ` plus payments received (${formatCurrency(paidViaInstallments)})` : '') +
-            ` cannot exceed total order amount (${formatCurrency(current.totalAmount)})`
+            ` cannot exceed total order amount (${formatCurrency(pricing.totalAmount)})`
         )
       }
 
       // A legacy installment that mirrors the advance must keep mirroring it
       await syncLegacyAdvanceInstallment(tx, id, current.advancePaid, advancePaid)
 
-      // Balance = Total - Advance - Discount - Balance Installments (legacy-safe, see lib/order-finance.ts)
-      const balanceAmount = await computeOrderBalance(tx, {
-        id,
-        totalAmount: current.totalAmount,
-        advancePaid,
-        discount,
-      })
+      // Balance = Total - Advance - Balance Installments (legacy-safe, see lib/order-finance.ts)
+      const balanceAmount = orderBalance(pricing.totalAmount, advancePaid, paidViaInstallments)
 
       await tx.order.update({
         where: { id },
@@ -184,6 +230,15 @@ export async function PATCH(
           advancePaid,
           discount,
           discountReason: data.discountReason !== undefined ? data.discountReason : order.discountReason,
+          // Tax columns are rewritten only when the discount moved the taxable value
+          ...(discountChanged && {
+            taxableAmount: pricing.taxableAmount,
+            cgst: pricing.cgst,
+            sgst: pricing.sgst,
+            igst: pricing.igst,
+            gstAmount: pricing.gstAmount,
+            totalAmount: pricing.totalAmount,
+          }),
           balanceAmount,
           notes: data.notes !== undefined ? data.notes : order.notes,
           tailorNotes: data.tailorNotes !== undefined ? data.tailorNotes : order.tailorNotes,
@@ -202,6 +257,25 @@ export async function PATCH(
             oldValue: change.oldValue,
             newValue: change.newValue,
             description: change.description,
+          },
+        })
+      }
+
+      // A discount moves the taxable value, so the invoice total moves with it — record that too
+      if (!moneyEquals(pricing.totalAmount, current.totalAmount)) {
+        await tx.orderHistory.create({
+          data: {
+            orderId: order.id,
+            userId: actor.id,
+            changeType: 'ORDER_EDIT',
+            fieldName: 'totalAmount',
+            oldValue: current.totalAmount.toString(),
+            newValue: pricing.totalAmount.toString(),
+            description:
+              `Invoice total changed from ${formatCurrency(current.totalAmount)} to ` +
+              `${formatCurrency(pricing.totalAmount)} ` +
+              `(taxable value ${formatCurrency(pricing.taxableAmount)}, ` +
+              `${settings.taxName} ${formatCurrency(pricing.gstAmount)})`,
           },
         })
       }
