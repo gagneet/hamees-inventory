@@ -11,7 +11,7 @@ import { prisma } from '@/lib/db'
 import { canSeeAllOrders, orderItemScope, orderScope, scopedWhere, type Actor } from '@/lib/authz'
 import { alertVisibilityScope } from '@/lib/alert-scope'
 import { countCompletedItemsToday } from '@/app/api/production/_lib/workload'
-import { sumFromMinor } from '@/lib/money'
+import { subtractMoney, sumFromMinor, sumMoney } from '@/lib/money'
 
 const OPEN_ORDER: Prisma.OrderWhereInput = { status: { notIn: ['DELIVERED', 'CANCELLED'] } }
 /** Item stages (OrderItem.status) where a garment is being worked on. */
@@ -33,13 +33,22 @@ async function patternNames(ids: string[]): Promise<Map<string, string>> {
   return new Map(rows.map((r) => [r.id, r.name]))
 }
 
-/** Revenue recognised in a month = delivered orders completed in that month. */
+/**
+ * Revenue recognised in a month = delivered orders completed in that month, measured as NET
+ * SALES EXCLUDING TAX (taxableAmount = subTotal − discount). The tax charged is collected for
+ * the tax authority and is never income, so it must not inflate revenue or profit — the same
+ * definition the financial report uses.
+ */
 export async function deliveredRevenue(window: MonthWindow): Promise<number> {
   const result = await prisma.order.aggregate({
     where: { status: 'DELIVERED', completedDate: { gte: window.start, lte: window.end } },
-    _sum: { totalAmount: true },
+    // Aggregates are not converted by the money extension — wrap each with sumFromMinor
+    _sum: { taxableAmount: true, subTotal: true, discount: true },
   })
-  return sumFromMinor(result?._sum.totalAmount)
+  // taxableAmount was only filled in from v0.32 onwards; fall back to gross − discount
+  const net = sumFromMinor(result?._sum.taxableAmount)
+  if (net > 0) return net
+  return subtractMoney(sumFromMinor(result?._sum.subTotal), sumFromMinor(result?._sum.discount))
 }
 
 // ── Tailor workbench (scoped to the actor's assigned items) ──────────────────
@@ -212,6 +221,10 @@ export async function buildSalesSection(
     deliveryDate: true,
     status: true,
     totalAmount: true,
+    // Net of tax and discount — the basis revenue is measured on (see deliveredRevenue above)
+    taxableAmount: true,
+    subTotal: true,
+    discount: true,
     balanceAmount: true,
     customer: { select: { id: true, name: true, phone: true, email: true } },
     items: { select: { id: true, quantityOrdered: true, garmentPattern: { select: { name: true } } } },
@@ -271,7 +284,8 @@ export async function buildSalesSection(
     .map((customer) => {
       const deliveredOrders = customer.orders.filter((o) => o.status === 'DELIVERED')
       const totalOrders = customer.orders.length
-      const totalSpent = deliveredOrders.reduce((sum, o) => sum + o.totalAmount, 0)
+      // What this customer was invoiced (tax included) — a spend measure, not the P&L revenue
+      const totalSpent = sumMoney(deliveredOrders.map((o) => o.totalAmount))
       const pendingOrders = customer.orders.filter((o) => o.status !== 'DELIVERED' && o.status !== 'CANCELLED').length
       const totalItems = customer.orders.reduce((sum, o) => sum + (o.items?.length || 0), 0)
       const monthsActive = new Set(customer.orders.map((o) => format(new Date(o.orderDate), 'yyyy-MM'))).size
@@ -309,8 +323,13 @@ export async function buildSalesSection(
 
   if (!forecast) return section
 
+  // Revenue here must use the SAME basis as deliveredRevenue() — net sales excluding tax —
+  // because lastMonthRevenue comes from it and growthRate compares the two. Summing
+  // totalAmount instead would compare a tax-inclusive figure with a tax-exclusive one.
+  const netOf = (order: { taxableAmount: number; subTotal: number; discount: number }) =>
+    order.taxableAmount > 0 ? order.taxableAmount : subtractMoney(order.subTotal, order.discount)
   const sumAmounts = (filter: (status: string) => boolean) =>
-    thisMonthOrdersList.filter((o) => filter(o.status)).reduce((sum, o) => sum + o.totalAmount, 0)
+    sumMoney(thisMonthOrdersList.filter((o) => filter(o.status)).map(netOf))
   const forecastedRevenue = sumAmounts((s) => s !== 'CANCELLED')
   return {
     ...section,

@@ -13,6 +13,7 @@ import { requireAnyPermission } from '@/lib/api-permissions'
 import { hasFinancialAccess } from '@/lib/field-acl'
 import type { UserRole } from '@/lib/permissions'
 import { subMonths } from 'date-fns'
+import { sumMoney } from '@/lib/money'
 
 const HIGH_VALUE_THRESHOLD = 50000
 const MEDIUM_VALUE_THRESHOLD = 20000
@@ -50,7 +51,10 @@ export async function GET(request: Request) {
 
     const customersWithStats = customers
       .map((customer) => {
-        const revenue = customer.orders.reduce((sum, o) => sum + o.totalAmount, 0)
+        // Customer lifetime spend: what the customer was INVOICED, tax included. This is
+        // deliberately a different basis from the P&L "revenue" in the financial report, which
+        // excludes tax because tax is collected for the tax authority, not earned.
+        const revenue = sumMoney(customer.orders.map((o) => o.totalAmount))
         return {
           id: customer.id,
           name: customer.name,
