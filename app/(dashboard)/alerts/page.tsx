@@ -70,7 +70,7 @@ export default async function AlertsPage() {
   const session = await auth()
 
   if (!session?.user) {
-    redirect('/')
+    redirect('/login')
   }
 
   const alerts = await getAlerts(session.user.role as UserRole)

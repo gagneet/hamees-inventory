@@ -12,7 +12,7 @@ import { SettingsProvider } from '@/components/providers/settings-provider'
 
 export default async function DashboardGroupLayout({ children }: { children: React.ReactNode }) {
   const session = await auth()
-  if (!session?.user) redirect('/')
+  if (!session?.user) redirect('/login')
 
   const settings = await getAppSettings()
   return <SettingsProvider settings={settings}>{children}</SettingsProvider>

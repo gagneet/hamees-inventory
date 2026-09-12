@@ -93,7 +93,7 @@ async function getActiveItems(actor: Actor): Promise<KanbanItem[]> {
 export default async function ProductionBoardPage() {
   const session = await auth()
   const actor = actorFromSession(session)
-  if (!actor) redirect('/')
+  if (!actor) redirect('/login')
 
   const userRole = actor.role as UserRole
   if (!hasPermission(userRole, 'view_orders')) redirect('/dashboard')

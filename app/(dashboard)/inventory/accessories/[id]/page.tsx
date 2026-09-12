@@ -42,7 +42,7 @@ export default async function AccessoryDetailPage({
   params: Promise<{ id: string }>
 }) {
   const session = await auth()
-  if (!session?.user) redirect('/')
+  if (!session?.user) redirect('/login')
   await getAppSettings()
 
   const { id } = await params
