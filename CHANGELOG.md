@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.50.0] - 2026-09-12 — Discounts before tax, revenue excluding tax, public order enquiries
+
+Addresses the accounting review of PR #112 and the Amazon Q review. Full validation of every
+finding, the migration decision and the design for the work not taken: `docs/issues_and_payment_options.md`.
+
+### Fixed
+- **A discount now reduces the taxable value instead of only the balance.** `taxableAmount = subTotal − discount`, tax is charged on that, and `totalAmount = taxableAmount + tax`. Previously the tax was calculated on the full subtotal and the discount was subtracted afterwards, which over-declared output tax on every discounted order and showed the discount below the tax-inclusive total on the invoice. This is what India's CGST s.15 requires for a discount recorded on the invoice, and what HMRC, the ATO and Japan's Qualified Invoice rules assume. The discount is no longer subtracted a second time from the balance — it is already inside the total.
+- Applied wherever an order is priced: creation (a discount can now be agreed at the point of sale and appears on the invoice from the start), the discount dialog, a fabric change, and splitting an order. **Splitting** previously taxed each pre-discount subtotal and then shared the discount by post-tax totals — two different bases; the discount is now shared on the pre-tax value and each side is taxed on its own discounted value.
+- **Revenue no longer includes tax or ignores discounts.** The financial report shows gross value → less discounts → net sales excluding tax (revenue) → plus tax charged → invoiced total, and measures profit against net sales. It counts each order in the month it was **delivered** (supply date) rather than the month it was taken, which is what the dashboard already did — the dashboard's revenue uses the same definition now, so the two agree.
+- **Money received is reported by payment mode.** "Cash Received" was the sum of every payment regardless of mode; it now means cash, alongside a per-mode breakdown and a total. Advances carry no payment mode, so they show as "Not recorded (advances)" rather than being counted as cash.
+- **`fromMinor()` fails loudly instead of silently rounding** an amount past JavaScript's safe-integer range (about 900 billion rupees). Reported by Amazon Q on PR #112.
+- **The dashboard's growth rate compared two different things.** Month-to-date revenue was summed from tax-inclusive order totals while the previous month came from the now tax-exclusive delivered revenue, so the percentage was wrong by roughly the tax rate; both sides now use net sales excluding tax. Customer lifetime spend stays deliberately tax-inclusive (it is what the customer paid) and says so.
+- The order page's balance self-check now uses the server's own helpers: it counts PARTIAL payments (it had only counted PAID), no longer discards a genuine first balance payment as if it were the legacy advance row, and identifies a legacy advance row by its note *and* matching amount rather than by amount alone.
+- The order page no longer logs a spurious "balance mismatch" or "advance payment mismatch" warning for every order with an advance: the self-check omitted `advancePaid` and compared installment #1 with the advance unconditionally, although since v0.28.4 the advance is not an installment.
+- The per-item invoice pages now add back to the order exactly — order-level costs, tax, the discount and payments are allocated with exact minor-unit arithmetic instead of floating-point ratios.
+
+### Added
+- **`apply_discount` permission**, separate from `record_payment`: approving a price reduction and receipting money are different responsibilities. Granted to the same roles that can record payments (OWNER, ADMIN), so who can do what is unchanged.
+- A **discount field on the new-order form** (with its reason, shown on the invoice) for roles holding `apply_discount`, and a discount dialog that works against the value before tax, caps at it, and previews the new taxable value, tax, total and balance.
+- The order's payment summary and the printed invoice show value before tax → discount → taxable value → tax → total.
+- **A public order enquiry page at `/order`** — the only part of the application a visitor can reach without signing in. A customer leaves their name, phone, garment type, rough quantity and a preferred date; the shop calls them back to take measurements and agree a price. It deliberately does **not** create an order: no stock is reserved, no price or tax is quoted and nothing enters production until a member of staff converts the enquiry, because a bespoke garment cannot be priced without measurements and fabric. Submissions are limited to 5 per IP address and 3 per phone number an hour, carry a hidden honeypot field, store only a salted hash of the IP address, and reject a number that cannot be dialled. The page lists garment type *names* only — no prices, no stock, no customer data.
+- **An Enquiries section in the dashboard** (`view_enquiries` / `manage_enquiries`, granted to OWNER, ADMIN and SALES_MANAGER) listing enquiries by status with counts and search, with call, mark-contacted, close and convert actions. Converting finds or creates the customer and opens the new-order form with them selected; the enquiry is marked converted by the order that results, so an abandoned form leaves no half-made order. When several customers share the phone number (families do), it asks which one rather than guessing.
+- `tests/unit/api/public-surface.test.ts` walks every API route file and fails if any of them is reachable without a permission check, against an explicit four-route allowlist (the health probe, the NextAuth handlers, the API-key-guarded Excel submission endpoint, and the public enquiry endpoint), with a second test that fails if the allowlist itself grows. It is a standing guard, not a one-off check of this change.
+- `scripts/reprice-discounted-orders.ts` re-prices orders written under the old model (dry run by default). **Delivered and cancelled orders are skipped**: restating a supply that has already been invoiced is a credit note, not a data fix. On this shop's database all seven discounted orders are delivered and settled, so the default run changes nothing.
+
+### Changed
+- `lib/order-pricing.ts` (new) holds the pricing and balance arithmetic with no Prisma import, so client components, scripts and tests share one definition; `lib/order-finance.ts` keeps the database-aware wrappers and re-exports it. `settingsFromRow()` moved to `lib/settings-row.ts` for the same reason.
+- `tests/unit/business/payment.test.ts` exercises the production helpers instead of re-implementing the formulas. 1,002 unit tests pass across 42 files.
+
+### Known limitations
+- **Advances are not auditable.** `Order.advancePaid` has no payment mode, receipt date, reference or reversal history, so cash reconciliation and refunds are still not possible. Design for a `Payment` ledger — and a smaller three-column interim step — in `docs/issues_and_payment_options.md` §4.1.
+- **An order is still used as the invoice.** There is no immutable invoice snapshot and no credit/debit note, so an issued invoice can still change and cannot be corrected properly (§4.3).
+- **One tax rate per order.** Fabric, garments and services cannot be taxed differently, and there is no tax-inclusive pricing mode (§4.2, §4.6). `BusinessSettings.fabricGstRate` remains unused.
+- Amounts are stored with a fixed scale of 2 for every currency (deliberate — the scale must not follow the configured currency); JPY still needs zero-decimal display and input rules, and the fixed premiums (5,000 / 1,500) are currency-agnostic numbers (§4.5).
+
 ## [0.32.1] - 2026-09-11 — Dependency refresh
 
 ### Security
