@@ -126,6 +126,9 @@ These were defects in the work above, found by auditing it against the running d
 - The enquiry and fitting forms on the site do not attach photos, and there is still no
   `app/robots.ts` or `app/sitemap.ts` — the public pages set their own `robots` metadata instead.
 
+The full list, including what was deferred on purpose and what remains unverified:
+`docs/PUBLIC_SITE_OPEN_ITEMS_v1.0.0.md`.
+
 ## [0.50.0] - 2026-09-12 — Discounts before tax, revenue excluding tax, public order enquiries
 
 Addresses the accounting review of PR #112 and the Amazon Q review. Full validation of every
