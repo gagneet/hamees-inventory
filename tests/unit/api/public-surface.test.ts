@@ -92,9 +92,17 @@ describe('every API route is guarded, or explicitly listed as public', () => {
   it('the tracking-link request looks the order up only after the response is decided', () => {
     // Whether the response leaks anything is asserted behaviourally in
     // tests/unit/api/public-track-request.test.ts; this only pins the shape that makes it true.
+    // Comments are stripped first: the route's own docblock says "in `after()`", and matching
+    // that instead of the call would make this pass no matter what the code did.
     const source = readFileSync(join(API_ROOT, 'public', 'track-request', 'route.ts'), 'utf8')
-    expect(source).toContain('after(')
-    expect(source.indexOf('after(')).toBeLessThan(source.indexOf('prisma.order.findFirst'))
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '')
+
+    const scheduled = source.indexOf('after(')
+    const lookup = source.indexOf('prisma.order.findFirst')
+    expect(scheduled).toBeGreaterThan(-1)
+    expect(lookup).toBeGreaterThan(-1)
+    expect(scheduled).toBeLessThan(lookup)
   })
 
   it.each(['enquiries', 'track-request'])('the public %s route is rate limited and has a honeypot', (route) => {
