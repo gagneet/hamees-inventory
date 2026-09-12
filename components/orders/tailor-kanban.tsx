@@ -11,8 +11,11 @@
  * @calls  PATCH /api/orders/:id/status — one-click advance to next status
  * @calls  router.refresh() — re-renders server data after update
  *
- * @statuses NEW → CUTTING → STITCHING → FINISHING → READY
+ * @statuses NEW (incl. MATERIAL_SELECTED) → CUTTING → STITCHING → FINISHING → READY
  *   DELIVERED and CANCELLED are excluded from the board (handled in order detail)
+ *
+ * @scope The server page scopes orders (and items) to the user: TAILOR sees only their own items.
+ * @assign Per-item assignee chips; assign / change controls only when canAssign (assign_tailors).
  *
  * @layout Horizontal scroll on mobile; equal-width columns on desktop (lg:grid-cols-5)
  */
@@ -36,13 +39,15 @@ import {
   CalendarDays,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { shopStartOfDay } from '@/lib/locale'
+import { AssignTailorDialog } from '@/components/orders/assign-tailor-dialog'
 
 // ── Types ─────────────────────────────────────────────────────────
 
 export type KanbanOrder = {
   id: string
   orderNumber: string
-  status: 'NEW' | 'CUTTING' | 'STITCHING' | 'FINISHING' | 'READY'
+  status: 'NEW' | 'MATERIAL_SELECTED' | 'CUTTING' | 'STITCHING' | 'FINISHING' | 'READY'
   priority: string
   deliveryDate: string | Date
   customer: { name: string; phone: string }
@@ -51,13 +56,14 @@ export type KanbanOrder = {
     garmentPattern: { name: string }
     clothInventory: { name: string; color: string; colorHex?: string | null }
     bodyType?: string | null
+    assignedTailor?: { id: string; name: string } | null
   }>
-  assignedTailor?: { name: string } | null
 }
 
 interface TailorKanbanProps {
   orders: KanbanOrder[]
   canAdvance?: boolean  // false for VIEWER; true for TAILOR and above
+  canAssign?: boolean   // assign_tailors: OWNER, ADMIN, SALES_MANAGER, MASTER_TAILOR
 }
 
 // ── Status column config ──────────────────────────────────────────
@@ -66,6 +72,8 @@ type StatusKey = 'NEW' | 'CUTTING' | 'STITCHING' | 'FINISHING' | 'READY'
 
 const COLUMNS: {
   status: StatusKey
+  /** Order statuses shown in this column (NEW also holds MATERIAL_SELECTED). */
+  statuses: KanbanOrder['status'][]
   label: string
   icon: React.ElementType
   color: string
@@ -76,6 +84,7 @@ const COLUMNS: {
 }[] = [
   {
     status: 'NEW',
+    statuses: ['NEW', 'MATERIAL_SELECTED'],
     label: 'New',
     icon: Package,
     color: 'text-slate-600',
@@ -86,6 +95,7 @@ const COLUMNS: {
   },
   {
     status: 'CUTTING',
+    statuses: ['CUTTING'],
     label: 'Cutting',
     icon: Scissors,
     color: 'text-blue-600',
@@ -96,6 +106,7 @@ const COLUMNS: {
   },
   {
     status: 'STITCHING',
+    statuses: ['STITCHING'],
     label: 'Stitching',
     icon: Sparkles,
     color: 'text-violet-600',
@@ -106,6 +117,7 @@ const COLUMNS: {
   },
   {
     status: 'FINISHING',
+    statuses: ['FINISHING'],
     label: 'Finishing',
     icon: Sparkles,
     color: 'text-amber-600',
@@ -116,6 +128,7 @@ const COLUMNS: {
   },
   {
     status: 'READY',
+    statuses: ['READY'],
     label: 'Ready',
     icon: CheckCircle2,
     color: 'text-green-600',
@@ -128,12 +141,11 @@ const COLUMNS: {
 
 // ── Helpers ───────────────────────────────────────────────────────
 
+/** Shop-local calendar days until delivery, so the server render (UTC) and the browser agree. */
 function getDaysLeft(deliveryDate: string | Date): number {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const due = new Date(deliveryDate)
-  due.setHours(0, 0, 0, 0)
-  return Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+  const due = shopStartOfDay(deliveryDate).getTime()
+  const today = shopStartOfDay(new Date()).getTime()
+  return Math.round((due - today) / 86_400_000)
 }
 
 function DeliveryBadge({ deliveryDate }: { deliveryDate: string | Date }) {
@@ -168,6 +180,7 @@ function OrderCard({
   nextStatus,
   nextLabel,
   canAdvance,
+  canAssign,
   onAdvance,
   advancing,
 }: {
@@ -175,6 +188,7 @@ function OrderCard({
   nextStatus: StatusKey | null
   nextLabel: string | null
   canAdvance: boolean
+  canAssign: boolean
   onAdvance: (orderId: string, status: StatusKey) => void
   advancing: boolean
 }) {
@@ -211,18 +225,32 @@ function OrderCard({
 
         <p className="text-xs text-slate-600 truncate">{order.customer.name}</p>
 
-        {/* Garment items */}
-        <div className="flex flex-wrap gap-1" title={garmentNames}>
+        {/* Garment items with assignee */}
+        <ul className="space-y-1" title={garmentNames}>
           {order.items.map(item => (
-            <span
-              key={item.id}
-              className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded"
-            >
-              {item.garmentPattern.name}
-              {item.bodyType ? ` · ${item.bodyType}` : ''}
-            </span>
+            <li key={item.id} className="flex items-center justify-between gap-1 text-[10px]">
+              <span className="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded truncate">
+                {item.garmentPattern.name}
+                {item.bodyType ? ` · ${item.bodyType}` : ''}
+              </span>
+              <span className="flex items-center gap-1 shrink-0">
+                <span className={item.assignedTailor ? 'text-slate-500 truncate max-w-[80px]' : 'text-amber-700'}>
+                  {item.assignedTailor ? `👤 ${item.assignedTailor.name}` : 'Unassigned'}
+                </span>
+                {canAssign && (
+                  <AssignTailorDialog
+                    variant="compact"
+                    orderId={order.id}
+                    itemId={item.id}
+                    currentTailorId={item.assignedTailor?.id ?? null}
+                    currentTailorName={item.assignedTailor?.name ?? null}
+                    garmentName={item.garmentPattern.name}
+                  />
+                )}
+              </span>
+            </li>
           ))}
-        </div>
+        </ul>
 
         {/* Fabric summary with colour swatch */}
         <p className="text-[10px] text-slate-400 truncate flex items-center gap-1">
@@ -238,13 +266,6 @@ function OrderCard({
 
         {/* Delivery indicator */}
         <DeliveryBadge deliveryDate={order.deliveryDate} />
-
-        {/* Assigned tailor chip */}
-        {order.assignedTailor && (
-          <p className="text-[10px] text-slate-500">
-            👤 {order.assignedTailor.name}
-          </p>
-        )}
       </CardContent>
 
       {/* Advance button */}
@@ -271,7 +292,7 @@ function OrderCard({
 
 // ── Main Kanban board ─────────────────────────────────────────────
 
-export function TailorKanban({ orders, canAdvance = true }: TailorKanbanProps) {
+export function TailorKanban({ orders, canAdvance = true, canAssign = false }: TailorKanbanProps) {
   const router = useRouter()
   // Track which order IDs are currently being advanced
   const [advancing, setAdvancing] = useState<Set<string>>(new Set())
@@ -323,7 +344,7 @@ export function TailorKanban({ orders, canAdvance = true }: TailorKanbanProps) {
       <div className="grid grid-cols-5 gap-3 min-w-[900px]">
         {COLUMNS.map(col => {
           const Icon = col.icon
-          const colOrders = localOrders.filter(o => o.status === col.status)
+          const colOrders = localOrders.filter(o => col.statuses.includes(o.status))
           return (
             <div key={col.status} className="flex flex-col gap-2">
               {/* Column header */}
@@ -358,6 +379,7 @@ export function TailorKanban({ orders, canAdvance = true }: TailorKanbanProps) {
                       nextStatus={col.nextStatus}
                       nextLabel={col.nextLabel}
                       canAdvance={canAdvance}
+                      canAssign={canAssign}
                       advancing={advancing.has(order.id)}
                       onAdvance={handleAdvance}
                     />

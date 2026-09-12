@@ -257,7 +257,7 @@ OrderHistory {
 **Implementation:**
 
 1. **Database Migration Script** (Manual execution required)
-   - File: `prisma/migrations/round-currency-values.sql`
+   - File: `prisma/manual-sql/round-currency-values.sql`
    - Updates existing records to round to 2 decimals
    - Affects: Orders, Payments, Inventory, POs, Expenses
    - Safe to run on production (uses WHERE clause for efficiency)
@@ -269,14 +269,14 @@ OrderHistory {
    - All new data uses proper rounding
 
 **Files:**
-- ✅ Created: `prisma/migrations/round-currency-values.sql`
+- ✅ Created: `prisma/manual-sql/round-currency-values.sql`
 - ✅ Verified: `app/api/orders/route.ts` (already has rounding)
 - ✅ Verified: `app/api/orders/[id]/payments/route.ts` (already has rounding)
 
 **To Apply Migration:**
 ```bash
 psql -h localhost -U hamees_user -d tailor_inventory \
-  -f prisma/migrations/round-currency-values.sql
+  -f prisma/manual-sql/round-currency-values.sql
 ```
 
 ---
@@ -359,7 +359,7 @@ psql -h localhost -U hamees_user -d tailor_inventory \
 3. **Run Currency Migration (Optional but Recommended):**
    ```bash
    PGPASSWORD=your_password psql -h localhost -U hamees_user -d tailor_inventory \
-     -f prisma/migrations/round-currency-values.sql
+     -f prisma/manual-sql/round-currency-values.sql
    ```
 
 4. **Build Application:**
@@ -401,7 +401,7 @@ psql -h localhost -U hamees_user -d tailor_inventory \
 ## Documentation Updated
 
 - ✅ This file: `docs/REGRESSION_FIXES_AND_ENHANCEMENTS.md`
-- ✅ SQL Migration: `prisma/migrations/round-currency-values.sql`
+- ✅ SQL Migration: `prisma/manual-sql/round-currency-values.sql`
 - ✅ Code comments in modified files
 - ✅ Git commit messages with detailed descriptions
 

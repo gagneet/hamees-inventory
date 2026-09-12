@@ -43,8 +43,9 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import DashboardLayout from '@/components/DashboardLayout'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatDate } from '@/lib/utils'
 import { useFieldVisibility } from '@/hooks/use-field-visibility'
+import { hasPermission } from '@/lib/permissions'
 
 interface PurchaseOrder {
   id: string
@@ -78,6 +79,8 @@ export default function PurchaseOrdersPage() {
   const { canView, isLoading, role } = useFieldVisibility()
   const canViewPOPrices = canView('purchase_order', 'totalAmount')
   const canApprovePurchaseOrder = role === 'OWNER' || role === 'INVENTORY_MANAGER'
+  // Receiving calls POST /api/purchase-orders/[id]/receive, which requires manage_inventory
+  const canReceive = !!role && hasPermission(role, 'manage_inventory')
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string>('ALL')
@@ -306,14 +309,14 @@ export default function PurchaseOrdersPage() {
                     <div>
                       <p className="text-slate-500">Order Date</p>
                       <p className="font-medium">
-                        {new Date(po.orderDate).toLocaleDateString('en-IN')}
+                        {formatDate(po.orderDate)}
                       </p>
                     </div>
                     {po.expectedDate && (
                       <div>
                         <p className="text-slate-500">Expected Date</p>
                         <p className="font-medium">
-                          {new Date(po.expectedDate).toLocaleDateString('en-IN')}
+                          {formatDate(po.expectedDate)}
                         </p>
                       </div>
                     )}
@@ -321,7 +324,7 @@ export default function PurchaseOrdersPage() {
                       <div>
                         <p className="text-slate-500">Received Date</p>
                         <p className="font-medium text-green-600">
-                          {new Date(po.receivedDate).toLocaleDateString('en-IN')}
+                          {formatDate(po.receivedDate)}
                         </p>
                       </div>
                     )}
@@ -340,7 +343,7 @@ export default function PurchaseOrdersPage() {
                         <Link href={`/purchase-orders/${po.id}`}>Approve</Link>
                       </Button>
                     ) : null}
-                    {po.status === 'APPROVED' || po.status === 'PARTIAL' ? (
+                    {canReceive && (po.status === 'APPROVED' || po.status === 'PARTIAL') ? (
                       <Button size="sm" asChild>
                         <Link href={`/purchase-orders/${po.id}`}>Receive Items</Link>
                       </Button>

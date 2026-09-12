@@ -1,18 +1,19 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { requirePermission } from '@/lib/api-permissions'
+import { actorFromSession, customerScope } from '@/lib/authz'
 import { format } from 'date-fns'
 
 export async function GET() {
   try {
-    const session = await auth()
+    const { session, error } = await requirePermission('view_customers')
+    if (error) return error
+    const actor = actorFromSession(session)
+    if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Get all customers with their DELIVERED orders only
+    // Get customers in scope with their DELIVERED orders only
     const customers = await prisma.customer.findMany({
+      where: customerScope(actor),
       include: {
         orders: {
           where: {

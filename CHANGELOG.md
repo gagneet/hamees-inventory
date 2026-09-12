@@ -5,6 +5,55 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.31.0] - 2026-09-11 — Release hardening
+
+### Security
+- **Object-level authorization (BOLA)** — new `lib/authz.ts` scopes orders, order items, customers and measurements per user. Tailors only see orders that contain an item assigned to them; out-of-scope records return 404. Caller filters are AND-combined with the scope so they cannot widen access.
+- **Order status rules** — `DELIVERED`/`CANCELLED` are terminal; only roles with `update_order` may deliver or cancel; a status changed by someone else in the meantime returns 409.
+- **Payments** — new `record_payment` permission (Owner/Admin) guards advance, discount, installment and payment changes. The advance field was already hidden from sales managers in the UI; the API now enforces the same rule.
+- **Financial data** — `filterObjectByRole` strips financial fields at every depth (nested relations included) for roles without financial visibility. Payment-reminder alerts, which quote balances, are hidden from those roles on the alerts page, the dashboard and in alert actions. The unused `/api/dashboard/stats` endpoint, which returned revenue to every signed-in role, was removed.
+- **Authentication** — deactivated users can no longer sign in. Sessions re-check role, active status and password every minute (resetting a password ends the user's other sessions) and expire after 12 hours. Failed logins are limited per account + IP (10), per IP (50) and per account (100) per 15 minutes, in memory for this single-instance deployment. All passwords use bcrypt cost 12 (older hashes are upgraded at the next sign-in), and unknown emails are compared against a dummy hash of the same cost, so timing does not reveal whether an account exists (timing-equalised, not constant-time).
+- **User administration** — passwords must be at least 8 characters; admins cannot change their own role or deactivate themselves; the last active Administrator/Owner cannot be demoted or deactivated (checked inside a serializable transaction). User and settings changes are written to the new `AuditLog` table; settings entries record only the fields that changed, with old and new values.
+- **Route protection** — `proxy.ts` redirects signed-out visitors; every dashboard section and each report has a server-side permission guard.
+- **Hotfixes** — bulk upload, installment and inventory-create endpoints now enforce permissions; the Excel importer can no longer create or change users and no longer overwrites stock or reservations of existing items; the export script no longer contains a fallback DB password.
+- Security headers (HSTS, frame, content-type, referrer, permissions policy, and a Content-Security-Policy limited to `frame-ancestors`, `base-uri`, `form-action` and `object-src`) and `no-store` on API responses.
+- Removed a database password that had been committed in documentation (rotate it — it remains in git history).
+
+### Fixed
+- The order balance no longer hides a real first payment that happens to equal the advance. Legacy duplicate-advance installments (before v0.28.4) are recognised by their note *and* amount, never by amount alone.
+- Order split keeps every payment on the correct order, moves the items themselves (tailor assignments and design uploads stay attached), moves the matching accessory reservations, and keeps the original order's tax rate and structure.
+- Order payments, installment payments, order edits and purchase-order payments/receipts lock the row before checking balances, so two simultaneous requests can no longer overpay. Installment payments are capped at the outstanding balance, and the order-edit check (advance + discount ≤ total) now includes balance payments already received.
+- Changing an item's fabric keeps the order's own tax rate and structure (split, integrated, single or none) even after the shop's tax settings change; an order delivered or cancelled in the meantime is refused.
+- Measured fabric at cutting/delivery is shared across a multi-item order's items instead of being charged in full to every item. A note sent with a status change by a role that cannot edit orders (e.g. a tailor) is kept in the history instead of replacing the order notes.
+- Accessory stock edits go through `lib/stock.ts` (never below the reserved quantity) and record a stock movement; accessory purchase-order receipts now record a movement too.
+- Financial report "cash received" now includes partially paid installments and advances.
+- The customer report no longer crashes for sales managers (it shows counts without amounts). The Reports menu is shown only to roles that can open at least one report. Buttons whose API the role cannot use (cancel/receive PO, garment type edit/delete, measurement delete, create PO from an alert) are hidden.
+- Dates, "today", days-left and overdue use the shop's time zone (the server runs in UTC). WhatsApp numbers whose national digits start with the country code (e.g. Indian mobiles starting 91…) are now prefixed correctly.
+- Admin Settings tabs share one form: a regional preset applied on one tab is no longer lost, and saving no longer overwrites another tab's edits.
+
+### Added
+- **Master Tailor role** — sees and assigns all orders, Tailor Workload page, production dashboard and Production Report, without pricing or payment access.
+- **Business settings** (Admin Settings → Business / Currency & Locale / Tax & Invoices / Production) — shop identity, currency (ISO 4217), locale, time zone, phone country code, tax mode (split e.g. CGST+SGST/IGST, single e.g. VAT, or none), tax name/rate/registration label, invoice footer, tailor capacity and daily target. Regional presets for India, UK, US, UAE, Australia and Canada. Currency codes are validated against the runtime's ISO 4217 list. **Changing the currency never converts amounts** — stored values are plain numbers, so once orders, purchase orders, expenses or inventory prices exist the change is refused unless the admin confirms the amounts were entered in the new currency (the relabel is audit-logged).
+- `lib/locale.ts` (currency/date formatting from settings), `lib/tax.ts` (tax computation for all modes), `lib/settings.ts` + `SettingsProvider`/`useAppSettings()`; settings are loaded at server start (`instrumentation.ts`).
+- `GET /api/health`, `GET/PUT /api/settings`, error and not-found pages, GitHub Actions CI (Prisma validate, type check, lint, unit tests, build).
+- Prisma migrations are now tracked: `0_init` baseline, `20260911000000_release_hardening` and `20260911000100_clean_stock_float_residue`. `scripts/deploy.sh` runs a verification build first (nothing changes if it fails), backs up with `pg_dump`, records the baseline when needed, runs `prisma migrate deploy` and a drift check, builds (keeping the previous build for rollback), restarts PM2, and exits with an error unless `/api/health` returns 200.
+
+### Changed
+- Tailors can no longer create orders (`create_order` removed from `TAILOR`).
+- Viewers get a non-financial dashboard.
+- Branding (header, login page, metadata, invoices) comes from settings instead of being hard-coded.
+- Demo-credential hint is hidden in production builds.
+- DB-backed integration tests only run when `TEST_DATABASE_URL` points to a disposable database.
+- Database pool: 10 s connection timeout, 10 connections by default (`DATABASE_POOL_MAX`).
+
+### Known limitations
+- Amounts are stored as floating-point numbers without a currency; there is no exchange-rate conversion.
+- Login rate limiting is in memory (one app instance). An attacker using many IP addresses can still lock one account for 15 minutes after 100 failures.
+- Purchase-order lines store no inventory link; the item credited on receipt is chosen by the receiver and recorded in the stock movement.
+- Order status is per order, so a tailor moving their card moves the whole order.
+- The Content-Security-Policy does not restrict scripts yet (a nonce-based policy is a follow-up).
+- Customer-report segments use fixed thresholds (50,000 / 20,000) in the shop's currency.
+
 ## [0.30.0] - 2026-05-27
 
 ### Added
@@ -1037,17 +1086,17 @@ WHERE o."advancePaid" > 0
 **Testing:**
 ```bash
 # Verify PO fix
-PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql -U hamees_user -d tailor_inventory \
+PGPASSWORD=<REDACTED_DB_PASSWORD> psql -h /var/run/postgresql -U hamees_user -d tailor_inventory \
   -c "SELECT \"poNumber\", \"subTotal\", \"totalAmount\" FROM \"PurchaseOrder\" WHERE \"poNumber\" = 'PO-2025-0010';"
 # Expected: SubTotal = 18,801.17, Total = 22,185.38
 
 # Verify balance fix
-PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql -U hamees_user -d tailor_inventory \
+PGPASSWORD=<REDACTED_DB_PASSWORD> psql -h /var/run/postgresql -U hamees_user -d tailor_inventory \
   -c "SELECT \"orderNumber\", \"balanceAmount\" FROM \"Order\" WHERE \"orderNumber\" = 'ORD-1769327607178-935';"
 # Expected: Balance = 50,000.00
 
 # Verify total outstanding
-PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql -U hamees_user -d tailor_inventory \
+PGPASSWORD=<REDACTED_DB_PASSWORD> psql -h /var/run/postgresql -U hamees_user -d tailor_inventory \
   -c "SELECT SUM(\"balanceAmount\") as total_outstanding FROM \"Order\" WHERE status <> 'CANCELLED';"
 # Expected: ~91,093.32
 ```
@@ -1590,7 +1639,7 @@ balanceAmount = totalAmount - discount - totalPaidInstallments
 6. Verify: Payment Summary shows correct Balance Due
 
 # Verify Database Calculation
-PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -c "
+PGPASSWORD=<REDACTED_DB_PASSWORD> psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -c "
 SELECT o.\"orderNumber\", o.\"totalAmount\", o.discount,
        COALESCE(SUM(pi.\"paidAmount\"), 0) as total_paid,
        (o.\"totalAmount\" - o.discount - COALESCE(SUM(pi.\"paidAmount\"), 0)) as calculated_balance,
@@ -2100,7 +2149,7 @@ const cashCollectedLastMonth = await prisma.paymentInstallment.aggregate({
 **Testing:**
 ```bash
 # Verify cancelled order with payments exists
-PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -c "
+PGPASSWORD=<REDACTED_DB_PASSWORD> psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -c "
 SELECT o.\"orderNumber\", o.status, o.\"totalAmount\",
        COALESCE(SUM(pi.\"paidAmount\"), 0) as total_paid
 FROM \"Order\" o
@@ -2679,7 +2728,7 @@ RENAME COLUMN quantity TO "quantityPerGarment";
 **Verification:**
 ```bash
 # Check garment patterns exist
-PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql -U hamees_user -d tailor_inventory \
+PGPASSWORD=<REDACTED_DB_PASSWORD> psql -h /var/run/postgresql -U hamees_user -d tailor_inventory \
   -c "SELECT id, name, baseMeters, active FROM \"GarmentPattern\";"
 # Result: 4 rows (Men's Shirt, Trouser, Suit, Sherwani)
 
@@ -4354,7 +4403,7 @@ await prisma.purchaseOrder.create({
 pnpm tsx prisma/seed-complete.ts
 
 # Verify new fields
-PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -c \
+PGPASSWORD=<REDACTED_DB_PASSWORD> psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -c \
   "SELECT 'Customers' as table, COUNT(*) as total,
    COUNT(CASE WHEN customerType = 'B2B' THEN 1 END) as b2b,
    COUNT(CASE WHEN gstin IS NOT NULL THEN 1 END) as with_gstin

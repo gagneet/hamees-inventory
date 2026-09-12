@@ -1,168 +1,121 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
-import { requireAnyPermission } from '@/lib/api-permissions'
+import { requirePermission } from '@/lib/api-permissions'
 import { filterApiResponse } from '@/lib/api-filter-response'
-import { canViewField } from '@/lib/field-acl'
+import { actorFromSession, requireOrderAccess } from '@/lib/authz'
+import { getAppSettings } from '@/lib/settings'
+import { formatCurrency } from '@/lib/locale'
+import { lockOrder, roundMoney, safeInstallmentNote } from '@/lib/order-finance'
 
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 
 const recordPaymentSchema = z.object({
   amount: z.number().positive(),
   paymentMode: z.enum(['CASH', 'UPI', 'CARD', 'BANK_TRANSFER', 'CHEQUE']),
-  transactionRef: z.string().optional(),
-  notes: z.string().optional(),
+  transactionRef: z.string().max(100).optional(),
+  notes: z.string().max(1000).optional(),
 })
+
+/** Validation failure raised inside the transaction (after locking and re-reading the order). */
+class PaymentRejected extends Error {
+  constructor(message: string, public status = 400) {
+    super(message)
+  }
+}
 
 /**
  * POST /api/orders/[id]/payments
- * Record a single payment for an order
+ * Record a single payment for an order (record_payment: OWNER/ADMIN)
  */
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { session, error } = await requirePermission('record_payment')
+  if (error) return error
+  const actor = actorFromSession(session)
+  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   try {
-    const session = await auth()
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Check permissions
-    const { error } = await requireAnyPermission(['update_order', 'create_order'])
-    if (error) {
-      return error
-    }
-
     const { id: orderId } = await params
     const body = await request.json()
-
-    // Validate input
     const validatedData = recordPaymentSchema.parse(body)
 
-    // Get order
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
-      select: {
-        id: true,
-        orderNumber: true,
-        totalAmount: true,
-        advancePaid: true,
-        discount: true,
-        balanceAmount: true,
-        status: true,
-      },
-    })
+    const denied = await requireOrderAccess(actor, orderId)
+    if (denied) return denied
 
-    if (!order) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 })
-    }
+    await getAppSettings()
 
-    // Check if order is cancelled
-    if (order.status === 'CANCELLED') {
-      return NextResponse.json(
-        { error: 'Cannot record payment for cancelled order' },
-        { status: 400 }
-      )
-    }
-
-    const userRole = session.user.role as any
-    const canViewPaymentAmounts = canViewField(userRole, 'payment', 'amount')
-    const canViewOrderBalance = canViewField(userRole, 'order', 'balanceAmount')
-
-    // Validate payment amount doesn't exceed balance
-    if (validatedData.amount > order.balanceAmount) {
-      return NextResponse.json(
-        canViewPaymentAmounts
-          ? {
-              error: `Payment amount (${validatedData.amount.toFixed(2)}) cannot exceed balance (${order.balanceAmount.toFixed(2)})`,
-            }
-          : {
-              error: 'Payment amount cannot exceed outstanding balance',
-            },
-        { status: 400 }
-      )
-    }
-
-    // Get next installment number
-    const existingInstallments = await prisma.paymentInstallment.findMany({
-      where: { orderId: order.id },
-      orderBy: { installmentNumber: 'desc' },
-      take: 1,
-    })
-    const nextInstallmentNumber = existingInstallments.length > 0
-      ? existingInstallments[0].installmentNumber + 1
-      : 1
-
-    // Create payment installment
-    const now = new Date()
-    
-    // Use database transaction to ensure atomicity and prevent CWE-362 race conditions.
-    // This prevents partial failures where a payment installment could be created but the
-    // order balance fails to update, leading to financial discrepancies and data corruption.
-    // All three operations (create installment, update balance, create history) must succeed
-    // together or fail together to maintain data consistency.
+    // Lock the order row first: a concurrent payment waits here, then reads the reduced
+    // balance, so two payments can't both pass the balance check.
     const result = await prisma.$transaction(async (tx: TransactionClient) => {
-      const paymentAmount = parseFloat(validatedData.amount.toFixed(2))
+      await lockOrder(tx, orderId)
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        select: { id: true, orderNumber: true, totalAmount: true, balanceAmount: true, status: true },
+      })
+      if (!order) throw new PaymentRejected('Order not found', 404)
+      if (order.status === 'CANCELLED') throw new PaymentRejected('Cannot record payment for cancelled order')
 
-      // installmentAmount represents the outstanding balance at the time of payment
-      // For first payment: show total order amount (customer's total commitment)
-      // For subsequent payments: show remaining balance at that point
-      const installmentAmount = nextInstallmentNumber === 1
-        ? order.totalAmount  // First payment: show full order amount
-        : order.balanceAmount // Subsequent payments: show current balance
+      const paymentAmount = roundMoney(validatedData.amount)
+      if (paymentAmount > order.balanceAmount + 0.001) {
+        throw new PaymentRejected(
+          `Payment amount (${formatCurrency(paymentAmount)}) cannot exceed balance (${formatCurrency(order.balanceAmount)})`
+        )
+      }
+
+      const last = await tx.paymentInstallment.findFirst({
+        where: { orderId: order.id },
+        orderBy: { installmentNumber: 'desc' },
+        select: { installmentNumber: true },
+      })
+      const nextInstallmentNumber = (last?.installmentNumber ?? 0) + 1
+      const now = new Date()
+
+      // installmentAmount represents the outstanding amount at the time of payment
+      const installmentAmount = nextInstallmentNumber === 1 ? order.totalAmount : order.balanceAmount
 
       const installment = await tx.paymentInstallment.create({
         data: {
           orderId: order.id,
           installmentNumber: nextInstallmentNumber,
-          installmentAmount: parseFloat(installmentAmount.toFixed(2)), // Outstanding balance at this point
-          paidAmount: paymentAmount, // Actual amount paid
+          installmentAmount: roundMoney(installmentAmount),
+          paidAmount: paymentAmount,
           dueDate: now,
           paidDate: now,
           status: 'PAID',
           paymentMode: validatedData.paymentMode,
           transactionRef: validatedData.transactionRef,
-          notes: validatedData.notes || `Payment recorded via ${validatedData.paymentMode}`,
+          notes: safeInstallmentNote(validatedData.notes) || `Payment recorded via ${validatedData.paymentMode}`,
         },
       })
 
-      // Update order balance
-      const newBalanceAmount = parseFloat((order.balanceAmount - validatedData.amount).toFixed(2))
+      const newBalanceAmount = roundMoney(order.balanceAmount - paymentAmount)
       await tx.order.update({
         where: { id: order.id },
-        data: {
-          balanceAmount: newBalanceAmount,
-        },
+        data: { balanceAmount: newBalanceAmount },
       })
 
-      // Create order history entry
       await tx.orderHistory.create({
         data: {
           orderId: order.id,
-          userId: session.user.id!,
+          userId: actor.id,
           changeType: 'PAYMENT_RECORDED',
-          description: `Payment of ₹${validatedData.amount.toFixed(2)} recorded via ${validatedData.paymentMode}${
+          description: `Payment of ${formatCurrency(paymentAmount)} recorded via ${validatedData.paymentMode}${
             validatedData.transactionRef ? ` (Ref: ${validatedData.transactionRef})` : ''
-          }. New balance: ₹${newBalanceAmount.toFixed(2)}`,
+          }. New balance: ${formatCurrency(newBalanceAmount)}`,
         },
       })
 
-      return { installment, newBalanceAmount }
+      return { installment, newBalanceAmount, paymentAmount }
     })
-
-    // FEATURETRACE: Apply ACL field filtering to response
-    const filteredInstallment = filterApiResponse(result.installment, userRole, 'payment')
-    const message = canViewPaymentAmounts
-      ? `Payment of ₹${validatedData.amount.toFixed(2)} recorded successfully`
-      : 'Payment recorded successfully'
 
     return NextResponse.json({
       success: true,
-      installment: filteredInstallment,
-      ...(canViewOrderBalance ? { newBalanceAmount: result.newBalanceAmount } : {}),
-      message,
+      installment: filterApiResponse(result.installment, actor.role, 'payment'),
+      newBalanceAmount: result.newBalanceAmount,
+      message: `Payment of ${formatCurrency(result.paymentAmount)} recorded successfully`,
     })
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -170,6 +123,9 @@ export async function POST(
         { error: 'Invalid request data', details: error.issues },
         { status: 400 }
       )
+    }
+    if (error instanceof PaymentRejected) {
+      return NextResponse.json({ error: error.message }, { status: error.status })
     }
 
     console.error('Error recording payment:', error)

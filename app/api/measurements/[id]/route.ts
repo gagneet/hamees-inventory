@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
+import { actorFromSession, measurementScope, notFound } from '@/lib/authz'
 import { z } from 'zod'
 
 const measurementUpdateSchema = z.object({
@@ -27,13 +28,15 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAnyPermission(['view_customers'])
+  const { session, error } = await requireAnyPermission(['view_customers'])
   if (error) return error
+  const actor = actorFromSession(session)
+  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const { id } = await params
-    const measurement = await prisma.measurement.findUnique({
-      where: { id },
+    const measurement = await prisma.measurement.findFirst({
+      where: { id, ...measurementScope(actor) },
       include: {
         customer: {
           select: {
@@ -63,13 +66,18 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAnyPermission(['manage_measurements'])
+  const { session, error } = await requireAnyPermission(['manage_measurements'])
   if (error) return error
+  const actor = actorFromSession(session)
+  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const { id } = await params
     const body = await request.json()
     const validatedData = measurementUpdateSchema.parse(body)
+
+    const inScope = await prisma.measurement.count({ where: { id, ...measurementScope(actor) } })
+    if (inScope === 0) return notFound('Measurement')
 
     const measurement = await prisma.measurement.update({
       where: { id },
@@ -97,11 +105,16 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAnyPermission(['delete_measurement'])
+  const { session, error } = await requireAnyPermission(['delete_measurement'])
   if (error) return error
+  const actor = actorFromSession(session)
+  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const { id } = await params
+
+    const inScope = await prisma.measurement.count({ where: { id, ...measurementScope(actor) } })
+    if (inScope === 0) return notFound('Measurement')
     await prisma.measurement.delete({
       where: { id },
     })

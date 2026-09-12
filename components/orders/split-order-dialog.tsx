@@ -17,6 +17,8 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { formatCurrency } from '@/lib/utils'
+import { taxTotalLabel } from '@/lib/tax'
+import { useAppSettings } from '@/components/providers/settings-provider'
 
 interface OrderItem {
   id: string
@@ -38,6 +40,10 @@ interface SplitOrderDialogProps {
   items: OrderItem[]
   currentDeliveryDate: Date
   orderSubTotal: number
+  /** Tax rate (percent) charged on the original order; the split keeps it. Defaults to the shop rate. */
+  taxRate?: number
+  /** Hide all amounts for roles without order financial visibility */
+  showPricing?: boolean
 }
 
 export function SplitOrderDialog({
@@ -46,8 +52,11 @@ export function SplitOrderDialog({
   items,
   currentDeliveryDate,
   orderSubTotal,
+  taxRate,
+  showPricing = true,
 }: SplitOrderDialogProps) {
   const router = useRouter()
+  const settings = useAppSettings()
   const [open, setOpen] = useState(false)
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([])
   const [deliveryDate, setDeliveryDate] = useState(
@@ -61,6 +70,9 @@ export function SplitOrderDialog({
   if (!Array.isArray(items) || items.length === 0) {
     return null
   }
+
+  const effectiveTaxRate = taxRate ?? (settings.taxMode === 'NONE' ? 0 : settings.taxRate)
+  const taxLabel = taxTotalLabel({ name: settings.taxName }, effectiveTaxRate)
 
   const handleItemToggle = (itemId: string) => {
     setSelectedItemIds(prev =>
@@ -85,7 +97,7 @@ export function SplitOrderDialog({
 
     // Proportionally distribute the complete order subtotal (includes stitching, premiums, etc.)
     const subTotal = orderSubTotal * proportion
-    const gstAmount = subTotal * 0.12
+    const gstAmount = subTotal * (effectiveTaxRate / 100)
     const total = subTotal + gstAmount
 
     return { subTotal, gstAmount, total }
@@ -140,6 +152,25 @@ export function SplitOrderDialog({
     }
   }
 
+  const renderTotals = (totals: ReturnType<typeof calculateTotal>, borderClass: string) => (
+    <>
+      <div className="flex justify-between">
+        <span>Subtotal:</span>
+        <span>{formatCurrency(totals.subTotal)}</span>
+      </div>
+      {effectiveTaxRate > 0 && (
+        <div className="flex justify-between">
+          <span>{taxLabel}:</span>
+          <span>{formatCurrency(totals.gstAmount)}</span>
+        </div>
+      )}
+      <div className={`flex justify-between font-semibold border-t ${borderClass} pt-1 mt-1`}>
+        <span>Total:</span>
+        <span>{formatCurrency(totals.total)}</span>
+      </div>
+    </>
+  )
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -184,9 +215,11 @@ export function SplitOrderDialog({
                       <div className="text-sm text-slate-600">
                         {item.clothInventory.name} ({item.clothInventory.color}) • {item.estimatedMeters.toFixed(2)}m • Qty: {item.quantityOrdered}
                       </div>
-                      <div className="text-sm font-medium text-slate-900 mt-1">
-                        {formatCurrency(item.totalPrice)}
-                      </div>
+                      {showPricing && (
+                        <div className="text-sm font-medium text-slate-900 mt-1">
+                          {formatCurrency(item.totalPrice)}
+                        </div>
+                      )}
                     </label>
                   </div>
                 )
@@ -233,18 +266,7 @@ export function SplitOrderDialog({
                     <span>Items:</span>
                     <span className="font-medium">{selectedItems.length}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Subtotal:</span>
-                    <span>{formatCurrency(selectedTotals.subTotal)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>GST (12%):</span>
-                    <span>{formatCurrency(selectedTotals.gstAmount)}</span>
-                  </div>
-                  <div className="flex justify-between font-semibold border-t border-green-300 pt-1 mt-1">
-                    <span>Total:</span>
-                    <span>{formatCurrency(selectedTotals.total)}</span>
-                  </div>
+                  {showPricing && renderTotals(selectedTotals, 'border-green-300')}
                 </div>
               </div>
 
@@ -256,18 +278,7 @@ export function SplitOrderDialog({
                     <span>Items:</span>
                     <span className="font-medium">{remainingItems.length}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>Subtotal:</span>
-                    <span>{formatCurrency(remainingTotals.subTotal)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>GST (12%):</span>
-                    <span>{formatCurrency(remainingTotals.gstAmount)}</span>
-                  </div>
-                  <div className="flex justify-between font-semibold border-t border-blue-300 pt-1 mt-1">
-                    <span>Total:</span>
-                    <span>{formatCurrency(remainingTotals.total)}</span>
-                  </div>
+                  {showPricing && renderTotals(remainingTotals, 'border-blue-300')}
                 </div>
               </div>
             </div>

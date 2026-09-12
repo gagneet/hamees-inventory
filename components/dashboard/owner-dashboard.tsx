@@ -32,9 +32,10 @@ import { TopCustomersChart } from './top-customers-chart'
 import { GarmentTypeRevenueChart } from './garment-type-revenue-chart'
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
 import { DollarSign, TrendingUp, TrendingDown, Clock, Users, Package, AlertCircle, Activity } from 'lucide-react'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatDateWith } from '@/lib/utils'
 import Link from 'next/link'
 import { useFieldVisibility } from '@/hooks/use-field-visibility'
+import { hasPermission } from '@/lib/permissions'
 
 interface OwnerDashboardProps {
   stats: {
@@ -153,7 +154,9 @@ interface OwnerDashboardProps {
 
 export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, salesStats }: OwnerDashboardProps) {
   const router = useRouter()
-  const { canView } = useFieldVisibility()
+  const { canView, role } = useFieldVisibility()
+  const canCreateOrder = !!role && hasPermission(role, 'create_order')
+  const canCreatePO = !!role && hasPermission(role, 'manage_purchase_orders')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [dialogType, setDialogType] = useState<'revenue' | 'cash' | 'expenses' | 'profit' | 'outstanding' | 'stockTurnover' | 'fulfillmentRate' | 'inventoryValue' | 'totalOrders' | 'efficiency' | null>(null)
 
@@ -381,7 +384,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
                     <p className="font-medium text-sm text-slate-900">{alert.title}</p>
                     <p className="text-xs text-slate-600 mt-1">{alert.message}</p>
                     <p className="text-xs text-slate-400 mt-1">
-                      {new Date(alert.createdAt).toLocaleDateString('en-IN', {
+                      {formatDateWith(alert.createdAt, {
                         day: 'numeric',
                         month: 'short',
                         year: 'numeric',
@@ -996,7 +999,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
                   <div>
                     <h4 className="text-sm font-semibold text-slate-900 mb-2">What is Stock Turnover?</h4>
                     <p className="text-sm text-slate-600">
-                      Stock turnover ratio measures how efficiently you're using your fabric inventory.
+                      Stock turnover ratio measures how efficiently you&apos;re using your fabric inventory.
                       It shows the percentage of your total stock that was used in orders over the last 30 days.
                     </p>
                   </div>
@@ -1219,7 +1222,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
                       View Inventory Details
                     </Button>
                   </Link>
-                  {(generalStats.inventory.lowStock > 0 || generalStats.inventory.criticalStock > 0) && (
+                  {canCreatePO && (generalStats.inventory.lowStock > 0 || generalStats.inventory.criticalStock > 0) && (
                     <Link href="/purchase-orders/new">
                       <Button variant="outline">
                         Create Purchase Order
@@ -1337,11 +1340,13 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
                       View All Orders
                     </Button>
                   </Link>
-                  <Link href="/orders/new">
-                    <Button variant="outline">
-                      Create New Order
-                    </Button>
-                  </Link>
+                  {canCreateOrder && (
+                    <Link href="/orders/new">
+                      <Button variant="outline">
+                        Create New Order
+                      </Button>
+                    </Link>
+                  )}
                   <Button variant="outline" onClick={() => setDialogOpen(false)}>
                     Close
                   </Button>
@@ -1561,7 +1566,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
                               <span>Est: {item.estimated.toFixed(2)}m</span>
                               <span>Consumed: {item.actualUsed.toFixed(2)}m</span>
                               <span className="text-slate-400">
-                                {new Date(item.orderDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                {formatDateWith(item.orderDate, { day: 'numeric', month: 'short' })}
                               </span>
                             </div>
                           </div>
@@ -1588,7 +1593,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
                       </p>
                       {stats.efficiencyMetrics.totalWastage > 0 && (
                         <p className="mt-2 font-medium">
-                          💰 Financial Impact: {stats.efficiencyMetrics.totalWastage.toFixed(2)}m excess consumption this month. At average fabric cost, this could represent ₹{(stats.efficiencyMetrics.totalWastage * 500).toFixed(0)}+ in additional inventory cost (assuming ₹500/m average).
+                          💰 Financial Impact: {stats.efficiencyMetrics.totalWastage.toFixed(2)}m excess consumption this month. At average fabric cost, this could represent {formatCurrency(stats.efficiencyMetrics.totalWastage * 500, { decimals: 0 })}+ in additional inventory cost (assuming {formatCurrency(500, { decimals: 0 })}/m average).
                         </p>
                       )}
                     </div>

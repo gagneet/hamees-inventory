@@ -1,5 +1,7 @@
 import QRCode from 'qrcode'
 import { prisma } from '@/lib/db'
+import { formatCurrency } from '@/lib/locale'
+import { escapeHtml } from '@/lib/html-escape'
 
 export interface QRCodeData {
   type: 'cloth' | 'accessory'
@@ -83,14 +85,16 @@ export class QRCodeService {
     name: string
     sku?: string
     price?: number
-    stock?: number
+    stock?: string | number
   }): string {
+    // Only embed generated PNG data URLs as the image source
+    const qrSrc = /^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(data.qrCode) ? data.qrCode : ''
     return `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="UTF-8">
-        <title>Inventory Label - ${data.name}</title>
+        <title>Inventory Label - ${escapeHtml(data.name)}</title>
         <style>
           @page {
             size: 80mm 40mm;
@@ -151,14 +155,14 @@ export class QRCodeService {
       <body>
         <div class="label">
           <div class="qr-code">
-            <img src="${data.qrCode}" alt="QR Code" />
+            <img src="${escapeHtml(qrSrc)}" alt="QR Code" />
           </div>
           <div class="info">
-            <div class="name">${data.name}</div>
+            <div class="name">${escapeHtml(data.name)}</div>
             <div class="details">
-              ${data.sku ? `<div class="sku">SKU: ${data.sku}</div>` : ''}
-              ${data.price !== undefined ? `<div>Price: ₹${data.price.toFixed(2)}</div>` : ''}
-              ${data.stock !== undefined ? `<div>Stock: ${data.stock}</div>` : ''}
+              ${data.sku ? `<div class="sku">SKU: ${escapeHtml(data.sku)}</div>` : ''}
+              ${data.price !== undefined ? `<div>Price: ${escapeHtml(formatCurrency(data.price))}</div>` : ''}
+              ${data.stock !== undefined ? `<div>Stock: ${escapeHtml(data.stock)}</div>` : ''}
             </div>
           </div>
         </div>

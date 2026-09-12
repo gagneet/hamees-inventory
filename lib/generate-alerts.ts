@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/db'
 import { AlertType, AlertSeverity } from '@prisma/client'
+import { getAppSettings } from '@/lib/settings'
+import { formatCurrency, formatDate } from '@/lib/locale'
 
 /**
  * Generate stock alerts for low and critical inventory levels
@@ -8,6 +10,9 @@ import { AlertType, AlertSeverity } from '@prisma/client'
  */
 export async function generateStockAlerts() {
   try {
+    // Alert text quotes dates and amounts: load the shop's currency/locale/time zone first
+    await getAppSettings()
+
     // Get all cloth inventory items
     const clothItems = await prisma.clothInventory.findMany({
       where: { active: true },
@@ -224,7 +229,7 @@ export async function generateStockAlerts() {
             type: AlertType.ORDER_DELAYED,
             severity: daysOverdue > 7 ? AlertSeverity.CRITICAL : AlertSeverity.HIGH,
             title: `Overdue Order: ${order.orderNumber}`,
-            message: `Order ${order.orderNumber} for ${order.customer.name} is ${daysOverdue} day${daysOverdue === 1 ? '' : 's'} overdue. Expected delivery: ${order.deliveryDate.toLocaleDateString()}`,
+            message: `Order ${order.orderNumber} for ${order.customer.name} is ${daysOverdue} day${daysOverdue === 1 ? '' : 's'} overdue. Expected delivery: ${formatDate(order.deliveryDate)}`,
             relatedId: order.id,
             relatedType: 'order',
           },
@@ -275,7 +280,7 @@ export async function generateStockAlerts() {
 
     const paymentAlertsMap = new Map(existingPaymentAlerts.map(alert => [alert.relatedId, alert]))
 
-    // Process pending payments
+    // Process pending payments (amounts use the configured currency)
     for (const order of pendingPaymentOrders) {
       if (!paymentAlertsMap.has(order.id)) {
         const daysSinceDelivery = Math.floor((now.getTime() - order.deliveryDate.getTime()) / (1000 * 60 * 60 * 24))
@@ -284,7 +289,7 @@ export async function generateStockAlerts() {
             type: AlertType.REORDER_REMINDER,
             severity: daysSinceDelivery > 30 ? AlertSeverity.HIGH : AlertSeverity.MEDIUM,
             title: `Pending Payment: ${order.orderNumber}`,
-            message: `Order ${order.orderNumber} for ${order.customer.name} has pending balance of ₹${order.balanceAmount.toFixed(2)}. Delivered ${daysSinceDelivery} day${daysSinceDelivery === 1 ? '' : 's'} ago.`,
+            message: `Order ${order.orderNumber} for ${order.customer.name} has pending balance of ${formatCurrency(order.balanceAmount)}. Delivered ${daysSinceDelivery} day${daysSinceDelivery === 1 ? '' : 's'} ago.`,
             relatedId: order.id,
             relatedType: 'order',
           },

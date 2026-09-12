@@ -21,7 +21,10 @@ import {
 } from '@/components/ui/breadcrumb'
 import { AlertTriangle, Home, Package, ShoppingCart, X } from 'lucide-react'
 import DashboardLayout from '@/components/DashboardLayout'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatDateTime } from '@/lib/utils'
+import { useSession } from 'next-auth/react'
+import { hasPermission, type UserRole } from '@/lib/permissions'
+import { useFieldVisibility } from '@/hooks/use-field-visibility'
 
 interface AlertData {
   id: string
@@ -41,7 +44,7 @@ interface RelatedItem {
   currentStock: number
   reserved: number
   minimum: number
-  pricePerMeter: number
+  pricePerMeter?: number
   supplierRel?: {
     id: string
     name: string
@@ -55,6 +58,14 @@ export default function AlertDetailPage({
   params: Promise<{ id: string }>
 }) {
   const router = useRouter()
+  const { data: session } = useSession()
+  // Dismissing changes shared alert state, so it needs manage_alerts (enforced by the API too)
+  const canManageAlerts = !!session?.user?.role && hasPermission(session.user.role as UserRole, 'manage_alerts')
+  const canCreatePurchaseOrder =
+    !!session?.user?.role && hasPermission(session.user.role as UserRole, 'manage_purchase_orders')
+  // The API strips pricePerMeter for roles without inventory cost access; hide the field rather than show 0
+  const { canView } = useFieldVisibility()
+  const canViewPrice = canView('inventory', 'pricePerMeter')
   const [alertId, setAlertId] = useState<string | null>(null)
   const [alertData, setAlertData] = useState<AlertData | null>(null)
   const [relatedItem, setRelatedItem] = useState<RelatedItem | null>(null)
@@ -175,14 +186,16 @@ export default function AlertDetailPage({
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-lg font-semibold md:text-2xl">Alert Details</h1>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={handleDismiss}
-            disabled={dismissing}
-          >
-            <X className="mr-2 h-4 w-4" />
-            {dismissing ? 'Dismissing...' : 'Dismiss for 24h'}
-          </Button>
+          {canManageAlerts && (
+            <Button
+              variant="outline"
+              onClick={handleDismiss}
+              disabled={dismissing}
+            >
+              <X className="mr-2 h-4 w-4" />
+              {dismissing ? 'Dismissing...' : 'Dismiss for 24h'}
+            </Button>
+          )}
           <Button variant="outline" asChild>
             <Link href="/alerts">Back to Alerts</Link>
           </Button>
@@ -207,7 +220,7 @@ export default function AlertDetailPage({
         <CardContent>
           <p className="text-slate-700 mb-4">{alertData.message}</p>
           <p className="text-sm text-slate-500">
-            Created: {new Date(alertData.createdAt).toLocaleString('en-IN')}
+            Created: {formatDateTime(alertData.createdAt)}
           </p>
         </CardContent>
       </Card>
@@ -256,10 +269,12 @@ export default function AlertDetailPage({
                   {(relatedItem.currentStock - relatedItem.reserved).toFixed(2)}m
                 </p>
               </div>
-              <div>
-                <p className="text-sm font-medium text-slate-500">Price per Meter</p>
-                <p className="text-lg">{formatCurrency(relatedItem.pricePerMeter)}</p>
-              </div>
+              {canViewPrice && typeof relatedItem.pricePerMeter === 'number' && (
+                <div>
+                  <p className="text-sm font-medium text-slate-500">Price per Meter</p>
+                  <p className="text-lg">{formatCurrency(relatedItem.pricePerMeter)}</p>
+                </div>
+              )}
               {relatedItem.supplierRel && (
                 <>
                   <div>
@@ -275,7 +290,7 @@ export default function AlertDetailPage({
             </div>
 
             <div className="mt-6 flex flex-col sm:flex-row gap-3">
-              {relatedItem.supplierRel && (
+              {relatedItem.supplierRel && canCreatePurchaseOrder && (
                 <Button
                   size="lg"
                   className="bg-green-600 hover:bg-green-700 text-white font-semibold"

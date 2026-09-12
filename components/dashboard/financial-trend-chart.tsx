@@ -13,7 +13,7 @@ import {
   Area,
   ComposedChart,
 } from 'recharts'
-import { formatCurrency } from '@/lib/utils'
+import { formatCompactCurrency, formatCurrency } from '@/lib/utils'
 import { format, parse } from 'date-fns'
 
 interface FinancialTrendData {
@@ -72,7 +72,7 @@ export function FinancialTrendChart({ data }: FinancialTrendChartProps) {
         />
         <YAxis
           tick={{ fontSize: 12 }}
-          tickFormatter={(value) => `₹${(value / 1000).toFixed(0)}k`}
+          tickFormatter={(value) => formatCompactCurrency(value)}
         />
         <Tooltip
           contentStyle={{

@@ -65,7 +65,7 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import DashboardLayout from '@/components/DashboardLayout'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatDate } from '@/lib/utils'
 import { format } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -80,6 +80,7 @@ import {
 } from '@/components/ui/select'
 import { useSession } from 'next-auth/react'
 import { hasPermission } from '@/lib/permissions'
+import { useAppSettings } from '@/components/providers/settings-provider'
 
 interface ExpensesData {
   dateRange: {
@@ -144,6 +145,7 @@ const formatLocalDate = (date: Date) =>
 
 function ExpensesContent() {
   const { data: session } = useSession()
+  const settings = useAppSettings()
   const userRole = session?.user?.role
   const canManageExpenses = userRole && hasPermission(userRole, 'manage_expenses')
   const canDeleteExpenses = userRole && hasPermission(userRole, 'delete_expenses')
@@ -441,7 +443,7 @@ function ExpensesContent() {
                         <TableCell className="font-medium">{order.orderNumber}</TableCell>
                         <TableCell>{order.customerName}</TableCell>
                         <TableCell className="text-sm text-slate-600">
-                          {format(new Date(order.completedDate), 'MMM dd, yyyy')}
+                          {formatDate(order.completedDate, 'medium')}
                         </TableCell>
                         <TableCell className="text-right font-semibold text-green-600">
                           {formatCurrency(order.totalAmount)}
@@ -740,7 +742,7 @@ function ExpensesContent() {
                         </div>
                       </TableCell>
                       <TableCell className="text-sm text-slate-600">
-                        {format(new Date(order.completedDate), 'MMM dd, yyyy')}
+                        {formatDate(order.completedDate, 'medium')}
                       </TableCell>
                       <TableCell className="text-right font-semibold text-green-600">
                         {formatCurrency(order.totalAmount)}
@@ -795,7 +797,7 @@ function ExpensesContent() {
                       </TableCell>
                       <TableCell className="text-sm text-slate-600">{purchase.purchasedBy}</TableCell>
                       <TableCell className="text-sm text-slate-600">
-                        {format(new Date(purchase.createdAt), 'MMM dd, yyyy')}
+                        {formatDate(purchase.createdAt, 'medium')}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -841,7 +843,7 @@ function ExpensesContent() {
                   {data.expenses.map((expense) => (
                     <TableRow key={expense.id}>
                       <TableCell className="text-sm text-slate-600">
-                        {format(new Date(expense.expenseDate), 'MMM dd, yyyy')}
+                        {formatDate(expense.expenseDate, 'medium')}
                       </TableCell>
                       <TableCell>
                         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
@@ -994,7 +996,7 @@ function ExpensesContent() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="vendorGstin">Vendor GSTIN</Label>
+                <Label htmlFor="vendorGstin">Vendor {settings.taxIdLabel}</Label>
                 <Input
                   id="vendorGstin"
                   value={formData.vendorGstin}
@@ -1167,7 +1169,7 @@ function ExpensesContent() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="edit-vendorGstin">Vendor GSTIN</Label>
+                <Label htmlFor="edit-vendorGstin">Vendor {settings.taxIdLabel}</Label>
                 <Input
                   id="edit-vendorGstin"
                   value={formData.vendorGstin}

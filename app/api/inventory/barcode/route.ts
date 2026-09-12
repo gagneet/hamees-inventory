@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requirePermission } from '@/lib/api-permissions'
+import { filterApiResponse } from '@/lib/api-filter-response'
 import { prisma } from '@/lib/db'
 
 // GET lookup item by barcode/SKU
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth()
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { session, error } = await requirePermission('view_inventory')
+    if (error) return error
+    const role = session.user.role
 
     const { searchParams } = new URL(request.url)
     const barcode = searchParams.get('barcode')
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         found: true,
         type: 'cloth',
-        item: clothItem,
+        item: filterApiResponse(clothItem, role, 'inventory'),
       })
     }
 
@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         found: true,
         type: 'accessory',
-        item: accessoryItem,
+        item: filterApiResponse(accessoryItem, role, 'inventory'),
       })
     }
 

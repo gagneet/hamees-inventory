@@ -13,7 +13,8 @@ const templateSchema = z.object({
 
 // GET - List all active templates
 export async function GET() {
-  const { error } = await requireAnyPermission(['view_inventory'])
+  // Templates are used when messaging customers
+  const { error } = await requireAnyPermission(['view_customers', 'manage_settings'])
   if (error) return error
 
   try {

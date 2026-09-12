@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useFieldVisibility } from '@/hooks/use-field-visibility'
-import { format } from 'date-fns'
 import { Calendar, CreditCard, CheckCircle, XCircle, Clock, AlertCircle } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -12,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatDate } from '@/lib/utils'
 
 interface PaymentInstallment {
   id: string
@@ -168,7 +167,7 @@ export function PaymentInstallments({ orderId, balanceAmount }: PaymentInstallme
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-slate-400" />
-                      {format(new Date(installment.dueDate), 'MMM dd, yyyy')}
+                      {formatDate(installment.dueDate, 'medium')}
                     </div>
                   </TableCell>
                   <TableCell className="text-right font-semibold">

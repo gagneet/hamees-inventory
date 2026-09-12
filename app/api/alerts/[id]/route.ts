@@ -1,21 +1,23 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { requirePermission } from '@/lib/api-permissions'
+import { hasPermission } from '@/lib/permissions'
+import { filterObjectByRole } from '@/lib/field-acl'
+import { alertVisibilityScope } from '@/lib/alert-scope'
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { session, error } = await requirePermission('view_alerts')
+    if (error) return error
+    const role = session.user.role
 
     const { id } = await params
 
-    const alert = await prisma.alert.findUnique({
-      where: { id },
+    const alert = await prisma.alert.findFirst({
+      where: { AND: [{ id }, alertVisibilityScope(role)] },
     })
 
     if (!alert) {
@@ -23,8 +25,8 @@ export async function GET(
     }
 
     let relatedItem = null
-    if (alert.relatedType === 'INVENTORY' && alert.relatedId) {
-      relatedItem = await prisma.clothInventory.findUnique({
+    if ((alert.relatedType === 'cloth' || alert.relatedType === 'INVENTORY') && alert.relatedId) {
+      const cloth = await prisma.clothInventory.findUnique({
         where: { id: alert.relatedId },
         include: {
           supplierRel: {
@@ -37,13 +39,16 @@ export async function GET(
           },
         },
       })
+      relatedItem = cloth ? filterObjectByRole(cloth, role, 'inventory') : null
     }
 
-    // Mark as read
-    await prisma.alert.update({
-      where: { id },
-      data: { isRead: true },
-    })
+    // Opening an alert marks it read — only for roles that manage alerts
+    if (!alert.isRead && hasPermission(role, 'manage_alerts')) {
+      await prisma.alert.update({
+        where: { id },
+        data: { isRead: true },
+      })
+    }
 
     return NextResponse.json({ alert, relatedItem })
   } catch (error) {

@@ -8,7 +8,9 @@ import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
-import { formatCurrency } from '@/lib/utils'
+import { hasFinancialAccess } from '@/lib/field-acl'
+import type { UserRole } from '@/lib/permissions'
+import { formatCurrency, currencySymbol } from '@/lib/utils'
 import { Package, Save, X, ExternalLink } from 'lucide-react'
 
 interface ClothItem {
@@ -56,7 +58,8 @@ export function ItemEditDialog({ isOpen, onClose, itemType, item, userRole }: It
   const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState(item)
 
-  const isTailor = userRole === 'TAILOR'
+  // Prices are only visible to roles with inventory financial access (lib/field-acl)
+  const showPricing = userRole ? hasFinancialAccess(userRole as UserRole, 'inventory') : false
 
   const getStockStatus = (current: number, reserved: number, minimum: number) => {
     const available = current - (reserved || 0)
@@ -268,10 +271,10 @@ export function ItemEditDialog({ isOpen, onClose, itemType, item, userRole }: It
             </div>
 
             {/* Price and Location */}
-            {!isTailor && (
+            {showPricing && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-pricePerMeter">Price per Meter (₹) *</Label>
+                  <Label htmlFor="edit-pricePerMeter">Price per Meter ({currencySymbol()}) *</Label>
                   <Input
                     id="edit-pricePerMeter"
                     type="number"
@@ -427,9 +430,9 @@ export function ItemEditDialog({ isOpen, onClose, itemType, item, userRole }: It
           </div>
 
           {/* Price */}
-          {!isTailor && (
+          {showPricing && (
             <div className="space-y-2">
-              <Label htmlFor="edit-acc-pricePerUnit">Price per Unit (₹) *</Label>
+              <Label htmlFor="edit-acc-pricePerUnit">Price per Unit ({currencySymbol()}) *</Label>
               <Input
                 id="edit-acc-pricePerUnit"
                 type="number"

@@ -15,6 +15,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { currencySymbol } from '@/lib/utils'
 
 interface ClothEditFormProps {
   clothId: string
@@ -239,7 +240,7 @@ export function ClothEditForm({ clothId, onSuccess, onCancel }: ClothEditFormPro
           </div>
 
           <div>
-            <Label htmlFor="pricePerMeter">Price per Meter (₹) *</Label>
+            <Label htmlFor="pricePerMeter">Price per Meter ({currencySymbol()}) *</Label>
             <Input
               id="pricePerMeter"
               type="number"

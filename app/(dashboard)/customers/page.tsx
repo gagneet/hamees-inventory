@@ -32,6 +32,7 @@ import { PermissionGuard } from '@/components/auth/permission-guard'
 import DashboardLayout from '@/components/DashboardLayout'
 import { Pagination } from '@/components/ui/pagination'
 import { CustomerOrdersDialog } from '@/components/customers/customer-orders-dialog'
+import { formatDate } from '@/lib/utils'
 
 interface CustomerSummary {
   id: string
@@ -269,7 +270,7 @@ export default function CustomersPage() {
                     {customer.measurements && customer.measurements.length > 0 && (
                       <div className="mt-4 pt-4 border-t border-slate-200">
                         <p className="text-xs text-slate-500">
-                          Last measured: {new Date(customer.measurements[0].createdAt).toLocaleDateString()}
+                          Last measured: {formatDate(customer.measurements[0].createdAt)}
                         </p>
                       </div>
                     )}

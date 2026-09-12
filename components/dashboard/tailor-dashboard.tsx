@@ -24,7 +24,6 @@ interface Order {
   orderNumber: string
   deliveryDate: string | Date
   status: string
-  totalAmount: number
   customer: {
     name: string
   }
@@ -45,6 +44,9 @@ interface TailorDashboardProps {
     overdueList: Order[]
     workloadByGarment: Array<{ name: string; count: number }>
     upcomingDeadlines: any[]
+    /** Items (assigned to this user) moved to READY today. */
+    completedToday?: number
+    /** From shop settings (tailorDailyTarget). */
     dailyTarget: number
   }
 }
@@ -122,20 +124,20 @@ export function TailorDashboard({ stats }: TailorDashboardProps) {
       <div className="grid gap-6 md:grid-cols-2">
         <OrderListDialog
           title="Orders Due Today"
-          description={`Your daily target is ${stats.dailyTarget} orders. You have ${stats.dueToday} due today.`}
+          description={`Your daily target is ${stats.dailyTarget} items. You have completed ${stats.completedToday ?? 0} today and ${stats.dueToday} ${stats.dueToday === 1 ? 'order is' : 'orders are'} due today.`}
           orders={stats.dueTodayList}
           emptyMessage="No orders due today"
           trigger={
             <Card className="cursor-pointer hover:shadow-lg transition-shadow">
               <CardHeader>
                 <CardTitle>Daily Target Progress</CardTitle>
-                <CardDescription>Garments ready for pickup today · Click for details</CardDescription>
+                <CardDescription>Your items finished (moved to Ready) today · Click for today&apos;s due orders</CardDescription>
               </CardHeader>
               <CardContent className="flex justify-center items-center py-4">
                 <RadialProgress
-                  current={stats.dueToday}
-                  target={stats.dailyTarget}
-                  label="Ready Today"
+                  current={stats.completedToday ?? 0}
+                  target={Math.max(1, stats.dailyTarget)}
+                  label="Completed Today"
                 />
               </CardContent>
             </Card>

@@ -2,7 +2,6 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { useSession } from 'next-auth/react'
 import { useFieldVisibility } from '@/hooks/use-field-visibility'
 import Link from 'next/link'
 import { ShoppingBag, Plus, Filter, Home, X, DollarSign, LayoutList, Table2 } from 'lucide-react'
@@ -21,6 +20,7 @@ import { PermissionGuard } from '@/components/auth/permission-guard'
 import { OrderStatus } from '@/lib/types'
 import DashboardLayout from '@/components/DashboardLayout'
 import { Pagination } from '@/components/ui/pagination'
+import { currencySymbol, formatCurrency, formatDateWith } from '@/lib/utils'
 
 const statusColors: Record<OrderStatus, { bg: string; text: string; border: string }> = {
   NEW: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
@@ -46,7 +46,6 @@ const statusLabels: Record<OrderStatus, string> = {
 
 function OrdersContent() {
   const searchParams = useSearchParams()
-  const { data: session } = useSession()
   const { canView } = useFieldVisibility()
   const [orders, setOrders] = useState<Array<{
     id: string
@@ -74,8 +73,9 @@ function OrdersContent() {
   const [fabrics, setFabrics] = useState<Array<{ id: string; name: string; color?: string | null }>>([])
   const [loading, setLoading] = useState(true)
 
-  // Check if user is a Tailor (hide pricing information)
-  const isTailor = session?.user?.role === 'TAILOR'
+  // Order amounts are only shown to roles with order financial visibility (lib/field-acl)
+  const showAmounts = canView('order', 'totalAmount')
+  const showBalance = canView('order', 'balanceAmount')
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1)
@@ -243,7 +243,7 @@ function OrdersContent() {
           <p className="text-xs md:text-sm text-slate-600 dark:text-slate-300">{orders.length} total orders</p>
         </div>
         <div className="flex gap-2">
-          {!isTailor && (
+          {showBalance && (
             <Button
               size="sm"
               variant={balanceOutstanding ? "default" : "outline"}
@@ -365,10 +365,10 @@ function OrdersContent() {
                       </select>
                     </div>
 
-                    {/* Min Amount - Hidden for Tailor */}
-                    {!isTailor && (
+                    {/* Min Amount - financial roles only */}
+                    {showAmounts && (
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">Min Amount (₹)</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">Min Amount ({currencySymbol()})</label>
                         <input
                           type="number"
                           placeholder="0"
@@ -379,10 +379,10 @@ function OrdersContent() {
                       </div>
                     )}
 
-                    {/* Max Amount - Hidden for Tailor */}
-                    {!isTailor && (
+                    {/* Max Amount - financial roles only */}
+                    {showAmounts && (
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 mb-2">Max Amount (₹)</label>
+                        <label className="block text-sm font-medium text-slate-700 mb-2">Max Amount ({currencySymbol()})</label>
                         <input
                           type="number"
                           placeholder="999999"
@@ -428,8 +428,8 @@ function OrdersContent() {
                       </label>
                     </div>
 
-                    {/* Balance Outstanding Checkbox - Hidden for Tailor */}
-                    {!isTailor && (
+                    {/* Balance Outstanding Checkbox - financial roles only */}
+                    {showBalance && (
                       <div className="flex items-end">
                         <label className="flex items-center gap-2 cursor-pointer">
                           <input
@@ -504,7 +504,7 @@ function OrdersContent() {
                         <th className="px-4 py-3">Garments</th>
                         <th className="px-4 py-3">Status</th>
                         <th className="px-4 py-3">Delivery</th>
-                        {!isTailor && <th className="px-4 py-3 text-right">Balance</th>}
+                        {showBalance && <th className="px-4 py-3 text-right">Balance</th>}
                       </tr>
                     </thead>
                     <tbody>
@@ -542,12 +542,12 @@ function OrdersContent() {
                               </span>
                             </td>
                             <td className={`px-4 py-2.5 text-xs font-medium ${overdue ? 'text-red-600' : 'text-slate-600'}`}>
-                              {deliveryDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                              {formatDateWith(deliveryDate, { day: '2-digit', month: 'short' })}
                               {overdue && ' ⚠'}
                             </td>
-                            {!isTailor && canView('order', 'balanceAmount') && (
+                            {showBalance && (
                               <td className={`px-4 py-2.5 text-right text-xs font-semibold ${arrears ? 'text-red-600' : order.balanceAmount > 0.01 ? 'text-orange-600' : 'text-green-600'}`}>
-                                ₹{Math.max(0, order.balanceAmount).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                {formatCurrency(Math.max(0, order.balanceAmount), { decimals: 0 })}
                               </td>
                             )}
                           </tr>
@@ -595,20 +595,20 @@ function OrdersContent() {
                       </div>
                     </CardHeader>
                     <CardContent>
-                      <div className={`grid ${isTailor ? 'grid-cols-2 md:grid-cols-3' : 'grid-cols-2 md:grid-cols-4'} gap-4 text-sm`}>
-                        {!isTailor && canView('order', 'totalAmount') && (
+                      <div className={`grid ${showAmounts ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-3'} gap-4 text-sm`}>
+                        {showAmounts && (
                           <>
                             <div>
                               <p className="text-slate-500 mb-1">Total Amount</p>
                               <p className="font-semibold text-slate-900">
-                                ₹{order.totalAmount.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                {formatCurrency(order.totalAmount)}
                               </p>
                             </div>
-                            {canView('order', 'balanceAmount') && (
+                            {showBalance && (
                             <div>
                               <p className="text-slate-500 mb-1">Balance</p>
                               <p className={`font-semibold ${isArrears ? 'text-red-600' : order.balanceAmount > 0.01 ? 'text-orange-600' : 'text-green-600'}`}>
-                                ₹{Math.max(0, order.balanceAmount).toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                {formatCurrency(Math.max(0, order.balanceAmount))}
                               </p>
                             </div>
                             )}
@@ -617,7 +617,7 @@ function OrdersContent() {
                         <div>
                           <p className="text-slate-500 mb-1">Delivery Date</p>
                           <p className={`font-semibold ${isOverdue ? 'text-red-600' : 'text-slate-900'}`}>
-                            {deliveryDate.toLocaleDateString('en-IN', {
+                            {formatDateWith(deliveryDate, {
                               year: 'numeric',
                               month: '2-digit',
                               day: '2-digit'

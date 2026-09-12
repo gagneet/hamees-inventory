@@ -24,10 +24,10 @@ Successfully resolved critical database connection issue preventing user sign-in
 **Database Connection** (`.env`):
 ```bash
 # Before
-DATABASE_URL="postgresql://hamees_user:hamees_secure_2026@localhost:5432/tailor_inventory?schema=public"
+DATABASE_URL="postgresql://hamees_user:<REDACTED_DB_PASSWORD>@localhost:5432/tailor_inventory?schema=public"
 
 # After
-DATABASE_URL="postgresql://hamees_user:hamees_secure_2026@/tailor_inventory?host=/var/run/postgresql&schema=public"
+DATABASE_URL="postgresql://hamees_user:<REDACTED_DB_PASSWORD>@/tailor_inventory?host=/var/run/postgresql&schema=public"
 ```
 
 **Benefits**:
@@ -228,7 +228,7 @@ If issues occur, rollback steps:
 
 1. **Revert DATABASE_URL** (`.env`):
    ```bash
-   DATABASE_URL="postgresql://hamees_user:hamees_secure_2026@localhost:5432/tailor_inventory?schema=public"
+   DATABASE_URL="postgresql://hamees_user:<REDACTED_DB_PASSWORD>@localhost:5432/tailor_inventory?schema=public"
    ```
 
 2. **Ensure firewall allows localhost**:
@@ -314,7 +314,7 @@ pm2 logs hamees-inventory --lines 100 --nostream
 pm2 restart hamees-inventory --update-env
 
 # Test database connection
-PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -c "SELECT COUNT(*) FROM \"User\";"
+PGPASSWORD=<REDACTED_DB_PASSWORD> psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -c "SELECT COUNT(*) FROM \"User\";"
 ```
 
 ### Documentation

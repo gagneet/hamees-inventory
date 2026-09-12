@@ -28,7 +28,7 @@
 ### Database Configuration
 - **Database**: `tailor_inventory`
 - **User**: `hamees_user`
-- **Password**: `hamees_secure_2026`
+- **Password**: `<REDACTED_DB_PASSWORD>`
 - **Socket**: `/var/run/postgresql/.s.PGSQL.5432`
 
 ### Diagnostic Timeline
@@ -36,7 +36,7 @@
 1. **Initial Investigation** (11:25 UTC)
    - Attempted database connection test:
      ```bash
-     PGPASSWORD=hamees_secure_2026 psql -h localhost -U hamees_user -d tailor_inventory
+     PGPASSWORD=<REDACTED_DB_PASSWORD> psql -h localhost -U hamees_user -d tailor_inventory
      # Result: psql: error: connection to server at "localhost" (127.0.0.1), port 5432 failed: No route to host
      ```
 
@@ -68,13 +68,13 @@
 
 **Before** (`.env`):
 ```bash
-DATABASE_URL="postgresql://hamees_user:hamees_secure_2026@localhost:5432/tailor_inventory?schema=public"
+DATABASE_URL="postgresql://hamees_user:<REDACTED_DB_PASSWORD>@localhost:5432/tailor_inventory?schema=public"
 ```
 
 **After** (`.env`):
 ```bash
 # Using Unix socket to bypass firewall/network issues
-DATABASE_URL="postgresql://hamees_user:hamees_secure_2026@/tailor_inventory?host=/var/run/postgresql&schema=public"
+DATABASE_URL="postgresql://hamees_user:<REDACTED_DB_PASSWORD>@/tailor_inventory?host=/var/run/postgresql&schema=public"
 ```
 
 **Why This Works**:
@@ -146,7 +146,7 @@ pm2 save
 ```javascript
 const { Pool } = require('pg');
 const pool = new Pool({
-  connectionString: "postgresql://hamees_user:hamees_secure_2026@/tailor_inventory?host=/var/run/postgresql&schema=public"
+  connectionString: "postgresql://hamees_user:<REDACTED_DB_PASSWORD>@/tailor_inventory?host=/var/run/postgresql&schema=public"
 });
 
 pool.query('SELECT COUNT(*) FROM "User"')
@@ -199,9 +199,9 @@ curl -s https://hamees.gagneet.com | grep -i "hamees"
 
 ### 1. `.env`
 ```diff
-- DATABASE_URL="postgresql://hamees_user:hamees_secure_2026@localhost:5432/tailor_inventory?schema=public"
+- DATABASE_URL="postgresql://hamees_user:<REDACTED_DB_PASSWORD>@localhost:5432/tailor_inventory?schema=public"
 + # Using Unix socket to bypass firewall/network issues
-+ DATABASE_URL="postgresql://hamees_user:hamees_secure_2026@/tailor_inventory?host=/var/run/postgresql&schema=public"
++ DATABASE_URL="postgresql://hamees_user:<REDACTED_DB_PASSWORD>@/tailor_inventory?host=/var/run/postgresql&schema=public"
 ```
 
 ### 2. `/etc/postgresql/16/main/pg_hba.conf`

@@ -1,21 +1,29 @@
 /**
  * @featuretrace Order Detail
  * @page /orders/[id]
- * @permission view_orders
+ * @permission view_orders (+ object-level scope: TAILOR sees only orders with an item assigned to them)
  * @description Server-rendered order detail page. Shows full order summary, status pipeline,
  *   payment installments, order items with inline measurements, tailor notes, activity log.
  *   Primary actions: Update Status | Record Payment | Print Invoice | Send WhatsApp.
  *
- * @reads Order (full) + items + customer + stockMovements + orderHistory + measurements
+ * @reads Order (full) + items + customer + orderHistory + measurements
  * @renders OrderActions | PaymentInstallments | OrderHistory | OrderItemDetailDialog
- * @actions update_order_status (TAILOR+) | manage_payments (SALES_MANAGER+) | print | WhatsApp
+ * @actions update_order_status | update_order | record_payment | assign_tailors | print | WhatsApp
+ *
+ * Security: out-of-scope orders return 404 (no existence leak). Financial values are only
+ * serialized to the client for roles with financial visibility (lib/field-acl), so restricted
+ * roles never receive prices in the RSC payload.
  */
 
+import type { Prisma } from '@prisma/client'
 import { auth } from '@/lib/auth'
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { prisma } from '@/lib/db'
-import { canViewField } from '@/lib/field-acl'
+import { actorFromSession, orderScope, scopedWhere } from '@/lib/authz'
+import { hasFinancialAccess, isFinancialField } from '@/lib/field-acl'
+import { hasPermission, type UserRole } from '@/lib/permissions'
+import { getAppSettings } from '@/lib/settings'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -28,7 +36,8 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import { Home, ArrowLeft, ShoppingBag, User, Calendar, DollarSign, Phone, Mail, Ruler } from 'lucide-react'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatDate } from '@/lib/utils'
+import { currencySymbol, getActiveLocaleConfig } from '@/lib/locale'
 import DashboardLayout from '@/components/DashboardLayout'
 import { OrderActions } from '@/components/orders/order-actions'
 import { OrderHistory } from '@/components/orders/order-history'
@@ -44,10 +53,10 @@ import { AssignTailorDialog } from '@/components/orders/assign-tailor-dialog'
 import { SendWhatsAppButton } from '@/components/orders/send-whatsapp-button'
 import { OrderItemMeasurements } from '@/components/orders/order-item-measurements'
 
-async function getOrderDetails(id: string) {
+async function getOrderDetails(id: string, scope: Prisma.OrderWhereInput) {
   try {
-    const order = await prisma.order.findUnique({
-      where: { id },
+    const order = await prisma.order.findFirst({
+      where: scopedWhere<Prisma.OrderWhereInput>({ id }, scope),
       select: {
         id: true,
         orderNumber: true,
@@ -119,7 +128,6 @@ async function getOrderDetails(id: string) {
               select: {
                 id: true,
                 name: true,
-                email: true,
               },
             },
           },
@@ -129,7 +137,6 @@ async function getOrderDetails(id: string) {
             user: {
               select: {
                 name: true,
-                email: true,
               },
             },
           },
@@ -167,24 +174,68 @@ type OrderItem = OrderDetails['items'][number]
 type OrderInstallment = OrderDetails['installments'][number]
 type OrderHistoryEntry = OrderDetails['history'][number]
 
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/**
+ * Currency amounts embedded in free-text history descriptions: the shop currency's symbol and ISO code
+ * (e.g. "AED 1,200", "1.200 €"), plus common symbols that older entries may contain. A token only matches
+ * when a number follows or precedes it directly, so order numbers like "ORD-2026-0012" survive.
+ */
+function currencyAmountPattern(): RegExp {
+  const config = getActiveLocaleConfig()
+  const tokens = Array.from(new Set(['₹', '$', '€', '£', '¥', 'Rs.', 'Rs', currencySymbol(config), config.currency]))
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length)
+    .map(escapeRegExp)
+    .join('|')
+  const amount = '-?\\d[\\d.,]*'
+  return new RegExp(`(?:${tokens})\\s?${amount}|${amount}\\s?(?:${tokens})`, 'g')
+}
+
+/** Remove payment entries and monetary values from the activity log for roles without order financials. */
+function redactHistory(history: OrderHistoryEntry[], showFinancials: boolean): OrderHistoryEntry[] {
+  if (showFinancials) return history
+  const CURRENCY_AMOUNT = currencyAmountPattern()
+  return history
+    .filter((h) => h.changeType !== 'PAYMENT_RECORDED' && !(h.fieldName && isFinancialField(h.fieldName)))
+    .map((h) => ({ ...h, description: h.description.replace(CURRENCY_AMOUNT, '•••') }))
+}
+
 export default async function OrderDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>
 }) {
   const session = await auth()
-  if (!session?.user) redirect('/')
+  const actor = actorFromSession(session)
+  if (!session?.user || !actor) redirect('/')
 
-  // Check if user is a Tailor (hide pricing information)
-  const isTailor = session.user.role === 'TAILOR'
-  const canViewFinancial = canViewField(session.user.role as any, 'order', 'totalAmount')
+  const role = session.user.role as UserRole
+  if (!hasPermission(role, 'view_orders')) redirect('/dashboard?denied=1')
+
+  // Prime currency / locale / tax formatting for this render
+  await getAppSettings()
+
+  const showOrderFinancials = hasFinancialAccess(role, 'order')
+  const showItemPricing = hasFinancialAccess(role, 'order_item')
+  const showInventoryPricing = hasFinancialAccess(role, 'inventory')
+  const showPayments = showOrderFinancials && hasFinancialAccess(role, 'payment')
+  const canEditOrder = hasPermission(role, 'update_order')
+  const canUpdateStatus = hasPermission(role, 'update_order_status')
+  const canRecordPayment = hasPermission(role, 'record_payment')
+  const canAssignTailors = hasPermission(role, 'assign_tailors')
+  const canManageMeasurements = hasPermission(role, 'manage_measurements')
+  // Customer messaging is a front-office action (sales / owner / admin)
+  const canMessageCustomer = hasPermission(role, 'update_order')
 
   const { id } = await params
-  const order = await getOrderDetails(id)
+  const order = await getOrderDetails(id, orderScope(actor))
 
-  if (!order) {
-    redirect('/orders')
-  }
+  // Out-of-scope and missing orders are indistinguishable to the caller
+  if (!order) notFound()
+
+  const isClosed = order.status === 'DELIVERED' || order.status === 'CANCELLED'
+  const history = redactHistory(order.history, showOrderFinancials)
 
   const statusColors: Record<string, { bg: string; text: string; border: string }> = {
     NEW: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
@@ -210,8 +261,8 @@ export default async function OrderDetailPage({
 
   const statusStyle = statusColors[order.status as keyof typeof statusColors]
   const deliveryDate = new Date(order.deliveryDate)
-  const isOverdue = deliveryDate < new Date() && order.status !== 'DELIVERED' && order.status !== 'CANCELLED'
-  // Use 0.01 threshold (1 paisa) to avoid floating-point precision errors
+  const isOverdue = deliveryDate < new Date() && !isClosed
+  // Use 0.01 threshold to avoid floating-point precision errors
   const isArrears = order.status === 'DELIVERED' && order.balanceAmount > 0.01
 
   // Calculate total paid from installments and verify consistency
@@ -226,9 +277,9 @@ export default async function OrderDetailPage({
   if (Math.abs(advanceFromInstallment - order.advancePaid) > 0.01) {
     console.warn(
       `⚠️ Order ${order.orderNumber}: Advance payment mismatch detected!\n` +
-      `  Order.advancePaid: ₹${order.advancePaid.toFixed(2)}\n` +
-      `  Installment #1 paidAmount: ₹${advanceFromInstallment.toFixed(2)}\n` +
-      `  Difference: ₹${Math.abs(advanceFromInstallment - order.advancePaid).toFixed(2)}`
+      `  Order.advancePaid: ${formatCurrency(order.advancePaid)}\n` +
+      `  Installment #1 paidAmount: ${formatCurrency(advanceFromInstallment)}\n` +
+      `  Difference: ${formatCurrency(Math.abs(advanceFromInstallment - order.advancePaid))}`
     )
   }
 
@@ -242,9 +293,9 @@ export default async function OrderDetailPage({
   if (Math.abs(expectedBalance - order.balanceAmount) > 0.01) {
     console.warn(
       `⚠️ Order ${order.orderNumber}: Balance calculation mismatch!\n` +
-      `  Expected: ₹${expectedBalance.toFixed(2)}\n` +
-      `  Actual: ₹${order.balanceAmount.toFixed(2)}\n` +
-      `  Difference: ₹${Math.abs(expectedBalance - order.balanceAmount).toFixed(2)}`
+      `  Expected: ${formatCurrency(expectedBalance)}\n` +
+      `  Actual: ${formatCurrency(order.balanceAmount)}\n` +
+      `  Difference: ${formatCurrency(Math.abs(expectedBalance - order.balanceAmount))}`
     )
   }
 
@@ -279,7 +330,7 @@ export default async function OrderDetailPage({
           <div>
             <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">{order.orderNumber}</h1>
             <p className="text-xs md:text-sm text-slate-600 dark:text-slate-300">
-              Ordered on {new Date(order.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
+              Ordered on {formatDate(order.createdAt, 'medium')}
             </p>
           </div>
         </div>
@@ -327,7 +378,7 @@ export default async function OrderDetailPage({
                         </div>
                         </div>
                         <div className="flex flex-col items-end gap-2">
-                          {!isTailor && (
+                          {showItemPricing && (
                             <div className="text-right">
                               <p className="font-semibold text-slate-900">
                                 {formatCurrency(item.totalPrice)}
@@ -355,6 +406,8 @@ export default async function OrderDetailPage({
                                 },
                                 clothInventory: {
                                   ...item.clothInventory,
+                                  // Never serialize fabric cost to roles without inventory pricing
+                                  pricePerMeter: showInventoryPricing ? item.clothInventory.pricePerMeter : 0,
                                   location: item.clothInventory.location || undefined,
                                 },
                                 measurement: item.measurement ? {
@@ -390,7 +443,7 @@ export default async function OrderDetailPage({
                                     id: order.customer.id,
                                     name: order.customer.name,
                                   },
-                                  history: order.history.map((h: OrderHistoryEntry) => ({
+                                  history: history.map((h: OrderHistoryEntry) => ({
                                     id: h.id,
                                     changeType: h.changeType,
                                     oldValue: h.oldValue || undefined,
@@ -404,16 +457,19 @@ export default async function OrderDetailPage({
                                 },
                               }}
                             />
-                            <OrderItemEdit
-                              orderId={order.id}
-                              itemId={item.id}
-                              currentGarmentPatternId={item.garmentPattern.id}
-                              currentClothInventoryId={item.clothInventory.id}
-                              currentGarmentName={item.garmentPattern.name}
-                              currentClothName={`${item.clothInventory.name} (${item.clothInventory.color})`}
-                              currentPrice={item.totalPrice}
-                              currentPricePerUnit={item.pricePerUnit}
-                            />
+                            {canEditOrder && !isClosed && (
+                              <OrderItemEdit
+                                orderId={order.id}
+                                itemId={item.id}
+                                currentGarmentPatternId={item.garmentPattern.id}
+                                currentClothInventoryId={item.clothInventory.id}
+                                currentGarmentName={item.garmentPattern.name}
+                                currentClothName={`${item.clothInventory.name} (${item.clothInventory.color})`}
+                                currentPrice={showItemPricing ? item.totalPrice : 0}
+                                currentPricePerUnit={showItemPricing ? item.pricePerUnit : 0}
+                                showPricing={showItemPricing}
+                              />
+                            )}
                           </div>
                         </div>
                       </div>
@@ -448,7 +504,7 @@ export default async function OrderDetailPage({
                               <p className="text-sm text-slate-500">Not assigned yet</p>
                             )}
                           </div>
-                          {order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
+                          {canAssignTailors && !isClosed && (
                             <AssignTailorDialog
                               orderId={order.id}
                               itemId={item.id}
@@ -469,10 +525,9 @@ export default async function OrderDetailPage({
                       <OrderItemMeasurements
                         measurement={item.measurement}
                         garmentType={item.garmentPattern.name}
-                        defaultExpanded={isTailor}
+                        defaultExpanded={!canEditOrder}
                       />
-                      {/* Edit measurements button — managers / admins only */}
-                      {!isTailor && (
+                      {canManageMeasurements && (
                         <div className="mt-1 flex justify-end">
                           {item.measurement ? (
                             <EditMeasurementDialog
@@ -559,8 +614,8 @@ export default async function OrderDetailPage({
 
         {/* Right Column - Summary & Dates */}
         <div className="space-y-6">
-          {/* Payment Summary - Hidden for Tailor and non-OWNER/ADMIN */}
-          {!isTailor && canViewFinancial && (
+          {/* Payment Summary - only for roles with order financial visibility */}
+          {showOrderFinancials && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -631,17 +686,13 @@ export default async function OrderDetailPage({
               <div>
                 <p className="text-sm text-slate-500">Order Date</p>
                 <p className="font-medium text-slate-900">
-                  {new Date(order.createdAt).toLocaleDateString('en-IN', {
-                    dateStyle: 'medium',
-                  })}
+                  {formatDate(order.createdAt, 'medium')}
                 </p>
               </div>
               <div>
                 <p className="text-sm text-slate-500">Delivery Date</p>
                 <p className={`font-medium ${isOverdue ? 'text-red-600' : 'text-slate-900'}`}>
-                  {deliveryDate.toLocaleDateString('en-IN', {
-                    dateStyle: 'medium',
-                  })}
+                  {formatDate(deliveryDate, 'medium')}
                   {isOverdue && ' (Overdue)'}
                 </p>
               </div>
@@ -649,9 +700,7 @@ export default async function OrderDetailPage({
                 <div>
                   <p className="text-sm text-slate-500">Completed On</p>
                   <p className="font-medium text-green-600">
-                    {new Date(order.completedDate).toLocaleDateString('en-IN', {
-                      dateStyle: 'medium',
-                    })}
+                    {formatDate(order.completedDate, 'medium')}
                   </p>
                 </div>
               )}
@@ -680,17 +729,20 @@ export default async function OrderDetailPage({
                 orderId={order.id}
                 currentStatus={order.status}
                 deliveryDate={order.deliveryDate.toISOString()}
-                advancePaid={order.advancePaid}
-                discount={order.discount || 0}
-                discountReason={order.discountReason}
+                advancePaid={showOrderFinancials ? order.advancePaid : 0}
+                discount={showOrderFinancials ? order.discount || 0 : 0}
+                discountReason={showOrderFinancials ? order.discountReason : null}
                 notes={order.notes}
                 priority={order.priority}
-                totalAmount={order.totalAmount}
-                balanceAmount={order.balanceAmount}
-                userRole={session.user.role}
-                isDelivered={order.status === 'DELIVERED'}
+                totalAmount={showOrderFinancials ? order.totalAmount : 0}
+                balanceAmount={showOrderFinancials ? order.balanceAmount : 0}
+                canUpdateStatus={canUpdateStatus}
+                canEditOrder={canEditOrder}
+                canRecordPayment={canRecordPayment && showOrderFinancials}
+                showFinancials={showOrderFinancials}
+                isDelivered={isClosed}
               />
-              {order.items.length > 1 && order.status !== 'DELIVERED' && order.status !== 'CANCELLED' && (
+              {canEditOrder && order.items.length > 1 && !isClosed && (
                 <SplitOrderDialog
                   orderId={order.id}
                   orderNumber={order.orderNumber}
@@ -705,20 +757,22 @@ export default async function OrderDetailPage({
                     },
                     quantityOrdered: item.quantityOrdered,
                     estimatedMeters: item.estimatedMeters,
-                    totalPrice: item.totalPrice
+                    totalPrice: showOrderFinancials ? item.totalPrice : 0
                   }))}
                   currentDeliveryDate={order.deliveryDate}
-                  orderSubTotal={order.subTotal}
+                  orderSubTotal={showOrderFinancials ? order.subTotal : 0}
+                  taxRate={showOrderFinancials ? order.gstRate : 0}
+                  showPricing={showOrderFinancials}
                 />
               )}
-              {!isTailor && order.balanceAmount > 0.01 && order.status !== 'CANCELLED' && (
+              {canRecordPayment && showOrderFinancials && order.balanceAmount > 0.01 && order.status !== 'CANCELLED' && (
                 <RecordPaymentDialog
                   orderId={order.id}
                   orderNumber={order.orderNumber}
                   balanceAmount={order.balanceAmount}
                 />
               )}
-              {!isTailor && (
+              {showOrderFinancials && (
                 <PrintInvoiceButton
                   order={{
                     orderNumber: order.orderNumber,
@@ -732,6 +786,7 @@ export default async function OrderDetailPage({
                     gstRate: order.gstRate,
                     cgst: order.cgst,
                     sgst: order.sgst,
+                    igst: order.igst,
                     gstAmount: order.gstAmount,
                     totalAmount: order.totalAmount,
                     advancePaid: order.advancePaid,
@@ -741,29 +796,31 @@ export default async function OrderDetailPage({
                   }}
                 />
               )}
-              <SendWhatsAppButton
-                orderId={order.id}
-                orderNumber={order.orderNumber}
-                customerPhone={order.customer.phone}
-                customerName={order.customer.name}
-                orderStatus={order.status}
-              />
+              {canMessageCustomer && (
+                <SendWhatsAppButton
+                  orderId={order.id}
+                  orderNumber={order.orderNumber}
+                  customerPhone={order.customer.phone}
+                  customerName={order.customer.name}
+                  orderStatus={order.status}
+                />
+              )}
             </CardContent>
           </Card>
         </div>
       </div>
 
-      {/* Payment Installments - Hidden for Tailor */}
-      {!isTailor && order.installments.length > 0 && (
+      {/* Payment Installments - financial roles only */}
+      {showPayments && order.installments.length > 0 && (
         <div className="mt-6">
           <PaymentInstallments orderId={order.id} balanceAmount={order.balanceAmount} />
         </div>
       )}
 
       {/* Order History */}
-      {order.history && order.history.length > 0 && (
+      {history.length > 0 && (
         <div className="mt-6">
-          <OrderHistory history={order.history} />
+          <OrderHistory history={history} />
         </div>
       )}
     </DashboardLayout>

@@ -18,8 +18,8 @@ pnpm start            # Start prod server (port 3009)
 pnpm lint             # ESLint
 
 # Database
-pnpm db:push          # Push schema changes (dev only, no migration files)
-pnpm db:migrate       # Create + run migration (production-ready)
+pnpm db:migrate       # Create + apply a migration in development (prisma migrate dev); commit the folder
+pnpm db:push          # Quick dev-only schema sync — creates drift against prisma/migrations; prefer db:migrate
 pnpm db:seed          # Basic sample data (prisma/seed.ts)
 pnpm db:reset         # Reset database and reseed
 pnpm db:studio        # Prisma Studio at http://localhost:5555
@@ -45,17 +45,26 @@ To run a single test file: `pnpm vitest run tests/unit/lib/permissions.test.ts`
 ### Route Structure
 
 - `app/page.tsx` — Login page (public)
-- `app/(dashboard)/` — All protected routes (middleware guards this path group)
+- `app/(dashboard)/` — All protected routes. `proxy.ts` redirects signed-out visitors; `app/(dashboard)/layout.tsx` requires a session and mounts `SettingsProvider`; each section has a `layout.tsx` calling `requirePagePermission()` (`lib/page-guard.ts`)
   - `dashboard/`, `inventory/`, `orders/`, `customers/`, `garment-types/`, `purchase-orders/`, `expenses/`, `alerts/`, `reports/`, `bulk-upload/`, `admin/`
 - `app/api/` — API routes (Next.js route handlers)
 
 ### Key Libraries
 
 - **`lib/db.ts`** — Prisma singleton using `@prisma/adapter-pg` (required for Prisma 7). Always import from here: `import { prisma } from '@/lib/db'`
-- **`lib/auth.ts`** — NextAuth v5 config; `auth()` is wrapped in `React.cache()` for request deduplication
-- **`lib/permissions.ts`** — RBAC permission matrix. All 6 roles and 39+ permissions defined here. `hasPermission(role, permission)` is the main utility
+- **`lib/auth.ts`** — NextAuth v5 config; `auth()` is wrapped in `React.cache()` for request deduplication. Sessions re-check role, active flag and password fingerprint every 60 s; failed logins are rate-limited in memory (`lib/rate-limit.ts`)
+- **`lib/password.ts`** — `hashPassword()` (bcrypt cost 12 everywhere), dummy hash for unknown emails, rehash-on-login, `passwordFingerprint()`
+- **`lib/order-finance.ts`** — `computeOrderBalance()` (the one balance formula), `lockOrder()` / `lockPurchaseOrder()` (`SELECT … FOR UPDATE` before any balance check), legacy duplicate-advance handling (`isLegacyAdvanceInstallment`, `safeInstallmentNote`)
+- **`lib/stock.ts`** — every stock write (reserve, release, consume, receive, set level): atomic SQL, rounded, never negative or below reserved
+- **`lib/permissions.ts`** — RBAC permission matrix. All 7 roles and their permissions defined here. `hasPermission(role, permission)` is the main utility
 - **`lib/api-permissions.ts`** — API route helpers: `requirePermission()`, `requireAnyPermission()`, `requireAuth()`
-- **`lib/utils.ts`** — `formatCurrency()` (INR), `generateOrderNumber()`, `generateSKU()`, `calculateStockStatus()`
+- **`lib/authz.ts`** — object-level (ABAC) scopes: `orderScope`, `orderItemScope`, `customerScope`, `measurementScope`, `scopedWhere`, `requireOrderAccess`, `checkStatusTransition`, `isAssignableTailor`
+- **`lib/field-acl.ts`** — financial field visibility per role; `filterObjectByRole` deep-strips financial keys for restricted roles
+- **`lib/settings.ts`** (server) / **`lib/app-settings.ts`** (isomorphic) — the singleton `BusinessSettings` row: branding, currency, locale, time zone, tax, production limits. Client components use `useAppSettings()` from `components/providers/settings-provider.tsx`
+- **`lib/locale.ts`** — `formatCurrency()`, `formatDate()`, `currencySymbol()`, `shopStartOfDay()` etc. using the shop's currency/locale/time zone (re-exported from `lib/utils.ts`). Never hard-code `₹`, `INR` or `en-IN`, and use `shopStartOfDay()` (not date-fns `startOfDay`) for "today" — the server runs in UTC. Amounts are stored without a currency and are **never converted**; the settings API refuses a currency change once amounts exist unless `acknowledgeNoConversion: true` is sent
+- **`lib/tax.ts`** — `computeTax(subTotal, taxConfigFrom(settings), { customerRegion })` for new orders in SPLIT (CGST+SGST / IGST), SINGLE (VAT-style) and NONE modes; `recomputeOrderTax()` when re-pricing an **existing** order (keeps its stored rate and structure); `taxLines()` for display
+- **`instrumentation.ts`** — loads the shop settings at server start so formatting is correct from the first request
+- **`lib/utils.ts`** — `generateOrderNumber()`, `generateSKU()`, `calculateStockStatus()` plus the locale formatters
 
 ### Prisma 7 Configuration
 
@@ -81,13 +90,19 @@ if (status === 'loading') return <Loading />
 
 ### Role-Based Access Control
 
-6 roles: `OWNER`, `ADMIN`, `INVENTORY_MANAGER`, `SALES_MANAGER`, `TAILOR`, `VIEWER`
+7 roles: `OWNER`, `ADMIN`, `INVENTORY_MANAGER`, `SALES_MANAGER`, `MASTER_TAILOR`, `TAILOR`, `VIEWER`
 
 Key constraints:
 - **OWNER** has full CRUD but **cannot delete** any data and cannot manage users/settings
-- **ADMIN** has all delete permissions and user management
-- **TAILOR** can update order status and view most data, but not expenses
-- Navigation items in `DashboardLayout.tsx` are filtered by `hasPermission(userRole, permission)`
+- **ADMIN** has all delete permissions, user management and settings
+- **MASTER_TAILOR** sees all orders, assigns tailors (`assign_tailors`), sees production workload/reports; no pricing or payments
+- **TAILOR** sees **only orders with an item assigned to them** (no `view_all_orders`), updates production status; cannot create orders, deliver/cancel, or see expenses
+- Only OWNER/ADMIN have `record_payment` (advance, discount, installments)
+- `DELIVERED`/`CANCELLED` are terminal and require `update_order` (`checkStatusTransition`)
+- Every API route must check a permission **and** apply the `lib/authz` scope for order/customer data; out-of-scope records return 404. The only public route is `GET /api/health`
+- Payment-reminder alerts quote balances: apply `alertVisibilityScope(role)` (`lib/alert-scope.ts`) to every alert query or action
+- Navigation items in `DashboardLayout.tsx` are filtered by permission (a single permission or an any-of list)
+- One app instance (and database) per shop — there is no multi-tenant model
 
 ### Stock Reservation Model
 
@@ -100,10 +115,10 @@ When orders are created: fabric is reserved (`StockMovement` type `ORDER_RESERVE
 Orders are broken down into:
 - **Item level**: fabric cost + accessories cost (`OrderItem.totalPrice`)
 - **Order level**: stitching tier (BASIC/PREMIUM/LUXURY), workmanship premiums, designer fees, fabric wastage
-- **GST**: 12% on subtotal (6% CGST + 6% SGST, stored separately; IGST = 0 for intra-state)
+- **Tax**: configured in Admin Settings (default India GST 12% split into CGST + SGST; IGST when the customer's region differs from the shop's). Always compute with `lib/tax.ts`; amounts are stored in the `cgst`/`sgst`/`igst`/`gstAmount` columns regardless of the tax name
 - **Balance**: `totalAmount - advancePaid - discount - paymentInstallments`
 
-Advance payment is stored **only** in `Order.advancePaid`, NOT duplicated as a `PaymentInstallment`. Subsequent balance payments are stored as installments only.
+Advance payment is stored **only** in `Order.advancePaid`, NOT duplicated as a `PaymentInstallment`. Subsequent balance payments are stored as installments only. Orders created before v0.28.4 may still have a duplicate installment #1 (note starting "Advance payment", amount = advance); `lib/order-finance.ts` excludes it — never detect it by amount alone. Any route that checks or changes a balance must call `lockOrder()` / `lockPurchaseOrder()` first inside its transaction.
 
 ### Multi-Item Invoice Cost Distribution
 
@@ -117,7 +132,7 @@ For multi-item orders, costs (stitching, premiums, etc.) are distributed **propo
 - `next/server` — Stubs `after()`
 - `@/lib/whatsapp/whatsapp-service` — No-op
 
-Integration tests override the db mock with `vi.unmock()` and use a real test database. Unit tests should never hit the database.
+Tests may override a model or `$transaction` by assignment or with `vi.mocked(...).mockResolvedValue()`; call history is cleared between tests (`clearMocks`). Integration tests that unmock `@/lib/db` or create a `PrismaClient` are detected by content and only run when `TEST_DATABASE_URL` points to a **disposable** database (never production). Unit tests should never hit the database.
 
 ### UI Component Patterns
 
@@ -135,8 +150,13 @@ Integration tests override the db mock with `vi.unmock()` and use a real test da
 - **PM2**: Use `exec_mode: 'fork'` (not cluster) for Next.js 16 compatibility
 - **Cloudflare Tunnel**: Config at `/etc/cloudflared/config.yml` (not `~/.cloudflared/config.yml`)
 - **Database**: PostgreSQL 16 local, user `hamees_user`, database `tailor_inventory`
+- **Migrations**: tracked in `prisma/migrations` (`0_init` baseline). One-off data-fix SQL lives in `prisma/manual-sql/`, never in `prisma/migrations/`. Do not use `db push` on production. The schema engine needs the socket URL rewritten to `@localhost/` (the deploy script does this)
+- **Deploy**: `./scripts/deploy.sh` — verification build (nothing changes if it fails) → `pg_dump` backup → baseline if needed → `prisma migrate deploy` → drift check → build into `.next` (previous build kept in `.next-prev`) → PM2 restart → exits 1 unless `/api/health` returns 200
+- **Health check**: `GET /api/health` (public; checks the database)
 
 ## Demo Credentials (password: `admin123`)
+
+Seed/demo accounts for local development only. The login hint is hidden in production; change these passwords on any real deployment. There is no seeded MASTER_TAILOR account — create one in Admin Settings → Users.
 
 | Email | Role |
 |-------|------|

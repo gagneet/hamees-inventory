@@ -38,8 +38,8 @@ export function BarcodeScannerImproved({ onScanSuccess, onClose }: BarcodeScanne
 
   // Check for native Barcode Detection API support
   useEffect(() => {
-    // @ts-ignore - BarcodeDetector is experimental
     const nativeSupport = 'BarcodeDetector' in window
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time browser capability check on mount
     setHasNativeSupport(nativeSupport)
 
     // Check camera permissions
@@ -114,7 +114,7 @@ export function BarcodeScannerImproved({ onScanSuccess, onClose }: BarcodeScanne
         videoRef.current.srcObject = stream
         await videoRef.current.play()
 
-        // @ts-ignore - BarcodeDetector is experimental
+        // @ts-expect-error - BarcodeDetector is experimental (not in lib.dom)
         const barcodeDetector = new BarcodeDetector({
           formats: [
             'qr_code',        // QR codes
@@ -201,6 +201,7 @@ export function BarcodeScannerImproved({ onScanSuccess, onClose }: BarcodeScanne
 
   useEffect(() => {
     if (mode === 'camera' && !isScanning) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- starting the camera is an external side effect
       startCamera()
     }
 

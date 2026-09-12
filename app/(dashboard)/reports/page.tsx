@@ -1,14 +1,14 @@
 /**
  * @featuretrace Reports Landing Page
  * @route GET /reports
- * @permission view_reports
- * @renders Card links to Financial Report and Expenses Report
+ * @permission any of view_reports / view_financial_reports / view_production_reports (matches reports/layout.tsx)
+ * @renders Card links to the Financial, Expenses, Customer and Production reports the role may open
  * @calls lib/auth.ts:auth() — server-side session + permission check
  */
 
 import { auth } from '@/lib/auth'
 import { redirect } from 'next/navigation'
-import { hasPermission } from '@/lib/permissions'
+import { hasAnyPermission, hasPermission } from '@/lib/permissions'
 import type { UserRole } from '@/lib/permissions'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -20,14 +20,18 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
-import { Home, TrendingUp, BarChart2, Users } from 'lucide-react'
+import { Activity, Home, TrendingUp, BarChart2, Users } from 'lucide-react'
+import { getAppSettings } from '@/lib/settings'
 
 export default async function ReportsPage() {
+  const settings = await getAppSettings()
   const session = await auth()
   if (!session?.user) redirect('/')
 
   const userRole = session.user.role as UserRole
-  if (!hasPermission(userRole, 'view_reports')) redirect('/dashboard')
+  if (!hasAnyPermission(userRole, ['view_reports', 'view_financial_reports', 'view_production_reports'])) {
+    redirect('/dashboard')
+  }
 
   // Build the list of report cards this role can access
   const reports = [
@@ -58,6 +62,15 @@ export default async function ReportsPage() {
       colour: 'text-blue-600',
       bg: 'bg-blue-50',
     },
+    {
+      href: '/reports/production',
+      icon: Activity,
+      title: 'Production Report',
+      description: 'Completions per tailor, daily throughput, time per stage, turnaround and on-time rate.',
+      permission: 'view_production_reports' as const,
+      colour: 'text-purple-600',
+      bg: 'bg-purple-50',
+    },
   ].filter(r => hasPermission(userRole, r.permission))
 
   return (
@@ -79,9 +92,17 @@ export default async function ReportsPage() {
       <div className="mb-6">
         <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">Reports</h1>
         <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-          Business analytics and financial summaries for Hamees Attire
+          Business analytics and financial summaries for {settings.businessName}
         </p>
       </div>
+
+      {reports.length === 0 && (
+        <Card className="border border-slate-200">
+          <CardContent className="py-10 text-center text-sm text-slate-600">
+            No reports are available for your role.
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {reports.map((report) => (

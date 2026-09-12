@@ -1,7 +1,7 @@
 /**
  * @featuretrace Customer Detail
  * @page /customers/[id]
- * @permission view_customers
+ * @permission view_customers (+ object-level scope: TAILOR sees only customers of orders assigned to them)
  * @description Server-rendered customer profile page. Shows customer info (name, phone,
  *   email, city), order count, and measurements by garment type.
  *   Primary CTA: New Order (pre-fills customerId).
@@ -12,8 +12,10 @@
  */
 
 import { auth } from '@/lib/auth'
-import { redirect } from 'next/navigation'
-import { hasPermission } from '@/lib/permissions'
+import { notFound, redirect } from 'next/navigation'
+import { hasPermission, type UserRole } from '@/lib/permissions'
+import { hasFinancialAccess } from '@/lib/field-acl'
+import { actorFromSession, customerScope, orderScope, scopedWhere, type Actor } from '@/lib/authz'
 import { prisma } from '@/lib/db'
 import { CustomerDetailClient } from './customer-detail-client'
 import { Prisma } from '@prisma/client'
@@ -44,11 +46,10 @@ type CustomerWithRelations = Prisma.CustomerGetPayload<{
   }
 }>
 
-async function getCustomerDetails(id: string): Promise<CustomerWithRelations | null> {
+async function getCustomerDetails(id: string, actor: Actor): Promise<CustomerWithRelations | null> {
   try {
-    console.log('[Customer Detail] Fetching customer:', id)
-    const customer = await prisma.customer.findUnique({
-      where: { id },
+    const customer = await prisma.customer.findFirst({
+      where: scopedWhere<Prisma.CustomerWhereInput>({ id }, customerScope(actor)),
       include: {
         measurements: {
           where: { isActive: true }, // Only fetch active measurements
@@ -64,6 +65,8 @@ async function getCustomerDetails(id: string): Promise<CustomerWithRelations | n
           },
         },
         orders: {
+          // Scoped roles only see the orders they work on
+          where: orderScope(actor),
           include: {
             items: {
               include: {
@@ -76,10 +79,6 @@ async function getCustomerDetails(id: string): Promise<CustomerWithRelations | n
       },
     })
 
-    console.log('[Customer Detail] Customer found:', customer ? 'yes' : 'no')
-    if (!customer) {
-      console.log('[Customer Detail] Customer not found in database')
-    }
     return customer
   } catch (error) {
     console.error('[Customer Detail] Error fetching customer details:', error)
@@ -95,27 +94,35 @@ export default async function CustomerDetailPage({
   searchParams: Promise<{ highlight?: string }>
 }) {
   const session = await auth()
-  if (!session?.user) redirect('/')
+  const actor = actorFromSession(session)
+  if (!session?.user || !actor) redirect('/')
 
+  const role = session.user.role as UserRole
   const { id } = await params
   const { highlight } = await searchParams
-  const customer = await getCustomerDetails(id)
+  const customer = await getCustomerDetails(id, actor)
 
-  if (!customer) {
-    redirect('/customers')
-  }
+  // Out-of-scope and missing customers are indistinguishable to the caller
+  if (!customer) notFound()
 
-  // Check if user can manage measurements
-  const canManageMeasurements = hasPermission(session.user.role, 'manage_customers')
+  const canEditCustomer = hasPermission(role, 'manage_customers')
+  const canManageMeasurements = hasPermission(role, 'manage_measurements')
+  const canCreateOrder = hasPermission(role, 'create_order')
+  const showFinancials = hasFinancialAccess(role, 'order')
 
-  // Serialize dates and normalize types for client component
+  // Serialize dates and send only the order fields the client renders (no pricing for restricted roles)
   const serializedCustomer = {
     ...customer,
     createdAt: customer.createdAt.toISOString(),
     orders: customer.orders?.map((order: CustomerWithRelations['orders'][number]) => ({
-      ...order,
+      id: order.id,
+      orderNumber: order.orderNumber,
+      status: order.status,
       deliveryDate: order.deliveryDate.toISOString(),
       createdAt: order.createdAt.toISOString(),
+      totalAmount: showFinancials ? order.totalAmount : 0,
+      balanceAmount: showFinancials ? order.balanceAmount : 0,
+      items: order.items.map((item) => ({ garmentPattern: { name: item.garmentPattern.name } })),
     })),
     measurements: customer.measurements?.map((measurement: CustomerWithRelations['measurements'][number]) => ({
       id: measurement.id,
@@ -139,10 +146,10 @@ export default async function CustomerDetailPage({
       notes: measurement.notes,
       isActive: measurement.isActive,
       createdAt: measurement.createdAt.toISOString(),
+      // Staff emails are not needed on this page (and would reach TAILOR/VIEWER), so only the name is sent
       createdBy: measurement.createdBy ? {
         id: measurement.createdBy.id,
         name: measurement.createdBy.name,
-        email: measurement.createdBy.email,
       } : undefined,
     })),
   }
@@ -151,6 +158,9 @@ export default async function CustomerDetailPage({
     <CustomerDetailClient
       customer={serializedCustomer}
       canManageMeasurements={canManageMeasurements}
+      canEditCustomer={canEditCustomer}
+      canCreateOrder={canCreateOrder}
+      showFinancials={showFinancials}
       highlight={highlight}
     />
   )

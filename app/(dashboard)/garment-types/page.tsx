@@ -21,6 +21,8 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import DashboardLayout from '@/components/DashboardLayout'
+import { useSession } from 'next-auth/react'
+import { hasPermission, type UserRole } from '@/lib/permissions'
 
 interface GarmentPattern {
   id: string
@@ -45,6 +47,10 @@ interface GarmentPattern {
 export default function GarmentTypesPage() {
   const [patterns, setPatterns] = useState<GarmentPattern[]>([])
   const [loading, setLoading] = useState(true)
+  const { data: session } = useSession()
+  // /garment-types/new is guarded by manage_garment_types
+  const canManage =
+    !!session?.user?.role && hasPermission(session.user.role as UserRole, 'manage_garment_types')
 
   useEffect(() => {
     fetchPatterns()
@@ -86,12 +92,14 @@ export default function GarmentTypesPage() {
             Manage garment patterns with fabric requirements and default accessories
           </p>
         </div>
-        <Button asChild>
-          <Link href="/garment-types/new">
-            <Plus className="mr-2 h-4 w-4" />
-            New Garment Type
-          </Link>
-        </Button>
+        {canManage && (
+          <Button asChild>
+            <Link href="/garment-types/new">
+              <Plus className="mr-2 h-4 w-4" />
+              New Garment Type
+            </Link>
+          </Button>
+        )}
       </div>
 
       {/* Garment Types List */}

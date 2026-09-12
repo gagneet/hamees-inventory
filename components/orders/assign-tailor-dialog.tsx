@@ -1,5 +1,13 @@
 'use client'
 
+/**
+ * @featuretrace Assign Tailor dialog
+ * Assigns one order item to an active Tailor or Master Tailor (or unassigns it).
+ * Render only for roles with assign_tailors — the API enforces the same permission.
+ * @calls GET /api/users?role=TAILOR,MASTER_TAILOR — assignable staff ({ id, name, role })
+ * @calls POST /api/production/assign — { orderItemIds: [itemId], tailorId }
+ */
+
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -20,88 +28,97 @@ import {
 } from '@/components/ui/select'
 import { User, Users } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
+import { assignItems } from '@/components/production/assign'
+import type { AssignableTailor } from '@/app/api/production/_lib/types'
 
 interface AssignTailorDialogProps {
-  orderId: string
+  /** Kept for callers; assignment is addressed by item id. */
+  orderId?: string
   itemId: string
-  currentTailorId?: string
-  currentTailorName?: string
+  currentTailorId?: string | null
+  currentTailorName?: string | null
   garmentName: string
-}
-
-interface Tailor {
-  id: string
-  name: string
-  email: string
+  /** 'compact' renders a small text trigger for dense layouts (e.g. kanban cards). */
+  variant?: 'default' | 'compact'
+  onAssigned?: () => void
 }
 
 export function AssignTailorDialog({
-  orderId,
   itemId,
   currentTailorId,
   currentTailorName,
   garmentName,
+  variant = 'default',
+  onAssigned,
 }: AssignTailorDialogProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [tailors, setTailors] = useState<Tailor[]>([])
+  const [tailors, setTailors] = useState<AssignableTailor[]>([])
+  const [loaded, setLoaded] = useState(false)
   const [selectedTailorId, setSelectedTailorId] = useState<string>(currentTailorId || 'UNASSIGNED')
 
-  // Fetch list of tailors
+  // Fetch assignable staff when the dialog opens
   useEffect(() => {
+    if (!open) return
+    setSelectedTailorId(currentTailorId || 'UNASSIGNED')
     const fetchTailors = async () => {
       try {
-        const response = await fetch('/api/users?role=TAILOR')
+        const response = await fetch('/api/users?role=TAILOR,MASTER_TAILOR')
         if (response.ok) {
           const data = await response.json()
           setTailors(data.users || [])
         }
       } catch (error) {
         console.error('Error fetching tailors:', error)
+      } finally {
+        setLoaded(true)
       }
     }
-
-    if (open) {
-      fetchTailors()
-    }
-  }, [open])
+    fetchTailors()
+  }, [open, currentTailorId])
 
   const handleAssign = async () => {
     setLoading(true)
     try {
-      const response = await fetch(`/api/orders/${orderId}/items/${itemId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          assignedTailorId: selectedTailorId === 'UNASSIGNED' ? null : selectedTailorId,
-        }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to assign tailor')
-      }
-
+      const tailorId = selectedTailorId === 'UNASSIGNED' ? null : selectedTailorId
+      await assignItems([itemId], tailorId)
+      const name = tailors.find((t) => t.id === tailorId)?.name
+      toast.success(name ? `${garmentName} assigned to ${name}` : `${garmentName} unassigned`)
       setOpen(false)
-      router.refresh()
+      if (onAssigned) onAssigned()
+      else router.refresh()
     } catch (error) {
-      console.error('Error assigning tailor:', error)
-      alert(error instanceof Error ? error.message : 'Failed to assign tailor')
+      toast.error(error instanceof Error ? error.message : 'Failed to assign tailor')
     } finally {
       setLoading(false)
     }
   }
 
+  const unchanged = selectedTailorId === (currentTailorId || 'UNASSIGNED')
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Users className="h-4 w-4 mr-1" />
-          {currentTailorName ? 'Change Tailor' : 'Assign Tailor'}
-        </Button>
+        {variant === 'compact' ? (
+          <button
+            type="button"
+            className={cn(
+              'text-[10px] font-medium underline-offset-2 hover:underline',
+              currentTailorName ? 'text-blue-600' : 'text-amber-700'
+            )}
+            aria-label={`${currentTailorName ? 'Change' : 'Assign'} tailor for ${garmentName}`}
+          >
+            {currentTailorName ? 'Change' : 'Assign'}
+          </button>
+        ) : (
+          <Button variant="outline" size="sm">
+            <Users className="h-4 w-4 mr-1" />
+            {currentTailorName ? 'Change Tailor' : 'Assign Tailor'}
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -138,14 +155,17 @@ export function AssignTailorDialog({
                     <div className="flex items-center gap-2">
                       <User className="h-4 w-4" />
                       <span>{tailor.name}</span>
+                      {tailor.role === 'MASTER_TAILOR' && (
+                        <span className="text-xs text-slate-500">Master Tailor</span>
+                      )}
                     </div>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {tailors.length === 0 && (
+            {loaded && tailors.length === 0 && (
               <p className="text-xs text-slate-500">
-                No tailors found. Create a user with TAILOR role first.
+                No active tailors found. Create a user with the Tailor or Master Tailor role first.
               </p>
             )}
           </div>
@@ -162,7 +182,7 @@ export function AssignTailorDialog({
           <Button
             type="button"
             onClick={handleAssign}
-            disabled={loading || (selectedTailorId === currentTailorId || (!currentTailorId && selectedTailorId === 'UNASSIGNED'))}
+            disabled={loading || unchanged}
           >
             {loading ? 'Assigning...' : 'Assign Tailor'}
           </Button>

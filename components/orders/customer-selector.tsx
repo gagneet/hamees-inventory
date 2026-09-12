@@ -151,7 +151,7 @@ function InlineNewCustomerForm({
               <Input
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
-                placeholder="+91 98XXX XXXXX"
+                placeholder="Phone number (with country code)"
                 type="tel"
                 className="h-8 text-sm"
                 required

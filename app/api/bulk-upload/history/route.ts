@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requirePermission } from '@/lib/api-permissions'
 import { prisma } from '@/lib/db'
 
 /**
@@ -8,13 +8,11 @@ import { prisma } from '@/lib/db'
  */
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { session, error } = await requirePermission('bulk_upload')
+    if (error) return error
 
     const { searchParams } = new URL(req.url)
-    const limit = parseInt(searchParams.get('limit') || '20')
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20') || 20))
     const uploadId = searchParams.get('uploadId')
 
     // Get specific upload if uploadId provided
@@ -52,7 +50,7 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.error('History fetch error:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch upload history', details: String(error) },
+      { error: 'Failed to fetch upload history' },
       { status: 500 }
     )
   }

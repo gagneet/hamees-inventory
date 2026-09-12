@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
-export function LoginForm() {
+export function LoginForm({ businessName, tagline }: { businessName: string; tagline?: string | null }) {
   const router = useRouter()
   const { data: session, status } = useSession()
   const [email, setEmail] = useState('')
@@ -56,10 +56,10 @@ export function LoginForm() {
     <Card className="w-full max-w-md">
       <CardHeader>
         <CardTitle className="text-center text-3xl font-bold text-primary">
-          Hamees Inventory
+          {businessName}
         </CardTitle>
         <CardDescription className="text-center">
-          Bespoke Tailoring - Wedding Attire Specialists
+          {tagline || 'Sign in to continue'}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -69,7 +69,8 @@ export function LoginForm() {
             <Input
               id="email"
               type="email"
-              placeholder="owner@hameesattire.com"
+              placeholder="you@example.com"
+              autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -82,6 +83,7 @@ export function LoginForm() {
               id="password"
               type="password"
               placeholder="Enter your password"
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -96,10 +98,12 @@ export function LoginForm() {
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? 'Signing in...' : 'Sign In'}
           </Button>
-          <div className="mt-4 text-center text-sm text-slate-500">
-            <p>Demo credentials:</p>
-            <p className="font-mono text-xs">owner@hameesattire.com / admin123</p>
-          </div>
+          {process.env.NODE_ENV !== 'production' && (
+            <div className="mt-4 text-center text-sm text-slate-500">
+              <p>Demo credentials:</p>
+              <p className="font-mono text-xs">owner@hameesattire.com / admin123</p>
+            </div>
+          )}
         </form>
       </CardContent>
     </Card>

@@ -137,7 +137,7 @@ describe('stock reservation logic (order creation)', () => {
 
   it('multiple order reservations accumulate correctly', () => {
     // Order 1 reserves 3m
-    let { newReserved: r1, newAvailable: a1 } = reserveStock(100, 0, 3)
+    const { newReserved: r1, newAvailable: a1 } = reserveStock(100, 0, 3)
     expect(r1).toBe(3)
     expect(a1).toBe(97)
 

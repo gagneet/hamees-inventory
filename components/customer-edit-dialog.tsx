@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Loader2 } from 'lucide-react'
+import { useAppSettings } from '@/components/providers/settings-provider'
 
 interface CustomerData {
   id: string
@@ -39,6 +40,7 @@ export function CustomerEditDialog({
   onOpenChange,
   customer,
 }: CustomerEditDialogProps) {
+  const settings = useAppSettings()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -122,7 +124,7 @@ export function CustomerEditDialog({
                     setFormData((prev) => ({ ...prev, phone: e.target.value }))
                   }
                   required
-                  placeholder="+91 98765 43210"
+                  placeholder={`+${settings.phoneCountryCode} …`}
                 />
               </div>
             </div>
@@ -182,7 +184,7 @@ export function CustomerEditDialog({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="pincode">Pincode</Label>
+                <Label htmlFor="pincode">{settings.postalCodeLabel}</Label>
                 <Input
                   id="pincode"
                   value={formData.pincode}

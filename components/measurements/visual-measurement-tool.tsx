@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Ruler, Save, X, CheckCircle2, AlertCircle, Info, History } from 'lucide-react'
 import { toast } from 'sonner'
 import { useState as useHistoryState } from 'react'
+import { formatDateWith } from '@/lib/utils'
 
 interface VisualMeasurementToolProps {
   customerId: string
@@ -353,7 +354,7 @@ export function VisualMeasurementTool({
                       <div>
                         <div className="flex items-center gap-2">
                           <p className="font-semibold text-slate-900">
-                            {new Date(measurement.createdAt).toLocaleDateString('en-IN', {
+                            {formatDateWith(measurement.createdAt, {
                               dateStyle: 'long',
                             })}
                           </p>

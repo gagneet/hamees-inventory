@@ -14,8 +14,10 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import { Home, ArrowLeft, AlertCircle, User } from 'lucide-react'
+import { useAppSettings } from '@/components/providers/settings-provider'
 
 export default function NewCustomerPage() {
+  const settings = useAppSettings()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -167,7 +169,7 @@ export default function NewCustomerPage() {
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="+91 98765 43210"
+                    placeholder={`+${settings.phoneCountryCode} …`}
                     required
                   />
                 </div>
@@ -234,7 +236,7 @@ export default function NewCustomerPage() {
 
                   <div>
                     <label htmlFor="pincode" className="block text-sm font-medium text-slate-700 mb-2">
-                      Pincode
+                      {settings.postalCodeLabel}
                     </label>
                     <input
                       id="pincode"

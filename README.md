@@ -520,12 +520,8 @@ pnpm db:reset         # Reset database and reseed
 
 See `docs/GAPS_AND_ISSUES.md` for a comprehensive catalogue of technical debt, missing infrastructure, and security concerns. Key items:
 
-- No `middleware.ts` — dashboard routes rely on per-page auth checks rather than edge middleware
-- No automated tests — zero test coverage
-- No Prisma migration history — schema changes use `db:push`
 - `next-auth` is on an old beta (`5.0.0-beta.30`) pending upgrade to stable
-- `@whiskeysockets/baileys` is listed as a dependency but is not used
-- No rate limiting on API endpoints
+- Rate limiting covers sign-in only (in memory, one app instance); other API endpoints are not rate-limited
 
 ---
 
@@ -536,7 +532,7 @@ See `docs/GAPS_AND_ISSUES.md` for a comprehensive catalogue of technical debt, m
 3. Run `pnpm lint` and `pnpm build` to verify there are no errors
 4. Open a PR with a clear description
 
-For any schema changes, document the migration SQL in `prisma/migrations/` until formal Prisma migration tracking is set up.
+For schema changes, create a Prisma migration with `pnpm db:migrate` and commit the generated folder under `prisma/migrations/`; production applies it with `prisma migrate deploy` via `scripts/deploy.sh`. One-off data-fix SQL belongs in `prisma/manual-sql/` — never put loose `.sql` files in `prisma/migrations/`.
 
 ---
 

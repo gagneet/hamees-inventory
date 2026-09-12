@@ -253,7 +253,7 @@ pnpm tsx scripts/export-to-excel.ts
 
 **Query 1: Verify Cloth Data**
 ```sql
-PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -c '
+PGPASSWORD=<REDACTED_DB_PASSWORD> psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -c '
   SELECT
     COUNT(*) as total_items,
     COUNT("fabricComposition") as with_composition,
@@ -273,7 +273,7 @@ PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql -U hamees_user -d tail
 
 **Query 2: Verify Accessory Data**
 ```sql
-PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -c '
+PGPASSWORD=<REDACTED_DB_PASSWORD> psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -c '
   SELECT
     COUNT(*) as total_items,
     COUNT("colorCode") as with_color_code,
@@ -303,7 +303,7 @@ PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql -U hamees_user -d tail
 
 **Query: Test PostgreSQL Arrays**
 ```sql
-PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -c '
+PGPASSWORD=<REDACTED_DB_PASSWORD> psql -h /var/run/postgresql -U hamees_user -d tailor_inventory -c '
   SELECT
     "name",
     "seasonSuitability",
@@ -409,8 +409,8 @@ WHERE 'Summer' = ANY("seasonSuitability");
 
 **Added (4 files):**
 1. `docs/INVENTORY_ENHANCEMENTS_2026.md` - Comprehensive research & roadmap (5000+ lines)
-2. `prisma/migrations/manual_phase_1_enhancements.sql` - Schema migration (22 ALTERs)
-3. `prisma/migrations/manual_phase_1_data_update.sql` - Data population (16 UPDATEs)
+2. `prisma/manual-sql/manual_phase_1_enhancements.sql` - Schema migration (22 ALTERs)
+3. `prisma/manual-sql/manual_phase_1_data_update.sql` - Data population (16 UPDATEs)
 4. `scripts/update-inventory-with-phase1-data.ts` - Data update script (TypeScript)
 
 **Total Lines Changed:** ~300 lines modified, ~7000 lines added (mostly documentation)
@@ -473,7 +473,7 @@ WHERE 'Summer' = ANY("seasonSuitability");
 
 **Database Connection String:**
 ```
-DATABASE_URL="postgresql://hamees_user:hamees_secure_2026@/tailor_inventory?host=/var/run/postgresql&schema=public"
+DATABASE_URL="postgresql://hamees_user:<REDACTED_DB_PASSWORD>@/tailor_inventory?host=/var/run/postgresql&schema=public"
 ```
 
 ---

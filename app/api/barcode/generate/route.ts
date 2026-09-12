@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAnyPermission } from '@/lib/api-permissions'
 import { qrcodeService } from '@/lib/barcode/qrcode-service'
+import { filterApiResponse } from '@/lib/api-filter-response'
 import { z } from 'zod'
 
 const generateQRSchema = z.object({
@@ -39,9 +40,12 @@ export async function POST(request: Request) {
       )
     }
 
+    if (error instanceof Error && /not found/i.test(error.message)) {
+      return NextResponse.json({ error: error.message }, { status: 404 })
+    }
     console.error('Error generating QR code:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to generate QR code' },
+      { error: 'Failed to generate QR code' },
       { status: 500 }
     )
   }
@@ -49,7 +53,7 @@ export async function POST(request: Request) {
 
 // GET - Lookup item by QR code data
 export async function GET(request: Request) {
-  const { error } = await requireAnyPermission(['view_inventory'])
+  const { session, error } = await requireAnyPermission(['view_inventory'])
   if (error) return error
 
   try {
@@ -65,7 +69,11 @@ export async function GET(request: Request) {
 
     const result = await qrcodeService.lookupByQRCode(qrData)
 
-    return NextResponse.json(result)
+    return NextResponse.json(
+      'item' in result && result.item
+        ? { ...result, item: filterApiResponse(result.item, session.user.role, 'inventory') }
+        : result
+    )
   } catch (error) {
     console.error('Error looking up QR code:', error)
     return NextResponse.json(

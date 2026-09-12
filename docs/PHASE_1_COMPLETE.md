@@ -116,8 +116,8 @@ ALTER TABLE "AccessoryInventory" ADD COLUMN "buttonSize" TEXT;
 ### Files Added (5)
 1. `docs/INVENTORY_ENHANCEMENTS_2026.md` - Research & roadmap
 2. `docs/PHASE_1_TESTING_GUIDE.md` - Testing guide
-3. `prisma/migrations/manual_phase_1_enhancements.sql` - Schema migration
-4. `prisma/migrations/manual_phase_1_data_update.sql` - Data population
+3. `prisma/manual-sql/manual_phase_1_enhancements.sql` - Schema migration
+4. `prisma/manual-sql/manual_phase_1_data_update.sql` - Data population
 5. `scripts/update-inventory-with-phase1-data.ts` - Data script
 
 ### Build & Deployment
@@ -156,7 +156,7 @@ Result: Item found, edit dialog opens with all specifications
 ### 3. Query Enhanced Data
 ```sql
 -- See fabric specifications
-PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql \
+PGPASSWORD=<REDACTED_DB_PASSWORD> psql -h /var/run/postgresql \
   -U hamees_user -d tailor_inventory -c '
   SELECT "name", "fabricComposition", "gsm", "weaveType", "careInstructions"
   FROM "ClothInventory"
@@ -164,7 +164,7 @@ PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql \
 '
 
 -- See accessory details
-PGPASSWORD=hamees_secure_2026 psql -h /var/run/postgresql \
+PGPASSWORD=<REDACTED_DB_PASSWORD> psql -h /var/run/postgresql \
   -U hamees_user -d tailor_inventory -c '
   SELECT "name", "buttonSize", "threadWeight", "material", "colorCode"
   FROM "AccessoryInventory";
@@ -312,7 +312,7 @@ See `docs/PHASE_1_TESTING_GUIDE.md` for complete checklist.
 
 **Database Access:**
 ```bash
-PGPASSWORD=hamees_secure_2026 psql \
+PGPASSWORD=<REDACTED_DB_PASSWORD> psql \
   -h /var/run/postgresql \
   -U hamees_user \
   -d tailor_inventory
