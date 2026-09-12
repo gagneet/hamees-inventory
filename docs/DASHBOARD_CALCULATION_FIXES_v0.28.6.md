@@ -75,7 +75,7 @@ Balance (stored): ₹50,000 ✅ (CORRECT)
 
 ### 1. Database Fixes (SQL Migration)
 
-**File:** `prisma/migrations/fix_po_and_balance_calculations.sql`
+**File:** `prisma/manual-sql/fix_po_and_balance_calculations.sql`
 
 **Part 1: Purchase Orders**
 ```sql

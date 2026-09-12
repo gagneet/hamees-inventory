@@ -1,33 +1,38 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
+import { filterApiResponse } from '@/lib/api-filter-response'
+import { actorFromSession, customerScope, orderScope, scopedWhere } from '@/lib/authz'
+import type { Prisma } from '@prisma/client'
 import { z } from 'zod'
 
 const customerSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
+  name: z.string().trim().min(1, 'Name is required').max(120),
   email: z.string().email().nullish(),
-  phone: z.string().min(1, 'Phone is required'),
-  address: z.string().nullish(),
-  city: z.string().nullish(),
-  state: z.string().nullish(),
-  pincode: z.string().nullish(),
-  notes: z.string().nullish(),
+  phone: z.string().trim().min(1, 'Phone is required').max(30),
+  address: z.string().max(300).nullish(),
+  city: z.string().max(80).nullish(),
+  state: z.string().max(80).nullish(),
+  pincode: z.string().max(20).nullish(),
+  notes: z.string().max(2000).nullish(),
 })
 
 export async function GET(request: Request) {
-  const { error } = await requireAnyPermission(['view_customers'])
+  const { session, error } = await requireAnyPermission(['view_customers'])
   if (error) return error
+  const actor = actorFromSession(session)
+  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search')
 
     // Pagination parameters
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '10')
+    const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
+    const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '10') || 10))
     const skip = (page - 1) * limit
 
-    const where = search
+    const filter: Prisma.CustomerWhereInput = search
       ? {
           OR: [
             { name: { contains: search, mode: 'insensitive' as const } },
@@ -37,47 +42,53 @@ export async function GET(request: Request) {
         }
       : {}
 
-    // Get total count for pagination
-    const totalItems = await prisma.customer.count({ where })
+    // ABAC: tailors only see customers of orders assigned to them
+    const where = scopedWhere(filter, customerScope(actor))
+    const ordersInScope = orderScope(actor)
 
-    const customers = await prisma.customer.findMany({
-      where,
-      include: {
-        measurements: {
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-        },
-        orders: {
-          select: {
-            id: true,
-            orderNumber: true,
-            status: true,
-            totalAmount: true,
-            deliveryDate: true,
-            createdAt: true,
-            _count: {
-              select: {
-                items: true, // Count of items per order
+    const [totalItems, customers] = await Promise.all([
+      prisma.customer.count({ where }),
+      prisma.customer.findMany({
+        where,
+        include: {
+          measurements: {
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
+          orders: {
+            where: ordersInScope,
+            select: {
+              id: true,
+              orderNumber: true,
+              status: true,
+              totalAmount: true,
+              deliveryDate: true,
+              createdAt: true,
+              _count: {
+                select: {
+                  items: true, // Count of items per order
+                },
               },
             },
+            orderBy: { createdAt: 'desc' },
           },
-          orderBy: { createdAt: 'desc' },
-        },
-        _count: {
-          select: {
-            orders: true, // Get total order count
+          _count: {
+            select: {
+              orders: { where: ordersInScope },
+            },
           },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-      skip,
-      take: limit,
-    })
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+    ])
 
     const totalPages = Math.ceil(totalItems / limit)
 
     return NextResponse.json({
-      customers,
+      // Nested order amounts are stripped for roles without customer financial access
+      customers: filterApiResponse(customers, actor.role, 'customer'),
       pagination: {
         page,
         limit,
@@ -95,7 +106,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { session, error } = await requireAnyPermission(['manage_customers'])
+  const { error } = await requireAnyPermission(['manage_customers'])
   if (error) return error
 
   try {

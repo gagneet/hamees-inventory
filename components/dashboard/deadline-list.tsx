@@ -1,6 +1,6 @@
 'use client'
 
-import { differenceInDays, format } from 'date-fns'
+import { formatDate, shopStartOfDay } from '@/lib/locale'
 import { Calendar, AlertCircle, Clock } from 'lucide-react'
 import Link from 'next/link'
 
@@ -54,7 +54,10 @@ export function DeadlineList({ orders }: DeadlineListProps) {
         </div>
       ) : (
         orders.map((order) => {
-          const daysRemaining = differenceInDays(new Date(order.deliveryDate), new Date())
+          // Shop-local calendar days (not 24h periods), so "Due today" matches the shop's date
+          const daysRemaining = Math.round(
+            (shopStartOfDay(order.deliveryDate).getTime() - shopStartOfDay(new Date()).getTime()) / 86_400_000
+          )
           const garments = order.items?.map((item) => item.garmentPattern.name).join(', ') || 'N/A'
 
           return (
@@ -82,7 +85,7 @@ export function DeadlineList({ orders }: DeadlineListProps) {
                   <div className="flex items-center gap-3 text-xs">
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      {format(new Date(order.deliveryDate), 'MMM dd, yyyy')}
+                      {formatDate(order.deliveryDate)}
                     </span>
                     <span className={`px-2 py-0.5 rounded-full bg-white/50 font-medium`}>
                       {order.status.replace('_', ' ')}

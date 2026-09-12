@@ -13,8 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { formatCurrency } from '@/lib/utils'
-import { format } from 'date-fns'
+import { formatCurrency, formatDate } from '@/lib/utils'
 import { ChevronRight } from 'lucide-react'
 
 interface Order {
@@ -22,7 +21,8 @@ interface Order {
   orderNumber: string
   deliveryDate: string | Date
   status: string
-  totalAmount: number
+  /** Present only for roles with order financial visibility (stripped by the API otherwise). */
+  totalAmount?: number
   customer: {
     name: string
   }
@@ -132,13 +132,13 @@ export function OrderListDialog({
                       </p>
                       <p>
                         <span className="font-medium">Delivery Date:</span>{' '}
-                        {format(new Date(order.deliveryDate), 'MMM dd, yyyy')}
+                        {formatDate(order.deliveryDate)}
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-4 ml-4">
-                    {canView('order', 'totalAmount') && (
+                    {canView('order', 'totalAmount') && order.totalAmount !== undefined && (
                     <div className="text-right">
                       <p className="text-sm text-slate-500">Total</p>
                       <p className="text-lg font-semibold text-slate-900">

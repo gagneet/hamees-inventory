@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requirePermission } from '@/lib/api-permissions'
 import { parseExcelFile, detectDuplicates, validateRelations } from '@/lib/excel-upload'
+import { checkSpreadsheetUpload } from '@/lib/upload-limits'
 
 /**
  * POST /api/bulk-upload/preview
@@ -9,16 +10,15 @@ import { parseExcelFile, detectDuplicates, validateRelations } from '@/lib/excel
  */
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth()
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { error } = await requirePermission('bulk_upload')
+    if (error) return error
 
     const formData = await req.formData()
     const file = formData.get('file') as File
 
-    if (!file) {
-      return NextResponse.json({ error: 'No file uploaded' }, { status: 400 })
+    const uploadError = await checkSpreadsheetUpload(file)
+    if (uploadError) {
+      return NextResponse.json({ error: uploadError }, { status: 400 })
     }
 
     // Convert file to buffer
@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Preview error:', error)
     return NextResponse.json(
-      { error: 'Failed to preview upload', details: String(error) },
+      { error: 'Failed to preview upload' },
       { status: 500 }
     )
   }

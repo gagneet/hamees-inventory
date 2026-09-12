@@ -16,6 +16,7 @@ enum UserRole {
   ADMIN
   INVENTORY_MANAGER
   SALES_MANAGER
+  MASTER_TAILOR     // Production supervisor: assigns work to tailors and oversees their workload
   TAILOR
   VIEWER
 }
@@ -126,6 +127,7 @@ model User {
   expenses      Expense[]
   designUploads DesignUpload[]
   assignedOrderItems OrderItem[] @relation("OrderItemAssignedTailor")
+  auditLogs     AuditLog[]
 }
 
 model ClothInventory {
@@ -454,6 +456,7 @@ model Order {
   @@index([status])
   @@index([deliveryDate])
   @@index([invoiceDate])
+  @@index([stitchingTier])
 }
 
 model OrderHistory {
@@ -803,20 +806,35 @@ model Expense {
   @@index([createdAt])
 }
 
+// Singleton row holding shop identity, localization, tax and production configuration.
+// Read via lib/settings.ts#getAppSettings(); edited in Admin Settings (manage_settings).
 model BusinessSettings {
   id              String   @id @default(cuid())
-  businessName    String
-  gstin           String   @unique           // Business GST number
-  state           String                      // State for CGST/SGST calculation
+  businessName    String   @default("My Tailor Shop")
+  tagline         String?
+  gstin           String?  @unique           // Tax registration number (GSTIN / VAT no. / EIN)
+  state           String?                     // Shop's state/region (decides intra- vs inter-region tax)
   address         String?
   city            String?
   pincode         String?
+  country         String   @default("India")
   phone           String?
   email           String?
+  website         String?
 
-  // Default GST rates for different items
-  fabricGstRate   Float    @default(5)       // Default GST for fabrics
-  garmentGstRate  Float    @default(12)      // Default GST for readymade garments
+  // Localization
+  currencyCode     String  @default("INR")          // ISO 4217 code used for all amounts
+  locale           String  @default("en-IN")        // BCP 47 tag; drives number and date formats
+  timeZone         String  @default("Asia/Kolkata") // IANA time zone for displayed dates
+  phoneCountryCode String  @default("91")           // Prefix added to local numbers (WhatsApp)
+  postalCodeLabel  String  @default("Pincode")      // e.g. Pincode, ZIP code, Postcode
+
+  // Tax
+  taxMode         String   @default("SPLIT")  // SPLIT (CGST+SGST / IGST) | SINGLE (VAT/Sales tax) | NONE
+  taxName         String   @default("GST")    // Label shown on invoices, e.g. GST, VAT, Sales Tax
+  taxIdLabel      String   @default("GSTIN")  // Label for registration numbers, e.g. GSTIN, VAT No.
+  fabricGstRate   Float    @default(5)       // Default tax rate for fabrics
+  garmentGstRate  Float    @default(12)      // Default tax rate applied to orders
 
   // Financial year settings
   fyStartMonth    Int      @default(4)       // April = 4 (Indian FY)
@@ -824,11 +842,33 @@ model BusinessSettings {
   // Invoice settings
   invoicePrefix   String   @default("INV")
   invoiceCounter  Int      @default(1)
+  invoiceFooter   String?
+
+  // Production (Master Tailor workload planning)
+  maxActiveItemsPerTailor Int @default(8)    // Capacity used for tailor utilisation
+  tailorDailyTarget       Int @default(5)    // Garments a tailor is expected to finish per day
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   @@index([gstin])
+}
+
+// Security-relevant changes (users, roles, settings, assignments) for accountability.
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  action      String   // e.g. USER_CREATED, USER_ROLE_CHANGED, SETTINGS_UPDATED, TAILOR_ASSIGNED
+  entityType  String   // e.g. User, BusinessSettings, OrderItem
+  entityId    String?
+  details     Json?
+  createdAt   DateTime @default(now())
+
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([entityType, entityId])
+  @@index([userId])
 }
 
 model DesignUpload {

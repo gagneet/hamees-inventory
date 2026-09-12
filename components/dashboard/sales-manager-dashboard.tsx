@@ -62,11 +62,13 @@ interface SalesManagerDashboardProps {
       email: string | null
       phone: string
       totalOrders: number
-      totalSpent: number
+      /** Present only for roles with customer financial visibility. */
+      totalSpent?: number
       pendingOrders: number
       isReturning: boolean
     }>
-    revenueForecast: {
+    /** Present only for roles with financial visibility (OWNER/ADMIN). */
+    revenueForecast?: {
       deliveredRevenue: number
       pendingRevenue: number
       forecastedRevenue: number
@@ -189,8 +191,8 @@ export function SalesManagerDashboard({ stats, generalStats }: SalesManagerDashb
         />
       </div>
 
-      {/* Row 2: Revenue Forecast */}
-      <RevenueForecastChart data={stats.revenueForecast} />
+      {/* Row 2: Revenue Forecast (financial roles only — omitted by the API otherwise) */}
+      {stats.revenueForecast && <RevenueForecastChart data={stats.revenueForecast} />}
 
       {/* Row 3: Order Status Funnel */}
       <Card>
@@ -258,14 +260,14 @@ export function SalesManagerDashboard({ stats, generalStats }: SalesManagerDashb
                     </div>
 
                     <div className="flex items-center gap-4 text-xs mt-2">
-                      <div>
-                        <span className="text-slate-500">Total Spent: </span>
-                        {canView('customer', 'totalRevenue') && (
-                        <span className="font-bold text-green-700">
-                          {formatCurrency(customer.totalSpent)}
-                        </span>
-                        )}
-                      </div>
+                      {canView('customer', 'totalRevenue') && customer.totalSpent !== undefined && (
+                        <div>
+                          <span className="text-slate-500">Total Spent: </span>
+                          <span className="font-bold text-green-700">
+                            {formatCurrency(customer.totalSpent)}
+                          </span>
+                        </div>
+                      )}
                       <div>
                         <span className="text-slate-500">Orders: </span>
                         <span className="font-medium">{customer.totalOrders}</span>

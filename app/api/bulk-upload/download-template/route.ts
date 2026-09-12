@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requirePermission } from '@/lib/api-permissions'
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import * as fs from 'fs/promises'
@@ -13,10 +13,8 @@ const execAsync = promisify(exec)
  */
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth()
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { error } = await requirePermission('bulk_upload')
+    if (error) return error
 
     // Run export script
     console.log('Generating Excel export...')

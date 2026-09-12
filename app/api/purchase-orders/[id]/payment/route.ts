@@ -1,15 +1,27 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
-import { requireAnyPermission } from '@/lib/api-permissions'
+import { requirePermission } from '@/lib/api-permissions'
 import { filterApiResponse } from '@/lib/api-filter-response'
+import { hasFinancialAccess } from '@/lib/field-acl'
+import { getAppSettings } from '@/lib/settings'
+import { formatCurrency, formatDate } from '@/lib/locale'
+import { lockPurchaseOrder, roundMoney } from '@/lib/order-finance'
 import { z } from 'zod'
+
+type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 
 const paymentSchema = z.object({
   amount: z.number().positive(),
   paymentMode: z.enum(['CASH', 'UPI', 'CARD', 'BANK_TRANSFER', 'CHEQUE', 'NET_BANKING']).optional(),
-  transactionRef: z.string().nullish(),
-  notes: z.string().nullish(),
+  transactionRef: z.string().max(100).nullish(),
+  notes: z.string().max(1000).nullish(),
 })
+
+class PaymentError extends Error {
+  constructor(message: string, public status = 400) {
+    super(message)
+  }
+}
 
 function appendNote(existingNotes: string | null, note: string | null | undefined): string | null {
   if (!note) return existingNotes
@@ -20,97 +32,80 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { session, error } = await requireAnyPermission(['manage_inventory'])
+  const { session, error } = await requirePermission('manage_inventory')
   if (error) return error
+  if (!hasFinancialAccess(session.user.role, 'purchase_order')) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   try {
     const { id } = await params
     const body = await request.json()
     const { amount, paymentMode, transactionRef, notes } = paymentSchema.parse(body)
 
-    const purchaseOrder = await prisma.purchaseOrder.findUnique({
-      where: { id },
-    })
+    await getAppSettings()
 
-    if (!purchaseOrder) {
-      return NextResponse.json({ error: 'Purchase order not found' }, { status: 404 })
-    }
+    // Lock the PO row, then read + validate + write. A plain read inside the transaction does not
+    // block other writers under READ COMMITTED; the row lock makes a concurrent payment or
+    // receipt wait and then see the reduced balance.
+    const result = await prisma.$transaction(async (tx: TransactionClient) => {
+      await lockPurchaseOrder(tx, id)
+      const purchaseOrder = await tx.purchaseOrder.findUnique({
+        where: { id },
+        include: { items: true },
+      })
 
-    if (purchaseOrder.status === 'CANCELLED') {
-      return NextResponse.json(
-        { error: 'Cannot make payment on cancelled purchase order' },
-        { status: 400 }
-      )
-    }
+      if (!purchaseOrder) throw new PaymentError('Purchase order not found', 404)
+      if (purchaseOrder.status === 'CANCELLED') throw new PaymentError('Cannot make payment on cancelled purchase order')
+      if (!['APPROVED', 'PARTIAL'].includes(purchaseOrder.status)) {
+        throw new PaymentError('Purchase order must be approved before recording payment')
+      }
 
-    if (!['APPROVED', 'PARTIAL'].includes(purchaseOrder.status)) {
-      return NextResponse.json(
-        { error: 'Purchase order must be approved before recording payment' },
-        { status: 400 }
-      )
-    }
+      const payment = roundMoney(amount)
+      if (payment > purchaseOrder.balanceAmount + 0.01) {
+        throw new PaymentError(
+          `Payment amount (${formatCurrency(payment)}) exceeds balance amount (${formatCurrency(purchaseOrder.balanceAmount)})`
+        )
+      }
 
-    // Validate payment amount doesn't exceed balance
-    if (amount > purchaseOrder.balanceAmount) {
-      return NextResponse.json(
-        {
-          error: `Payment amount (${amount.toFixed(2)}) exceeds balance amount (${purchaseOrder.balanceAmount.toFixed(2)})`,
+      const newPaidAmount = roundMoney(purchaseOrder.paidAmount + payment)
+      const newBalanceAmount = roundMoney(purchaseOrder.totalAmount - newPaidAmount)
+      const paymentComplete = newBalanceAmount <= 0.01
+
+      const allItemsReceived = purchaseOrder.items.every((item) => item.receivedQuantity >= item.orderedQuantity)
+      let newStatus = purchaseOrder.status
+      if (allItemsReceived && paymentComplete) {
+        newStatus = 'RECEIVED'
+      } else if (newPaidAmount > 0 || purchaseOrder.items.some((item) => item.receivedQuantity > 0)) {
+        newStatus = 'PARTIAL'
+      }
+
+      const paymentNote = `[${formatDate(new Date())}] Payment: ${formatCurrency(payment)} via ${paymentMode || 'CASH'}${
+        transactionRef ? ` (Ref: ${transactionRef})` : ''
+      }${notes ? ` - ${notes}` : ''}`
+
+      const updatedPO = await tx.purchaseOrder.update({
+        where: { id },
+        data: {
+          paidAmount: newPaidAmount,
+          balanceAmount: newBalanceAmount,
+          status: newStatus,
+          notes: appendNote(purchaseOrder.notes, paymentNote),
         },
-        { status: 400 }
-      )
-    }
+        include: {
+          supplier: true,
+          items: true,
+        },
+      })
 
-    // Calculate new amounts
-    const newPaidAmount = purchaseOrder.paidAmount + amount
-    const newBalanceAmount = purchaseOrder.totalAmount - newPaidAmount
-
-    // Determine if payment is complete
-    const paymentComplete = newBalanceAmount <= 0.01 // Allow for floating point errors
-
-    // Check if all items are received
-    const items = await prisma.pOItem.findMany({
-      where: { purchaseOrderId: id },
+      return { updatedPO, paymentComplete, payment, newBalanceAmount }
     })
-
-    const allItemsReceived = items.every((item: any) => item.receivedQuantity >= item.orderedQuantity)
-
-    // Determine new status
-    let newStatus = purchaseOrder.status
-    if (allItemsReceived && paymentComplete) {
-      newStatus = 'RECEIVED' // Fully complete
-    } else if (newPaidAmount > 0 || items.some((item: any) => item.receivedQuantity > 0)) {
-      newStatus = 'PARTIAL' // Partial payment or partial receipt
-    }
-
-    // Update purchase order
-    const updatedPO = await prisma.purchaseOrder.update({
-      where: { id },
-      data: {
-        paidAmount: newPaidAmount,
-        balanceAmount: newBalanceAmount,
-        status: newStatus,
-        notes: appendNote(
-          purchaseOrder.notes,
-          notes
-            ? `[${new Date().toLocaleDateString('en-IN')}] Payment: ${amount.toFixed(2)} via ${paymentMode || 'Cash'} - ${notes}`
-            : null
-        ),
-      },
-      include: {
-        supplier: true,
-        items: true,
-      },
-    })
-
-    // FEATURETRACE: Apply ACL field filtering to response
-    const userRole = session.user.role as any
-    const filtered = filterApiResponse(updatedPO, userRole, 'purchase_order')
 
     return NextResponse.json({
-      purchaseOrder: filtered,
-      message: paymentComplete
+      purchaseOrder: filterApiResponse(result.updatedPO, session.user.role, 'purchase_order'),
+      message: result.paymentComplete
         ? 'Payment completed successfully!'
-        : `Payment of ${amount.toFixed(2)} recorded. Balance remaining: ${newBalanceAmount.toFixed(2)}`,
+        : `Payment of ${formatCurrency(result.payment)} recorded. Balance remaining: ${formatCurrency(result.newBalanceAmount)}`,
     })
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -118,6 +113,9 @@ export async function POST(
         { error: 'Validation failed', details: error.issues },
         { status: 400 }
       )
+    }
+    if (error instanceof PaymentError) {
+      return NextResponse.json({ error: error.message }, { status: error.status })
     }
 
     console.error('Error processing payment:', error)

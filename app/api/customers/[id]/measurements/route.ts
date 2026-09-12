@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
+import { actorFromSession, requireCustomerAccess } from '@/lib/authz'
 import { z } from 'zod'
 
 const measurementSchema = z.object({
@@ -38,11 +39,16 @@ export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAnyPermission(['view_customers'])
+  const { session, error } = await requireAnyPermission(['view_customers'])
   if (error) return error
+  const actor = actorFromSession(session)
+  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const { id } = await params
+
+    const denied = await requireCustomerAccess(actor, id)
+    if (denied) return denied
     const url = new URL(request.url)
     const includeInactive = url.searchParams.get('includeInactive') === 'true'
 
@@ -77,13 +83,19 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { session, error } = await requireAnyPermission(['manage_customers'])
+  // Tailors take measurements too: manage_measurements (or manage_customers) may add them
+  const { session, error } = await requireAnyPermission(['manage_measurements', 'manage_customers'])
   if (error) return error
+  const actor = actorFromSession(session)
+  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const { id } = await params
     const body = await request.json()
     const validatedData = measurementSchema.parse(body)
+
+    const denied = await requireCustomerAccess(actor, id)
+    if (denied) return denied
 
     // Verify customer exists
     const customer = await prisma.customer.findUnique({
@@ -101,7 +113,7 @@ export async function POST(
       data: {
         ...restData,
         customerId: id,
-        userId: session!.user.id,
+        userId: actor.id,
         additionalMeasurements: additionalMeasurements || undefined,
         isActive: true, // New measurements are always active
       },

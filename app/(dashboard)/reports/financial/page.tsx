@@ -33,6 +33,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts'
+import { formatCurrency, currencySymbol } from '@/lib/utils'
 
 export default function FinancialReportPage() {
   const [data, setData] = useState<any>(null)
@@ -170,13 +171,13 @@ export default function FinancialReportPage() {
             <div className="p-4 bg-green-50 rounded-lg border border-green-200">
               <p className="text-sm font-medium text-green-800">Revenue</p>
               <p className="text-2xl font-bold text-green-900">
-                ₹{data.summary.thisMonthRevenue.toLocaleString('en-IN')}
+                {formatCurrency(data.summary.thisMonthRevenue)}
               </p>
             </div>
             <div className="p-4 bg-red-50 rounded-lg border border-red-200">
               <p className="text-sm font-medium text-red-800">Expenses</p>
               <p className="text-2xl font-bold text-red-900">
-                ₹{data.summary.thisMonthExpenses.toLocaleString('en-IN')}
+                {formatCurrency(data.summary.thisMonthExpenses)}
               </p>
             </div>
             <div className={`p-4 rounded-lg border ${isProfitable ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'}`}>
@@ -185,7 +186,7 @@ export default function FinancialReportPage() {
               </p>
               <div className="flex items-center gap-2">
                 <p className={`text-2xl font-bold ${isProfitable ? 'text-blue-900' : 'text-orange-900'}`}>
-                  ₹{Math.abs(data.summary.thisMonthProfit).toLocaleString('en-IN')}
+                  {formatCurrency(Math.abs(data.summary.thisMonthProfit))}
                 </p>
                 {isProfitable
                   ? <TrendingUp className="h-5 w-5 text-blue-600" />
@@ -212,19 +213,19 @@ export default function FinancialReportPage() {
             <div>
               <p className="text-sm text-slate-600">Total Revenue</p>
               <p className="text-xl font-bold text-green-600">
-                ₹{data.yearToDate.revenue.toLocaleString('en-IN')}
+                {formatCurrency(data.yearToDate.revenue)}
               </p>
             </div>
             <div>
               <p className="text-sm text-slate-600">Total Expenses</p>
               <p className="text-xl font-bold text-red-600">
-                ₹{data.yearToDate.expenses.toLocaleString('en-IN')}
+                {formatCurrency(data.yearToDate.expenses)}
               </p>
             </div>
             <div>
               <p className="text-sm text-slate-600">Net Profit</p>
               <p className={`text-xl font-bold ${data.yearToDate.profit >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
-                ₹{data.yearToDate.profit.toLocaleString('en-IN')}
+                {formatCurrency(data.yearToDate.profit)}
               </p>
             </div>
           </div>
@@ -244,11 +245,11 @@ export default function FinancialReportPage() {
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
                 <YAxis />
-                <Tooltip formatter={(v) => typeof v === 'number' ? `₹${v.toLocaleString('en-IN')}` : '—'} />
+                <Tooltip formatter={(v) => typeof v === 'number' ? `${formatCurrency(v)}` : '—'} />
                 <Legend />
-                <Line type="monotone" dataKey="revenue"  stroke="#10B981" strokeWidth={2} name="Revenue (₹)" />
-                <Line type="monotone" dataKey="expenses" stroke="#EF4444" strokeWidth={2} name="Expenses (₹)" />
-                <Line type="monotone" dataKey="profit"   stroke="#3B82F6" strokeWidth={2} name="Profit (₹)" />
+                <Line type="monotone" dataKey="revenue"  stroke="#10B981" strokeWidth={2} name={`Revenue (${currencySymbol()})`} />
+                <Line type="monotone" dataKey="expenses" stroke="#EF4444" strokeWidth={2} name={`Expenses (${currencySymbol()})`} />
+                <Line type="monotone" dataKey="profit"   stroke="#3B82F6" strokeWidth={2} name={`Profit (${currencySymbol()})`} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -263,7 +264,7 @@ export default function FinancialReportPage() {
             <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
               <span className="text-sm font-medium">Cash Received (Month)</span>
               <span className="text-lg font-bold text-green-600">
-                ₹{data.summary.cashReceived.toLocaleString('en-IN')}
+                {formatCurrency(data.summary.cashReceived)}
               </span>
             </div>
             <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
@@ -271,7 +272,7 @@ export default function FinancialReportPage() {
                 Outstanding Payments ({data.summary.outstandingCount})
               </span>
               <span className="text-lg font-bold text-orange-600">
-                ₹{data.summary.outstandingPayments.toLocaleString('en-IN')}
+                {formatCurrency(data.summary.outstandingPayments)}
               </span>
             </div>
           </CardContent>
@@ -282,7 +283,7 @@ export default function FinancialReportPage() {
             <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
               <span className="text-sm font-medium">Inventory Value</span>
               <span className="text-lg font-bold text-blue-600">
-                ₹{data.summary.inventoryValue.toLocaleString('en-IN')}
+                {formatCurrency(data.summary.inventoryValue)}
               </span>
             </div>
           </CardContent>

@@ -1,95 +1,80 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requirePermission } from '@/lib/api-permissions'
 import { prisma } from '@/lib/db'
-import { hasPermission, type UserRole } from '@/lib/permissions'
+import { changeClothStock, InsufficientStockError, roundMeters } from '@/lib/stock'
 import { z } from 'zod'
 
-const adjustStockSchema = z.object({
-  quantity: z.number(), // Positive for additions, negative for reductions
-  type: z.enum(['PURCHASE', 'ADJUSTMENT', 'RETURN', 'WASTAGE']),
-  notes: z.string().optional(),
-})
+type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
+
+const adjustStockSchema = z
+  .object({
+    quantity: z.number().finite().refine((n) => roundMeters(n) !== 0, 'Quantity must not be zero'), // + additions, − reductions
+    type: z.enum(['PURCHASE', 'ADJUSTMENT', 'RETURN', 'WASTAGE']),
+    notes: z.string().max(1000).optional(),
+  })
+  .refine((data) => data.type !== 'PURCHASE' || data.quantity > 0, {
+    message: 'Purchases must add stock',
+    path: ['quantity'],
+  })
 
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth()
-  if (!session?.user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
-
-  // Check permissions - ADMIN or INVENTORY_MANAGER only
-  if (!hasPermission(session.user.role as UserRole, 'manage_inventory')) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
+  const { session, error } = await requirePermission('manage_inventory')
+  if (error) return error
 
   try {
     const { id } = await context.params
     const body = await request.json()
     const validatedData = adjustStockSchema.parse(body)
+    const quantity = roundMeters(validatedData.quantity)
 
-    // Get current cloth item
     const cloth = await prisma.clothInventory.findUnique({
       where: { id },
+      select: { id: true, name: true },
     })
 
     if (!cloth) {
       return NextResponse.json({ error: 'Item not found' }, { status: 404 })
     }
 
-    // Calculate new stock
-    const newStock = cloth.currentStock + validatedData.quantity
-
-    if (newStock < 0) {
-      return NextResponse.json(
-        { error: 'Insufficient stock for reduction' },
-        { status: 400 }
-      )
-    }
-
-    // Update stock and create movement in transaction
-    const result = await prisma.$transaction(async (tx: any) => {
-      // Update cloth inventory
-      const updated = await tx.clothInventory.update({
-        where: { id },
-        data: {
-          currentStock: newStock,
-          totalPurchased:
-            validatedData.type === 'PURCHASE'
-              ? cloth.totalPurchased + validatedData.quantity
-              : cloth.totalPurchased,
-        },
+    // Atomic, guarded update: stock can't drop below what's reserved for orders
+    const result = await prisma.$transaction(async (tx: TransactionClient) => {
+      const levels = await changeClothStock(tx, id, quantity, {
+        countAsPurchase: validatedData.type === 'PURCHASE',
+        label: cloth.name,
       })
 
-      // Create stock movement record
       await tx.stockMovement.create({
         data: {
           clothInventoryId: id,
           userId: session.user.id,
           type: validatedData.type,
-          quantity: validatedData.quantity,
-          balanceAfter: newStock,
+          quantityMeters: quantity,
+          balanceAfterMeters: levels.currentStock,
           notes:
             validatedData.notes ||
-            `Stock ${validatedData.type.toLowerCase()} - ${validatedData.quantity >= 0 ? '+' : ''}${validatedData.quantity}m`,
+            `Stock ${validatedData.type.toLowerCase()} - ${quantity >= 0 ? '+' : ''}${quantity}m`,
         },
       })
 
-      return updated
+      return tx.clothInventory.findUnique({ where: { id } })
     })
 
     return NextResponse.json(result)
   } catch (error) {
-    console.error('Error adjusting stock:', error)
-
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Validation failed', details: error.issues },
         { status: 400 }
       )
     }
+    if (error instanceof InsufficientStockError) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
 
+    console.error('Error adjusting stock:', error)
     return NextResponse.json(
       { error: 'Failed to adjust stock' },
       { status: 500 }

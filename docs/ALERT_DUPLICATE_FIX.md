@@ -238,10 +238,10 @@ WHERE active = true;
 **Deployment Command History:**
 ```bash
 # Database cleanup
-PGPASSWORD=hamees_secure_2026 psql -h localhost -U hamees_user -d tailor_inventory < cleanup.sql
+PGPASSWORD=<REDACTED_DB_PASSWORD> psql -h localhost -U hamees_user -d tailor_inventory < cleanup.sql
 
 # Add unique constraint
-PGPASSWORD=hamees_secure_2026 psql -h localhost -U hamees_user -d tailor_inventory \
+PGPASSWORD=<REDACTED_DB_PASSWORD> psql -h localhost -U hamees_user -d tailor_inventory \
   -c "CREATE UNIQUE INDEX \"Alert_relatedId_relatedType_type_isDismissed_key\"
       ON \"Alert\"(\"relatedId\", \"relatedType\", type, \"isDismissed\");"
 

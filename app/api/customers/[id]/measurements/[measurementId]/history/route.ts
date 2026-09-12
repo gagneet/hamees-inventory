@@ -1,17 +1,23 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
+import { actorFromSession, requireCustomerAccess } from '@/lib/authz'
 
 // GET measurement history - retrieves the full version chain
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string; measurementId: string }> }
 ) {
-  const { error } = await requireAnyPermission(['view_customers'])
+  const { session, error } = await requireAnyPermission(['view_customers'])
   if (error) return error
+  const actor = actorFromSession(session)
+  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const { id, measurementId } = await params
+
+    const denied = await requireCustomerAccess(actor, id)
+    if (denied) return denied
 
     // First, verify the measurement exists and belongs to this customer
     const currentMeasurement = await prisma.measurement.findUnique({
@@ -29,8 +35,8 @@ export async function GET(
     // Follow the chain backwards to get all previous versions
     for (let i = 0; i < 100 && nextId; i++) {
       // Safety limit of 100 iterations
-      const record: any = await prisma.measurement.findUnique({
-        where: { id: nextId },
+      const record: any = await prisma.measurement.findFirst({
+        where: { id: nextId, customerId: id },
         include: {
           createdBy: {
             select: {

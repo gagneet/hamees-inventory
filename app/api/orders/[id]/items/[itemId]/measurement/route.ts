@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
+import { actorFromSession, orderScope } from '@/lib/authz'
 import { z } from 'zod'
 
 /**
@@ -72,6 +73,8 @@ export async function POST(
 ) {
   const { session, error } = await requireAnyPermission(['manage_measurements'])
   if (error) return error
+  const actor = actorFromSession(session)
+  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const { id: orderId, itemId } = await context.params
@@ -82,6 +85,7 @@ export async function POST(
       where: {
         id: itemId,
         orderId,
+        order: orderScope(actor),
       },
       include: {
         order: {
@@ -144,7 +148,7 @@ export async function POST(
         data: {
           ...restData,
           customerId: existingItem.order.customerId,
-          userId: session!.user.id,
+          userId: actor.id,
           additionalMeasurements: additionalMeasurements || undefined,
           isActive: true,
         },

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { getAppSettings } from '@/lib/settings'
+import { formatDateWith } from '@/lib/locale'
 import { startOfMonth, endOfMonth, parse } from 'date-fns'
 import { z } from 'zod'
 import { hasPermission } from '@/lib/permissions'
@@ -107,6 +109,9 @@ export async function GET(request: Request) {
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    if (!hasPermission(session.user.role, 'view_expenses')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
     const { searchParams } = new URL(request.url)
 
@@ -127,11 +132,14 @@ export async function GET(request: Request) {
     let endDate: Date
     let label: string
 
+    await getAppSettings() // locale for period labels
+    const dayLabel = { month: 'short', day: 'numeric', year: 'numeric' } as const
+
     if (fromParam && toParam) {
       // Use date range if provided
       startDate = new Date(fromParam)
       endDate = new Date(toParam)
-      label = `${startDate.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })} - ${endDate.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}`
+      label = `${formatDateWith(startDate, dayLabel)} - ${formatDateWith(endDate, dayLabel)}`
     } else if (monthParam) {
       // Parse the month parameter (format: "MMM yyyy" e.g., "Jan 2026")
       const parsedDate = parse(monthParam, 'MMM yyyy', new Date())
@@ -143,7 +151,7 @@ export async function GET(request: Request) {
       const now = new Date()
       startDate = startOfMonth(now)
       endDate = endOfMonth(now)
-      label = now.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
+      label = formatDateWith(now, { month: 'short', year: 'numeric' })
     }
 
     // Build filter objects

@@ -530,7 +530,7 @@ pnpm db:push
 pnpm prisma generate
 
 # Seed WhatsApp templates
-PGPASSWORD=hamees_secure_2026 psql -h localhost -U hamees_user -d tailor_inventory -f /tmp/seed-whatsapp.sql
+PGPASSWORD=<REDACTED_DB_PASSWORD> psql -h localhost -U hamees_user -d tailor_inventory -f /tmp/seed-whatsapp.sql
 ```
 
 ---

@@ -1,22 +1,39 @@
+/**
+ * @featuretrace Customer report
+ * GET /api/reports/customers?months=12  (view_customer_reports)
+ *
+ * Roles with financial report access (OWNER/ADMIN) get revenue figures. Other roles with the
+ * permission (SALES_MANAGER) get the same shape with every amount set to null and
+ * `financialsHidden: true`; `customerSegments` (revenue bands) is null for them.
+ * Segment thresholds (50,000 / 20,000) are absolute amounts in the shop's currency.
+ */
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
-import { filterApiResponse } from '@/lib/api-filter-response'
+import { hasFinancialAccess } from '@/lib/field-acl'
+import type { UserRole } from '@/lib/permissions'
 import { subMonths } from 'date-fns'
+
+const HIGH_VALUE_THRESHOLD = 50000
+const MEDIUM_VALUE_THRESHOLD = 20000
 
 export async function GET(request: Request) {
   const { session, error } = await requireAnyPermission(['view_customer_reports'])
   if (error) return error
 
-  const userRole = session?.user?.role as any
+  const showFinancials = hasFinancialAccess(session.user.role as UserRole, 'report_financial')
 
   try {
     const { searchParams } = new URL(request.url)
-    const months = parseInt(searchParams.get('months') || '12')
+    const months = Math.min(120, Math.max(1, parseInt(searchParams.get('months') || '12') || 12))
 
-    // Top customers by revenue
     const customers = await prisma.customer.findMany({
-      include: {
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        email: true,
+        city: true,
         orders: {
           where: {
             status: 'DELIVERED',
@@ -24,75 +41,83 @@ export async function GET(request: Request) {
               gte: subMonths(new Date(), months),
             },
           },
+          select: { totalAmount: true, createdAt: true },
+          orderBy: { createdAt: 'asc' },
         },
-        measurements: true,
+        measurements: { select: { id: true }, take: 1 },
       },
     })
 
     const customersWithStats = customers
-      .map((customer: any) => ({
-        id: customer.id,
-        name: customer.name,
-        phone: customer.phone,
-        email: customer.email,
-        city: customer.city,
-        orderCount: customer.orders.length,
-        totalRevenue: customer.orders.reduce((sum: number, o: any) => sum + o.totalAmount, 0),
-        avgOrderValue:
-          customer.orders.length > 0
-            ? customer.orders.reduce((sum: number, o: any) => sum + o.totalAmount, 0) /
-              customer.orders.length
-            : 0,
-        lastOrderDate:
-          customer.orders.length > 0
-            ? customer.orders[customer.orders.length - 1].createdAt
-            : null,
-        hasMeasurements: customer.measurements.length > 0,
-      }))
-      .filter((c: any) => c.orderCount > 0)
-      .sort((a: any, b: any) => b.totalRevenue - a.totalRevenue)
+      .map((customer) => {
+        const revenue = customer.orders.reduce((sum, o) => sum + o.totalAmount, 0)
+        return {
+          id: customer.id,
+          name: customer.name,
+          phone: customer.phone,
+          email: customer.email,
+          city: customer.city,
+          orderCount: customer.orders.length,
+          totalRevenue: revenue,
+          avgOrderValue: customer.orders.length > 0 ? revenue / customer.orders.length : 0,
+          lastOrderDate: customer.orders.length > 0 ? customer.orders[customer.orders.length - 1].createdAt : null,
+          hasMeasurements: customer.measurements.length > 0,
+        }
+      })
+      .filter((c) => c.orderCount > 0)
 
-    // Repeat customer rate
-    const repeatCustomers = customersWithStats.filter((c: any) => c.orderCount > 1).length
-    const repeatRate =
-      customersWithStats.length > 0
-        ? (repeatCustomers / customersWithStats.length) * 100
-        : 0
+    const repeatCustomers = customersWithStats.filter((c) => c.orderCount > 1).length
+    const repeatRate = customersWithStats.length > 0 ? (repeatCustomers / customersWithStats.length) * 100 : 0
 
-    // Average lifetime value
+    const summaryCounts = {
+      totalCustomers: customers.length,
+      activeCustomers: customersWithStats.length,
+      repeatCustomers,
+      repeatRate: repeatRate.toFixed(1),
+    }
+
+    if (!showFinancials) {
+      // No amounts at all: rank by number of delivered orders instead of revenue
+      const topCustomers = [...customersWithStats]
+        .sort((a, b) => b.orderCount - a.orderCount)
+        .slice(0, 20)
+        .map((c) => ({ ...c, totalRevenue: null, avgOrderValue: null }))
+
+      return NextResponse.json({
+        financialsHidden: true,
+        summary: { ...summaryCounts, avgLifetimeValue: null, avgOrderValue: null },
+        topCustomers,
+        customerSegments: null,
+      })
+    }
+
+    customersWithStats.sort((a, b) => b.totalRevenue - a.totalRevenue)
+
     const avgLifetimeValue =
       customersWithStats.length > 0
-        ? customersWithStats.reduce((sum: number, c: any) => sum + c.totalRevenue, 0) /
-          customersWithStats.length
+        ? customersWithStats.reduce((sum, c) => sum + c.totalRevenue, 0) / customersWithStats.length
+        : 0
+    const avgOrderValue =
+      customersWithStats.length > 0
+        ? customersWithStats.reduce((sum, c) => sum + c.avgOrderValue, 0) / customersWithStats.length
         : 0
 
-    const response = {
+    return NextResponse.json({
+      financialsHidden: false,
       summary: {
-        totalCustomers: customers.length,
-        activeCustomers: customersWithStats.length,
-        repeatCustomers,
-        repeatRate: repeatRate.toFixed(1),
+        ...summaryCounts,
         avgLifetimeValue: avgLifetimeValue.toFixed(0),
-        avgOrderValue:
-          customersWithStats.length > 0
-            ? (
-                customersWithStats.reduce((sum: number, c: any) => sum + c.avgOrderValue, 0) /
-                customersWithStats.length
-              ).toFixed(0)
-            : 0,
+        avgOrderValue: avgOrderValue.toFixed(0),
       },
       topCustomers: customersWithStats.slice(0, 20),
       customerSegments: {
-        highValue: customersWithStats.filter((c: any) => c.totalRevenue > 50000).length,
+        highValue: customersWithStats.filter((c) => c.totalRevenue > HIGH_VALUE_THRESHOLD).length,
         mediumValue: customersWithStats.filter(
-          (c: any) => c.totalRevenue >= 20000 && c.totalRevenue <= 50000
+          (c) => c.totalRevenue >= MEDIUM_VALUE_THRESHOLD && c.totalRevenue <= HIGH_VALUE_THRESHOLD
         ).length,
-        lowValue: customersWithStats.filter((c: any) => c.totalRevenue < 20000).length,
+        lowValue: customersWithStats.filter((c) => c.totalRevenue < MEDIUM_VALUE_THRESHOLD).length,
       },
-    }
-
-    const filtered = filterApiResponse(response, userRole, 'report_financial')
-    return NextResponse.json(filtered)
+    })
   } catch (error) {
     console.error('Error generating customer report:', error)
     return NextResponse.json(

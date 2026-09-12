@@ -16,7 +16,7 @@
 import React, { useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Ruler, ChevronDown, ChevronUp, AlertCircle } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, formatDateWith } from '@/lib/utils'
 
 // ── Measurement field display labels ─────────────────────────────
 
@@ -185,7 +185,7 @@ export function OrderItemMeasurements({
               Recorded
               {measurement.createdBy ? ` by ${measurement.createdBy.name}` : ''}
               {measurement.createdAt
-                ? ` on ${new Date(measurement.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`
+                ? ` on ${formatDateWith(measurement.createdAt, { day: 'numeric', month: 'short', year: 'numeric' })}`
                 : ''}
             </p>
           )}

@@ -3,7 +3,10 @@
  *
  * This module provides utilities for calculating GST (Goods and Services Tax)
  * for orders, purchases, and expenses in compliance with Indian tax regulations.
+ * For settings-driven tax (any country / tax mode) prefer lib/tax.ts#computeTax.
  */
+
+import { formatCurrency } from './locale'
 
 export interface GSTCalculation {
   subTotal: number
@@ -213,12 +216,7 @@ export function validateGSTIN(gstin: string): boolean {
  * @returns Formatted string with currency symbol
  */
 export function formatGSTAmount(amount: number): string {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount)
+  return formatCurrency(amount)
 }
 
 /**

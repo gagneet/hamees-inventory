@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { requireAnyPermission } from '@/lib/api-permissions'
 
+// Supplier list is needed to raise purchase orders and add stock
 export async function GET() {
   try {
-    const session = await auth()
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { error } = await requireAnyPermission(['view_suppliers', 'manage_purchase_orders', 'add_inventory'])
+    if (error) return error
 
     const suppliers = await prisma.supplier.findMany({
       where: { active: true },

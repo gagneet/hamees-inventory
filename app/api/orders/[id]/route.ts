@@ -2,17 +2,31 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
 import { filterApiResponse } from '@/lib/api-filter-response'
+import { hasPermission } from '@/lib/permissions'
+import { actorFromSession, requireOrderAccess } from '@/lib/authz'
+import { getAppSettings } from '@/lib/settings'
+import { formatCurrency, formatDate } from '@/lib/locale'
+import {
+  computeOrderBalance,
+  installmentsPaid,
+  lockOrder,
+  roundMoney,
+  syncLegacyAdvanceInstallment,
+} from '@/lib/order-finance'
 import { z } from 'zod'
 
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
+
+/** Validation failure detected against the locked order (reported as 400). */
+class OrderEditRejected extends Error {}
 
 const orderEditSchema = z.object({
   deliveryDate: z.string().datetime().optional(),
   advancePaid: z.number().nonnegative().optional(),
   discount: z.number().nonnegative().optional(),
-  discountReason: z.string().nullish(),
-  notes: z.string().nullish(),
-  tailorNotes: z.string().nullish(),
+  discountReason: z.string().max(500).nullish(),
+  notes: z.string().max(5000).nullish(),
+  tailorNotes: z.string().max(5000).nullish(),
   priority: z.enum(['NORMAL', 'URGENT']).optional(),
 })
 
@@ -22,11 +36,16 @@ export async function PATCH(
 ) {
   const { session, error } = await requireAnyPermission(['update_order'])
   if (error) return error
+  const actor = actorFromSession(session)
+  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   try {
     const { id } = await params
     const body = await request.json()
     const data = orderEditSchema.parse(body)
+
+    const denied = await requireOrderAccess(actor, id)
+    if (denied) return denied
 
     const order = await prisma.order.findUnique({
       where: { id },
@@ -35,6 +54,18 @@ export async function PATCH(
     if (!order) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 })
     }
+
+    // Changing money received or discounts is a payment operation
+    const touchesPayments =
+      (data.advancePaid !== undefined && data.advancePaid !== order.advancePaid) ||
+      (data.discount !== undefined && data.discount !== order.discount) ||
+      (data.discountReason !== undefined && data.discountReason !== order.discountReason)
+    if (touchesPayments && !hasPermission(actor.role, 'record_payment')) {
+      return NextResponse.json({ error: 'Your role cannot change advance payments or discounts' }, { status: 403 })
+    }
+
+    // Prime locale formatting with the shop's currency/time zone
+    await getAppSettings()
 
     // Track changes for audit
     const changes: Array<{
@@ -49,7 +80,7 @@ export async function PATCH(
         field: 'deliveryDate',
         oldValue: order.deliveryDate.toISOString(),
         newValue: data.deliveryDate,
-        description: `Delivery date changed from ${order.deliveryDate.toLocaleDateString('en-IN')} to ${new Date(data.deliveryDate).toLocaleDateString('en-IN')}`,
+        description: `Delivery date changed from ${formatDate(order.deliveryDate)} to ${formatDate(data.deliveryDate)}`,
       })
     }
 
@@ -58,7 +89,7 @@ export async function PATCH(
         field: 'advancePaid',
         oldValue: order.advancePaid.toString(),
         newValue: data.advancePaid.toString(),
-        description: `Advance payment changed from ₹${order.advancePaid} to ₹${data.advancePaid}`,
+        description: `Advance payment changed from ${formatCurrency(order.advancePaid)} to ${formatCurrency(data.advancePaid)}`,
       })
     }
 
@@ -67,7 +98,7 @@ export async function PATCH(
         field: 'discount',
         oldValue: order.discount.toString(),
         newValue: data.discount.toString(),
-        description: `Discount changed from ₹${order.discount} to ₹${data.discount}${data.discountReason ? ` (Reason: ${data.discountReason})` : ''}`,
+        description: `Discount changed from ${formatCurrency(order.discount)} to ${formatCurrency(data.discount)}${data.discountReason ? ` (Reason: ${data.discountReason})` : ''}`,
       })
     }
 
@@ -115,60 +146,43 @@ export async function PATCH(
     const advancePaid = data.advancePaid ?? order.advancePaid
     const discount = data.discount ?? order.discount
 
-    // Validate that advance + discount doesn't exceed total amount
-    if (advancePaid + discount > order.totalAmount) {
-      return NextResponse.json(
-        {
-          error: `Advance payment (₹${advancePaid.toFixed(2)}) plus discount (₹${discount.toFixed(2)}) cannot exceed total order amount (₹${order.totalAmount.toFixed(2)})`
-        },
-        { status: 400 }
-      )
-    }
-
-    // Get sum of all paid amounts from installments (balance payments only)
-    // Note: In the new system (v0.28.4+), installments should only contain balance payments, NOT the advance payment
-    // However, some legacy orders have the advance payment in BOTH places (advancePaid field + first installment)
-    // We sum paidAmount regardless of status because paidAmount only contains money actually received
-
-    // First, check if the first installment equals the advance payment (legacy double-counting)
-    const firstInstallment = await prisma.paymentInstallment.findFirst({
-      where: {
-        orderId: id,
-        installmentNumber: 1,
-      },
-      select: {
-        paidAmount: true,
-      },
-    })
-
-    const isAdvanceInInstallments = firstInstallment && Math.abs(firstInstallment.paidAmount - advancePaid) < 0.01
-
-    // If advance is in installments, exclude it from the sum (only count installments #2 onwards)
-    const paidInstallments = await prisma.paymentInstallment.aggregate({
-      where: {
-        orderId: id,
-        ...(isAdvanceInInstallments ? { installmentNumber: { gt: 1 } } : {}),
-      },
-      _sum: {
-        paidAmount: true,
-      },
-    })
-    const totalPaidInstallments = paidInstallments._sum.paidAmount || 0
-
-    // Balance = Total - Advance - Discount - Balance Installments
-    // Note: advancePaid is stored separately from installments (not duplicated in new orders)
-    // For legacy orders with advance in both places, we only count it once via the WHERE clause above
-    const balanceAmount = parseFloat((order.totalAmount - advancePaid - discount - totalPaidInstallments).toFixed(2))
-
     // Update order and create history in a transaction
     await prisma.$transaction(async (tx: TransactionClient) => {
-      // Update the order
+      // Lock the order so a payment recorded at the same time is included in the check below
+      await lockOrder(tx, id)
+      const current = await tx.order.findUnique({
+        where: { id },
+        select: { totalAmount: true, advancePaid: true },
+      })
+      if (!current) throw new OrderEditRejected('Order not found')
+
+      // Advance + discount + balance payments already received must not exceed the total
+      const paidViaInstallments = await installmentsPaid(tx, { id, advancePaid: current.advancePaid })
+      if (roundMoney(advancePaid + discount + paidViaInstallments) > current.totalAmount + 0.005) {
+        throw new OrderEditRejected(
+          `Advance payment (${formatCurrency(advancePaid)}) plus discount (${formatCurrency(discount)})` +
+            (paidViaInstallments > 0 ? ` plus payments received (${formatCurrency(paidViaInstallments)})` : '') +
+            ` cannot exceed total order amount (${formatCurrency(current.totalAmount)})`
+        )
+      }
+
+      // A legacy installment that mirrors the advance must keep mirroring it
+      await syncLegacyAdvanceInstallment(tx, id, current.advancePaid, advancePaid)
+
+      // Balance = Total - Advance - Discount - Balance Installments (legacy-safe, see lib/order-finance.ts)
+      const balanceAmount = await computeOrderBalance(tx, {
+        id,
+        totalAmount: current.totalAmount,
+        advancePaid,
+        discount,
+      })
+
       await tx.order.update({
         where: { id },
         data: {
           deliveryDate: data.deliveryDate ? new Date(data.deliveryDate) : order.deliveryDate,
-          advancePaid: data.advancePaid ?? order.advancePaid,
-          discount: data.discount ?? order.discount,
+          advancePaid,
+          discount,
           discountReason: data.discountReason !== undefined ? data.discountReason : order.discountReason,
           balanceAmount,
           notes: data.notes !== undefined ? data.notes : order.notes,
@@ -182,7 +196,7 @@ export async function PATCH(
         await tx.orderHistory.create({
           data: {
             orderId: order.id,
-            userId: session.user.id,
+            userId: actor.id,
             changeType: 'ORDER_EDIT',
             fieldName: change.field,
             oldValue: change.oldValue,
@@ -207,9 +221,8 @@ export async function PATCH(
     })
 
     // FEATURETRACE: Apply ACL field filtering to response
-    const userRole = session?.user?.role as any
-    const filtered = filterApiResponse(updatedOrder, userRole, 'order')
-    
+    const filtered = filterApiResponse(updatedOrder, actor.role, 'order')
+
     return NextResponse.json({ order: filtered })
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -217,6 +230,9 @@ export async function PATCH(
         { error: 'Validation failed', details: error.issues },
         { status: 400 }
       )
+    }
+    if (error instanceof OrderEditRejected) {
+      return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
     console.error('Error updating order:', error)

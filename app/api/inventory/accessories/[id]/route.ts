@@ -3,14 +3,17 @@ import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
 import { hasPermission, type UserRole } from '@/lib/permissions'
+import { requirePermission } from '@/lib/api-permissions'
+import { filterApiResponse } from '@/lib/api-filter-response'
+import { InsufficientStockError, setAccessoryStockLevel } from '@/lib/stock'
 
 const updateAccessorySchema = z.object({
   type: z.string().optional(),
   name: z.string().optional(),
   color: z.string().nullish(),
-  currentStock: z.number().int().optional(),
-  pricePerUnit: z.number().optional(),
-  minimumStockUnits: z.number().int().optional(),
+  currentStock: z.number().int().nonnegative().optional(),
+  pricePerUnit: z.number().nonnegative().optional(),
+  minimumStockUnits: z.number().int().nonnegative().optional(),
   notes: z.string().nullish(),
   // Phase 1 Enhancement Fields
   colorCode: z.string().nullish(),
@@ -33,10 +36,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { session, error } = await requirePermission('view_inventory')
+    if (error) return error
 
     const { id } = await params
 
@@ -51,7 +52,7 @@ export async function GET(
       return NextResponse.json({ error: 'Item not found' }, { status: 404 })
     }
 
-    return NextResponse.json(item)
+    return NextResponse.json(filterApiResponse(item, session.user.role, 'inventory'))
   } catch (error) {
     console.error('Error fetching accessory item:', error)
     return NextResponse.json(
@@ -93,21 +94,54 @@ export async function PATCH(
       return NextResponse.json({ error: 'Item not found' }, { status: 404 })
     }
 
-    // Clean up data: remove undefined/null values to avoid Prisma type issues
+    // Clean up data: remove undefined/null values to avoid Prisma type issues.
+    // Stock is not written here: it goes through lib/stock so it is guarded and audited.
+    const { currentStock: newStock, ...descriptive } = updateData
     const cleanedData = Object.fromEntries(
-      Object.entries(updateData).filter(([_, value]) => value !== undefined && value !== null)
+      Object.entries(descriptive).filter(([_, value]) => value !== undefined && value !== null)
     )
 
-    // Update the item (accessories don't have stock movements, simpler update)
-    const updatedItem = await prisma.accessoryInventory.update({
+    try {
+      await prisma.$transaction(async (tx) => {
+        if (Object.keys(cleanedData).length > 0) {
+          await tx.accessoryInventory.update({ where: { id }, data: cleanedData as any })
+        }
+        if (newStock !== undefined && newStock !== existingItem.currentStock) {
+          // Row-locked set; refuses to go below the quantity reserved for orders
+          const levels = await setAccessoryStockLevel(tx, id, newStock, existingItem.name)
+          const delta = levels.currentStock - levels.previousStock
+          if (delta !== 0) {
+            await tx.accessoryStockMovement.create({
+              data: {
+                accessoryInventoryId: id,
+                userId: session.user.id,
+                type: 'ADJUSTMENT',
+                quantityUnits: delta,
+                balanceAfterUnits: levels.currentStock,
+                notes: _auditNote?.trim() || 'Manual stock correction',
+              },
+            })
+          }
+        }
+      })
+    } catch (err) {
+      if (err instanceof InsufficientStockError) {
+        return NextResponse.json(
+          { error: 'Stock cannot be set below the quantity reserved for orders' },
+          { status: 400 }
+        )
+      }
+      throw err
+    }
+
+    const updatedItem = await prisma.accessoryInventory.findUnique({
       where: { id },
-      data: cleanedData as any,
       include: {
         supplierRel: true,
       },
     })
 
-    return NextResponse.json(updatedItem)
+    return NextResponse.json(filterApiResponse(updatedItem, session.user.role as UserRole, 'inventory'))
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(

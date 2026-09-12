@@ -10,7 +10,7 @@ import {
 } from '@/lib/permissions'
 import type { UserRole } from '@prisma/client'
 
-const ALL_ROLES: UserRole[] = ['OWNER', 'ADMIN', 'INVENTORY_MANAGER', 'SALES_MANAGER', 'TAILOR', 'VIEWER']
+const ALL_ROLES: UserRole[] = ['OWNER', 'ADMIN', 'INVENTORY_MANAGER', 'SALES_MANAGER', 'MASTER_TAILOR', 'TAILOR', 'VIEWER']
 
 // ─────────────────────────────────────────────────────────────
 // hasPermission — OWNER expectations
@@ -117,11 +117,15 @@ describe('hasPermission – TAILOR', () => {
 
   it('has view_inventory', () => expect(hasPermission(role, 'view_inventory')).toBe(true))
   it('has view_orders', () => expect(hasPermission(role, 'view_orders')).toBe(true))
-  it('has create_order', () => expect(hasPermission(role, 'create_order')).toBe(true))
   it('has update_order_status', () => expect(hasPermission(role, 'update_order_status')).toBe(true))
   it('has manage_measurements', () => expect(hasPermission(role, 'manage_measurements')).toBe(true))
   it('has view_purchase_orders', () => expect(hasPermission(role, 'view_purchase_orders')).toBe(true))
 
+  // Tailors work on assigned orders only (object-level scope in lib/authz.ts)
+  it('does NOT have view_all_orders', () => expect(hasPermission(role, 'view_all_orders')).toBe(false))
+  it('does NOT have create_order', () => expect(hasPermission(role, 'create_order')).toBe(false))
+  it('does NOT have assign_tailors', () => expect(hasPermission(role, 'assign_tailors')).toBe(false))
+  it('does NOT have record_payment', () => expect(hasPermission(role, 'record_payment')).toBe(false))
   it('does NOT have update_order (only status)', () => expect(hasPermission(role, 'update_order')).toBe(false))
   it('does NOT have view_expenses', () => expect(hasPermission(role, 'view_expenses')).toBe(false))
   it('does NOT have manage_customers', () => expect(hasPermission(role, 'manage_customers')).toBe(false))
@@ -194,8 +198,51 @@ describe('hasAllPermissions', () => {
   })
 
   it('TAILOR does NOT have both create_order AND update_order', () => {
-    // TAILOR has create_order but NOT update_order
+    // TAILOR has neither: orders are created by sales/owner and assigned to tailors
     expect(hasAllPermissions('TAILOR', ['create_order', 'update_order'])).toBe(false)
+  })
+})
+
+// ─────────────────────────────────────────────────────────────
+// hasPermission – MASTER_TAILOR expectations (production supervisor)
+// ─────────────────────────────────────────────────────────────
+describe('hasPermission – MASTER_TAILOR', () => {
+  const role: UserRole = 'MASTER_TAILOR'
+
+  it('has view_all_orders', () => expect(hasPermission(role, 'view_all_orders')).toBe(true))
+  it('has assign_tailors', () => expect(hasPermission(role, 'assign_tailors')).toBe(true))
+  it('has view_production', () => expect(hasPermission(role, 'view_production')).toBe(true))
+  it('has view_production_reports', () => expect(hasPermission(role, 'view_production_reports')).toBe(true))
+  it('has update_order_status', () => expect(hasPermission(role, 'update_order_status')).toBe(true))
+  it('has manage_measurements', () => expect(hasPermission(role, 'manage_measurements')).toBe(true))
+
+  it('does NOT have update_order (no pricing edits)', () => expect(hasPermission(role, 'update_order')).toBe(false))
+  it('does NOT have record_payment', () => expect(hasPermission(role, 'record_payment')).toBe(false))
+  it('does NOT have view_expenses', () => expect(hasPermission(role, 'view_expenses')).toBe(false))
+  it('does NOT have view_financial_reports', () => expect(hasPermission(role, 'view_financial_reports')).toBe(false))
+  it('does NOT have manage_users', () => expect(hasPermission(role, 'manage_users')).toBe(false))
+})
+
+describe('object-level and payment permissions', () => {
+  it('only OWNER and ADMIN can record payments', () => {
+    for (const role of ALL_ROLES) {
+      const expected = role === 'OWNER' || role === 'ADMIN'
+      expect(hasPermission(role, 'record_payment'), `${role} record_payment should be ${expected}`).toBe(expected)
+    }
+  })
+
+  it('every role that can view orders, except TAILOR, sees all orders', () => {
+    for (const role of ALL_ROLES) {
+      if (!hasPermission(role, 'view_orders')) continue
+      expect(hasPermission(role, 'view_all_orders'), `${role} view_all_orders`).toBe(role !== 'TAILOR')
+    }
+  })
+
+  it('assign_tailors is limited to OWNER, ADMIN, SALES_MANAGER and MASTER_TAILOR', () => {
+    const allowed = ['OWNER', 'ADMIN', 'SALES_MANAGER', 'MASTER_TAILOR']
+    for (const role of ALL_ROLES) {
+      expect(hasPermission(role, 'assign_tailors'), `${role} assign_tailors`).toBe(allowed.includes(role))
+    }
   })
 })
 
@@ -242,6 +289,7 @@ describe('getRoleName', () => {
     expect(getRoleName('ADMIN')).toBe('Administrator')
     expect(getRoleName('INVENTORY_MANAGER')).toBe('Inventory Manager')
     expect(getRoleName('SALES_MANAGER')).toBe('Sales Manager')
+    expect(getRoleName('MASTER_TAILOR')).toBe('Master Tailor')
     expect(getRoleName('TAILOR')).toBe('Tailor')
     expect(getRoleName('VIEWER')).toBe('Viewer')
   })

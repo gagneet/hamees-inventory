@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Clock, User as UserIcon } from 'lucide-react'
+import { formatDateTime } from '@/lib/utils'
 
 interface HistoryEntry {
   id: string
@@ -14,7 +15,6 @@ interface HistoryEntry {
   createdAt: Date
   user: {
     name: string
-    email: string
   }
 }
 
@@ -73,12 +73,7 @@ export function OrderHistory({ history }: OrderHistoryProps) {
                       {entry.changeType.replace('_', ' ')}
                     </Badge>
                     <span className="text-xs text-slate-500">
-                      {new Date(entry.createdAt).toLocaleDateString('en-IN', {
-                        dateStyle: 'medium',
-                      })}{' '}
-                      {new Date(entry.createdAt).toLocaleTimeString('en-IN', {
-                        timeStyle: 'short',
-                      })}
+                      {formatDateTime(entry.createdAt)}
                     </span>
                   </div>
                 </div>
@@ -108,9 +103,7 @@ export function OrderHistory({ history }: OrderHistoryProps) {
 
                 <div className="flex items-center gap-2 mt-3 text-xs text-slate-500">
                   <UserIcon className="h-3 w-3" />
-                  <span>
-                    {entry.user.name} ({entry.user.email})
-                  </span>
+                  <span>{entry.user.name}</span>
                 </div>
               </div>
             )

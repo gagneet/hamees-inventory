@@ -29,14 +29,14 @@ export function useFieldVisibility() {
 
 /**
  * Hook to conditionally render field label and value
- * Handles alignment with user preference for showing $0/null values
+ * Handles alignment with user preference for showing zero/null values
  */
 export function useFieldRenderer() {
   const { canView, isLoading } = useFieldVisibility()
 
   /**
    * Render field only if user can view it
-   * Respects user preference: show even $0/null values instead of blank/hidden
+   * Respects user preference: show even zero/null values instead of blank/hidden
    */
   const renderField = (
     entityType: EntityType,
@@ -53,7 +53,9 @@ export function useFieldRenderer() {
       return null
     }
 
-    const displayValue = value === null ? '$0' : value === undefined ? '—' : format ? format(value) : value
+    // null renders as zero in the field's own format (e.g. the shop currency), never a hardcoded symbol
+    const displayValue =
+      value === null ? (format ? format(0) : '0') : value === undefined ? '—' : format ? format(value) : value
 
     return (
       <div className="space-y-1">

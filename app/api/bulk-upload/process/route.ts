@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requirePermission } from '@/lib/api-permissions'
 import { processExcelUpload } from '@/lib/excel-processor'
+import { checkSpreadsheetUpload } from '@/lib/upload-limits'
 
 /**
  * POST /api/bulk-upload/process
@@ -9,27 +10,33 @@ import { processExcelUpload } from '@/lib/excel-processor'
  */
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { session, error } = await requirePermission('bulk_upload')
+    if (error) return error
 
     const formData = await req.formData()
     const file = formData.get('file') as File
     const duplicateActionsJson = formData.get('duplicateActions') as string
 
-    if (!file) {
-      return NextResponse.json({ error: 'No file uploaded' }, { status: 400 })
+    const uploadError = await checkSpreadsheetUpload(file)
+    if (uploadError) {
+      return NextResponse.json({ error: uploadError }, { status: 400 })
     }
 
-    // Parse duplicate actions
-    let duplicateActions = new Map<string, 'skip' | 'overwrite'>()
-    if (duplicateActionsJson) {
+    // Parse duplicate actions (only "skip" / "overwrite" values are honoured)
+    const duplicateActions = new Map<string, 'skip' | 'overwrite'>()
+    if (typeof duplicateActionsJson === 'string' && duplicateActionsJson) {
+      if (duplicateActionsJson.length > 1_000_000) {
+        return NextResponse.json({ error: 'Too many duplicate actions' }, { status: 400 })
+      }
       try {
         const actions = JSON.parse(duplicateActionsJson)
-        duplicateActions = new Map(Object.entries(actions))
+        if (actions && typeof actions === 'object' && !Array.isArray(actions)) {
+          for (const [key, value] of Object.entries(actions)) {
+            if (value === 'skip' || value === 'overwrite') duplicateActions.set(key, value)
+          }
+        }
       } catch (error) {
-        console.error('Failed to parse duplicate actions:', error)
+        return NextResponse.json({ error: 'Invalid duplicate actions' }, { status: 400 })
       }
     }
 
@@ -49,7 +56,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Upload processing error:', error)
     return NextResponse.json(
-      { error: 'Failed to process upload', details: String(error) },
+      { error: 'Failed to process upload' },
       { status: 500 }
     )
   }

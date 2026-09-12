@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { format } from 'date-fns'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Clock, User, Package, ArrowUp, ArrowDown } from 'lucide-react'
+import { formatDateTime } from '@/lib/utils'
 
 interface StockMovement {
   id: string
@@ -121,7 +121,7 @@ export function StockMovementHistory({ clothId }: StockMovementHistoryProps) {
                 <div className="flex items-center gap-4 text-xs text-slate-500">
                   <div className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
-                    {format(new Date(movement.createdAt), 'PPpp')}
+                    {formatDateTime(movement.createdAt)}
                   </div>
                   <div className="flex items-center gap-1">
                     <User className="h-3 w-3" />

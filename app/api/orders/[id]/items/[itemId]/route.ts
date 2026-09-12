@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
-import { hasPermission, type UserRole } from '@/lib/permissions'
+import { requireAnyPermission } from '@/lib/api-permissions'
+import { hasPermission } from '@/lib/permissions'
 import { filterApiResponse } from '@/lib/api-filter-response'
+import { actorFromSession, canSeeAllOrders, isAssignableTailor, notFound, orderScope } from '@/lib/authz'
+import { getAppSettings, taxConfigFrom } from '@/lib/settings'
+import { recomputeOrderTax } from '@/lib/tax'
+import { formatCurrency } from '@/lib/locale'
+import { computeOrderBalance, lockOrder, roundMoney } from '@/lib/order-finance'
+import { InsufficientStockError, releaseClothReservation, reserveClothStock } from '@/lib/stock'
+import { audit } from '@/lib/audit'
 import { z } from 'zod'
 
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
@@ -12,52 +19,53 @@ const updateOrderItemSchema = z.object({
   clothInventoryId: z.string().optional(),
   quantity: z.number().int().positive().optional(),
   assignedTailorId: z.string().optional().nullable(),
-  notes: z.string().optional().nullable(),
+  notes: z.string().max(2000).optional().nullable(),
 })
 
+/** The order was closed (delivered/cancelled) by a concurrent request. */
+class OrderClosedError extends Error {}
+
+/**
+ * PATCH /api/orders/[id]/items/[itemId]
+ *
+ * Authorization:
+ *   - fabric change (re-prices the order): update_order
+ *   - (re)assigning a tailor: assign_tailors; target must be an active TAILOR/MASTER_TAILOR
+ *   - notes: anyone who can reach the order; scoped roles (TAILOR) only on items assigned to them
+ * Garment-type and quantity changes are not supported on existing items (they would change
+ * stitching charges and premiums); split the order or create a new one instead.
+ */
 export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string; itemId: string }> }
 ) {
+  const { session, error } = await requireAnyPermission(['update_order', 'update_order_status', 'assign_tailors'])
+  if (error) return error
+  const actor = actorFromSession(session)
+  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   try {
-    const session = await auth()
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    // Check if user has permission to update orders OR update order status
-    // (assigning tailor is a workflow operation allowed for order status managers)
-    const canUpdate = hasPermission(session.user.role as UserRole, 'update_order') ||
-                      hasPermission(session.user.role as UserRole, 'update_order_status')
-
-    if (!canUpdate) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
     const { id: orderId, itemId } = await context.params
     const body = await request.json()
-
-    // Validate request body
     const validatedData = updateOrderItemSchema.parse(body)
 
-    // Check if order item exists and belongs to the order
+    // Item must belong to this order, and the order must be in the actor's scope
     const existingItem = await prisma.orderItem.findFirst({
       where: {
         id: itemId,
-        orderId: orderId,
+        orderId,
+        order: orderScope(actor),
       },
       include: {
         order: true,
         garmentPattern: true,
         clothInventory: true,
+        assignedTailor: { select: { id: true, name: true } },
       },
     })
 
     if (!existingItem) {
-      return NextResponse.json(
-        { error: 'Order item not found' },
-        { status: 404 }
-      )
+      return notFound('Order item')
     }
 
     // Don't allow editing delivered or cancelled orders
@@ -68,177 +76,131 @@ export async function PATCH(
       )
     }
 
+    const garmentChanging =
+      validatedData.garmentPatternId !== undefined && validatedData.garmentPatternId !== existingItem.garmentPatternId
+    const quantityChanging =
+      validatedData.quantity !== undefined && validatedData.quantity !== existingItem.quantityOrdered
+    const fabricChanging =
+      validatedData.clothInventoryId !== undefined && validatedData.clothInventoryId !== existingItem.clothInventoryId
+    const tailorChanging =
+      validatedData.assignedTailorId !== undefined &&
+      (validatedData.assignedTailorId || null) !== existingItem.assignedTailorId
+    const notesChanging = validatedData.notes !== undefined && validatedData.notes !== existingItem.notes
+
+    if (garmentChanging || quantityChanging) {
+      return NextResponse.json(
+        { error: 'Changing the garment type or quantity of an existing item is not supported. Split the order or create a new one.' },
+        { status: 400 }
+      )
+    }
+
+    if (fabricChanging && !hasPermission(actor.role, 'update_order')) {
+      return NextResponse.json({ error: 'Your role cannot change the fabric of an order item' }, { status: 403 })
+    }
+
+    if (tailorChanging && !hasPermission(actor.role, 'assign_tailors')) {
+      return NextResponse.json({ error: 'Your role cannot assign tailors' }, { status: 403 })
+    }
+
+    // Scoped roles may annotate only their own work
+    if (notesChanging && !canSeeAllOrders(actor) && existingItem.assignedTailorId !== actor.id) {
+      return NextResponse.json({ error: 'You can only update items assigned to you' }, { status: 403 })
+    }
+
+    if (!fabricChanging && !tailorChanging && !notesChanging) {
+      return NextResponse.json({ message: 'No changes detected' })
+    }
+
     const updateData: Record<string, unknown> = {}
-    let fabricChanged = false
-    let garmentChanged = false
-    const oldClothInventoryId = existingItem.clothInventoryId
-    let newEstimatedMeters = existingItem.estimatedMeters
-    let needsPriceRecalculation = false
 
-    // If garment pattern is changing, recalculate fabric requirement
-    if (validatedData.garmentPatternId && validatedData.garmentPatternId !== existingItem.garmentPatternId) {
-      // IMPORTANT: Garment pattern changes are now disabled in UI
-      // This code is kept for backwards compatibility but should not be used
-      const newGarmentPattern = await prisma.garmentPattern.findUnique({
-        where: { id: validatedData.garmentPatternId },
-      })
-
-      if (!newGarmentPattern) {
-        return NextResponse.json(
-          { error: 'Invalid garment pattern' },
-          { status: 400 }
-        )
-      }
-
-      // Recalculate estimated meters based on body type
-      const bodyTypeAdjustments = {
-        SLIM: newGarmentPattern.slimAdjustment,
-        REGULAR: newGarmentPattern.regularAdjustment,
-        LARGE: newGarmentPattern.largeAdjustment,
-        XL: newGarmentPattern.xlAdjustment,
-      }
-
-      newEstimatedMeters = newGarmentPattern.baseMeters + bodyTypeAdjustments[existingItem.bodyType]
-      updateData.garmentPatternId = validatedData.garmentPatternId
-      updateData.estimatedMeters = newEstimatedMeters
-      garmentChanged = true
-      needsPriceRecalculation = true
-    }
-
-    let newClothInventory: { pricePerMeter: number } | null = null
-
-    // If cloth inventory is changing, validate it exists and recalculate pricing
-    if (validatedData.clothInventoryId && validatedData.clothInventoryId !== existingItem.clothInventoryId) {
-      newClothInventory = await prisma.clothInventory.findUnique({
-        where: { id: validatedData.clothInventoryId },
-      })
-
-      if (!newClothInventory) {
-        return NextResponse.json(
-          { error: 'Invalid cloth inventory' },
-          { status: 400 }
-        )
-      }
-
-      updateData.clothInventoryId = validatedData.clothInventoryId
-      fabricChanged = true
-      needsPriceRecalculation = true
-
-      // Calculate new fabric cost
-      const newFabricCost = newEstimatedMeters * newClothInventory.pricePerMeter * existingItem.quantityOrdered
-
-      // Keep accessories cost the same (unless garment changed)
-      // For fabric-only changes, we reuse the existing accessories
-      const existingAccessoriesCost = existingItem.totalPrice - (existingItem.estimatedMeters * existingItem.clothInventory.pricePerMeter * existingItem.quantityOrdered)
-
-      // Calculate new total price for this order item
-      const newTotalPrice = newFabricCost + existingAccessoriesCost
-      const newPricePerUnit = newTotalPrice / existingItem.quantityOrdered
-
-      updateData.totalPrice = parseFloat(newTotalPrice.toFixed(2))
-      updateData.pricePerUnit = parseFloat(newPricePerUnit.toFixed(2))
-    }
-
-    // If quantity is changing
-    if (validatedData.quantity !== undefined) {
-      updateData.quantityOrdered = validatedData.quantity
-    }
-
-    // If notes are changing
-    if (validatedData.notes !== undefined) {
-      updateData.notes = validatedData.notes
-    }
-
-    // If assigned tailor is changing
-    if (validatedData.assignedTailorId !== undefined) {
-      // Validate tailor exists if provided
+    // Tailor assignment
+    let newTailor: { id: string; name: string } | null = null
+    if (tailorChanging) {
       if (validatedData.assignedTailorId) {
         const tailor = await prisma.user.findUnique({
           where: { id: validatedData.assignedTailorId },
+          select: { id: true, name: true, role: true, active: true },
         })
-
-        if (!tailor) {
+        if (!isAssignableTailor(tailor)) {
           return NextResponse.json(
-            { error: 'Invalid tailor assignment' },
+            { error: 'Items can only be assigned to an active tailor or master tailor' },
             { status: 400 }
           )
         }
-
-        // Optionally validate that user is actually a TAILOR role
-        if (tailor.role !== 'TAILOR') {
-          return NextResponse.json(
-            { error: 'Assigned user must have TAILOR role' },
-            { status: 400 }
-          )
-        }
+        newTailor = { id: tailor!.id, name: tailor!.name }
       }
-
-      updateData.assignedTailorId = validatedData.assignedTailorId
+      updateData.assignedTailorId = validatedData.assignedTailorId || null
     }
 
-    // Update the order item using a transaction
-    const updatedItem = await prisma.$transaction(async (tx: TransactionClient) => {
-      // If fabric is changing, update stock reservations
-      if (fabricChanged) {
-        const oldCloth = await tx.clothInventory.findUnique({
-          where: { id: oldClothInventoryId },
-        })
+    if (notesChanging) {
+      updateData.notes = validatedData.notes
+    }
 
-        const newCloth = await tx.clothInventory.findUnique({
-          where: { id: validatedData.clothInventoryId! },
-        })
-
-        if (oldCloth && newCloth) {
-          // Release reservation from old cloth
-          await tx.clothInventory.update({
-            where: { id: oldClothInventoryId },
-            data: {
-              reserved: {
-                decrement: existingItem.estimatedMeters * existingItem.quantityOrdered,
-              },
-            },
-          })
-
-          // Add reservation to new cloth
-          const estimatedMeters = (updateData.estimatedMeters as number | undefined) ?? existingItem.estimatedMeters
-          const quantityOrdered = (updateData.quantityOrdered as number | undefined) ?? existingItem.quantityOrdered
-          const metersToReserve = estimatedMeters * quantityOrdered
-
-          await tx.clothInventory.update({
-            where: { id: validatedData.clothInventoryId! },
-            data: {
-              reserved: {
-                increment: metersToReserve,
-              },
-            },
-          })
-
-          // Create stock movement records
-          await tx.stockMovement.create({
-            data: {
-              type: 'ORDER_CANCELLED',
-              quantityMeters: -(existingItem.estimatedMeters * existingItem.quantityOrdered),
-              balanceAfterMeters: oldCloth.currentStock,
-              clothInventoryId: oldClothInventoryId,
-              orderId: orderId,
-              userId: session.user.id,
-            },
-          })
-
-          await tx.stockMovement.create({
-            data: {
-              type: 'ORDER_RESERVED',
-              quantityMeters: metersToReserve,
-              balanceAfterMeters: newCloth.currentStock - metersToReserve,
-              clothInventoryId: validatedData.clothInventoryId!,
-              orderId: orderId,
-              userId: session.user.id,
-            },
-          })
-        }
+    // Fabric change: re-price the item. estimatedMeters is the item's total meters (all garments).
+    let newCloth: { id: string; name: string; color: string; pricePerMeter: number; currentStock: number } | null = null
+    let fabricDelta = 0
+    if (fabricChanging) {
+      newCloth = await prisma.clothInventory.findUnique({
+        where: { id: validatedData.clothInventoryId! },
+        select: { id: true, name: true, color: true, pricePerMeter: true, currentStock: true },
+      })
+      if (!newCloth) {
+        return NextResponse.json({ error: 'Invalid cloth inventory' }, { status: 400 })
       }
 
-      // Update the order item
+      const oldFabricCost = existingItem.estimatedMeters * existingItem.clothInventory.pricePerMeter
+      const accessoriesPart = Math.max(0, existingItem.totalPrice - oldFabricCost)
+      const newFabricCost = existingItem.estimatedMeters * newCloth.pricePerMeter
+      const newTotalPrice = roundMoney(newFabricCost + accessoriesPart)
+      fabricDelta = newFabricCost - oldFabricCost
+
+      updateData.clothInventoryId = newCloth.id
+      updateData.totalPrice = newTotalPrice
+      updateData.pricePerUnit = roundMoney(newTotalPrice / existingItem.quantityOrdered)
+    }
+
+    const settings = await getAppSettings()
+
+    const updatedItem = await prisma.$transaction(async (tx: TransactionClient) => {
+      // Lock the order and re-check its status: a delivery or cancellation that happened after
+      // the read above must not be followed by a reservation or re-pricing on a closed order
+      await lockOrder(tx, orderId)
+      const locked = await tx.order.findUnique({ where: { id: orderId }, select: { status: true } })
+      if (!locked || locked.status === 'DELIVERED' || locked.status === 'CANCELLED') {
+        throw new OrderClosedError()
+      }
+
+      if (fabricChanging && newCloth) {
+        const meters = existingItem.estimatedMeters
+
+        // Reserve on the new fabric first (fails atomically if not enough stock), then release the old one
+        const newLevels = await reserveClothStock(tx, newCloth.id, meters, `${newCloth.name} (${newCloth.color})`)
+        const oldLevels = await releaseClothReservation(tx, existingItem.clothInventoryId, meters)
+
+        await tx.stockMovement.create({
+          data: {
+            type: 'ORDER_CANCELLED',
+            quantityMeters: meters, // released back to available stock
+            balanceAfterMeters: oldLevels?.currentStock ?? existingItem.clothInventory.currentStock,
+            clothInventoryId: existingItem.clothInventoryId,
+            orderId,
+            userId: actor.id,
+            notes: `Fabric changed on order ${existingItem.order.orderNumber} - reservation released`,
+          },
+        })
+        await tx.stockMovement.create({
+          data: {
+            type: 'ORDER_RESERVED',
+            quantityMeters: -meters,
+            balanceAfterMeters: (newLevels?.currentStock ?? newCloth.currentStock) - meters,
+            clothInventoryId: newCloth.id,
+            orderId,
+            userId: actor.id,
+            notes: `Reserved for order ${existingItem.order.orderNumber} (fabric change)`,
+          },
+        })
+      }
+
       const updated = await tx.orderItem.update({
         where: { id: itemId },
         data: updateData,
@@ -249,85 +211,78 @@ export async function PATCH(
             select: {
               id: true,
               name: true,
-              email: true,
             },
           },
         },
       })
 
-      // Recalculate order totals if price changed
-      if (needsPriceRecalculation) {
-        // Get all order items to recalculate total
-        const allOrderItems = await tx.orderItem.findMany({
-          where: { orderId: orderId },
-        })
-
-        // Calculate new subtotal (sum of all item prices)
-        const newSubTotal = allOrderItems.reduce((sum, item) => sum + item.totalPrice, 0)
-
-        // Get current order to preserve stitching charges, premiums, etc.
+      // Re-price the order: adjust fabric cost (+ proportional wastage), recompute tax and balance.
+      if (fabricChanging) {
         const currentOrder = await tx.order.findUnique({
           where: { id: orderId },
+          include: { customer: { select: { state: true } } },
         })
 
         if (currentOrder) {
-          // Recalculate GST (12% on subtotal)
-          const gstRate = 12
-          const newGstAmount = (newSubTotal * gstRate) / 100
-          const newCgst = newGstAmount / 2
-          const newSgst = newGstAmount / 2
+          const applyFabric = !currentOrder.isFabricCostOverridden
+          const wastageDelta = applyFabric ? (fabricDelta * currentOrder.fabricWastagePercent) / 100 : 0
+          const subTotal = roundMoney(currentOrder.subTotal + (applyFabric ? fabricDelta : 0) + wastageDelta)
 
-          // Calculate new total (subtotal + GST)
-          const newTotalAmount = newSubTotal + newGstAmount
-
-          // Recalculate balance using paid installments (advance is included there)
-          const paidInstallments = await tx.paymentInstallment.aggregate({
-            where: {
-              orderId: orderId,
-              status: 'PAID',
-            },
-            _sum: {
-              paidAmount: true,
-            },
+          // Keep the order's own rate and tax structure (split / integrated / single / none),
+          // whatever the shop's tax settings are now
+          const tax = recomputeOrderTax(subTotal, currentOrder, taxConfigFrom(settings), {
+            customerRegion: currentOrder.customer.state,
           })
-          const totalPaidInstallments = paidInstallments._sum.paidAmount || 0
-          const newBalanceAmount = newTotalAmount - currentOrder.discount - totalPaidInstallments
 
-          // Update order with new calculated values
+          const balanceAmount = await computeOrderBalance(tx, {
+            id: orderId,
+            totalAmount: tax.totalAmount,
+            advancePaid: currentOrder.advancePaid,
+            discount: currentOrder.discount,
+          })
+
           await tx.order.update({
             where: { id: orderId },
             data: {
-              subTotal: parseFloat(newSubTotal.toFixed(2)),
-              gstAmount: parseFloat(newGstAmount.toFixed(2)),
-              cgst: parseFloat(newCgst.toFixed(2)),
-              sgst: parseFloat(newSgst.toFixed(2)),
-              totalAmount: parseFloat(newTotalAmount.toFixed(2)),
-              balanceAmount: parseFloat(newBalanceAmount.toFixed(2)),
-              taxableAmount: parseFloat(newSubTotal.toFixed(2)),
+              fabricCost: roundMoney(currentOrder.fabricCost + (applyFabric ? fabricDelta : 0)),
+              fabricWastageAmount: roundMoney(currentOrder.fabricWastageAmount + wastageDelta),
+              subTotal,
+              taxableAmount: subTotal,
+              gstRate: tax.gstRate,
+              cgst: tax.cgst,
+              sgst: tax.sgst,
+              igst: tax.igst,
+              gstAmount: tax.gstAmount,
+              totalAmount: tax.totalAmount,
+              balanceAmount,
             },
           })
         }
       }
 
-      // Create order history entry
-      const changeDescription = []
-      if (garmentChanged) {
-        changeDescription.push(`Garment changed from ${existingItem.garmentPattern.name} to ${updated.garmentPattern.name}`)
-      }
-      if (fabricChanged) {
+      // Order history entry
+      const changeDescription: string[] = []
+      if (fabricChanging && newCloth) {
         changeDescription.push(
-          `Fabric changed from ${existingItem.clothInventory.name} (${existingItem.clothInventory.color}) to ${updated.clothInventory.name} (${updated.clothInventory.color})`
+          `Fabric changed from ${existingItem.clothInventory.name} (${existingItem.clothInventory.color}) to ${newCloth.name} (${newCloth.color})`
+        )
+        changeDescription.push(
+          `Order item price updated from ${formatCurrency(existingItem.totalPrice)} to ${formatCurrency(updated.totalPrice)}`
         )
       }
-      if (needsPriceRecalculation) {
-        changeDescription.push(`Order item price updated from ₹${existingItem.totalPrice.toFixed(2)} to ₹${updated.totalPrice.toFixed(2)}`)
+      if (tailorChanging) {
+        changeDescription.push(
+          newTailor
+            ? `${existingItem.garmentPattern.name} assigned to ${newTailor.name}${existingItem.assignedTailor ? ` (was ${existingItem.assignedTailor.name})` : ''}`
+            : `${existingItem.garmentPattern.name} unassigned from ${existingItem.assignedTailor?.name ?? 'tailor'}`
+        )
       }
 
       if (changeDescription.length > 0) {
         await tx.orderHistory.create({
           data: {
-            orderId: orderId,
-            userId: session.user.id,
+            orderId,
+            userId: actor.id,
             changeType: 'ITEM_UPDATED',
             description: changeDescription.join('; '),
           },
@@ -336,6 +291,20 @@ export async function PATCH(
 
       return updated
     })
+
+    if (tailorChanging) {
+      await audit({
+        userId: actor.id,
+        action: newTailor ? 'TAILOR_ASSIGNED' : 'TAILOR_UNASSIGNED',
+        entityType: 'OrderItem',
+        entityId: itemId,
+        details: {
+          orderId,
+          fromTailorId: existingItem.assignedTailorId,
+          toTailorId: newTailor?.id ?? null,
+        },
+      })
+    }
 
     // Fetch updated order with all items to return complete info
     const updatedOrder = await prisma.order.findUnique({
@@ -351,25 +320,34 @@ export async function PATCH(
     })
 
     // FEATURETRACE: Apply ACL field filtering to response
-    const userRole = session.user.role as any
-    const filteredItem = filterApiResponse(updatedItem, userRole, 'order_item')
-    const filteredOrder = filterApiResponse(updatedOrder, userRole, 'order')
+    const filteredItem = filterApiResponse(updatedItem, actor.role, 'order_item')
+    const filteredOrder = filterApiResponse(updatedOrder, actor.role, 'order')
 
     return NextResponse.json({
       updatedOrderItem: filteredItem,
       updatedOrder: filteredOrder,
-      message: 'Order item updated successfully. Order totals have been recalculated.',
+      message: fabricChanging
+        ? 'Order item updated successfully. Order totals have been recalculated.'
+        : 'Order item updated successfully.',
     })
   } catch (error) {
-    console.error('Error updating order item:', error)
-
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: 'Invalid request data', details: error.issues },
         { status: 400 }
       )
     }
+    if (error instanceof InsufficientStockError) {
+      return NextResponse.json({ error: error.message }, { status: 409 })
+    }
+    if (error instanceof OrderClosedError) {
+      return NextResponse.json(
+        { error: 'The order was delivered or cancelled in the meantime; its items can no longer be edited' },
+        { status: 409 }
+      )
+    }
 
+    console.error('Error updating order item:', error)
     return NextResponse.json(
       { error: 'Failed to update order item' },
       { status: 500 }

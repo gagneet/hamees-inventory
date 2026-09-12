@@ -14,7 +14,7 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import { Home, ArrowLeft, User, Phone, Mail, MapPin, Calendar, ShoppingBag, Edit } from 'lucide-react'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatDate } from '@/lib/utils'
 import DashboardLayout from '@/components/DashboardLayout'
 import { CustomerMeasurementsSection } from '@/components/customer-measurements-section'
 import { CustomerEditDialog } from '@/components/customer-edit-dialog'
@@ -70,17 +70,23 @@ interface CustomerDetailClientProps {
       createdBy?: {
         id: string
         name: string
-        email: string
       }
     }>
   }
   canManageMeasurements: boolean
+  canEditCustomer?: boolean
+  canCreateOrder?: boolean
+  /** Order totals/balances are only rendered for roles with order financial visibility */
+  showFinancials?: boolean
   highlight?: string
 }
 
 export function CustomerDetailClient({
   customer,
   canManageMeasurements,
+  canEditCustomer = false,
+  canCreateOrder = false,
+  showFinancials = false,
   highlight,
 }: CustomerDetailClientProps) {
   const [editDialogOpen, setEditDialogOpen] = useState(false)
@@ -138,11 +144,11 @@ export function CustomerDetailClient({
           <div>
             <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">{customer.name}</h1>
             <p className="text-xs md:text-sm text-slate-600 dark:text-slate-300">
-              Customer since {new Date(customer.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
+              Customer since {formatDate(customer.createdAt, 'medium')}
             </p>
           </div>
         </div>
-        {canManageMeasurements && (
+        {canEditCustomer && (
           <Button size="sm" variant="outline" onClick={() => setEditDialogOpen(true)}>
             <Edit className="h-4 w-4 mr-2" />
             Edit
@@ -210,7 +216,7 @@ export function CustomerDetailClient({
                   <ShoppingBag className="h-5 w-5" />
                   Orders ({customer.orders?.length || 0})
                 </CardTitle>
-                {canManageMeasurements && (
+                {canCreateOrder && (
                   <Link href={`/orders/new?customerId=${customer.id}`}>
                     <Button size="sm" variant="outline">
                       New Order
@@ -239,7 +245,7 @@ export function CustomerDetailClient({
                             <div>
                               <p className="font-semibold text-slate-900">{order.orderNumber}</p>
                               <p className="text-sm text-slate-600">
-                                {new Date(order.createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
+                                {formatDate(order.createdAt, 'medium')}
                               </p>
                             </div>
                             <Badge
@@ -248,23 +254,27 @@ export function CustomerDetailClient({
                               {statusLabels[order.status]}
                             </Badge>
                           </div>
-                          <div className="grid grid-cols-3 gap-4 text-sm">
-                            <div>
-                              <p className="text-slate-500">Total</p>
-                              <p className="font-medium text-slate-900">
-                                {formatCurrency(order.totalAmount)}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-slate-500">Balance</p>
-                              <p className="font-medium text-slate-900">
-                                {formatCurrency(order.balanceAmount)}
-                              </p>
-                            </div>
+                          <div className={`grid ${showFinancials ? 'grid-cols-3' : 'grid-cols-1'} gap-4 text-sm`}>
+                            {showFinancials && (
+                              <>
+                                <div>
+                                  <p className="text-slate-500">Total</p>
+                                  <p className="font-medium text-slate-900">
+                                    {formatCurrency(order.totalAmount)}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-slate-500">Balance</p>
+                                  <p className="font-medium text-slate-900">
+                                    {formatCurrency(order.balanceAmount)}
+                                  </p>
+                                </div>
+                              </>
+                            )}
                             <div>
                               <p className="text-slate-500">Delivery</p>
                               <p className={`font-medium ${isOverdue ? 'text-red-600' : 'text-slate-900'}`}>
-                                {deliveryDate.toLocaleDateString('en-IN')}
+                                {formatDate(deliveryDate)}
                               </p>
                             </div>
                           </div>
@@ -318,6 +328,8 @@ export function CustomerDetailClient({
               </div>
               {customer.orders && customer.orders.length > 0 && (
                 <>
+                  {showFinancials && (
+                  <>
                   <div>
                     <p className="text-sm text-slate-500">Total Spent</p>
                     <p className="text-2xl font-bold text-slate-900">
@@ -334,10 +346,12 @@ export function CustomerDetailClient({
                       )}
                     </p>
                   </div>
+                  </>
+                  )}
                   <div>
                     <p className="text-sm text-slate-500">Last Order</p>
                     <p className="font-medium text-slate-900">
-                      {new Date(customer.orders[0].createdAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
+                      {formatDate(customer.orders[0].createdAt, 'medium')}
                     </p>
                   </div>
                 </>

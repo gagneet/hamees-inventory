@@ -32,18 +32,32 @@ import {
   BarChart2,
   Scissors,
   Search,
+  UserCog,
+  Activity,
 } from 'lucide-react';
 import Image from 'next/image';
 import { SignOutButton } from './dashboard/sign-out-button';
 import { hasPermission, Permission, type UserRole, getRoleName } from '@/lib/permissions';
 import { cn } from '@/lib/utils';
 import { CommandPalette } from './command-palette';
+import { useAppSettings } from '@/components/providers/settings-provider';
 
 type NavItem = {
   href: string;
   icon: React.ElementType;
   label: string;
-  permission: Permission;
+  /** Shown when the role has this permission (or any of them, for a list) */
+  permission: Permission | Permission[];
+}
+
+// The Reports index lists financial, expense and customer reports (production has its own nav
+// entry), so only roles that can open one of those get the link.
+const REPORT_INDEX_PERMISSIONS: Permission[] = ['view_financial_reports', 'view_expense_reports', 'view_customer_reports'];
+
+function canSeeNavItem(role: UserRole | undefined, item: NavItem): boolean {
+  if (!role) return false;
+  const required = Array.isArray(item.permission) ? item.permission : [item.permission];
+  return required.some((p) => hasPermission(role, p));
 }
 
 /**
@@ -63,6 +77,8 @@ const navSections: { label: string; items: NavItem[] }[] = [
     label: 'Production',
     items: [
       { href: '/orders/production', icon: Scissors,   label: 'Production Board',permission: 'view_orders' },
+      { href: '/production/tailors', icon: UserCog,   label: 'Tailor Workload', permission: 'view_production' },
+      { href: '/reports/production', icon: Activity,  label: 'Production Report', permission: 'view_production_reports' },
       { href: '/garment-types',  icon: Shirt,        label: 'Garment Types',   permission: 'view_garment_types' },
       { href: '/inventory',      icon: Package,      label: 'Inventory',       permission: 'view_inventory' },
       { href: '/alerts',         icon: AlertCircle,  label: 'Alerts',          permission: 'view_alerts' },
@@ -78,7 +94,7 @@ const navSections: { label: string; items: NavItem[] }[] = [
     label: 'Finance',
     items: [
       { href: '/expenses',       icon: TrendingUp,   label: 'Expenses',        permission: 'view_expenses' },
-      { href: '/reports',        icon: BarChart2,    label: 'Reports',         permission: 'view_reports' },
+      { href: '/reports',        icon: BarChart2,    label: 'Reports',         permission: REPORT_INDEX_PERMISSIONS },
     ],
   },
   {
@@ -100,11 +116,13 @@ function isActive(pathname: string, href: string): boolean {
   if (href === '/dashboard') return pathname === '/dashboard';
   // Sub-routes under /orders that have their own nav entry must match exactly
   if (href === '/orders' && pathname.startsWith('/orders/production')) return false;
+  if (href === '/reports' && pathname.startsWith('/reports/production')) return false;
   return pathname.startsWith(href);
 }
 
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   const { data: session } = useSession();
+  const { businessName } = useAppSettings();
   const pathname = usePathname();
   const userRole = session?.user?.role as UserRole;
   const [cmdOpen, setCmdOpen] = useState(false);
@@ -128,7 +146,7 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
     .map(section => ({
       ...section,
       items: section.items.filter(item =>
-        userRole && hasPermission(userRole, item.permission)
+        canSeeNavItem(userRole, item)
       ),
     }))
     .filter(section => section.items.length > 0);
@@ -141,8 +159,8 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
           {/* Logo / Brand */}
           <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
             <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-              <Image src="/logo.svg" alt="Hamees Attire" width={32} height={32} />
-              <span className="text-slate-800 dark:text-slate-100 font-display font-semibold tracking-wide">Hamees Attire</span>
+              <Image src="/logo.svg" alt={businessName} width={32} height={32} />
+              <span className="text-slate-800 dark:text-slate-100 font-display font-semibold tracking-wide truncate">{businessName}</span>
             </Link>
           </div>
 
@@ -209,8 +227,8 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
             <SheetContent side="left" className="flex flex-col w-[260px]">
               {/* Mobile nav header */}
               <div className="flex items-center gap-2 font-semibold pb-4 border-b">
-                <Image src="/logo.svg" alt="Hamees Attire" width={28} height={28} />
-                <span className="text-slate-800 font-display font-semibold tracking-wide">Hamees Attire</span>
+                <Image src="/logo.svg" alt={businessName} width={28} height={28} />
+                <span className="text-slate-800 font-display font-semibold tracking-wide truncate">{businessName}</span>
               </div>
 
               {/* User identity in mobile nav */}

@@ -1,5 +1,6 @@
 'use client'
 
+import { formatDate } from '@/lib/utils'
 import { useState } from 'react'
 import Link from 'next/link'
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
@@ -105,7 +106,7 @@ export function CustomerRetentionChart({ newCustomers, returningCustomers }: Cus
         </ResponsiveContainer>
       </div>
       <p className="text-xs text-center text-slate-500 mt-2">
-        Click on "Returning Customers" to view details
+        Click on &ldquo;Returning Customers&rdquo; to view details
       </p>
 
       <div className="mt-4 text-center">
@@ -172,13 +173,13 @@ export function CustomerRetentionChart({ newCustomers, returningCustomers }: Cus
                     <div>
                       <p className="text-xs text-slate-500">First Order</p>
                       <p className="text-sm text-slate-700">
-                        {new Date(customer.firstOrderDate).toLocaleDateString('en-IN')}
+                        {formatDate(customer.firstOrderDate)}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs text-slate-500">Last Order</p>
                       <p className="text-sm text-slate-700">
-                        {new Date(customer.lastOrderDate).toLocaleDateString('en-IN')}
+                        {formatDate(customer.lastOrderDate)}
                       </p>
                     </div>
                   </div>

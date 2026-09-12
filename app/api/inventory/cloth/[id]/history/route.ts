@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
+import { requirePermission } from '@/lib/api-permissions'
 import { prisma } from '@/lib/db'
+import { actorFromSession, canSeeAllOrders, orderScope } from '@/lib/authz'
 
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const { session, error } = await requirePermission('view_inventory')
+    if (error) return error
+    const actor = actorFromSession(session)
+    if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { id } = await context.params
 
@@ -32,7 +33,6 @@ export async function GET(
           select: {
             id: true,
             name: true,
-            email: true,
           },
         },
         order: {
@@ -43,12 +43,29 @@ export async function GET(
         },
       },
       orderBy: { createdAt: 'desc' },
+      take: 500,
     })
+
+    // ABAC: roles scoped to their own orders (TAILOR) only see links to orders in their scope
+    let visibleMovements = movements
+    if (!canSeeAllOrders(actor)) {
+      const linkedOrderIds = [...new Set(movements.map((m) => m.orderId).filter((v): v is string => !!v))]
+      const visible = linkedOrderIds.length
+        ? await prisma.order.findMany({
+            where: { AND: [{ id: { in: linkedOrderIds } }, orderScope(actor)] },
+            select: { id: true },
+          })
+        : []
+      const visibleIds = new Set((visible ?? []).map((o) => o.id))
+      visibleMovements = movements.map((m) =>
+        m.orderId && !visibleIds.has(m.orderId) ? { ...m, orderId: null, order: null } : m
+      )
+    }
 
     return NextResponse.json({
       cloth,
-      movements,
-      totalMovements: movements.length,
+      movements: visibleMovements,
+      totalMovements: visibleMovements.length,
     })
   } catch (error) {
     console.error('Error fetching stock movement history:', error)

@@ -1,27 +1,43 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
+import { filterApiResponse } from '@/lib/api-filter-response'
+
+type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
 import { z } from 'zod'
 
 const garmentPatternSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  description: z.string().nullish(),
+  name: z.string().trim().min(1, 'Name is required').max(100),
+  description: z.string().max(1000).nullish(),
   baseMeters: z.number().positive('Base meters must be positive'),
   slimAdjustment: z.number().default(0),
   regularAdjustment: z.number().default(0),
   largeAdjustment: z.number().default(0.3),
   xlAdjustment: z.number().default(0.5),
-  accessories: z.array(z.object({
-    accessoryId: z.string(),
-    quantity: z.number().positive(),
-  })).default([]),
+  // The forms send `quantity`; the column is GarmentAccessory.quantityPerGarment (Int)
+  accessories: z.array(
+    z
+      .object({
+        accessoryId: z.string().min(1),
+        quantity: z.number().int().positive().optional(),
+        quantityPerGarment: z.number().int().positive().optional(),
+      })
+      .transform((acc, ctx) => {
+        const quantityPerGarment = acc.quantityPerGarment ?? acc.quantity
+        if (quantityPerGarment === undefined) {
+          ctx.addIssue({ code: 'custom', message: 'Accessory quantity is required' })
+          return z.NEVER
+        }
+        return { accessoryId: acc.accessoryId, quantityPerGarment }
+      })
+  ).max(50).default([]),
 })
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAnyPermission(['view_orders', 'create_order'])
+  const { session, error } = await requireAnyPermission(['view_garment_types', 'view_orders', 'create_order'])
   if (error) return error
 
   try {
@@ -45,7 +61,7 @@ export async function GET(
       )
     }
 
-    return NextResponse.json({ pattern })
+    return NextResponse.json({ pattern: filterApiResponse(pattern, session.user.role, 'inventory') })
   } catch (error) {
     console.error('Error fetching garment pattern:', error)
     return NextResponse.json(
@@ -67,9 +83,13 @@ export async function PATCH(
     const body = await request.json()
     const data = garmentPatternSchema.parse(body)
 
+    const existing = await prisma.garmentPattern.findUnique({ where: { id }, select: { id: true } })
+    if (!existing) {
+      return NextResponse.json({ error: 'Garment pattern not found' }, { status: 404 })
+    }
+
     // Delete existing accessories and create new ones
-    // @ts-ignore
-    await prisma.$transaction(async (tx: any) => {
+    await prisma.$transaction(async (tx: TransactionClient) => {
       // Delete old accessories
       await tx.garmentAccessory.deleteMany({
         where: { garmentPatternId: id },
@@ -89,7 +109,7 @@ export async function PATCH(
           accessories: {
             create: data.accessories.map(acc => ({
               accessoryId: acc.accessoryId,
-              quantity: acc.quantity,
+              quantityPerGarment: acc.quantityPerGarment,
             })),
           },
         },

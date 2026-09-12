@@ -1,24 +1,38 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
+import { filterApiResponse } from '@/lib/api-filter-response'
 import { z } from 'zod'
 
 const garmentPatternSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  description: z.string().nullish(),
+  name: z.string().trim().min(1, 'Name is required').max(100),
+  description: z.string().max(1000).nullish(),
   baseMeters: z.number().positive('Base meters must be positive'),
   slimAdjustment: z.number().default(0),
   regularAdjustment: z.number().default(0),
   largeAdjustment: z.number().default(0.3),
   xlAdjustment: z.number().default(0.5),
-  accessories: z.array(z.object({
-    accessoryId: z.string(),
-    quantityPerGarment: z.number().positive(),
-  })).default([]),
+  // The forms send `quantity`; the column is GarmentAccessory.quantityPerGarment (Int)
+  accessories: z.array(
+    z
+      .object({
+        accessoryId: z.string().min(1),
+        quantity: z.number().int().positive().optional(),
+        quantityPerGarment: z.number().int().positive().optional(),
+      })
+      .transform((acc, ctx) => {
+        const quantityPerGarment = acc.quantityPerGarment ?? acc.quantity
+        if (quantityPerGarment === undefined) {
+          ctx.addIssue({ code: 'custom', message: 'Accessory quantity is required' })
+          return z.NEVER
+        }
+        return { accessoryId: acc.accessoryId, quantityPerGarment }
+      })
+  ).max(50).default([]),
 })
 
 export async function GET(request: Request) {
-  const { error } = await requireAnyPermission(['view_orders', 'create_order'])
+  const { session, error } = await requireAnyPermission(['view_garment_types', 'view_orders', 'create_order'])
   if (error) return error
 
   try {
@@ -33,7 +47,8 @@ export async function GET(request: Request) {
       orderBy: { name: 'asc' },
     })
 
-    return NextResponse.json({ patterns })
+    // Stitching charges / accessory prices are financial data
+    return NextResponse.json({ patterns: filterApiResponse(patterns, session.user.role, 'inventory') })
   } catch (error) {
     console.error('Error fetching garment patterns:', error)
     return NextResponse.json(

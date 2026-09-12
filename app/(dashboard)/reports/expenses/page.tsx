@@ -25,6 +25,7 @@ import {
   Pie,
   Cell,
 } from 'recharts'
+import { formatDate, formatCurrency, currencySymbol } from '@/lib/utils'
 
 const CATEGORY_COLORS: Record<string, string> = {
   RENT: '#3B82F6',
@@ -102,7 +103,7 @@ export default function ExpenseReportPage() {
               <div>
                 <h1 className="text-2xl font-bold">Expense Report</h1>
                 <p className="text-sm text-slate-600">
-                  Last {timeRange} months • Generated {new Date().toLocaleDateString()}
+                  Last {timeRange} months • Generated {formatDate(new Date())}
                 </p>
               </div>
               <div className="flex gap-2">
@@ -137,7 +138,7 @@ export default function ExpenseReportPage() {
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold">
-                ₹{data.summary.totalExpenses.toLocaleString('en-IN')}
+                {formatCurrency(data.summary.totalExpenses)}
               </p>
             </CardContent>
           </Card>
@@ -148,7 +149,7 @@ export default function ExpenseReportPage() {
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold">
-                ₹{data.summary.thisMonth.toLocaleString('en-IN')}
+                {formatCurrency(data.summary.thisMonth)}
               </p>
               <p className="text-xs text-slate-600">
                 {data.summary.growth >= 0 ? '+' : ''}
@@ -172,10 +173,8 @@ export default function ExpenseReportPage() {
             </CardHeader>
             <CardContent>
               <p className="text-2xl font-bold">
-                ₹
-                {(
-                  data.summary.totalExpenses / data.expensesByMonth.length
-                ).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                {formatCurrency((
+                  data.summary.totalExpenses / data.expensesByMonth.length), { decimals: 0 })}
               </p>
             </CardContent>
           </Card>
@@ -197,7 +196,7 @@ export default function ExpenseReportPage() {
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="amount" fill="#EF4444" name="Expenses (₹)" />
+                    <Bar dataKey="amount" fill="#EF4444" name={`Expenses (${currencySymbol()})`} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -267,7 +266,7 @@ export default function ExpenseReportPage() {
                     </td>
                     <td className="text-right p-2">{cat.count}</td>
                     <td className="text-right p-2">
-                      ₹{cat.amount.toLocaleString('en-IN')}
+                      {formatCurrency(cat.amount)}
                     </td>
                     <td className="text-right p-2">
                       {((cat.amount / data.summary.totalExpenses) * 100).toFixed(1)}%
@@ -295,11 +294,11 @@ export default function ExpenseReportPage() {
                     <p className="font-semibold">{expense.title}</p>
                     <p className="text-sm text-slate-600">
                       {expense.category.replace(/_/g, ' ')} • {expense.user.name} •{' '}
-                      {new Date(expense.date).toLocaleDateString()}
+                      {formatDate(expense.date)}
                     </p>
                   </div>
                   <p className="text-lg font-bold text-red-600">
-                    ₹{expense.amount.toLocaleString('en-IN')}
+                    {formatCurrency(expense.amount)}
                   </p>
                 </div>
               ))}

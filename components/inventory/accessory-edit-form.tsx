@@ -15,6 +15,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { currencySymbol } from '@/lib/utils'
 
 interface AccessoryEditFormProps {
   accessoryId: string
@@ -169,7 +170,7 @@ export function AccessoryEditForm({
           </div>
 
           <div>
-            <Label htmlFor="pricePerUnit">Price per Unit (₹) *</Label>
+            <Label htmlFor="pricePerUnit">Price per Unit ({currencySymbol()}) *</Label>
             <Input
               id="pricePerUnit"
               type="number"

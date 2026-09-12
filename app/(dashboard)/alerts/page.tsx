@@ -6,7 +6,7 @@
  *   where isDismissed = false (with auto-reset of expired dismissals). Rendered as a
  *   flat list ordered by createdAt desc.
  *
- * @reads Alert model — prisma.alert.findMany (isDismissed: false)
+ * @reads Alert model — prisma.alert.findMany (isDismissed: false, alertVisibilityScope(role))
  * @renders AlertCard per alert (flat list, no category grouping) + MarkAllReadButton
  * @actions Dismiss alert (mark isDismissed) | Mark read | Navigate to related inventory or order record
  */
@@ -27,14 +27,17 @@ import { CheckCircle, Home } from 'lucide-react'
 import DashboardLayout from '@/components/DashboardLayout'
 import { AlertCard } from '@/components/alerts/alert-card'
 import { MarkAllReadButton } from '@/components/alerts/mark-all-read-button'
+import { alertVisibilityScope } from '@/lib/alert-scope'
+import type { UserRole } from '@/lib/permissions'
 
 type Alert = Awaited<ReturnType<typeof getAlerts>>[number]
 
-async function getAlerts() {
+async function getAlerts(role: UserRole) {
   try {
     const now = new Date()
 
-    // First, reset alerts that were dismissed but dismissal period has expired
+    // Expired 24h dismissals become active again. Kept as a write (not just a read filter) so the
+    // unread counts in /api/alerts agree; it is a single UPDATE that normally matches no rows.
     await prisma.alert.updateMany({
       where: {
         isDismissed: true,
@@ -48,10 +51,10 @@ async function getAlerts() {
       },
     })
 
-    // Fetch non-dismissed alerts
+    // Non-dismissed alerts this role may see (payment reminders quote balances → financial roles only)
     const alerts = await prisma.alert.findMany({
       where: {
-        isDismissed: false,
+        AND: [{ isDismissed: false }, alertVisibilityScope(role)],
       },
       orderBy: { createdAt: 'desc' },
       take: 100,
@@ -70,7 +73,7 @@ export default async function AlertsPage() {
     redirect('/')
   }
 
-  const alerts = await getAlerts()
+  const alerts = await getAlerts(session.user.role as UserRole)
   const unreadCount = alerts.filter((a: Alert) => !a.isRead).length
 
   return (

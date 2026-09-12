@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/db'
-import { startOfMonth, endOfMonth, subMonths, subDays, format, startOfDay, endOfDay, addDays, differenceInDays } from 'date-fns'
+import { startOfMonth, endOfMonth, subMonths, subDays, format, addDays, differenceInDays } from 'date-fns'
+import { shopEndOfDay, shopStartOfDay } from '@/lib/locale'
 import { generateStockAlerts } from '@/lib/generate-alerts'
 
 /**
@@ -41,8 +42,8 @@ export async function getDashboardData(
 
   if (customRange) {
     // Use custom date range
-    currentPeriodStart = startOfDay(customRange.start)
-    currentPeriodEnd = endOfDay(customRange.end)
+    currentPeriodStart = shopStartOfDay(customRange.start)
+    currentPeriodEnd = shopEndOfDay(customRange.end)
     
     // Calculate previous period with same duration
     const durationMs = currentPeriodEnd.getTime() - currentPeriodStart.getTime()
@@ -52,17 +53,17 @@ export async function getDashboardData(
     // Use preset date range
     switch (dateRange) {
       case 'today':
-        currentPeriodStart = startOfDay(now)
-        currentPeriodEnd = endOfDay(now)
-        previousPeriodStart = startOfDay(subDays(now, 1))
-        previousPeriodEnd = endOfDay(subDays(now, 1))
+        currentPeriodStart = shopStartOfDay(now)
+        currentPeriodEnd = shopEndOfDay(now)
+        previousPeriodStart = shopStartOfDay(subDays(now, 1))
+        previousPeriodEnd = shopEndOfDay(subDays(now, 1))
         break
       
       case 'week':
-        currentPeriodStart = startOfDay(subDays(now, 7))
-        currentPeriodEnd = endOfDay(now)
-        previousPeriodStart = startOfDay(subDays(now, 14))
-        previousPeriodEnd = endOfDay(subDays(now, 8))
+        currentPeriodStart = shopStartOfDay(subDays(now, 7))
+        currentPeriodEnd = shopEndOfDay(now)
+        previousPeriodStart = shopStartOfDay(subDays(now, 14))
+        previousPeriodEnd = shopEndOfDay(subDays(now, 8))
         break
       
       case '3months':
@@ -361,8 +362,8 @@ export async function getDashboardData(
     prisma.order.findMany({
       where: {
         deliveryDate: {
-          gte: startOfDay(now),
-          lte: endOfDay(now),
+          gte: shopStartOfDay(now),
+          lte: shopEndOfDay(now),
         },
         status: {
           notIn: ['DELIVERED', 'CANCELLED'],
@@ -398,7 +399,7 @@ export async function getDashboardData(
     prisma.order.findMany({
       where: {
         deliveryDate: {
-          lt: startOfDay(now),
+          lt: shopStartOfDay(now),
         },
         status: {
           notIn: ['DELIVERED', 'CANCELLED'],
@@ -623,7 +624,7 @@ export async function getDashboardData(
     prisma.order.count({
       where: {
         createdAt: {
-          gte: startOfDay(now),
+          gte: shopStartOfDay(now),
         },
       },
     }),

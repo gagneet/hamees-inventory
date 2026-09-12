@@ -1,11 +1,22 @@
 'use client'
 
+/**
+ * @featuretrace Role dashboard router
+ * Chooses the dashboard for the user's role. Financial dashboards are only rendered for roles
+ * that receive financial data from the API (OWNER/ADMIN); VIEWER gets a read-only, amount-free
+ * overview. MASTER_TAILOR gets the production supervisor dashboard.
+ */
+
 import dynamic from 'next/dynamic'
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loader2 } from 'lucide-react'
 
 // Dynamic imports for dashboard components (bundle size optimization)
 const TailorDashboard = dynamic(() => import('./tailor-dashboard').then(mod => ({ default: mod.TailorDashboard })), {
+  loading: () => <DashboardLoader />
+})
+
+const MasterTailorDashboard = dynamic(() => import('./master-tailor-dashboard').then(mod => ({ default: mod.MasterTailorDashboard })), {
   loading: () => <DashboardLoader />
 })
 
@@ -18,6 +29,10 @@ const SalesManagerDashboard = dynamic(() => import('./sales-manager-dashboard').
 })
 
 const OwnerDashboard = dynamic(() => import('./owner-dashboard').then(mod => ({ default: mod.OwnerDashboard })), {
+  loading: () => <DashboardLoader />
+})
+
+const ViewerDashboard = dynamic(() => import('./viewer-dashboard').then(mod => ({ default: mod.ViewerDashboard })), {
   loading: () => <DashboardLoader />
 })
 
@@ -36,9 +51,21 @@ interface RoleDashboardRouterProps {
   userRole: string
   dashboardData: any // API response from /api/dashboard/enhanced-stats
   dateRange?: string
+  onRefresh?: () => void
 }
 
-export function RoleDashboardRouter({ userRole, dashboardData, dateRange = 'month' }: RoleDashboardRouterProps) {
+function MissingSection({ userRole }: { userRole: string }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Dashboard Not Available</CardTitle>
+        <CardDescription>No dashboard data is available for role: {userRole}</CardDescription>
+      </CardHeader>
+    </Card>
+  )
+}
+
+export function RoleDashboardRouter({ userRole, dashboardData, onRefresh }: RoleDashboardRouterProps) {
   if (!dashboardData) {
     return (
       <Card className="border-red-200 bg-red-50">
@@ -55,9 +82,15 @@ export function RoleDashboardRouter({ userRole, dashboardData, dateRange = 'mont
   // Route to appropriate dashboard based on role
   switch (userRole) {
     case 'TAILOR':
+      if (!dashboardData.tailor) return <MissingSection userRole={userRole} />
       return <TailorDashboard stats={dashboardData.tailor} />
 
+    case 'MASTER_TAILOR':
+      if (!dashboardData.production) return <MissingSection userRole={userRole} />
+      return <MasterTailorDashboard production={dashboardData.production} onRefresh={onRefresh} />
+
     case 'INVENTORY_MANAGER':
+      if (!dashboardData.inventory) return <MissingSection userRole={userRole} />
       return (
         <InventoryManagerDashboard
           stats={dashboardData.inventory}
@@ -66,6 +99,7 @@ export function RoleDashboardRouter({ userRole, dashboardData, dateRange = 'mont
       )
 
     case 'SALES_MANAGER':
+      if (!dashboardData.sales) return <MissingSection userRole={userRole} />
       return (
         <SalesManagerDashboard
           stats={dashboardData.sales}
@@ -75,6 +109,7 @@ export function RoleDashboardRouter({ userRole, dashboardData, dateRange = 'mont
 
     case 'OWNER':
     case 'ADMIN':
+      if (!dashboardData.financial) return <MissingSection userRole={userRole} />
       return (
         <OwnerDashboard
           stats={dashboardData.financial}
@@ -86,27 +121,17 @@ export function RoleDashboardRouter({ userRole, dashboardData, dateRange = 'mont
       )
 
     case 'VIEWER':
-      // Viewer gets a simplified version - we can show the Owner dashboard in read-only mode
+      // Read-only, amount-free overview (never the financial Owner dashboard)
       return (
-        <OwnerDashboard
-          stats={dashboardData.financial}
+        <ViewerDashboard
           generalStats={dashboardData.generalStats}
-          alerts={dashboardData.alerts}
+          sales={dashboardData.sales}
           orderStatus={dashboardData.orderStatus}
-          salesStats={dashboardData.sales}
+          alerts={dashboardData.alerts}
         />
       )
 
     default:
-      return (
-        <Card>
-          <CardHeader>
-            <CardTitle>Dashboard Not Available</CardTitle>
-            <CardDescription>
-              No dashboard configured for role: {userRole}
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      )
+      return <MissingSection userRole={userRole} />
   }
 }

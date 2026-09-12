@@ -1,5 +1,6 @@
 'use client'
 
+import { formatCompactCurrency, formatCurrency } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 import {
   LineChart,
@@ -25,7 +26,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
   const router = useRouter()
 
   const formatCurrency = (value: number) => {
-    return `₹${(value / 1000).toFixed(0)}k`
+    return formatCompactCurrency(value)
   }
 
   const handleClick = (data: any) => {
@@ -57,7 +58,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
             tickFormatter={formatCurrency}
           />
           <Tooltip
-            formatter={(value) => typeof value === 'number' ? `₹${value.toLocaleString('en-IN')}` : '—'}
+            formatter={(value) => typeof value === 'number' ? formatCurrency(value) : '—'}
             contentStyle={{
               backgroundColor: '#FFF',
               border: '1px solid #E5E7EB',

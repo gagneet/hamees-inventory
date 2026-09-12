@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Bell, AlertTriangle, Info, X, Clock } from 'lucide-react'
+import { formatDateWith } from '@/lib/utils'
+import { useSession } from 'next-auth/react'
+import { hasPermission, type UserRole } from '@/lib/permissions'
 
 interface AlertCardProps {
   alert: {
@@ -56,13 +59,16 @@ const typeLabels: Record<string, string> = {
 
 export function AlertCard({ alert }: AlertCardProps) {
   const router = useRouter()
+  const { data: session } = useSession()
+  // Read/dismiss change shared alert state, so they need manage_alerts (enforced by the API too)
+  const canManageAlerts = !!session?.user?.role && hasPermission(session.user.role as UserRole, 'manage_alerts')
   const [isDismissing, setIsDismissing] = useState(false)
   const config = severityConfig[alert.severity as keyof typeof severityConfig]
   const Icon = config.icon
 
   const handleCardClick = async () => {
     // Mark as read
-    if (!alert.isRead) {
+    if (!alert.isRead && canManageAlerts) {
       await fetch(`/api/alerts/${alert.id}/read`, {
         method: 'PATCH',
       })
@@ -133,32 +139,34 @@ export function AlertCard({ alert }: AlertCardProps) {
               </CardDescription>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleDismiss}
-            disabled={isDismissing}
-            title="Dismiss for 24 hours"
-          >
-            {isDismissing ? (
-              <Clock className="h-4 w-4 animate-spin" />
-            ) : (
-              <X className="h-4 w-4" />
-            )}
-          </Button>
+          {canManageAlerts && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDismiss}
+              disabled={isDismissing}
+              title="Dismiss for 24 hours"
+            >
+              {isDismissing ? (
+                <Clock className="h-4 w-4 animate-spin" />
+              ) : (
+                <X className="h-4 w-4" />
+              )}
+            </Button>
+          )}
         </div>
       </CardHeader>
       <CardContent>
         <p className="text-sm text-slate-700 mb-3">{alert.message}</p>
         <div className="flex items-center justify-between">
           <p className="text-xs text-slate-500">
-            {new Date(alert.createdAt).toLocaleString('en-IN', {
+            {formatDateWith(alert.createdAt, {
               dateStyle: 'medium',
               timeStyle: 'short',
             })}
           </p>
           <div className="flex gap-2">
-            {!alert.isRead && (
+            {!alert.isRead && canManageAlerts && (
               <Button
                 variant="outline"
                 size="sm"

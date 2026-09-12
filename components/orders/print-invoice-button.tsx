@@ -1,10 +1,21 @@
 'use client'
 
+/**
+ * @featuretrace Print Invoice
+ * Generates a printable per-item tax invoice in a new window.
+ * Seller identity, tax labels, currency and dates come from BusinessSettings (useAppSettings).
+ * Every interpolated value is HTML-escaped — customer names, notes and addresses are user input
+ * and are written into a same-origin document.
+ */
+
 import { Printer } from 'lucide-react'
 import { useFieldVisibility } from '@/hooks/use-field-visibility'
 import { Button } from '@/components/ui/button'
-import { formatCurrency } from '@/lib/utils'
-import { format } from 'date-fns'
+import { formatCurrency, formatDate } from '@/lib/utils'
+import { taxLines } from '@/lib/tax'
+import { escapeHtml } from '@/lib/html-escape'
+import { useAppSettings } from '@/components/providers/settings-provider'
+import type { AppSettings } from '@/lib/app-settings'
 
 interface InvoiceOrder {
   orderNumber: string
@@ -43,6 +54,7 @@ interface InvoiceOrder {
   gstRate: number
   cgst: number
   sgst: number
+  igst?: number | null
   gstAmount: number
   totalAmount: number
   advancePaid: number
@@ -57,8 +69,10 @@ interface PrintInvoiceButtonProps {
 
 export function PrintInvoiceButton({ order }: PrintInvoiceButtonProps) {
   const { canView } = useFieldVisibility()
+  const settings = useAppSettings()
+
   const handlePrint = () => {
-    const invoiceHTML = generateInvoiceHTML(order)
+    const invoiceHTML = generateInvoiceHTML(order, settings)
     const printWindow = window.open('', '_blank', 'width=800,height=600')
 
     if (printWindow) {
@@ -69,13 +83,10 @@ export function PrintInvoiceButton({ order }: PrintInvoiceButtonProps) {
       // Ensure content is fully rendered before printing
       const triggerPrint = () => {
         try {
-          // Double-check that body exists and content is ready
           if (printWindow.document.body && printWindow.document.body.children.length > 0) {
-            console.log('Invoice content ready, opening print dialog')
             printWindow.focus()
             printWindow.print()
           } else {
-            console.warn('Invoice content not ready, retrying...')
             setTimeout(triggerPrint, 500)
           }
         } catch (error) {
@@ -86,12 +97,9 @@ export function PrintInvoiceButton({ order }: PrintInvoiceButtonProps) {
 
       // Wait for complete document load and rendering
       if (printWindow.document.readyState === 'complete') {
-        // Document already loaded, wait for layout/paint to complete
         setTimeout(triggerPrint, 1000)
       } else {
-        // Wait for load event, then give extra time for rendering
         printWindow.addEventListener('load', () => {
-          // Longer delay to ensure A4 pages, CSS, and layout are fully rendered
           setTimeout(triggerPrint, 1500)
         }, { once: true })
 
@@ -120,9 +128,30 @@ export function PrintInvoiceButton({ order }: PrintInvoiceButtonProps) {
   ) : null
 }
 
-function generateInvoiceHTML(order: InvoiceOrder): string {
-  const orderDate = format(new Date(order.orderDate), 'dd MMM yyyy')
-  const deliveryDate = format(new Date(order.deliveryDate), 'dd MMM yyyy')
+function sellerBlock(settings: AppSettings): string {
+  const addressLine = [settings.address, settings.city, settings.region, settings.postalCode].filter(Boolean).join(', ')
+  const contactLine = [
+    settings.phone ? `Phone: ${escapeHtml(settings.phone)}` : '',
+    settings.email ? `Email: ${escapeHtml(settings.email)}` : '',
+    settings.website ? escapeHtml(settings.website) : '',
+  ].filter(Boolean).join(' &nbsp;|&nbsp; ')
+
+  return `
+          <div class="company-name">${escapeHtml(settings.businessName)}</div>
+          ${settings.tagline ? `<div class="company-tagline">${escapeHtml(settings.tagline)}</div>` : ''}
+          ${addressLine ? `<div class="company-details">${escapeHtml(addressLine)}</div>` : ''}
+          ${contactLine ? `<div class="company-details">${contactLine}</div>` : ''}
+          ${settings.taxId ? `<div class="company-details"><strong>${escapeHtml(settings.taxIdLabel)}:</strong> ${escapeHtml(settings.taxId)}</div>` : ''}`
+}
+
+export function generateInvoiceHTML(order: InvoiceOrder, settings: AppSettings): string {
+  const esc = escapeHtml
+  const money = (n: number) => esc(formatCurrency(n))
+  const orderDate = formatDate(order.orderDate, 'medium')
+  const deliveryDate = formatDate(order.deliveryDate, 'medium')
+  const taxCfg = { mode: settings.taxMode, name: settings.taxName }
+  // Title follows what was actually charged on this order, not the current tax mode
+  const isTaxInvoice = order.gstAmount > 0
 
   // Calculate per-item costs using proportional distribution (same as Split Order logic)
   const itemCount = order.items.length
@@ -135,8 +164,8 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
 
   // Generate one page per order item with proportional distribution
   const itemPages = order.items.map((item, index) => {
-    // Step 3: Calculate this item's proportion
-    const itemProportion = item.totalPrice / totalItemPrices
+    // Step 3: Calculate this item's proportion (equal split if items carry no price)
+    const itemProportion = totalItemPrices > 0 ? item.totalPrice / totalItemPrices : 1 / itemCount
 
     // Step 4: Distribute order-level costs proportionally
     const perItemOrderCosts = orderLevelCosts * itemProportion
@@ -144,12 +173,21 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
     // Step 5: Calculate item's subtotal (fabric + accessories + proportional order costs)
     const perItemSubtotal = item.totalPrice + perItemOrderCosts
 
-    // Step 6: Calculate GST proportionally based on this item's subtotal
+    // Step 6: Tax proportionally, keeping the split (CGST/SGST vs IGST vs single) charged on the order
     const perItemGST = perItemSubtotal * (order.gstRate / 100)
-    const perItemCGST = perItemGST / 2
-    const perItemSGST = perItemGST / 2
+    const share = order.gstAmount > 0 ? perItemGST / order.gstAmount : 0
+    const lines = taxLines(
+      {
+        gstRate: order.gstRate,
+        cgst: (order.cgst || 0) * share,
+        sgst: (order.sgst || 0) * share,
+        igst: (order.igst || 0) * share,
+        gstAmount: perItemGST,
+      },
+      taxCfg
+    )
 
-    // Step 7: Calculate total with GST
+    // Step 7: Calculate total with tax
     const perItemTotal = perItemSubtotal + perItemGST
 
     // Calculate per-item payments (proportional distribution)
@@ -157,19 +195,26 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
     const perItemAdvance = order.advancePaid * itemProportion
     const perItemBalance = order.balanceAmount * itemProportion
 
-    // Calculate additional payments (installments) based on the balance
-    // This avoids double-counting in cases where advance is recorded in installments
-    // Formula: Additional Payments = Total - Discount - Advance - Balance
+    // Additional Payments = Total - Discount - Advance - Balance
     const perItemAdditionalPayments = perItemTotal - perItemDiscount - perItemAdvance - perItemBalance
+
+    const taxRows = lines
+      .map(
+        (line) => `
+          <div class="totals-row">
+            <div class="totals-label">${esc(line.label)}:</div>
+            <div class="totals-value">${money(line.amount)}</div>
+          </div>`
+      )
+      .join('')
 
     return `
     <div class="invoice-page" ${index > 0 ? 'style="page-break-before: always;"' : ''}>
       <div class="invoice">
         <!-- Header -->
         <div class="header">
-          <div class="company-name">HAMEES ATTIRE</div>
-          <div class="company-tagline">Custom Tailoring & Garments</div>
-          <div class="invoice-title">TAX INVOICE</div>
+          ${sellerBlock(settings)}
+          <div class="invoice-title">${isTaxInvoice ? 'TAX INVOICE' : 'INVOICE'}</div>
           ${itemCount > 1 ? `<div class="page-indicator">Item ${index + 1} of ${itemCount}</div>` : ''}
         </div>
 
@@ -177,19 +222,19 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
         <div class="info-section">
           <div class="info-block">
             <h3>Bill To:</h3>
-            <p><strong>${order.customer.name}</strong></p>
-            <p>Phone: ${order.customer.phone}</p>
-            ${order.customer.email ? `<p>Email: ${order.customer.email}</p>` : ''}
-            ${order.customer.address ? `<p>Address: ${order.customer.address}</p>` : ''}
-            ${order.customer.city ? `<p>City: ${order.customer.city}</p>` : ''}
+            <p><strong>${esc(order.customer.name)}</strong></p>
+            <p>Phone: ${esc(order.customer.phone)}</p>
+            ${order.customer.email ? `<p>Email: ${esc(order.customer.email)}</p>` : ''}
+            ${order.customer.address ? `<p>Address: ${esc(order.customer.address)}</p>` : ''}
+            ${order.customer.city ? `<p>City: ${esc(order.customer.city)}</p>` : ''}
           </div>
 
           <div class="info-block">
             <h3>Invoice Details:</h3>
-            <p><span class="info-label">Invoice No:</span> ${order.orderNumber}</p>
-            <p><span class="info-label">Order Date:</span> ${orderDate}</p>
-            <p><span class="info-label">Delivery Date:</span> ${deliveryDate}</p>
-            <p><span class="info-label">Status:</span> <strong>${order.status}</strong></p>
+            <p><span class="info-label">Invoice No:</span> ${esc(order.orderNumber)}</p>
+            <p><span class="info-label">Order Date:</span> ${esc(orderDate)}</p>
+            <p><span class="info-label">Delivery Date:</span> ${esc(deliveryDate)}</p>
+            <p><span class="info-label">Status:</span> <strong>${esc(order.status)}</strong></p>
           </div>
         </div>
 
@@ -207,12 +252,12 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
           </thead>
           <tbody>
             <tr>
-              <td><strong>${item.garmentPattern.name}</strong></td>
-              <td>${item.clothInventory.type} - ${item.clothInventory.name} (${item.clothInventory.color})</td>
-              <td class="text-center">${item.quantityOrdered}</td>
-              <td class="text-right">${item.estimatedMeters.toFixed(2)}</td>
-              <td class="text-right">${formatCurrency(item.pricePerUnit)}</td>
-              <td class="text-right"><strong>${formatCurrency(perItemSubtotal)}</strong></td>
+              <td><strong>${esc(item.garmentPattern.name)}</strong></td>
+              <td>${esc(item.clothInventory.type)} - ${esc(item.clothInventory.name)} (${esc(item.clothInventory.color)})</td>
+              <td class="text-center">${esc(item.quantityOrdered)}</td>
+              <td class="text-right">${esc(item.estimatedMeters.toFixed(2))}</td>
+              <td class="text-right">${money(item.pricePerUnit)}</td>
+              <td class="text-right"><strong>${money(perItemSubtotal)}</strong></td>
             </tr>
           </tbody>
         </table>
@@ -221,45 +266,39 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
         <div class="totals-section">
           <div class="totals-row">
             <div class="totals-label">Item Subtotal:</div>
-            <div class="totals-value">${formatCurrency(perItemSubtotal)}</div>
+            <div class="totals-value">${money(perItemSubtotal)}</div>
           </div>
+          ${taxRows}
+          ${lines.length > 1 ? `
           <div class="totals-row">
-            <div class="totals-label">CGST (${(order.gstRate / 2).toFixed(1)}%):</div>
-            <div class="totals-value">${formatCurrency(perItemCGST)}</div>
-          </div>
-          <div class="totals-row">
-            <div class="totals-label">SGST (${(order.gstRate / 2).toFixed(1)}%):</div>
-            <div class="totals-value">${formatCurrency(perItemSGST)}</div>
-          </div>
-          <div class="totals-row">
-            <div class="totals-label">Total GST:</div>
-            <div class="totals-value">${formatCurrency(perItemGST)}</div>
-          </div>
+            <div class="totals-label">Total ${esc(settings.taxName)}:</div>
+            <div class="totals-value">${money(perItemGST)}</div>
+          </div>` : ''}
           <div class="totals-row bold">
             <div class="totals-label">Item Total:</div>
-            <div class="totals-value">${formatCurrency(perItemTotal)}</div>
+            <div class="totals-value">${money(perItemTotal)}</div>
           </div>
           ${perItemDiscount > 0 ? `
           <div class="totals-row">
             <div class="totals-label">Less: Discount</div>
-            <div class="totals-value">-${formatCurrency(perItemDiscount)}</div>
+            <div class="totals-value">-${money(perItemDiscount)}</div>
           </div>
           ` : ''}
           ${perItemAdvance > 0 ? `
           <div class="totals-row">
             <div class="totals-label">Less: Advance Paid</div>
-            <div class="totals-value">-${formatCurrency(perItemAdvance)}</div>
+            <div class="totals-value">-${money(perItemAdvance)}</div>
           </div>
           ` : ''}
-          ${perItemAdditionalPayments > 0 ? `
+          ${perItemAdditionalPayments > 0.005 ? `
           <div class="totals-row">
             <div class="totals-label">Less: Additional Payments</div>
-            <div class="totals-value">-${formatCurrency(perItemAdditionalPayments)}</div>
+            <div class="totals-value">-${money(perItemAdditionalPayments)}</div>
           </div>
           ` : ''}
           <div class="totals-row bold" style="background-color: ${perItemBalance > 0 ? '#fef3c7' : '#d1fae5'}; border: 2px solid ${perItemBalance > 0 ? '#f59e0b' : '#10b981'};">
             <div class="totals-label" style="color: ${perItemBalance > 0 ? '#92400e' : '#065f46'};">Balance Due:</div>
-            <div class="totals-value" style="color: ${perItemBalance > 0 ? '#92400e' : '#065f46'};">${formatCurrency(perItemBalance)}</div>
+            <div class="totals-value" style="color: ${perItemBalance > 0 ? '#92400e' : '#065f46'};">${money(perItemBalance)}</div>
           </div>
         </div>
 
@@ -284,11 +323,11 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
                 const perItemPayment = inst.paidAmount * itemProportion
                 return `
                 <tr>
-                  <td style="border: 1px solid #ddd; padding: 4px; font-size: 9px;">${inst.installmentNumber}</td>
-                  <td style="border: 1px solid #ddd; padding: 4px; font-size: 9px;">${inst.paidDate ? format(new Date(inst.paidDate), 'dd MMM yyyy') : 'N/A'}</td>
-                  <td style="border: 1px solid #ddd; padding: 4px; font-size: 9px;">${inst.paymentMode || 'N/A'}</td>
-                  <td style="border: 1px solid #ddd; padding: 4px; text-align: right; font-size: 9px;">${formatCurrency(inst.paidAmount)}</td>
-                  <td style="border: 1px solid #ddd; padding: 4px; text-align: right; font-size: 9px; font-weight: bold;">${formatCurrency(perItemPayment)}</td>
+                  <td style="border: 1px solid #ddd; padding: 4px; font-size: 9px;">${esc(inst.installmentNumber)}</td>
+                  <td style="border: 1px solid #ddd; padding: 4px; font-size: 9px;">${inst.paidDate ? esc(formatDate(inst.paidDate, 'medium')) : 'N/A'}</td>
+                  <td style="border: 1px solid #ddd; padding: 4px; font-size: 9px;">${esc(inst.paymentMode || 'N/A')}</td>
+                  <td style="border: 1px solid #ddd; padding: 4px; text-align: right; font-size: 9px;">${money(inst.paidAmount)}</td>
+                  <td style="border: 1px solid #ddd; padding: 4px; text-align: right; font-size: 9px; font-weight: bold;">${money(perItemPayment)}</td>
                 </tr>
                 `
               }).join('')}
@@ -301,9 +340,9 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
 
         ${itemCount > 1 ? `
         <div class="multi-item-notice">
-          <strong>Note:</strong> This is item ${index + 1} of ${itemCount} in order ${order.orderNumber}.
-          Total order amount: ${formatCurrency(order.totalAmount)} |
-          Total balance due: ${formatCurrency(order.balanceAmount)}
+          <strong>Note:</strong> This is item ${index + 1} of ${itemCount} in order ${esc(order.orderNumber)}.
+          Total order amount: ${money(order.totalAmount)} |
+          Total balance due: ${money(order.balanceAmount)}
         </div>
         ` : ''}
 
@@ -311,7 +350,7 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
         ${order.notes ? `
         <div class="notes">
           <strong>Notes:</strong><br>
-          ${order.notes}
+          ${esc(order.notes).replace(/\n/g, '<br>')}
         </div>
         ` : ''}
 
@@ -328,7 +367,9 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
         <!-- Footer -->
         <div class="footer">
           <p><strong>Thank you for your business!</strong></p>
-          <p>This is a computer-generated invoice and does not require a signature.</p>
+          ${settings.invoiceFooter
+            ? `<p>${esc(settings.invoiceFooter).replace(/\n/g, '<br>')}</p>`
+            : '<p>This is a computer-generated invoice and does not require a signature.</p>'}
           <p style="margin-top: 10px;">For any queries, please contact us at the above details.</p>
         </div>
       </div>
@@ -338,10 +379,10 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
 
   return `
 <!DOCTYPE html>
-<html>
+<html lang="${esc(settings.locale)}">
 <head>
   <meta charset="UTF-8">
-  <title>Invoice - ${order.orderNumber}</title>
+  <title>Invoice - ${esc(order.orderNumber)}</title>
   <style>
     * {
       margin: 0;
@@ -385,12 +426,19 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
       font-weight: bold;
       color: #1E3A8A;
       margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     .company-tagline {
       font-size: 12px;
       color: #666;
-      margin-bottom: 8px;
+      margin-bottom: 4px;
+    }
+
+    .company-details {
+      font-size: 10px;
+      color: #444;
     }
 
     .invoice-title {
@@ -598,15 +646,7 @@ function generateInvoiceHTML(order: InvoiceOrder): string {
   ${itemPages}
 
   <script>
-    // Ensure document is fully loaded and rendered
-    document.addEventListener('DOMContentLoaded', function() {
-      console.log('Invoice document loaded and ready');
-    });
-
-    // Wait for images and fonts to be fully loaded
     window.addEventListener('load', function() {
-      console.log('All resources (images, fonts, CSS) loaded');
-      // Mark as ready for printing
       document.body.setAttribute('data-ready', 'true');
     });
 

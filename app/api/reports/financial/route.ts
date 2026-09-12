@@ -2,17 +2,21 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireAnyPermission } from '@/lib/api-permissions'
 import { filterApiResponse } from '@/lib/api-filter-response'
+import { isLegacyAdvanceInstallment, roundMoney } from '@/lib/order-finance'
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns'
+
+const MAX_MONTHS = 36
 
 export async function GET(request: Request) {
   const { session, error } = await requireAnyPermission(['view_financial_reports'])
   if (error) return error
 
-  const userRole = session?.user?.role as any
+  const userRole = session.user.role
 
   try {
     const { searchParams } = new URL(request.url)
-    const months = parseInt(searchParams.get('months') || '12')
+    const requested = parseInt(searchParams.get('months') || '12', 10)
+    const months = Number.isFinite(requested) ? Math.min(Math.max(requested, 1), MAX_MONTHS) : 12
 
     // Revenue and expenses by month (parallelized to avoid async waterfall)
     const financialData = await Promise.all(
@@ -53,9 +57,10 @@ export async function GET(request: Request) {
 
     // Current month P&L
     const thisMonth = financialData[financialData.length - 1]
+    const monthStart = startOfMonth(new Date())
 
     // Parallelize independent database queries to avoid sequential waiting
-    const [outstandingPayments, inventoryValueResult, paymentsReceived] = await Promise.all([
+    const [outstandingPayments, inventoryValueResult, installmentsThisMonth, advancesThisMonth] = await Promise.all([
       // Outstanding payments
       prisma.order.aggregate({
         where: {
@@ -72,19 +77,27 @@ export async function GET(request: Request) {
         FROM "ClothInventory"
       `,
 
-      // Cash flow (installments received this month)
-      prisma.paymentInstallment.aggregate({
-        where: {
-          paidDate: {
-            gte: startOfMonth(new Date()),
-          },
-          status: 'PAID',
-        },
-        _sum: { installmentAmount: true },
+      // Cash received this month: every installment with money on it (PAID and PARTIAL) …
+      prisma.paymentInstallment.findMany({
+        where: { paidDate: { gte: monthStart }, paidAmount: { gt: 0 } },
+        select: { installmentNumber: true, paidAmount: true, notes: true, order: { select: { advancePaid: true } } },
+      }),
+
+      // … plus advances taken on orders created this month (advances are never installments)
+      prisma.order.aggregate({
+        where: { createdAt: { gte: monthStart }, advancePaid: { gt: 0 } },
+        _sum: { advancePaid: true },
       }),
     ])
 
     const totalInventoryValue = Number(inventoryValueResult[0]?.totalValue || 0)
+    // Legacy rows duplicating an advance are excluded; that advance is counted via Order.advancePaid
+    const installmentCash = (installmentsThisMonth ?? []).reduce(
+      (sum, installment) =>
+        isLegacyAdvanceInstallment(installment, installment.order?.advancePaid ?? 0) ? sum : sum + (installment.paidAmount || 0),
+      0
+    )
+    const cashReceived = roundMoney(installmentCash + (advancesThisMonth?._sum.advancePaid || 0))
 
     const response = {
       summary: {
@@ -95,7 +108,7 @@ export async function GET(request: Request) {
         outstandingPayments: outstandingPayments._sum.balanceAmount || 0,
         outstandingCount: outstandingPayments._count,
         inventoryValue: totalInventoryValue,
-        cashReceived: paymentsReceived._sum.installmentAmount || 0,
+        cashReceived,
       },
       financialData,
       yearToDate: {

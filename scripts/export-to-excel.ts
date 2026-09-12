@@ -6,7 +6,10 @@ import * as fs from 'fs'
 import * as path from 'path'
 
 // Database connection
-const connectionString = process.env.DATABASE_URL || 'postgresql://hamees_user:hamees_secure_2026@localhost:5432/tailor_inventory?schema=public'
+const connectionString = process.env.DATABASE_URL
+if (!connectionString) {
+  throw new Error('DATABASE_URL environment variable is required')
+}
 const pool = new Pool({ connectionString })
 const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter })
@@ -39,7 +42,6 @@ async function exportToExcel() {
         return users.map(u => ({
           id: u.id,
           email: u.email,
-          password: u.password,
           name: u.name,
           role: u.role,
           phone: u.phone || '',
@@ -51,7 +53,6 @@ async function exportToExcel() {
       columns: [
         { key: 'id', header: 'ID', width: 30 },
         { key: 'email', header: 'Email', width: 30 },
-        { key: 'password', header: 'Password (Hashed)', width: 60 },
         { key: 'name', header: 'Name', width: 25 },
         { key: 'role', header: 'Role', width: 20 },
         { key: 'phone', header: 'Phone', width: 15 },

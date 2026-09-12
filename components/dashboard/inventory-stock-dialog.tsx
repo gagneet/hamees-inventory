@@ -1,5 +1,6 @@
 'use client'
 
+import { formatCurrency } from '@/lib/utils'
 import { useState, useEffect } from 'react'
 import {
   Dialog,
@@ -194,8 +195,8 @@ export function InventoryStockDialog({
                     </div>
 
                     <div className="mt-2 text-xs text-slate-600">
-                      {item.brand} • ₹{item.pricePerUnit.toFixed(2)}/{item.unit}{' '}
-                      • Value: ₹{item.value.toFixed(2)}
+                      {item.brand} • {formatCurrency(item.pricePerUnit)}/{item.unit}{' '}
+                      • Value: {formatCurrency(item.value)}
                     </div>
                   </div>
 

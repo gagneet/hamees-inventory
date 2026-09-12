@@ -16,7 +16,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatDate, formatDateWith } from '@/lib/utils'
 import { toast } from 'sonner'
 import {
   Eye,
@@ -471,7 +471,7 @@ export function OrderItemDetailDialog({ orderItem, onSave }: OrderItemDetailDial
                       : `${daysUntilDelivery} days remaining`}
                   </p>
                   <p className="text-xs text-slate-600">
-                    Delivery: {new Date(orderItem.order.deliveryDate).toLocaleDateString()}
+                    Delivery: {formatDate(orderItem.order.deliveryDate)}
                   </p>
                 </div>
                 <Badge variant="outline" className="ml-auto">
@@ -760,7 +760,7 @@ export function OrderItemDetailDialog({ orderItem, onSave }: OrderItemDetailDial
               </div>
               <div>
                 <p className="text-slate-500">Order Created</p>
-                <p className="font-semibold">{new Date(orderItem.order.createdAt).toLocaleDateString()}</p>
+                <p className="font-semibold">{formatDate(orderItem.order.createdAt)}</p>
               </div>
             </div>
 
@@ -790,7 +790,7 @@ export function OrderItemDetailDialog({ orderItem, onSave }: OrderItemDetailDial
                         {h.changeType}
                       </Badge>
                       <p className="flex-1 text-slate-700">{h.description}</p>
-                      <p className="text-slate-500">{new Date(h.createdAt).toLocaleDateString()}</p>
+                      <p className="text-slate-500">{formatDate(h.createdAt)}</p>
                     </div>
                   ))}
                 </div>
@@ -837,7 +837,7 @@ export function OrderItemDetailDialog({ orderItem, onSave }: OrderItemDetailDial
                             <span className="font-medium">{note.user?.name || 'Unknown'}</span>
                           </p>
                           <p className="text-xs text-slate-500">
-                            {new Date(note.createdAt).toLocaleDateString('en-IN', {
+                            {formatDateWith(note.createdAt, {
                               day: '2-digit',
                               month: 'short',
                               year: 'numeric',
@@ -933,7 +933,7 @@ export function OrderItemDetailDialog({ orderItem, onSave }: OrderItemDetailDial
                     <div>
                       <p className="font-medium font-mono text-sm">{prevOrder.orderNumber}</p>
                       <p className="text-xs text-slate-600">
-                        {new Date(prevOrder.createdAt).toLocaleDateString()} • {prevOrder.status}
+                        {formatDate(prevOrder.createdAt)} • {prevOrder.status}
                       </p>
                     </div>
                     <div className="text-right">

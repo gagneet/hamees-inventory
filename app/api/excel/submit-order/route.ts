@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyExcelApiKey } from '@/lib/excel-api-auth'
 import { generateOrderNumber } from '@/lib/utils'
+import { getAppSettings, taxConfigFrom } from '@/lib/settings'
+import { computeTax } from '@/lib/tax'
+import { formatCurrency } from '@/lib/locale'
+import { roundMoney } from '@/lib/order-finance'
+import { InsufficientStockError, reserveClothStock, roundMeters } from '@/lib/stock'
 import { BodyType } from '@/lib/types'
 import { z } from 'zod'
 
@@ -32,8 +37,8 @@ const submitOrderSchema = z.object({
   // Customer
   customerMode: z.enum(['new', 'existing']).default('new'),
   customerId: z.string().optional(),        // Used when customerMode = existing
-  customerName: z.string().min(1),
-  customerPhone: z.string().min(6),
+  customerName: z.string().trim().min(1).max(200),
+  customerPhone: z.string().trim().min(6).max(20),
   customerWhatsApp: z.string().optional(),
   customerCity: z.string().optional(),
   customerAddress: z.string().optional(),
@@ -43,13 +48,13 @@ const submitOrderSchema = z.object({
   garmentType: z.string().min(1),           // e.g. "Sherwani" — matched against GarmentPattern.name
   fabricName: z.string().optional(),        // e.g. "French Linen" — matched against ClothInventory.name
   fabricColor: z.string().optional(),       // e.g. "Navy Blue" — used to refine fabric lookup
-  quantity: z.number().int().positive().default(1),
+  quantity: z.number().int().positive().max(100).default(1),
   bookingDate: z.string().optional(),       // ISO date string — defaults to today
   trialDate: z.string().optional(),
   deliveryDate: z.string(),                 // Required: ISO date string
   advancePaid: z.number().nonnegative().default(0),
   priority: z.enum(['NORMAL', 'URGENT']).default('NORMAL'),
-  notes: z.string().optional(),
+  notes: z.string().max(5000).optional(),
 
   // Measurements (all in cm, all optional)
   bodyType: z.enum(['SLIM', 'REGULAR', 'LARGE', 'XL']).optional(),
@@ -183,7 +188,7 @@ export async function POST(request: Request) {
     if (bodyTypeValue === BodyType.XL) bodyTypeAdjustment = garmentPattern.xlAdjustment
 
     const estimatedMeters = (garmentPattern.baseMeters ?? 2.5) + bodyTypeAdjustment
-    const requiredMeters = estimatedMeters * data.quantity
+    const requiredMeters = roundMeters(estimatedMeters * data.quantity)
 
     // ── 3. Cloth inventory lookup ─────────────────────────────
     let clothInventory = null
@@ -234,7 +239,7 @@ export async function POST(request: Request) {
     }
 
     // ── 5. Create Order + OrderItem ───────────────────────────
-    // gstRate stored as a percentage integer (12) to match the main orders route convention.
+    // GST comes from the configured tax settings (same as the main orders route).
     // OrderItem has no fabricCost/stitchingCost columns — those are Order-level fields.
     // advancePaid is stored in Order.advancePaid only — no PaymentInstallment created
     // (same behaviour as the main orders route; balance payments use PaymentInstallment).
@@ -242,17 +247,22 @@ export async function POST(request: Request) {
     const fabricCostVal = clothInventory.pricePerMeter * requiredMeters
     const stitchingCostVal = (garmentPattern.basicStitchingCharge ?? 0) * data.quantity
     const totalItemCost = fabricCostVal + stitchingCostVal
-    const gstRate = 12                                          // stored as percentage (12%), matches main route
-    const subTotal = parseFloat(totalItemCost.toFixed(2))
-    const gstAmount = parseFloat(((subTotal * gstRate) / 100).toFixed(2))
-    const cgst = parseFloat((gstAmount / 2).toFixed(2))
-    const sgst = parseFloat((gstAmount / 2).toFixed(2))
-    const totalAmount = parseFloat((subTotal + gstAmount).toFixed(2))
-    const advancePaid = data.advancePaid ?? 0
-    const balanceAmount = parseFloat((totalAmount - advancePaid).toFixed(2))
+    const settings = await getAppSettings()
+    const subTotal = roundMoney(totalItemCost)
+    const tax = computeTax(subTotal, taxConfigFrom(settings), { customerRegion: customer.state })
+    const { gstRate, gstAmount, cgst, sgst, igst, totalAmount } = tax
+    const advancePaid = roundMoney(data.advancePaid ?? 0)
+    if (advancePaid > totalAmount) {
+      return NextResponse.json(
+        { error: `Advance (${formatCurrency(advancePaid)}) cannot exceed the order total (${formatCurrency(totalAmount)})` },
+        { status: 422 }
+      )
+    }
+    const balanceAmount = roundMoney(totalAmount - advancePaid)
     const orderNumber = await generateOrderNumber()
     const availableStock = clothInventory.currentStock - clothInventory.reserved
 
+    // Fast pre-check; the authoritative check is the guarded reservation inside the transaction
     if (availableStock < requiredMeters) {
       return NextResponse.json(
         { error: `Insufficient fabric stock. Available: ${availableStock.toFixed(2)}m, Required: ${requiredMeters.toFixed(2)}m` },
@@ -291,7 +301,7 @@ export async function POST(request: Request) {
           taxableAmount: subTotal,
           cgst,
           sgst,
-          igst: 0,
+          igst,
           totalAmount,
           balanceAmount,
           status: 'NEW',
@@ -303,8 +313,8 @@ export async function POST(request: Request) {
               bodyType: bodyTypeValue,
               quantityOrdered: data.quantity,
               estimatedMeters: requiredMeters,
-              pricePerUnit: totalItemCost / data.quantity,  // required on OrderItem
-              totalPrice: totalItemCost,
+              pricePerUnit: roundMoney(totalItemCost / data.quantity),  // required on OrderItem
+              totalPrice: roundMoney(totalItemCost),
             },
           },
         },
@@ -314,16 +324,8 @@ export async function POST(request: Request) {
         },
       })
 
-      // Reserve fabric stock
-      await tx.clothInventory.update({
-        where: { id: clothInventory!.id },
-        data: { reserved: { increment: requiredMeters } },
-      })
-
-      const updatedInventory = await tx.clothInventory.findUnique({
-        where: { id: clothInventory!.id },
-        select: { currentStock: true },
-      })
+      // Reserve fabric stock (atomic: fails if another order took the stock meanwhile)
+      const levels = await reserveClothStock(tx, clothInventory!.id, requiredMeters, clothInventory!.name)
 
       // Create stock movement
       await tx.stockMovement.create({
@@ -333,7 +335,7 @@ export async function POST(request: Request) {
           userId: systemUserId,
           type: 'ORDER_RESERVED',
           quantityMeters: -requiredMeters,
-          balanceAfterMeters: (updatedInventory?.currentStock ?? 0) - requiredMeters,
+          balanceAfterMeters: roundMeters((levels?.currentStock ?? clothInventory!.currentStock) - requiredMeters),
           notes: `Reserved for order ${orderNumber} (via Excel)`,
         },
       })
@@ -358,6 +360,9 @@ export async function POST(request: Request) {
         { error: 'Invalid request data', details: error.issues.map(i => `${i.path.join('.')}: ${i.message}`) },
         { status: 400 }
       )
+    }
+    if (error instanceof InsufficientStockError) {
+      return NextResponse.json({ error: error.message }, { status: 422 })
     }
 
     console.error('[Excel API] Error creating order:', error)

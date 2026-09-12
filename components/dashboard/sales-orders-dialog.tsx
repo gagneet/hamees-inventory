@@ -21,8 +21,7 @@ import {
   Package,
 } from 'lucide-react'
 import Link from 'next/link'
-import { format } from 'date-fns'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatDate } from '@/lib/utils'
 
 interface OrderItem {
   id: string
@@ -208,7 +207,7 @@ export function SalesOrdersDialog({
                         <Calendar className="h-3 w-3" />
                         <span>Ordered:</span>
                         <span className="font-medium">
-                          {format(new Date(order.orderDate), 'dd MMM yyyy')}
+                          {formatDate(order.orderDate)}
                         </span>
                       </div>
                       <div className="flex items-center gap-1">
@@ -222,7 +221,7 @@ export function SalesOrdersDialog({
                               : ''
                           }`}
                         >
-                          {format(new Date(order.deliveryDate), 'dd MMM yyyy')}
+                          {formatDate(order.deliveryDate)}
                         </span>
                       </div>
                       <div className="flex items-center gap-1">

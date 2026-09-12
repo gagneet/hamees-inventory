@@ -1,6 +1,8 @@
 import { auth } from '@/lib/auth'
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { prisma } from '@/lib/db'
+import { hasFinancialAccess } from '@/lib/field-acl'
+import { getAppSettings } from '@/lib/settings'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -39,16 +41,18 @@ export default async function AccessoryDetailPage({
 }) {
   const session = await auth()
   if (!session?.user) redirect('/')
+  await getAppSettings()
 
   const { id } = await params
   const accessory = await getAccessoryDetails(id)
 
-  if (!accessory) {
-    redirect('/inventory')
-  }
+  if (!accessory) notFound()
 
+  const role = session.user.role as UserRole
   // Check if user can edit inventory
-  const canEdit = hasPermission(session.user.role as UserRole, 'manage_inventory')
+  const canEdit = hasPermission(role, 'manage_inventory')
+  const showPricing = hasFinancialAccess(role, 'inventory')
+  const canRaisePO = hasPermission(role, 'manage_purchase_orders')
 
   const totalValue = accessory.currentStock * accessory.pricePerUnit
 
@@ -263,13 +267,13 @@ export default async function AccessoryDetailPage({
                     <span className="text-sm text-slate-500">Status</span>
                     <Badge variant={status.variant}>{status.label}</Badge>
                   </div>
-                  {accessory.currentStock < accessory.minimumStockUnits && (
+                  {canRaisePO && accessory.currentStock < accessory.minimumStockUnits && (
                     <Link
                       href={`/purchase-orders/new?itemName=${encodeURIComponent(
                         accessory.name
                       )}&itemType=ACCESSORY&quantity=${
                         Math.max(accessory.minimumStockUnits * 2 - accessory.currentStock, accessory.minimumStockUnits)
-                      }&pricePerUnit=${accessory.pricePerUnit}&unit=pieces&color=${encodeURIComponent(
+                      }${showPricing ? `&pricePerUnit=${accessory.pricePerUnit}` : ''}&unit=pieces&color=${encodeURIComponent(
                         accessory.color || ''
                       )}&type=${encodeURIComponent(accessory.type)}`}
                     >
@@ -294,6 +298,7 @@ export default async function AccessoryDetailPage({
             </Card>
 
             {/* Pricing Information */}
+            {showPricing && (
             <Card>
               <CardHeader>
                 <CardTitle>Pricing</CardTitle>
@@ -311,6 +316,7 @@ export default async function AccessoryDetailPage({
                 </div>
               </CardContent>
             </Card>
+            )}
 
             {/* Supplier Information */}
             {accessory.supplier && (

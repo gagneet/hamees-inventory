@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { requireAnyPermission } from '@/lib/api-permissions'
 import { qrcodeService } from '@/lib/barcode/qrcode-service'
+import { hasFinancialAccess } from '@/lib/field-acl'
+import { getAppSettings } from '@/lib/settings'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
 
@@ -11,15 +13,18 @@ const generateLabelSchema = z.object({
 
 // POST - Generate printable label for an inventory item
 export async function POST(request: Request) {
-  const { error } = await requireAnyPermission(['view_inventory'])
+  const { session, error } = await requireAnyPermission(['view_inventory'])
   if (error) return error
+  // Cost prices are printed only for roles that can see inventory cost
+  const showPrice = hasFinancialAccess(session.user.role, 'inventory')
 
   try {
     const body = await request.json()
     const data = generateLabelSchema.parse(body)
+    await getAppSettings() // currency/locale for the printed price
 
     let qrCode: string
-    let labelData: any
+    let labelData: Parameters<typeof qrcodeService.generateLabelHTML>[0]
 
     if (data.type === 'cloth') {
       const cloth = await prisma.clothInventory.findUnique({
@@ -39,7 +44,7 @@ export async function POST(request: Request) {
         qrCode,
         name: `${cloth.brand} ${cloth.color} ${cloth.type}`,
         sku: cloth.sku,
-        price: cloth.pricePerMeter,
+        price: showPrice ? cloth.pricePerMeter : undefined,
         stock: `${cloth.currentStock.toFixed(2)}m`,
       }
     } else {
@@ -59,7 +64,8 @@ export async function POST(request: Request) {
       labelData = {
         qrCode,
         name: `${accessory.type} ${accessory.color || ''}`.trim(),
-        price: accessory.pricePerUnit,
+        sku: accessory.sku,
+        price: showPrice ? accessory.pricePerUnit : undefined,
         stock: `${accessory.currentStock} pcs`,
       }
     }
@@ -81,7 +87,7 @@ export async function POST(request: Request) {
 
     console.error('Error generating label:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to generate label' },
+      { error: 'Failed to generate label' },
       { status: 500 }
     )
   }
