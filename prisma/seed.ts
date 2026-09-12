@@ -1,17 +1,16 @@
-import { PrismaClient, UserRole, OrderStatus, OrderPriority, BodyType, StockMovementType, ExpenseCategory, PaymentMode } from '@prisma/client'
-import { PrismaPg } from '@prisma/adapter-pg'
+import { UserRole, OrderStatus, OrderPriority, BodyType, StockMovementType, ExpenseCategory, PaymentMode } from '@prisma/client'
 import { Pool } from 'pg'
 import * as bcrypt from 'bcryptjs'
 import * as dotenv from 'dotenv'
+import { createPrismaClient } from '../lib/prisma-client'
 
 dotenv.config()
 
 const connectionString = process.env.DATABASE_URL!
 const pool = new Pool({ connectionString })
-const adapter = new PrismaPg(pool)
 
-const prisma = new PrismaClient({
-  adapter,
+const prisma = createPrismaClient({
+  pool,
   log: ['error'],
 })
 
@@ -100,7 +99,7 @@ async function main() {
   console.log('✅ Cleared existing data\n')
 
   // ============================================================
-  // 1. CREATE USERS (6 roles)
+  // 1. CREATE USERS (7 roles)
   // ============================================================
   console.log('👥 Creating users...')
   const hashedPassword = await bcrypt.hash('admin123', 10)
@@ -165,7 +164,18 @@ async function main() {
     },
   })
 
-  console.log('✅ Created 6 users\n')
+  // Production supervisor: assigns work to tailors and follows their workload (replace with the real person)
+  await prisma.user.create({
+    data: {
+      email: 'master@hameesattire.com',
+      password: hashedPassword,
+      name: 'Master Tailor (Demo)',
+      role: UserRole.MASTER_TAILOR,
+      phone: '+91 98765 43216',
+    },
+  })
+
+  console.log('✅ Created 7 users\n')
 
   // ============================================================
   // 2. CREATE SUPPLIERS
@@ -552,6 +562,7 @@ async function main() {
             garmentPatternId: pattern.id,
             clothInventoryId: cloth.id,
             assignedTailorId: randomChoice([tailor.id, null]),
+            status, // items carry their own stage; the order's is derived from them
             quantityOrdered: 1,  // NEW FIELD NAME
             bodyType: bodyType,
             estimatedMeters: estimatedMeters,
@@ -609,6 +620,7 @@ async function main() {
     const paidAmount = randomFloat(30000, Math.min(totalAmount, 100000))
     const balanceAmount = totalAmount - paidAmount
     const isReceived = i < 7
+    const cloth = randomChoice(clothInventory)
 
     await prisma.purchaseOrder.create({
       data: {
@@ -633,8 +645,9 @@ async function main() {
         status: isReceived ? 'RECEIVED' : 'PENDING',
         items: {
           create: [{
-            itemName: randomChoice(clothInventory).name,
+            itemName: cloth.name,
             itemType: 'CLOTH',
+            clothInventoryId: cloth.id,
             orderedQuantity: randomFloat(20, 50),  // NEW FIELD NAME
             unit: 'meters',
             pricePerUnit: randomFloat(300, 800),
@@ -695,7 +708,7 @@ async function main() {
       title: 'Low Stock Alert - Cloth',
       message: 'Brocade Silk is running low. Current: 65m, Minimum: 15m',
       relatedId: clothInventory[9].id,
-      relatedType: 'ClothInventory',
+      relatedType: 'cloth',
     },
   })
   console.log('✅ Alerts created\n')
@@ -724,6 +737,7 @@ async function main() {
   console.log('   sales@hameesattire.com - Sales and orders')
   console.log('   tailor@hameesattire.com - Order status updates')
   console.log('   viewer@hameesattire.com - Read-only access')
+  console.log('   master@hameesattire.com - Master Tailor: assigns and oversees tailors')
 }
 
 main()

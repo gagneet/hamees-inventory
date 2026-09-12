@@ -4,16 +4,19 @@
  * order-derived query is AND-scoped with the actor's order scope (lib/authz.ts).
  */
 
-import type { Prisma } from '@prisma/client'
+import type { OrderStatus, Prisma } from '@prisma/client'
 import { addDays, differenceInDays, endOfMonth, format, startOfMonth, subMonths } from 'date-fns'
 import { shopStartOfDay } from '@/lib/locale'
 import { prisma } from '@/lib/db'
-import { canSeeAllOrders, orderScope, scopedWhere, type Actor } from '@/lib/authz'
+import { canSeeAllOrders, orderItemScope, orderScope, scopedWhere, type Actor } from '@/lib/authz'
 import { alertVisibilityScope } from '@/lib/alert-scope'
 import { countCompletedItemsToday } from '@/app/api/production/_lib/workload'
+import { subtractMoney, sumFromMinor, sumMoney } from '@/lib/money'
 
 const OPEN_ORDER: Prisma.OrderWhereInput = { status: { notIn: ['DELIVERED', 'CANCELLED'] } }
-const IN_PRODUCTION: Prisma.OrderWhereInput = { status: { in: ['CUTTING', 'STITCHING', 'FINISHING'] } }
+/** Item stages (OrderItem.status) where a garment is being worked on. */
+const IN_PRODUCTION_STAGES: OrderStatus[] = ['CUTTING', 'STITCHING', 'FINISHING']
+const UNFINISHED_STAGES: OrderStatus[] = ['NEW', 'MATERIAL_SELECTED', 'CUTTING', 'STITCHING', 'FINISHING']
 
 export type MonthWindow = { start: Date; end: Date }
 
@@ -30,13 +33,22 @@ async function patternNames(ids: string[]): Promise<Map<string, string>> {
   return new Map(rows.map((r) => [r.id, r.name]))
 }
 
-/** Revenue recognised in a month = delivered orders completed in that month. */
+/**
+ * Revenue recognised in a month = delivered orders completed in that month, measured as NET
+ * SALES EXCLUDING TAX (taxableAmount = subTotal − discount). The tax charged is collected for
+ * the tax authority and is never income, so it must not inflate revenue or profit — the same
+ * definition the financial report uses.
+ */
 export async function deliveredRevenue(window: MonthWindow): Promise<number> {
   const result = await prisma.order.aggregate({
     where: { status: 'DELIVERED', completedDate: { gte: window.start, lte: window.end } },
-    _sum: { totalAmount: true },
+    // Aggregates are not converted by the money extension — wrap each with sumFromMinor
+    _sum: { taxableAmount: true, subTotal: true, discount: true },
   })
-  return result?._sum.totalAmount || 0
+  // taxableAmount was only filled in from v0.32 onwards; fall back to gross − discount
+  const net = sumFromMinor(result?._sum.taxableAmount)
+  if (net > 0) return net
+  return subtractMoney(sumFromMinor(result?._sum.subTotal), sumFromMinor(result?._sum.discount))
 }
 
 // ── Tailor workbench (scoped to the actor's assigned items) ──────────────────
@@ -47,6 +59,16 @@ export async function buildTailorSection(actor: Actor, now: Date, dailyTarget: n
     ? undefined
     : { assignedTailorId: actor.id }
 
+  // Items are counted by their own stage (lib/item-status.ts); a tailor's deadlines are the open
+  // orders where one of THEIR garments is still unfinished
+  const inProductionItems = scopedWhere<Prisma.OrderItemWhereInput>(
+    { status: { in: IN_PRODUCTION_STAGES }, order: OPEN_ORDER },
+    ownItems ?? {}
+  )
+  const openWork: Prisma.OrderWhereInput = ownItems
+    ? { AND: [OPEN_ORDER, { items: { some: { ...ownItems, status: { in: UNFINISHED_STAGES } } } }] }
+    : OPEN_ORDER
+
   const orderSelect = {
     id: true,
     orderNumber: true,
@@ -54,7 +76,7 @@ export async function buildTailorSection(actor: Actor, now: Date, dailyTarget: n
     status: true,
     priority: true,
     customer: { select: { name: true } },
-    items: { where: ownItems, select: { garmentPattern: { select: { name: true } } } },
+    items: { where: ownItems, select: { status: true, garmentPattern: { select: { name: true } } } },
   } satisfies Prisma.OrderSelect
 
   const todayStart = shopStartOfDay(now)
@@ -63,26 +85,26 @@ export async function buildTailorSection(actor: Actor, now: Date, dailyTarget: n
   const [inProgressOrders, dueTodayOrders, overdueOrders, upcomingDeadlines, workloadByGarment, completedToday] =
     await Promise.all([
       prisma.order.findMany({
-        where: scopedWhere<Prisma.OrderWhereInput>(IN_PRODUCTION, scope),
+        where: scopedWhere<Prisma.OrderWhereInput>({ items: { some: inProductionItems } }, scope),
         select: orderSelect,
         orderBy: { deliveryDate: 'asc' },
       }),
       prisma.order.findMany({
         where: scopedWhere<Prisma.OrderWhereInput>(
-          { AND: [OPEN_ORDER, { deliveryDate: { gte: todayStart, lt: tomorrowStart } }] },
+          { AND: [openWork, { deliveryDate: { gte: todayStart, lt: tomorrowStart } }] },
           scope
         ),
         select: orderSelect,
         orderBy: { deliveryDate: 'asc' },
       }),
       prisma.order.findMany({
-        where: scopedWhere<Prisma.OrderWhereInput>({ AND: [OPEN_ORDER, { deliveryDate: { lt: todayStart } }] }, scope),
+        where: scopedWhere<Prisma.OrderWhereInput>({ AND: [openWork, { deliveryDate: { lt: todayStart } }] }, scope),
         select: orderSelect,
         orderBy: { deliveryDate: 'asc' },
       }),
       prisma.order.findMany({
         where: scopedWhere<Prisma.OrderWhereInput>(
-          { AND: [OPEN_ORDER, { deliveryDate: { gte: now, lte: addDays(now, 7) } }] },
+          { AND: [openWork, { deliveryDate: { gte: now, lte: addDays(now, 7) } }] },
           scope
         ),
         select: orderSelect,
@@ -91,7 +113,7 @@ export async function buildTailorSection(actor: Actor, now: Date, dailyTarget: n
       }),
       prisma.orderItem.groupBy({
         by: ['garmentPatternId'],
-        where: scopedWhere<Prisma.OrderItemWhereInput>({ order: IN_PRODUCTION }, ownItems ?? {}),
+        where: inProductionItems,
         _count: { id: true },
       }),
       countCompletedItemsToday(ownItems ?? {}, now),
@@ -100,7 +122,8 @@ export async function buildTailorSection(actor: Actor, now: Date, dailyTarget: n
   const names = await patternNames((workloadByGarment ?? []).map((w) => w.garmentPatternId))
 
   return {
-    inProgress: inProgressOrders.length,
+    // Garments (not orders) in cutting, stitching or finishing
+    inProgress: (workloadByGarment ?? []).reduce((sum, w) => sum + w._count.id, 0),
     inProgressList: inProgressOrders,
     dueToday: dueTodayOrders.length,
     dueTodayList: dueTodayOrders,
@@ -198,6 +221,10 @@ export async function buildSalesSection(
     deliveryDate: true,
     status: true,
     totalAmount: true,
+    // Net of tax and discount — the basis revenue is measured on (see deliveredRevenue above)
+    taxableAmount: true,
+    subTotal: true,
+    discount: true,
     balanceAmount: true,
     customer: { select: { id: true, name: true, phone: true, email: true } },
     items: { select: { id: true, quantityOrdered: true, garmentPattern: { select: { name: true } } } },
@@ -227,7 +254,12 @@ export async function buildSalesSection(
         select: salesOrderSelect,
         orderBy: { orderDate: 'desc' },
       }),
-      prisma.order.groupBy({ by: ['status'], where: scope, _count: { status: true } }),
+      // Production pipeline: garments of open orders by their own stage
+      prisma.orderItem.groupBy({
+        by: ['status'],
+        where: scopedWhere<Prisma.OrderItemWhereInput>({ order: OPEN_ORDER }, orderItemScope(actor)),
+        _count: { status: true },
+      }),
       prisma.customer.findMany({
         select: {
           id: true,
@@ -252,7 +284,8 @@ export async function buildSalesSection(
     .map((customer) => {
       const deliveredOrders = customer.orders.filter((o) => o.status === 'DELIVERED')
       const totalOrders = customer.orders.length
-      const totalSpent = deliveredOrders.reduce((sum, o) => sum + o.totalAmount, 0)
+      // What this customer was invoiced (tax included) — a spend measure, not the P&L revenue
+      const totalSpent = sumMoney(deliveredOrders.map((o) => o.totalAmount))
       const pendingOrders = customer.orders.filter((o) => o.status !== 'DELIVERED' && o.status !== 'CANCELLED').length
       const totalItems = customer.orders.reduce((sum, o) => sum + (o.items?.length || 0), 0)
       const monthsActive = new Set(customer.orders.map((o) => format(new Date(o.orderDate), 'yyyy-MM'))).size
@@ -290,8 +323,13 @@ export async function buildSalesSection(
 
   if (!forecast) return section
 
+  // Revenue here must use the SAME basis as deliveredRevenue() — net sales excluding tax —
+  // because lastMonthRevenue comes from it and growthRate compares the two. Summing
+  // totalAmount instead would compare a tax-inclusive figure with a tax-exclusive one.
+  const netOf = (order: { taxableAmount: number; subTotal: number; discount: number }) =>
+    order.taxableAmount > 0 ? order.taxableAmount : subtractMoney(order.subTotal, order.discount)
   const sumAmounts = (filter: (status: string) => boolean) =>
-    thisMonthOrdersList.filter((o) => filter(o.status)).reduce((sum, o) => sum + o.totalAmount, 0)
+    sumMoney(thisMonthOrdersList.filter((o) => filter(o.status)).map(netOf))
   const forecastedRevenue = sumAmounts((s) => s !== 'CANCELLED')
   return {
     ...section,
@@ -363,9 +401,9 @@ export async function buildFinancialSection(now: Date) {
 
   const pos = paidPurchaseOrders ?? []
   const totalExpensesThisMonth =
-    (expensesThisMonth?._sum.totalAmount || 0) + poPaymentsBetween(pos, thisMonth.start, thisMonth.end)
+    (sumFromMinor(expensesThisMonth?._sum.totalAmount)) + poPaymentsBetween(pos, thisMonth.start, thisMonth.end)
   const totalExpensesLastMonth =
-    (expensesLastMonth?._sum.totalAmount || 0) + poPaymentsBetween(pos, lastMonth.start, lastMonth.end)
+    (sumFromMinor(expensesLastMonth?._sum.totalAmount)) + poPaymentsBetween(pos, lastMonth.start, lastMonth.end)
 
   // Revenue vs expenses for the last 6 months
   const financialTrend = await Promise.all(
@@ -380,7 +418,7 @@ export async function buildFinancialSection(now: Date) {
           _sum: { totalAmount: true },
         }),
       ])
-      const totalExpenses = (expenses?._sum.totalAmount || 0) + poPaymentsBetween(pos, monthStart, monthEnd)
+      const totalExpenses = (sumFromMinor(expenses?._sum.totalAmount)) + poPaymentsBetween(pos, monthStart, monthEnd)
       return {
         month: format(monthStart, 'MMM yyyy'),
         revenue,
@@ -446,7 +484,7 @@ export async function buildFinancialSection(now: Date) {
       type: cloth?.type || 'Unknown',
       color: cloth?.color || 'Unknown',
       colorHex: cloth?.colorHex || '#94a3b8',
-      revenue: item._sum.totalPrice || 0,
+      revenue: sumFromMinor(item._sum.totalPrice),
     }
   })
 
@@ -454,7 +492,7 @@ export async function buildFinancialSection(now: Date) {
   const garmentTypeRevenueDetails = (revenueByGarmentType ?? []).map((item) => ({
     id: item.garmentPatternId,
     name: garmentNames.get(item.garmentPatternId) || 'Unknown',
-    revenue: item._sum.totalPrice || 0,
+    revenue: sumFromMinor(item._sum.totalPrice),
     orderCount: item._count.id,
   }))
 
@@ -481,10 +519,10 @@ export async function buildFinancialSection(now: Date) {
   return {
     expensesThisMonth: totalExpensesThisMonth,
     expensesLastMonth: totalExpensesLastMonth,
-    cashCollectedThisMonth: cashCollectedThisMonth?._sum.paidAmount || 0,
-    cashCollectedLastMonth: cashCollectedLastMonth?._sum.paidAmount || 0,
+    cashCollectedThisMonth: sumFromMinor(cashCollectedThisMonth?._sum.paidAmount),
+    cashCollectedLastMonth: sumFromMinor(cashCollectedLastMonth?._sum.paidAmount),
     financialTrend,
-    outstandingPayments: outstandingPayments?._sum.balanceAmount || 0,
+    outstandingPayments: sumFromMinor(outstandingPayments?._sum.balanceAmount),
     revenueByFabric: fabricRevenueDetails,
     revenueByGarmentType: garmentTypeRevenueDetails,
     avgFulfillmentTime: Math.round(avgFulfillmentTime),

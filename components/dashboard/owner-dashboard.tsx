@@ -33,6 +33,7 @@ import { GarmentTypeRevenueChart } from './garment-type-revenue-chart'
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
 import { DollarSign, TrendingUp, TrendingDown, Clock, Users, Package, AlertCircle, Activity } from 'lucide-react'
 import { formatCurrency, formatDateWith } from '@/lib/utils'
+import { Money } from '@/components/ui/money'
 import Link from 'next/link'
 import { useFieldVisibility } from '@/hooks/use-field-visibility'
 import { hasPermission } from '@/lib/permissions'
@@ -246,7 +247,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
            </CardHeader>
            <CardContent>
              <div className="text-2xl font-bold text-green-600">
-               {formatCurrency(generalStats.revenue.thisMonth)}
+               <Money amount={generalStats.revenue.thisMonth} />
              </div>
              <p className="text-xs text-muted-foreground mt-1">
                {generalStats.revenue.growth >= 0 ? '+' : ''}
@@ -268,7 +269,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
            </CardHeader>
            <CardContent>
              <div className="text-2xl font-bold text-cyan-600">
-               {formatCurrency(stats.cashCollectedThisMonth)}
+               <Money amount={stats.cashCollectedThisMonth} />
              </div>
              <p className="text-xs text-muted-foreground mt-1">
                {cashGrowth >= 0 ? '+' : ''}
@@ -290,7 +291,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
            </CardHeader>
            <CardContent>
              <div className="text-2xl font-bold text-red-600">
-               {formatCurrency(stats.expensesThisMonth)}
+               <Money amount={stats.expensesThisMonth} />
              </div>
              <p className="text-xs text-muted-foreground mt-1">
                {expenseGrowth >= 0 ? '+' : ''}
@@ -312,7 +313,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
            </CardHeader>
            <CardContent>
              <div className={`text-2xl font-bold ${netRevenue >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
-               {formatCurrency(netRevenue)}
+               <Money amount={netRevenue} />
              </div>
              <p className="text-xs text-muted-foreground mt-1">
                Revenue minus expenses
@@ -333,7 +334,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
            </CardHeader>
            <CardContent>
              <div className="text-2xl font-bold text-amber-600">
-               {formatCurrency(stats.outstandingPayments)}
+               <Money amount={stats.outstandingPayments} />
              </div>
              <p className="text-xs text-muted-foreground mt-1">
                Balance due from customers
@@ -709,7 +710,7 @@ export function OwnerDashboard({ stats, generalStats, alerts, orderStatus, sales
                 </div>
               </div>
               <div className="text-xl font-bold text-green-700">
-                {formatCurrency(generalStats.inventory.totalValue)}
+                <Money amount={generalStats.inventory.totalValue} />
               </div>
             </div>
             )}

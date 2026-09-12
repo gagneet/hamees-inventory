@@ -12,6 +12,14 @@ import {
   setActiveLocaleConfig,
   getActiveLocaleConfig,
   DEFAULT_LOCALE_CONFIG,
+  convertToSecondary,
+  formatSecondaryCurrency,
+  formatCurrencyWithSecondary,
+  formatExchangeRate,
+  exchangeRateNote,
+  indicativeTotalNote,
+  formatMoneyParts,
+  hasSecondaryCurrency,
 } from '@/lib/locale'
 
 afterEach(() => setActiveLocaleConfig(DEFAULT_LOCALE_CONFIG))
@@ -86,6 +94,150 @@ describe('normalizeLocaleConfig', () => {
   it('stores the active configuration globally', () => {
     setActiveLocaleConfig({ currency: 'AED', locale: 'en-AE', timeZone: 'Asia/Dubai' })
     expect(getActiveLocaleConfig()).toEqual({ currency: 'AED', locale: 'en-AE', timeZone: 'Asia/Dubai' })
+  })
+})
+
+describe('secondary (display-only) currency', () => {
+  const INR_GBP = {
+    currency: 'INR',
+    locale: 'en-IN',
+    timeZone: 'Asia/Kolkata',
+    secondaryCurrency: 'GBP',
+    exchangeRate: 112.5,
+    exchangeRateUpdatedAt: '2026-09-10T20:00:00Z', // 11 Sept in India
+  }
+
+  describe('normalizeLocaleConfig', () => {
+    it('keeps a valid secondary currency with a positive rate (upper-cased)', () => {
+      const cfg = normalizeLocaleConfig({ ...INR_GBP, secondaryCurrency: 'gbp' })
+      expect(cfg).toMatchObject({ secondaryCurrency: 'GBP', exchangeRate: 112.5, exchangeRateUpdatedAt: INR_GBP.exchangeRateUpdatedAt })
+    })
+
+    it.each([
+      ['equal to the main currency', { secondaryCurrency: 'INR' }],
+      ['equal to the main currency in another case', { secondaryCurrency: 'inr' }],
+      ['not a real ISO code', { secondaryCurrency: 'XYZ' }],
+      ['null', { secondaryCurrency: null }],
+      ['without a rate', { exchangeRate: null }],
+      ['with a zero rate', { exchangeRate: 0 }],
+      ['with a negative rate', { exchangeRate: -5 }],
+      ['with a NaN rate', { exchangeRate: Number.NaN }],
+      ['with an infinite rate', { exchangeRate: Number.POSITIVE_INFINITY }],
+    ])('drops the secondary currency when it is %s', (_label, override) => {
+      const cfg = normalizeLocaleConfig({ ...INR_GBP, ...override })
+      expect(cfg).toEqual({ currency: 'INR', locale: 'en-IN', timeZone: 'Asia/Kolkata' })
+      expect(hasSecondaryCurrency(cfg)).toBe(false)
+    })
+
+    it('checks against the normalised main currency', () => {
+      // An invalid main currency falls back to the default (INR), which the secondary then equals
+      expect(normalizeLocaleConfig({ ...INR_GBP, currency: 'NOPE', secondaryCurrency: 'INR' }).secondaryCurrency).toBeUndefined()
+    })
+
+    it('ignores an unparseable rate date but keeps the rate', () => {
+      const cfg = normalizeLocaleConfig({ ...INR_GBP, exchangeRateUpdatedAt: 'yesterday-ish' })
+      expect(cfg.exchangeRate).toBe(112.5)
+      expect(cfg.exchangeRateUpdatedAt).toBeNull()
+    })
+
+    it('is stored with the active configuration', () => {
+      setActiveLocaleConfig(INR_GBP)
+      expect(getActiveLocaleConfig()).toEqual(INR_GBP)
+      expect(hasSecondaryCurrency()).toBe(true)
+    })
+  })
+
+  describe('convertToSecondary', () => {
+    it('divides by the rate (main units per secondary unit) and rounds to the secondary minor units', () => {
+      setActiveLocaleConfig(INR_GBP)
+      expect(convertToSecondary(5000)).toBe(44.44) // 44.444…
+      expect(convertToSecondary(112.5)).toBe(1)
+      expect(convertToSecondary(0)).toBe(0)
+    })
+
+    it('rounds half away from zero, for refunds and losses too', () => {
+      const cfg = normalizeLocaleConfig({ ...INR_GBP, exchangeRate: 8 })
+      expect(convertToSecondary(1, cfg)).toBe(0.13) // 0.125
+      expect(convertToSecondary(-1, cfg)).toBe(-0.13)
+      expect(Object.is(convertToSecondary(-0.01, cfg), -0)).toBe(false) // -0.00125 → 0, not -0
+    })
+
+    it('uses zero decimals for currencies without minor units (JPY)', () => {
+      const cfg = normalizeLocaleConfig({ ...INR_GBP, secondaryCurrency: 'JPY', exchangeRate: 0.56 })
+      expect(convertToSecondary(5000, cfg)).toBe(8929) // 8928.57…
+    })
+
+    it('returns null without a secondary currency or a usable amount', () => {
+      expect(convertToSecondary(5000)).toBeNull() // default config has none
+      setActiveLocaleConfig(INR_GBP)
+      expect(convertToSecondary(null)).toBeNull()
+      expect(convertToSecondary(undefined)).toBeNull()
+      expect(convertToSecondary(Number.NaN)).toBeNull()
+    })
+  })
+
+  describe('formatting', () => {
+    it('formats the secondary amount with an approximation sign', () => {
+      setActiveLocaleConfig(INR_GBP)
+      expect(formatSecondaryCurrency(5000)).toBe('≈ £44.44')
+      expect(formatCurrencyWithSecondary(5000)).toBe('₹5,000.00 (≈ £44.44)')
+    })
+
+    it('supports compact notation on both amounts', () => {
+      setActiveLocaleConfig(INR_GBP)
+      expect(formatSecondaryCurrency(5_000_000, { compact: true })).toBe('≈ £44.4K')
+      expect(formatCurrencyWithSecondary(5_000_000, { compact: true })).toBe('₹50L (≈ £44.4K)')
+    })
+
+    it('formats the secondary amount in the shop locale', () => {
+      const cfg = normalizeLocaleConfig({ currency: 'GBP', locale: 'en-GB', timeZone: 'Europe/London', secondaryCurrency: 'USD', exchangeRate: 0.79 })
+      expect(formatCurrencyWithSecondary(1000, { config: cfg })).toBe('£1,000.00 (≈ US$1,265.82)')
+    })
+
+    it('shows only the main amount without a secondary currency', () => {
+      expect(formatSecondaryCurrency(5000)).toBeNull()
+      expect(formatCurrencyWithSecondary(5000)).toBe('₹5,000.00')
+    })
+
+    it('describes the rate, its inverse and when it was set', () => {
+      setActiveLocaleConfig(INR_GBP)
+      expect(formatExchangeRate()).toBe('1 GBP = 112.50 INR')
+      expect(formatExchangeRate(getActiveLocaleConfig(), { inverse: true })).toBe('1 INR = 0.008889 GBP')
+      expect(exchangeRateNote()).toBe('Indicative: 1 GBP = 112.50 INR (rate set 11 Sept 2026)')
+      expect(exchangeRateNote(normalizeLocaleConfig({ ...INR_GBP, exchangeRateUpdatedAt: null }))).toBe('Indicative: 1 GBP = 112.50 INR')
+    })
+
+    it('builds the invoice line, naming the currency amounts are payable in', () => {
+      const cfg = normalizeLocaleConfig(INR_GBP)
+      expect(indicativeTotalNote(5000, cfg)).toBe(
+        'Indicative total ≈ £44.44 at 1 GBP = 112.50 INR (rate as of 11 Sept 2026); amounts payable in INR'
+      )
+      expect(indicativeTotalNote(5000, DEFAULT_LOCALE_CONFIG)).toBeNull()
+    })
+  })
+
+  describe('formatMoneyParts (what <Money> renders)', () => {
+    it('returns the main amount, the secondary amount and the rate tooltip', () => {
+      setActiveLocaleConfig(INR_GBP)
+      expect(formatMoneyParts(5000)).toEqual({
+        primary: '₹5,000.00',
+        secondary: '≈ £44.44',
+        note: 'Indicative: 1 GBP = 112.50 INR (rate set 11 Sept 2026)',
+      })
+    })
+
+    it('can suppress the secondary amount, and has none without a rate', () => {
+      setActiveLocaleConfig(INR_GBP)
+      expect(formatMoneyParts(5000, { withSecondary: false })).toEqual({ primary: '₹5,000.00', secondary: null, note: null })
+      setActiveLocaleConfig(DEFAULT_LOCALE_CONFIG)
+      expect(formatMoneyParts(5000)).toEqual({ primary: '₹5,000.00', secondary: null, note: null })
+    })
+
+    it('passes compact and decimals to the main amount', () => {
+      setActiveLocaleConfig(INR_GBP)
+      expect(formatMoneyParts(5_000_000, { compact: true })).toMatchObject({ primary: '₹50L', secondary: '≈ £44.4K' })
+      expect(formatMoneyParts(1234.56, { decimals: 0 })).toMatchObject({ primary: '₹1,235', secondary: '≈ £10.97' })
+    })
   })
 })
 

@@ -14,10 +14,13 @@ import {
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
 import { Home, ArrowLeft, User, Phone, Mail, MapPin, Calendar, ShoppingBag, Edit } from 'lucide-react'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
+import { sumMoney } from '@/lib/money'
+import { Money } from '@/components/ui/money'
 import DashboardLayout from '@/components/DashboardLayout'
 import { CustomerMeasurementsSection } from '@/components/customer-measurements-section'
 import { CustomerEditDialog } from '@/components/customer-edit-dialog'
+import { PhoneText } from '@/components/ui/phone-input'
 
 interface CustomerDetailClientProps {
   customer: {
@@ -174,7 +177,7 @@ export function CustomerDetailClient({
                   <Phone className="h-5 w-5 text-slate-500" />
                   <div>
                     <p className="text-sm text-slate-500">Phone</p>
-                    <p className="font-medium text-slate-900">{customer.phone}</p>
+                    <p className="font-medium text-slate-900"><PhoneText value={customer.phone} /></p>
                   </div>
                 </div>
                 {customer.email && (
@@ -260,13 +263,13 @@ export function CustomerDetailClient({
                                 <div>
                                   <p className="text-slate-500">Total</p>
                                   <p className="font-medium text-slate-900">
-                                    {formatCurrency(order.totalAmount)}
+                                    <Money amount={order.totalAmount} />
                                   </p>
                                 </div>
                                 <div>
                                   <p className="text-slate-500">Balance</p>
                                   <p className="font-medium text-slate-900">
-                                    {formatCurrency(order.balanceAmount)}
+                                    <Money amount={order.balanceAmount} />
                                   </p>
                                 </div>
                               </>
@@ -333,17 +336,13 @@ export function CustomerDetailClient({
                   <div>
                     <p className="text-sm text-slate-500">Total Spent</p>
                     <p className="text-2xl font-bold text-slate-900">
-                      {formatCurrency(
-                        customer.orders.reduce((sum, order) => sum + order.totalAmount, 0)
-                      )}
+                      <Money amount={sumMoney(customer.orders.map((order) => order.totalAmount))} />
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-slate-500">Outstanding Balance</p>
                     <p className="text-2xl font-bold text-orange-600">
-                      {formatCurrency(
-                        customer.orders.reduce((sum, order) => sum + order.balanceAmount, 0)
-                      )}
+                      <Money amount={sumMoney(customer.orders.map((order) => order.balanceAmount))} />
                     </p>
                   </div>
                   </>

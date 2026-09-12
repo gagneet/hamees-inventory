@@ -30,6 +30,8 @@ export type ComboboxOption = {
   label: string
   /** Optional secondary line shown in smaller text */
   sublabel?: string
+  /** Optional extra text matched by search but not shown (e.g. the unformatted phone number) */
+  keywords?: string
   /** Optional colour swatch (hex string) */
   colorHex?: string
 }
@@ -78,7 +80,8 @@ export function Combobox({
   const filtered = search.trim()
     ? options.filter(o =>
         o.label.toLowerCase().includes(search.toLowerCase()) ||
-        o.sublabel?.toLowerCase().includes(search.toLowerCase())
+        o.sublabel?.toLowerCase().includes(search.toLowerCase()) ||
+        o.keywords?.toLowerCase().includes(search.toLowerCase())
       )
     : options
 

@@ -1,43 +1,54 @@
 /**
  * Purchase Orders API Unit Tests
  *
- * Tests the Zod schema validation, total calculation, and PO number generation
- * from app/api/purchase-orders/route.ts.
+ * Route-level tests for app/api/purchase-orders/route.ts (create) and
+ * app/api/purchase-orders/[id]/receive/route.ts, plus the approval / receive-status rules.
  *
  * Covers:
- *   - purchaseOrderSchema validation
- *   - totalAmount calculation (sum of quantity × pricePerUnit)
- *   - per-item totalPrice calculation
- *   - PO number generation format
- *   - Query filter construction
- *   - Response structure
+ *   - every line links exactly one active inventory item of its type; name and unit are derived
+ *   - whole accessory units, fabric rounding, duplicates, supplier checks and mismatch warnings
+ *   - price privacy (only the owner prices at creation) and lib/money totals
+ *   - receiving credits the line's link; only legacy unlinked lines may be linked by the request
+ *   - PO number generation
  *
  * Prisma is mocked via vitest.setup.ts — no DB calls.
  */
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { z } from 'zod'
+import { auth } from '@/lib/auth'
+import { prisma } from '@/lib/db'
+import type { UserRole } from '@/lib/permissions'
+import { addAccessoryStock, changeClothStock } from '@/lib/stock'
+import { runReorderCheckQuietly } from '@/lib/reorder'
+import { nextPoNumber } from '@/lib/purchase-order-items'
+import { GET as listPurchaseOrders, POST as createPurchaseOrder } from '@/app/api/purchase-orders/route'
+import { POST as receivePurchaseOrder } from '@/app/api/purchase-orders/[id]/receive/route'
 
-// ── Replicate schema from app/api/purchase-orders/route.ts ────────────────
-const purchaseOrderItemSchema = z
-  .object({
-    itemName: z.string().min(1),
-    itemType: z.enum(['CLOTH', 'ACCESSORY']),
-    quantity: z.number().positive().optional(),
-    orderedQuantity: z.number().positive().optional(),
-    unit: z.string().min(1),
-    pricePerUnit: z.number().nonnegative().optional(),
-  })
-  .refine((item) => item.quantity !== undefined || item.orderedQuantity !== undefined, {
-    message: 'Quantity is required',
-    path: ['quantity'],
-  })
+vi.mock('@/lib/reorder', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/reorder')>()),
+  // Returns a promise like the real one (the after() stub chains .catch on it)
+  runReorderCheckQuietly: vi.fn(async () => {}),
+}))
 
-const purchaseOrderSchema = z.object({
-  supplierId: z.string().min(1),
-  expectedDate: z.string().nullish(),
-  items: z.array(purchaseOrderItemSchema).min(1),
-  notes: z.string().nullish(),
+vi.mock('@/lib/stock', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/stock')>()),
+  changeClothStock: vi.fn(),
+  addAccessoryStock: vi.fn(),
+}))
+
+const db = prisma as unknown as Record<string, any>
+
+function actAs(role: UserRole, id = 'user-1') {
+  vi.mocked(auth).mockResolvedValue({ user: { id, role, name: 'Test', email: 't@example.com' } } as never)
+}
+
+const json = (body: unknown) => ({
+  method: 'POST',
+  headers: { 'content-type': 'application/json' },
+  body: JSON.stringify(body),
 })
+
+// ── Approval workflow rules ───────────────────────────────────────────────
 
 const approvePurchaseOrderSchema = z.object({
   status: z.literal('APPROVED'),
@@ -50,29 +61,11 @@ const approvePurchaseOrderSchema = z.object({
   notes: z.string().nullish(),
 })
 
-
-function getInitialPurchaseOrderStatus(role: string): 'APPROVED' | 'PENDING_APPROVAL' {
-  return role === 'OWNER' ? 'APPROVED' : 'PENDING_APPROVAL'
-}
-
 function canApprovePurchaseOrder(role: string): boolean {
   return role === 'OWNER' || role === 'INVENTORY_MANAGER'
 }
 
-
-// ── Approval workflow helpers ─────────────────────────────────────────────
-
 describe('PO approval workflow', () => {
-  it('marks OWNER-created POs as approved immediately', () => {
-    expect(getInitialPurchaseOrderStatus('OWNER')).toBe('APPROVED')
-  })
-
-  it('marks non-owner-created POs as pending approval', () => {
-    expect(getInitialPurchaseOrderStatus('TAILOR')).toBe('PENDING_APPROVAL')
-    expect(getInitialPurchaseOrderStatus('ADMIN')).toBe('PENDING_APPROVAL')
-    expect(getInitialPurchaseOrderStatus('INVENTORY_MANAGER')).toBe('PENDING_APPROVAL')
-  })
-
   it('allows only OWNER and INVENTORY_MANAGER to approve POs', () => {
     expect(canApprovePurchaseOrder('OWNER')).toBe(true)
     expect(canApprovePurchaseOrder('INVENTORY_MANAGER')).toBe(true)
@@ -101,431 +94,465 @@ describe('PO approval workflow', () => {
   })
 })
 
-// ── PO number generation (mirrors route logic) ────────────────────────────
-function generatePONumber(year: number, existingCount: number): string {
-  return `PO-${year}-${String(existingCount + 1).padStart(4, '0')}`
-}
+// ── POST /api/purchase-orders ─────────────────────────────────────────────
 
-// ── Total calculation (mirrors route logic) ───────────────────────────────
-function calculatePOTotal(
-  items: Array<{ quantity: number; pricePerUnit: number }>
-): number {
-  return items.reduce((sum, item) => sum + item.quantity * item.pricePerUnit, 0)
-}
+const supplierRel = { id: 'sup-1', name: 'Sup One' }
+const clothRecord = (o: Record<string, unknown> = {}) => ({
+  id: 'c1',
+  sku: 'CLT-1',
+  name: 'Cotton',
+  brand: 'Raymond',
+  color: 'Navy',
+  active: true,
+  supplierId: 'sup-1',
+  supplierRel,
+  ...o,
+})
+const accessoryRecord = (o: Record<string, unknown> = {}) => ({
+  id: 'a1',
+  sku: 'ACC-1',
+  name: 'Buttons',
+  color: 'Ivory',
+  active: true,
+  supplierId: 'sup-1',
+  supplierRel,
+  ...o,
+})
 
-function calculateItemTotal(quantity: number, pricePerUnit: number): number {
-  return quantity * pricePerUnit
-}
+const clothLine = (o: Record<string, unknown> = {}) => ({
+  itemType: 'CLOTH',
+  clothInventoryId: 'c1',
+  quantity: 12.5,
+  pricePerUnit: 300,
+  ...o,
+})
+const accessoryLine = (o: Record<string, unknown> = {}) => ({
+  itemType: 'ACCESSORY',
+  accessoryInventoryId: 'a1',
+  quantity: 3,
+  pricePerUnit: 4.2,
+  ...o,
+})
 
-function calculateReceiveStatus(
-  purchaseOrder: { status: string; paidAmount: number; totalAmount: number; items: Array<{ id: string; orderedQuantity: number; receivedQuantity: number }> },
-  submittedItems: Array<{ id: string; receivedQuantity: number }>,
-  additionalPayment = 0
-): string {
-  const receivedQuantityByItemId = new Map(
-    submittedItems.map((item) => [item.id, item.receivedQuantity])
-  )
-  const newPaidAmount = purchaseOrder.paidAmount + additionalPayment
-  const newBalanceAmount = purchaseOrder.totalAmount - newPaidAmount
-  const paymentComplete = newBalanceAmount <= 0.01
+const createPO = (body: Record<string, unknown>) =>
+  createPurchaseOrder(new Request('http://localhost/api/purchase-orders', json({ supplierId: 'sup-1', ...body })))
 
-  const allFullyReceived = purchaseOrder.items.every((poItem) => {
-    const totalReceived = poItem.receivedQuantity + (receivedQuantityByItemId.get(poItem.id) ?? 0)
-    return totalReceived >= poItem.orderedQuantity
+const createdData = () => db.purchaseOrder.create.mock.calls[0][0].data
+
+describe('POST /api/purchase-orders – inventory-linked lines', () => {
+  beforeEach(() => {
+    actAs('OWNER')
+    db.supplier.findUnique.mockResolvedValue({ id: 'sup-1', active: true })
+    db.clothInventory.findMany.mockResolvedValue([clothRecord()])
+    db.accessoryInventory.findMany.mockResolvedValue([accessoryRecord()])
+    db.purchaseOrder.count.mockResolvedValue(0)
+    db.purchaseOrder.findMany.mockResolvedValue([])
+    db.purchaseOrder.create.mockImplementation(async ({ data }: { data: any }) => ({
+      id: 'po-new',
+      ...data,
+      items: data.items.create,
+    }))
   })
 
-  const anyReceived = purchaseOrder.items.some((poItem) => {
-    const totalReceived = poItem.receivedQuantity + (receivedQuantityByItemId.get(poItem.id) ?? 0)
-    return totalReceived > 0
+  it('rejects a line without its inventory link', async () => {
+    const res = await createPO({ items: [{ itemType: 'CLOTH', itemName: 'Free text fabric', quantity: 5, pricePerUnit: 10 }] })
+
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe('Choose the fabric this line restocks')
+    expect(db.purchaseOrder.create).not.toHaveBeenCalled()
   })
 
-  if (allFullyReceived && paymentComplete) return 'RECEIVED'
-  if (anyReceived || newPaidAmount > 0) return 'PARTIAL'
-  return purchaseOrder.status
-}
+  it('rejects a link of the wrong type', async () => {
+    const res = await createPO({ items: [{ itemType: 'ACCESSORY', clothInventoryId: 'c1', quantity: 5, pricePerUnit: 10 }] })
 
-describe('PO receive status calculation', () => {
-  const purchaseOrder = {
-    status: 'APPROVED',
-    paidAmount: 0,
-    totalAmount: 1000,
-    items: [
-      { id: 'item-1', orderedQuantity: 10, receivedQuantity: 0 },
-      { id: 'item-2', orderedQuantity: 5, receivedQuantity: 0 },
-    ],
-  }
-
-  it('does not mark a PO as received when only a submitted subset is fully received', () => {
-    const status = calculateReceiveStatus(
-      purchaseOrder,
-      [{ id: 'item-1', receivedQuantity: 10 }],
-      1000
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.details.map((d: { message: string }) => d.message)).toEqual(
+      expect.arrayContaining(['Choose the accessory this line restocks', 'An accessory line cannot link a fabric'])
     )
-
-    expect(status).toBe('PARTIAL')
+    expect(db.purchaseOrder.create).not.toHaveBeenCalled()
   })
 
-  it('marks a PO as received only when every PO item is fully received and payment is complete', () => {
-    const status = calculateReceiveStatus(
-      purchaseOrder,
-      [
-        { id: 'item-1', receivedQuantity: 10 },
-        { id: 'item-2', receivedQuantity: 5 },
-      ],
-      1000
-    )
+  it('rejects a line linking both a fabric and an accessory', async () => {
+    const res = await createPO({ items: [clothLine({ accessoryInventoryId: 'a1' })] })
 
-    expect(status).toBe('RECEIVED')
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe('A fabric line cannot link an accessory')
+  })
+
+  it('rejects inactive or unknown items', async () => {
+    db.clothInventory.findMany.mockResolvedValue([clothRecord({ active: false })])
+    const inactive = await createPO({ items: [clothLine()] })
+    expect(inactive.status).toBe(400)
+    expect((await inactive.json()).error).toBe('Line 1: fabric not found or no longer active')
+
+    db.accessoryInventory.findMany.mockResolvedValue([])
+    const unknown = await createPO({ items: [accessoryLine({ accessoryInventoryId: 'missing' })] })
+    expect(unknown.status).toBe(400)
+    expect((await unknown.json()).error).toBe('Line 1: accessory not found or no longer active')
+
+    expect(db.purchaseOrder.create).not.toHaveBeenCalled()
+  })
+
+  it('derives name and unit from the item, ignoring client values, and totals with lib/money', async () => {
+    const res = await createPO({
+      items: [clothLine({ itemName: 'Whatever', unit: 'kg' }), accessoryLine({ itemName: 'Other', unit: 'boxes' })],
+    })
+
+    expect(res.status).toBe(201)
+    const data = createdData()
+    expect(data.items.create).toEqual([
+      {
+        itemName: 'Cotton — Raymond, Navy (CLT-1)',
+        itemType: 'CLOTH',
+        orderedQuantity: 12.5,
+        unit: 'meters',
+        pricePerUnit: 300,
+        totalPrice: 3750,
+        clothInventoryId: 'c1',
+        accessoryInventoryId: null,
+      },
+      {
+        itemName: 'Buttons — Ivory (ACC-1)',
+        itemType: 'ACCESSORY',
+        orderedQuantity: 3,
+        unit: 'pieces',
+        pricePerUnit: 4.2,
+        totalPrice: 12.6,
+        clothInventoryId: null,
+        accessoryInventoryId: 'a1',
+      },
+    ])
+    expect(data).toMatchObject({ totalAmount: 3762.6, subTotal: 3762.6, balanceAmount: 3762.6, status: 'APPROVED' })
+    expect(data.poNumber).toMatch(/^PO-\d{4}-0001$/)
+    expect((await res.json()).warnings).toEqual([])
+    expect(runReorderCheckQuietly).toHaveBeenCalledWith({ trigger: 'purchase_order_changed', userId: 'user-1' })
+  })
+
+  it('accepts orderedQuantity as the quantity field', async () => {
+    const res = await createPO({ items: [clothLine({ quantity: undefined, orderedQuantity: 8 })] })
+    expect(res.status).toBe(201)
+    expect(createdData().items.create[0].orderedQuantity).toBe(8)
+  })
+
+  it('requires whole units for accessories and rounds fabric to 3 decimals', async () => {
+    const fractional = await createPO({ items: [accessoryLine({ quantity: 2.5 })] })
+    expect(fractional.status).toBe(400)
+    expect((await fractional.json()).error).toBe('Line 1: accessory quantities must be whole units')
+
+    const res = await createPO({ items: [clothLine({ quantity: 10.12345 })] })
+    expect(res.status).toBe(201)
+    expect(createdData().items.create[0].orderedQuantity).toBe(10.123)
+  })
+
+  it('rejects the same item twice on one PO', async () => {
+    const res = await createPO({ items: [clothLine(), clothLine({ quantity: 3 })] })
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toContain('already on this purchase order')
+  })
+
+  it('warns, without blocking, when an item is usually bought from another supplier', async () => {
+    db.supplier.findUnique.mockResolvedValue({ id: 'sup-2', active: true })
+
+    const res = await createPO({ supplierId: 'sup-2', items: [clothLine()] })
+
+    expect(res.status).toBe(201)
+    expect((await res.json()).warnings).toEqual(['Cotton — Raymond, Navy (CLT-1) is usually supplied by Sup One'])
+  })
+
+  it('rejects an unknown or inactive supplier', async () => {
+    db.supplier.findUnique.mockResolvedValue({ id: 'sup-1', active: false })
+    const res = await createPO({ items: [clothLine()] })
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe('Supplier not found or inactive')
+    expect(db.purchaseOrder.create).not.toHaveBeenCalled()
+  })
+
+  it('stores no prices from non-owners and leaves their POs pending approval', async () => {
+    actAs('INVENTORY_MANAGER')
+
+    const res = await createPO({ items: [clothLine({ pricePerUnit: 500 })] })
+
+    expect(res.status).toBe(201)
+    const data = createdData()
+    expect(data.status).toBe('PENDING_APPROVAL')
+    expect(data.items.create[0]).toMatchObject({ pricePerUnit: 0, totalPrice: 0 })
+    expect(data.totalAmount).toBe(0)
+  })
+
+  it('requires the owner to price every line', async () => {
+    const res = await createPO({ items: [clothLine({ pricePerUnit: undefined })] })
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe('Price per unit is required')
+  })
+
+  it('forbids roles without PO permissions', async () => {
+    actAs('VIEWER')
+    const res = await createPO({ items: [clothLine()] })
+    expect(res.status).toBe(403)
+  })
+
+  it('rejects an empty PO', async () => {
+    const res = await createPO({ items: [] })
+    expect(res.status).toBe(400)
   })
 })
 
-// ── Fixtures ──────────────────────────────────────────────────────────────
-function makeValidPO(overrides: Partial<Record<string, unknown>> = {}) {
-  return {
-    supplierId: 'supplier-abc-123',
-    expectedDate: '2026-06-15',
-    items: [
-      { itemName: 'Cotton Fabric', itemType: 'CLOTH', quantity: 50, unit: 'meters', pricePerUnit: 300 },
-      { itemName: 'Buttons', itemType: 'ACCESSORY', quantity: 200, unit: 'pieces', pricePerUnit: 5 },
-    ],
-    notes: 'Urgent order',
-    ...overrides,
-  }
-}
-
-// ── purchaseOrderSchema – valid payloads ──────────────────────────────────
-
-describe('purchaseOrderSchema – valid data', () => {
-  it('accepts a complete valid PO payload', () => {
-    const result = purchaseOrderSchema.safeParse(makeValidPO())
-    expect(result.success).toBe(true)
+describe('GET /api/purchase-orders', () => {
+  beforeEach(() => {
+    actAs('OWNER')
+    db.purchaseOrder.findMany.mockResolvedValue([])
   })
 
-  it('accepts payload without expectedDate', () => {
-    const result = purchaseOrderSchema.safeParse({
-      supplierId: 'sup-123',
-      items: [{ itemName: 'Silk', itemType: 'CLOTH', quantity: 10, unit: 'm', pricePerUnit: 500 }],
-    })
-    expect(result.success).toBe(true)
+  it('filters active POs by status and supplier and includes the linked items', async () => {
+    const res = await listPurchaseOrders(new Request('http://localhost/api/purchase-orders?status=APPROVED&supplierId=sup-1'))
+
+    expect(res.status).toBe(200)
+    const args = db.purchaseOrder.findMany.mock.calls[0][0]
+    expect(args.where).toEqual({ active: true, status: 'APPROVED', supplierId: 'sup-1' })
+    expect(args.include.items.include).toHaveProperty('clothInventory')
+    expect(args.include.items.include).toHaveProperty('accessoryInventory')
   })
 
-  it('accepts non-owner-style payload without pricePerUnit', () => {
-    const result = purchaseOrderSchema.safeParse({
-      supplierId: 'sup-123',
-      items: [{ itemName: 'Silk', itemType: 'CLOTH', quantity: 10, unit: 'm' }],
-    })
-    expect(result.success).toBe(true)
-  })
-
-  it('accepts orderedQuantity as a legacy/full-page quantity field', () => {
-    const result = purchaseOrderSchema.safeParse({
-      supplierId: 'sup-123',
-      items: [{ itemName: 'Silk', itemType: 'CLOTH', orderedQuantity: 10, unit: 'm' }],
-    })
-    expect(result.success).toBe(true)
-  })
-
-  it('accepts null notes', () => {
-    const po = makeValidPO({ notes: null })
-    const result = purchaseOrderSchema.safeParse(po)
-    expect(result.success).toBe(true)
-  })
-
-  it('accepts pricePerUnit of 0 (consignment items)', () => {
-    const result = purchaseOrderSchema.safeParse({
-      supplierId: 'sup-123',
-      items: [{ itemName: 'Sample Fabric', itemType: 'CLOTH', quantity: 1, unit: 'm', pricePerUnit: 0 }],
-    })
-    expect(result.success).toBe(true)
-  })
-
-  it('accepts ACCESSORY itemType', () => {
-    const result = purchaseOrderItemSchema.safeParse({
-      itemName: 'Metal Buttons',
-      itemType: 'ACCESSORY',
-      quantity: 500,
-      unit: 'pcs',
-      pricePerUnit: 3,
-    })
-    expect(result.success).toBe(true)
-  })
-
-  it('accepts CLOTH itemType', () => {
-    const result = purchaseOrderItemSchema.safeParse({
-      itemName: 'Linen Fabric',
-      itemType: 'CLOTH',
-      quantity: 30,
-      unit: 'meters',
-      pricePerUnit: 250,
-    })
-    expect(result.success).toBe(true)
+  it('rejects an unknown status filter', async () => {
+    const res = await listPurchaseOrders(new Request('http://localhost/api/purchase-orders?status=BOGUS'))
+    expect(res.status).toBe(400)
   })
 })
-
-describe('purchaseOrderSchema – invalid data', () => {
-  it('rejects missing supplierId', () => {
-    const result = purchaseOrderSchema.safeParse({
-      items: [{ itemName: 'Test', itemType: 'CLOTH', quantity: 1, unit: 'm', pricePerUnit: 100 }],
-    })
-    expect(result.success).toBe(false)
-    if (!result.success) {
-      const err = result.error.issues.find(i => i.path[0] === 'supplierId')
-      expect(err).toBeDefined()
-    }
-  })
-
-  it('rejects empty supplierId', () => {
-    const result = purchaseOrderSchema.safeParse(makeValidPO({ supplierId: '' }))
-    expect(result.success).toBe(false)
-  })
-
-  it('rejects empty items array (must have at least 1 item)', () => {
-    const result = purchaseOrderSchema.safeParse({ supplierId: 'sup-123', items: [] })
-    expect(result.success).toBe(false)
-  })
-
-  it('rejects item with zero quantity', () => {
-    const result = purchaseOrderItemSchema.safeParse({
-      itemName: 'Test',
-      itemType: 'CLOTH',
-      quantity: 0, // must be positive
-      unit: 'm',
-      pricePerUnit: 100,
-    })
-    expect(result.success).toBe(false)
-  })
-
-  it('rejects item with negative quantity', () => {
-    const result = purchaseOrderItemSchema.safeParse({
-      itemName: 'Test',
-      itemType: 'CLOTH',
-      quantity: -5,
-      unit: 'm',
-      pricePerUnit: 100,
-    })
-    expect(result.success).toBe(false)
-  })
-
-  it('rejects negative pricePerUnit', () => {
-    const result = purchaseOrderItemSchema.safeParse({
-      itemName: 'Test',
-      itemType: 'CLOTH',
-      quantity: 10,
-      unit: 'm',
-      pricePerUnit: -100,
-    })
-    expect(result.success).toBe(false)
-  })
-
-  it('rejects an item without quantity or orderedQuantity', () => {
-    const result = purchaseOrderItemSchema.safeParse({
-      itemName: 'Test',
-      itemType: 'CLOTH',
-      unit: 'm',
-      pricePerUnit: 100,
-    })
-    expect(result.success).toBe(false)
-  })
-
-  it('rejects invalid itemType', () => {
-    const result = purchaseOrderItemSchema.safeParse({
-      itemName: 'Test',
-      itemType: 'INVALID_TYPE',
-      quantity: 10,
-      unit: 'm',
-      pricePerUnit: 100,
-    })
-    expect(result.success).toBe(false)
-  })
-
-  it('rejects empty itemName', () => {
-    const result = purchaseOrderItemSchema.safeParse({
-      itemName: '',
-      itemType: 'CLOTH',
-      quantity: 10,
-      unit: 'm',
-      pricePerUnit: 100,
-    })
-    expect(result.success).toBe(false)
-  })
-
-  it('rejects empty unit', () => {
-    const result = purchaseOrderItemSchema.safeParse({
-      itemName: 'Cotton',
-      itemType: 'CLOTH',
-      quantity: 10,
-      unit: '',
-      pricePerUnit: 100,
-    })
-    expect(result.success).toBe(false)
-  })
-})
-
-// ── Total amount calculation ───────────────────────────────────────────────
-
-describe('PO total amount calculation', () => {
-  it('single item total = quantity × pricePerUnit', () => {
-    expect(calculateItemTotal(50, 300)).toBe(15000)
-  })
-
-  it('fractional price total rounds as expected', () => {
-    // 200 buttons × ₹5 each = ₹1,000
-    expect(calculateItemTotal(200, 5)).toBe(1000)
-  })
-
-  it('sum of multiple items', () => {
-    const items = [
-      { quantity: 50, pricePerUnit: 300 },  // 15000
-      { quantity: 200, pricePerUnit: 5 },   // 1000
-    ]
-    expect(calculatePOTotal(items)).toBe(16000)
-  })
-
-  it('zero price item contributes 0 to total', () => {
-    const items = [
-      { quantity: 10, pricePerUnit: 200 },  // 2000
-      { quantity: 5, pricePerUnit: 0 },     // 0
-    ]
-    expect(calculatePOTotal(items)).toBe(2000)
-  })
-
-  it('single item PO total equals that item total', () => {
-    const items = [{ quantity: 25, pricePerUnit: 450 }]
-    expect(calculatePOTotal(items)).toBe(calculateItemTotal(25, 450))
-  })
-
-  it('empty items array produces 0 total', () => {
-    expect(calculatePOTotal([])).toBe(0)
-  })
-
-  it('large order total calculation (realistic scenario)', () => {
-    // 200m silk @ ₹800/m + 500 buttons @ ₹8 + 50 zippers @ ₹25
-    const items = [
-      { quantity: 200, pricePerUnit: 800 },  // 160,000
-      { quantity: 500, pricePerUnit: 8 },    // 4,000
-      { quantity: 50, pricePerUnit: 25 },    // 1,250
-    ]
-    expect(calculatePOTotal(items)).toBe(165250)
-  })
-})
-
-// ── PO number generation ──────────────────────────────────────────────────
 
 describe('PO number generation', () => {
-  it('follows PO-{YEAR}-{NNNN} format', () => {
-    const poNum = generatePONumber(2026, 0)
-    expect(poNum).toMatch(/^PO-\d{4}-\d{4}$/)
+  const MAY_2026 = new Date(2026, 4, 1)
+
+  it('first PO of the year is PO-{YEAR}-0001', async () => {
+    db.purchaseOrder.count.mockResolvedValue(0)
+    db.purchaseOrder.findMany.mockResolvedValue([])
+    expect(await nextPoNumber(db as never, MAY_2026)).toBe('PO-2026-0001')
+    expect(db.purchaseOrder.findMany.mock.calls[0][0].where).toEqual({ poNumber: { startsWith: 'PO-2026-' } })
   })
 
-  it('first PO of the year is PO-{YEAR}-0001', () => {
-    expect(generatePONumber(2026, 0)).toBe('PO-2026-0001')
+  it('continues after the highest number used this year, even with gaps', async () => {
+    db.purchaseOrder.count.mockResolvedValue(7)
+    db.purchaseOrder.findMany.mockResolvedValue([{ poNumber: 'PO-2026-0003' }, { poNumber: 'PO-2026-0012' }])
+    expect(await nextPoNumber(db as never, MAY_2026)).toBe('PO-2026-0013')
   })
 
-  it('zero-pads sequence number to 4 digits', () => {
-    expect(generatePONumber(2026, 9)).toBe('PO-2026-0010')
-    expect(generatePONumber(2026, 99)).toBe('PO-2026-0100')
+  it('never reuses a number when the overall count is higher', async () => {
+    db.purchaseOrder.count.mockResolvedValue(20)
+    db.purchaseOrder.findMany.mockResolvedValue([{ poNumber: 'PO-2026-0012' }])
+    expect(await nextPoNumber(db as never, MAY_2026)).toBe('PO-2026-0021')
   })
 
-  it('does not pad sequence numbers beyond 4 digits', () => {
-    expect(generatePONumber(2026, 9999)).toBe('PO-2026-10000')
-  })
-
-  it('uses current year in PO number', () => {
-    const currentYear = new Date().getFullYear()
-    const poNum = generatePONumber(currentYear, 0)
-    expect(poNum).toContain(String(currentYear))
-  })
-
-  it('sequence increments from existing count + 1', () => {
-    // If there are 5 existing POs, next is #6
-    expect(generatePONumber(2026, 5)).toBe('PO-2026-0006')
+  it('does not pad beyond 4 digits', async () => {
+    db.purchaseOrder.count.mockResolvedValue(9999)
+    db.purchaseOrder.findMany.mockResolvedValue([])
+    expect(await nextPoNumber(db as never, MAY_2026)).toBe('PO-2026-10000')
   })
 })
 
-// ── Query filter construction ─────────────────────────────────────────────
+// ── POST /api/purchase-orders/[id]/receive ───────────────────────────────
 
-describe('purchase orders – GET filter construction', () => {
-  // Mirrors route.ts: where = { active: true }; optionally add status/supplierId
-  function buildPOWhere(status: string | null, supplierId: string | null) {
-    const where: Record<string, unknown> = { active: true }
-    if (status) where.status = status
-    if (supplierId) where.supplierId = supplierId
-    return where
-  }
+const poLine = (o: Record<string, unknown> = {}) => ({
+  id: 'l1',
+  purchaseOrderId: 'po1',
+  itemName: 'Cotton — Raymond, Navy (CLT-1)',
+  itemType: 'CLOTH',
+  orderedQuantity: 10,
+  receivedQuantity: 0,
+  unit: 'meters',
+  clothInventoryId: 'c1',
+  accessoryInventoryId: null,
+  ...o,
+})
 
-  it('base filter always includes active:true', () => {
-    expect(buildPOWhere(null, null)).toEqual({ active: true })
+const purchaseOrderWith = (items: unknown[], o: Record<string, unknown> = {}) => ({
+  id: 'po1',
+  poNumber: 'PO-2026-0001',
+  status: 'APPROVED',
+  paidAmount: 0,
+  totalAmount: 1000,
+  balanceAmount: 1000,
+  notes: null,
+  receivedDate: null,
+  items,
+  ...o,
+})
+
+const receive = (body: Record<string, unknown>) =>
+  receivePurchaseOrder(new Request('http://localhost/api/purchase-orders/po1/receive', json(body)), {
+    params: Promise.resolve({ id: 'po1' }),
   })
 
-  it('adds status filter when provided', () => {
-    const where = buildPOWhere('PENDING', null)
-    expect(where.status).toBe('PENDING')
-    expect(where.active).toBe(true)
+describe('POST /api/purchase-orders/[id]/receive – inventory links', () => {
+  beforeEach(() => {
+    actAs('OWNER')
+    db.pOItem.updateMany.mockResolvedValue({ count: 1 })
+    db.clothInventory.findUnique.mockResolvedValue({ active: true })
+    db.accessoryInventory.findUnique.mockResolvedValue({ active: true })
+    vi.mocked(changeClothStock).mockResolvedValue({ currentStock: 14, reserved: 0 })
+    vi.mocked(addAccessoryStock).mockResolvedValue({ currentStock: 30, reserved: 0 })
   })
 
-  it('adds supplierId filter when provided', () => {
-    const where = buildPOWhere(null, 'sup-xyz')
-    expect(where.supplierId).toBe('sup-xyz')
-    expect(where.active).toBe(true)
+  it('credits the line’s linked fabric without the request naming it', async () => {
+    db.purchaseOrder.findUnique.mockResolvedValue(purchaseOrderWith([poLine()]))
+
+    const res = await receive({ items: [{ id: 'l1', receivedQuantity: 4 }] })
+
+    expect(res.status).toBe(200)
+    expect(changeClothStock).toHaveBeenCalledWith(expect.anything(), 'c1', 4, expect.objectContaining({ countAsPurchase: true }))
+    const update = db.pOItem.updateMany.mock.calls[0][0]
+    expect(update.data).toEqual({ receivedQuantity: 4 })
+    expect(db.stockMovement.create.mock.calls[0][0].data).toMatchObject({
+      clothInventoryId: 'c1',
+      type: 'PURCHASE',
+      quantityMeters: 4,
+      balanceAfterMeters: 14,
+    })
+    expect(db.stockMovement.create.mock.calls[0][0].data.notes).toContain('PO-2026-0001')
+    expect(db.purchaseOrder.update.mock.calls[0][0].data.status).toBe('PARTIAL')
   })
 
-  it('combines both filters when both provided', () => {
-    const where = buildPOWhere('RECEIVED', 'sup-abc')
-    expect(where.status).toBe('RECEIVED')
-    expect(where.supplierId).toBe('sup-abc')
-    expect(where.active).toBe(true)
+  it('accepts the same id as the line’s link', async () => {
+    db.purchaseOrder.findUnique.mockResolvedValue(purchaseOrderWith([poLine()]))
+    const res = await receive({ items: [{ id: 'l1', receivedQuantity: 4, clothInventoryId: 'c1' }] })
+    expect(res.status).toBe(200)
+    expect(changeClothStock).toHaveBeenCalledWith(expect.anything(), 'c1', 4, expect.anything())
   })
 
-  it('does not add status when null', () => {
-    const where = buildPOWhere(null, 'sup-123')
-    expect(where).not.toHaveProperty('status')
+  it('rejects a different item for an already-linked line (400)', async () => {
+    db.purchaseOrder.findUnique.mockResolvedValue(purchaseOrderWith([poLine()]))
+
+    const res = await receive({ items: [{ id: 'l1', receivedQuantity: 4, clothInventoryId: 'c9' }] })
+
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe('Cotton — Raymond, Navy (CLT-1) is already linked to a different inventory item')
+    expect(changeClothStock).not.toHaveBeenCalled()
+    expect(db.pOItem.updateMany).not.toHaveBeenCalled()
   })
 
-  it('does not add supplierId when null', () => {
-    const where = buildPOWhere('PENDING', null)
-    expect(where).not.toHaveProperty('supplierId')
+  it('links a legacy unlinked line to the chosen item and credits it', async () => {
+    db.purchaseOrder.findUnique.mockResolvedValue(purchaseOrderWith([poLine({ clothInventoryId: null, itemName: 'Old fabric' })]))
+
+    const res = await receive({ items: [{ id: 'l1', receivedQuantity: 10, clothInventoryId: 'c2' }] })
+
+    expect(res.status).toBe(200)
+    expect(db.clothInventory.findUnique).toHaveBeenCalledWith({ where: { id: 'c2' }, select: { active: true } })
+    expect(db.pOItem.updateMany.mock.calls[0][0].data).toEqual({ receivedQuantity: 10, clothInventoryId: 'c2' })
+    expect(changeClothStock).toHaveBeenCalledWith(expect.anything(), 'c2', 10, expect.anything())
+  })
+
+  it('rejects an item of the wrong type for a legacy line', async () => {
+    db.purchaseOrder.findUnique.mockResolvedValue(purchaseOrderWith([poLine({ clothInventoryId: null, itemName: 'Old fabric' })]))
+
+    const res = await receive({ items: [{ id: 'l1', receivedQuantity: 1, accessoryInventoryId: 'a1' }] })
+
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe('Old fabric is not an accessory line')
+    expect(db.pOItem.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('requires an item before crediting a legacy line', async () => {
+    db.purchaseOrder.findUnique.mockResolvedValue(purchaseOrderWith([poLine({ clothInventoryId: null, itemName: 'Old fabric' })]))
+
+    const res = await receive({ items: [{ id: 'l1', receivedQuantity: 1 }] })
+
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe('Old fabric is not linked to inventory: choose the fabric to credit')
+  })
+
+  it('rejects linking a legacy line to an inactive item', async () => {
+    db.purchaseOrder.findUnique.mockResolvedValue(purchaseOrderWith([poLine({ clothInventoryId: null, itemName: 'Old fabric' })]))
+    db.clothInventory.findUnique.mockResolvedValue({ active: false })
+
+    const res = await receive({ items: [{ id: 'l1', receivedQuantity: 1, clothInventoryId: 'c2' }] })
+
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toContain('not found or is inactive')
+  })
+
+  it('credits linked accessories in whole units', async () => {
+    const accessoryPoLine = poLine({
+      itemType: 'ACCESSORY',
+      itemName: 'Buttons — Ivory (ACC-1)',
+      unit: 'pieces',
+      orderedQuantity: 50,
+      clothInventoryId: null,
+      accessoryInventoryId: 'a1',
+    })
+    db.purchaseOrder.findUnique.mockResolvedValue(purchaseOrderWith([accessoryPoLine]))
+
+    const fractional = await receive({ items: [{ id: 'l1', receivedQuantity: 2.5 }] })
+    expect(fractional.status).toBe(400)
+    expect((await fractional.json()).error).toBe('Buttons — Ivory (ACC-1): accessory quantities must be whole units')
+
+    const res = await receive({ items: [{ id: 'l1', receivedQuantity: 20 }] })
+    expect(res.status).toBe(200)
+    expect(addAccessoryStock).toHaveBeenCalledWith(expect.anything(), 'a1', 20)
+    expect(db.accessoryStockMovement.create.mock.calls[0][0].data).toMatchObject({
+      accessoryInventoryId: 'a1',
+      quantityUnits: 20,
+      balanceAfterUnits: 30,
+    })
+  })
+
+  it('caps receipts at the outstanding quantity', async () => {
+    db.purchaseOrder.findUnique.mockResolvedValue(purchaseOrderWith([poLine({ receivedQuantity: 6 })]))
+
+    const res = await receive({ items: [{ id: 'l1', receivedQuantity: 5 }] })
+
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toContain('only 4 outstanding')
+    expect(changeClothStock).not.toHaveBeenCalled()
+  })
+
+  it('marks the PO received only when every line is in and it is paid', async () => {
+    db.purchaseOrder.findUnique.mockResolvedValue(
+      purchaseOrderWith([poLine(), poLine({ id: 'l2', clothInventoryId: 'c2' })], { paidAmount: 1000, balanceAmount: 0 })
+    )
+
+    await receive({ items: [{ id: 'l1', receivedQuantity: 10 }] })
+    expect(db.purchaseOrder.update.mock.calls[0][0].data.status).toBe('PARTIAL')
+
+    await receive({ items: [{ id: 'l1', receivedQuantity: 10 }, { id: 'l2', receivedQuantity: 10 }] })
+    expect(db.purchaseOrder.update.mock.calls[1][0].data.status).toBe('RECEIVED')
+  })
+
+  it('refuses to receive a PO that is not approved', async () => {
+    db.purchaseOrder.findUnique.mockResolvedValue(purchaseOrderWith([poLine()], { status: 'PENDING_APPROVAL' }))
+    const res = await receive({ items: [{ id: 'l1', receivedQuantity: 1 }] })
+    expect(res.status).toBe(400)
+    expect(changeClothStock).not.toHaveBeenCalled()
   })
 })
 
-// ── Response structure ────────────────────────────────────────────────────
+describe('POST /api/purchase-orders – purchase order number collisions', () => {
+  const taken = () => Object.assign(new Error('Unique constraint failed on the fields: (`poNumber`)'), { code: 'P2002' })
 
-describe('GET /api/purchase-orders – response structure', () => {
-  it('response wraps array in purchaseOrders key', () => {
-    const mockResponse = { purchaseOrders: [] }
-    expect(mockResponse).toHaveProperty('purchaseOrders')
-    expect(Array.isArray(mockResponse.purchaseOrders)).toBe(true)
+  beforeEach(() => {
+    actAs('OWNER')
+    db.supplier.findUnique.mockResolvedValue({ id: 'sup-1', active: true })
+    db.clothInventory.findMany.mockResolvedValue([clothRecord()])
+    db.accessoryInventory.findMany.mockResolvedValue([accessoryRecord()])
+    db.purchaseOrder.count.mockResolvedValue(0)
+    db.purchaseOrder.findMany.mockResolvedValue([])
   })
 
-  it('PO object has required fields', () => {
-    const po = {
-      id: 'po-test-id',
-      poNumber: 'PO-2026-0001',
-      supplierId: 'sup-abc',
-      status: 'PENDING',
-      totalAmount: 16000,
-      balanceAmount: 16000,
-      active: true,
-      createdAt: new Date(),
-      supplier: { id: 'sup-abc', name: 'Test Supplier', phone: null, email: null },
-      items: [],
-    }
-    expect(po).toHaveProperty('poNumber')
-    expect(po).toHaveProperty('status')
-    expect(po).toHaveProperty('totalAmount')
-    expect(po).toHaveProperty('balanceAmount')
-    expect(po).toHaveProperty('supplier')
-    expect(po).toHaveProperty('items')
+  it('retries with the next number when another request took it', async () => {
+    db.purchaseOrder.create
+      .mockRejectedValueOnce(taken())
+      .mockImplementationOnce(async ({ data }: { data: any }) => ({ id: 'po-new', ...data, items: data.items.create }))
+
+    const res = await createPO({ items: [clothLine()] })
+
+    expect(res.status).toBe(201)
+    expect(db.purchaseOrder.create).toHaveBeenCalledTimes(2)
   })
 
-  it('POST 201 response wraps result in purchaseOrder key', () => {
-    const mockCreated = {
-      id: 'po-new-id',
-      poNumber: 'PO-2026-0005',
-      status: 'PENDING',
-      totalAmount: 5000,
-    }
-    const response = { purchaseOrder: mockCreated }
-    expect(response).toHaveProperty('purchaseOrder')
-    expect(response.purchaseOrder.poNumber).toBe('PO-2026-0005')
+  it('gives up after three attempts', async () => {
+    db.purchaseOrder.create.mockRejectedValue(taken())
+
+    const res = await createPO({ items: [clothLine()] })
+
+    expect(res.status).toBe(500)
+    expect(db.purchaseOrder.create).toHaveBeenCalledTimes(3)
   })
 })

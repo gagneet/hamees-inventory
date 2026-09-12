@@ -163,16 +163,18 @@ pnpm tsx prisma/seed-complete.ts
 
 ```bash
 # After modifying prisma/schema.prisma:
-pnpm db:push          # Apply changes immediately (dev only)
+pnpm db:migrate       # Create and apply a migration (commit prisma/migrations/<name>/)
 pnpm prisma generate  # Regenerate Prisma client
 
 # Open Prisma Studio to inspect data
 pnpm db:studio
 ```
 
+Money columns are `BigInt` minor units (paise/cents). Code works with decimal amounts: the Prisma client from `lib/db.ts` (or `createPrismaClient()` in scripts) converts at the database boundary. Aggregates and raw SQL stay in minor units — see `lib/money.ts`.
+
 ### Production migrations
 
-The project currently uses `prisma db push` for schema changes. For production environments, use `prisma migrate dev` to create tracked migration files before deploying schema changes.
+Schema changes are tracked in `prisma/migrations` (`0_init` baseline) and applied by `scripts/deploy.sh` with `prisma migrate deploy` after a `pg_dump` backup. Never use `db push` on production.
 
 ---
 
@@ -201,7 +203,8 @@ After running the seed script, these accounts are available (all use password `a
 | `admin@hameesattire.com` | ADMIN | Full access including user management, delete, and bulk upload |
 | `inventory@hameesattire.com` | INVENTORY_MANAGER | Inventory, purchase orders, garment types, suppliers, alerts |
 | `sales@hameesattire.com` | SALES_MANAGER | Orders, customers, measurements, garment types, reports, alerts |
-| `tailor@hameesattire.com` | TAILOR | Order status updates, measurements, view inventory |
+| `master@hameesattire.com` | MASTER_TAILOR | All orders, tailor assignment, production workload and report (placeholder — rename to the real person) |
+| `tailor@hameesattire.com` | TAILOR | Status of items assigned to them, measurements, view inventory |
 | `viewer@hameesattire.com` | VIEWER | Read-only access to dashboard, inventory, orders, customers, alerts |
 
 **Change all passwords before any production deployment.**
@@ -421,21 +424,11 @@ pm2 restart hamees-inventory
 ### Updating in production
 
 ```bash
-# Pull latest code
 git pull
-
-# Install any new dependencies
-pnpm install
-
-# Regenerate Prisma client if schema changed
-pnpm prisma generate
-
-# Rebuild
-pnpm build
-
-# Restart
-pm2 restart hamees-inventory
+./scripts/deploy.sh
 ```
+
+Do not run `pnpm install`, `prisma generate` or `pnpm build` by hand in the live directory: the running server loads the Prisma client from `node_modules`. `deploy.sh` builds the release in a temporary copy first, stops the app only when dependencies, the Prisma client or the database schema change, backs up the database, migrates, builds, restarts and checks `/api/health`. On failure it prints how to recover (including restoring the backup if migrations ran).
 
 ### Stack verification
 

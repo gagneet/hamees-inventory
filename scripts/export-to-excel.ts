@@ -1,9 +1,8 @@
-import { PrismaClient } from '@prisma/client'
-import { PrismaPg } from '@prisma/adapter-pg'
 import { Pool } from 'pg'
 import ExcelJS from 'exceljs'
 import * as fs from 'fs'
 import * as path from 'path'
+import { createPrismaClient } from '../lib/prisma-client'
 
 // Database connection
 const connectionString = process.env.DATABASE_URL
@@ -11,8 +10,7 @@ if (!connectionString) {
   throw new Error('DATABASE_URL environment variable is required')
 }
 const pool = new Pool({ connectionString })
-const adapter = new PrismaPg(pool)
-const prisma = new PrismaClient({ adapter })
+const prisma = createPrismaClient({ pool })
 
 interface TableConfig {
   name: string

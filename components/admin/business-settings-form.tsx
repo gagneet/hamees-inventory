@@ -13,22 +13,35 @@
 import { createContext, useContext, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Globe2, Receipt, Scissors, Store } from 'lucide-react'
+import { Boxes, Globe2, Receipt, Scissors, Store } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAppSettings } from '@/components/providers/settings-provider'
+import { CountryPicker, PhoneInput } from '@/components/ui/phone-input'
 import { taxConfigFrom, type AppSettings } from '@/lib/app-settings'
-import { formatCurrency, isValidCurrency, isValidLocale, isValidTimeZone } from '@/lib/locale'
+import {
+  formatCurrency,
+  formatCurrencyWithSecondary,
+  formatDate,
+  formatExchangeRate,
+  isValidCurrency,
+  isValidLocale,
+  isValidTimeZone,
+  normalizeLocaleConfig,
+} from '@/lib/locale'
+import { regionName } from '@/lib/phone'
 import { computeTax, taxLines, type TaxMode } from '@/lib/tax'
 
-export type SettingsSection = 'business' | 'localization' | 'tax' | 'production'
+export type SettingsSection = 'business' | 'localization' | 'tax' | 'production' | 'inventory'
 
-type FormState = Omit<AppSettings, 'taxRate' | 'maxActiveItemsPerTailor' | 'tailorDailyTarget'> & {
+type FormState = Omit<AppSettings, 'taxRate' | 'maxActiveItemsPerTailor' | 'tailorDailyTarget' | 'exchangeRate'> & {
   taxRate: string
+  exchangeRate: string
   maxActiveItemsPerTailor: string
   tailorDailyTarget: string
 }
@@ -43,48 +56,50 @@ const PRESETS: Preset[] = [
   {
     label: 'India',
     values: {
-      country: 'India', currency: 'INR', locale: 'en-IN', timeZone: 'Asia/Kolkata', phoneCountryCode: '91',
+      country: 'India', currency: 'INR', locale: 'en-IN', timeZone: 'Asia/Kolkata', phoneRegion: 'IN',
       postalCodeLabel: 'Pincode', taxMode: 'SPLIT', taxName: 'GST', taxIdLabel: 'GSTIN', taxRate: '12',
     },
   },
   {
     label: 'United Kingdom',
     values: {
-      country: 'United Kingdom', currency: 'GBP', locale: 'en-GB', timeZone: 'Europe/London', phoneCountryCode: '44',
+      country: 'United Kingdom', currency: 'GBP', locale: 'en-GB', timeZone: 'Europe/London', phoneRegion: 'GB',
       postalCodeLabel: 'Postcode', taxMode: 'SINGLE', taxName: 'VAT', taxIdLabel: 'VAT Reg. No.', taxRate: '20',
     },
   },
   {
     label: 'United States',
     values: {
-      country: 'United States', currency: 'USD', locale: 'en-US', timeZone: 'America/New_York', phoneCountryCode: '1',
+      country: 'United States', currency: 'USD', locale: 'en-US', timeZone: 'America/New_York', phoneRegion: 'US',
       postalCodeLabel: 'ZIP code', taxMode: 'SINGLE', taxName: 'Sales Tax', taxIdLabel: 'Tax ID', taxRate: '0',
     },
   },
   {
     label: 'UAE',
     values: {
-      country: 'United Arab Emirates', currency: 'AED', locale: 'en-AE', timeZone: 'Asia/Dubai', phoneCountryCode: '971',
+      country: 'United Arab Emirates', currency: 'AED', locale: 'en-AE', timeZone: 'Asia/Dubai', phoneRegion: 'AE',
       postalCodeLabel: 'P.O. Box', taxMode: 'SINGLE', taxName: 'VAT', taxIdLabel: 'TRN', taxRate: '5',
     },
   },
   {
     label: 'Australia',
     values: {
-      country: 'Australia', currency: 'AUD', locale: 'en-AU', timeZone: 'Australia/Sydney', phoneCountryCode: '61',
+      country: 'Australia', currency: 'AUD', locale: 'en-AU', timeZone: 'Australia/Sydney', phoneRegion: 'AU',
       postalCodeLabel: 'Postcode', taxMode: 'SINGLE', taxName: 'GST', taxIdLabel: 'ABN', taxRate: '10',
     },
   },
   {
     label: 'Canada',
     values: {
-      country: 'Canada', currency: 'CAD', locale: 'en-CA', timeZone: 'America/Toronto', phoneCountryCode: '1',
+      country: 'Canada', currency: 'CAD', locale: 'en-CA', timeZone: 'America/Toronto', phoneRegion: 'CA',
       postalCodeLabel: 'Postal code', taxMode: 'SINGLE', taxName: 'HST', taxIdLabel: 'BN', taxRate: '13',
     },
   },
 ]
 
 const COMMON_CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'SAR', 'AUD', 'CAD', 'SGD', 'NZD', 'PKR', 'BDT', 'LKR', 'NPR', 'MYR', 'ZAR', 'KES', 'JPY']
+// Radix Select items cannot have an empty value
+const NO_SECONDARY = '__none__'
 const COMMON_LOCALES = ['en-IN', 'hi-IN', 'pa-IN', 'en-US', 'en-GB', 'en-AE', 'ar-AE', 'en-AU', 'en-CA', 'fr-CA', 'en-SG', 'en-NZ', 'de-DE', 'fr-FR', 'ur-PK', 'en-ZA']
 
 const TAX_MODE_HELP: Record<TaxMode, string> = {
@@ -97,6 +112,7 @@ function toForm(s: AppSettings): FormState {
   return {
     ...s,
     taxRate: String(s.taxRate),
+    exchangeRate: s.exchangeRate === null ? '' : String(s.exchangeRate),
     maxActiveItemsPerTailor: String(s.maxActiveItemsPerTailor),
     tailorDailyTarget: String(s.tailorDailyTarget),
   }
@@ -121,7 +137,7 @@ function Field({ id, label, hint, children }: { id: string; label: string; hint?
   )
 }
 
-type CurrencyWarning = { recordCount: number; from: string; to: string }
+type CurrencyWarning = { recordCount: number; from: string; to: string; message: string | null }
 
 interface SettingsFormContextValue {
   form: FormState
@@ -131,6 +147,7 @@ interface SettingsFormContextValue {
   applyPreset: (preset: Preset) => void
   currencyWarning: CurrencyWarning | null
   dismissCurrencyWarning: (keepCurrency: string) => void
+  showAsSecondary: (keepCurrency: string, secondary: string) => void
 }
 
 const SettingsFormContext = createContext<SettingsFormContextValue | null>(null)
@@ -162,6 +179,13 @@ export function SettingsFormProvider({ children }: { children: React.ReactNode }
     setCurrencyWarning(null)
   }
 
+  // "Keep INR, show GBP as well": undo the main-currency change and offer GBP as the secondary
+  const showAsSecondary = (keepCurrency: string, secondary: string) => {
+    setForm((f) => ({ ...f, currency: keepCurrency, secondaryCurrency: secondary }))
+    setCurrencyWarning(null)
+    toast.info(`Enter the exchange rate for ${secondary}, then save`)
+  }
+
   const save = async (acknowledgeNoConversion = false) => {
     setSaving(true)
     try {
@@ -170,6 +194,12 @@ export function SettingsFormProvider({ children }: { children: React.ReactNode }
         acknowledgeNoConversion,
         currency: form.currency.toUpperCase(),
         taxRate: Number(form.taxRate),
+        secondaryCurrency: form.secondaryCurrency || null,
+        // An empty or invalid rate goes as null; the API then asks for a rate if a secondary is set
+        exchangeRate:
+          form.secondaryCurrency && form.exchangeRate.trim() !== '' && Number.isFinite(Number(form.exchangeRate))
+            ? Number(form.exchangeRate)
+            : null,
         maxActiveItemsPerTailor: Number(form.maxActiveItemsPerTailor),
         tailorDailyTarget: Number(form.tailorDailyTarget),
       }
@@ -180,7 +210,7 @@ export function SettingsFormProvider({ children }: { children: React.ReactNode }
       })
       const data = await response.json().catch(() => ({}))
       if (response.status === 409 && data.code === 'CURRENCY_CHANGE_NEEDS_CONFIRMATION') {
-        setCurrencyWarning({ recordCount: data.recordCount, from: data.from, to: data.to })
+        setCurrencyWarning({ recordCount: data.recordCount, from: data.from, to: data.to, message: data.error ?? null })
         toast.warning('Changing the currency does not convert existing amounts — review the warning on the Currency & Locale tab.')
         return
       }
@@ -201,14 +231,15 @@ export function SettingsFormProvider({ children }: { children: React.ReactNode }
   }
 
   return (
-    <SettingsFormContext.Provider value={{ form, set, saving, save, applyPreset, currencyWarning, dismissCurrencyWarning }}>
+    <SettingsFormContext.Provider value={{ form, set, saving, save, applyPreset, currencyWarning, dismissCurrencyWarning, showAsSecondary }}>
       {children}
     </SettingsFormContext.Provider>
   )
 }
 
 export function BusinessSettingsForm({ section }: { section: SettingsSection }) {
-  const { form, set, saving, save, applyPreset, currencyWarning, dismissCurrencyWarning } = useSettingsForm()
+  const { form, set, saving, save, applyPreset, currencyWarning, dismissCurrencyWarning, showAsSecondary } = useSettingsForm()
+  const saved = useAppSettings()
   const timeZones = useMemo(() => timeZoneOptions(), [])
 
   const text = (key: keyof FormState) => ({
@@ -230,6 +261,27 @@ export function BusinessSettingsForm({ section }: { section: SettingsSection }) 
     }
     return { amount: formatCurrency(1234567.891, { config }), date }
   }, [form.currency, form.locale, form.timeZone, localeValid])
+
+  // Secondary (display-only) currency: rate, its inverse and a worked example with the form's values
+  const mainCurrency = form.currency.toUpperCase()
+  const rateNumber = Number(form.exchangeRate)
+  const rateValid = form.exchangeRate.trim() !== '' && Number.isFinite(rateNumber) && rateNumber > 0
+  const secondaryError = form.secondaryCurrency && form.secondaryCurrency === mainCurrency
+    ? 'Must differ from the main currency'
+    : null
+  const secondaryConfig = form.secondaryCurrency && rateValid && localeValid && !secondaryError
+    ? normalizeLocaleConfig({
+        currency: mainCurrency,
+        locale: form.locale,
+        timeZone: form.timeZone,
+        secondaryCurrency: form.secondaryCurrency,
+        exchangeRate: rateNumber,
+      })
+    : null
+  const secondaryOptions = COMMON_CURRENCIES.filter((c) => c !== mainCurrency || c === form.secondaryCurrency)
+  if (form.secondaryCurrency && !secondaryOptions.includes(form.secondaryCurrency)) secondaryOptions.push(form.secondaryCurrency)
+  const rateEdited = form.secondaryCurrency !== saved.secondaryCurrency || (rateValid && rateNumber !== saved.exchangeRate)
+  const rateStamp = form.exchangeRateUpdatedAt ? formatDate(form.exchangeRateUpdatedAt) : null
 
   const taxPreview = useMemo(() => {
     const rate = Number(form.taxRate)
@@ -257,7 +309,9 @@ export function BusinessSettingsForm({ section }: { section: SettingsSection }) 
           <div className="grid gap-4 md:grid-cols-2">
             <Field id="businessName" label="Business name"><Input {...text('businessName')} maxLength={120} /></Field>
             <Field id="tagline" label="Tagline" hint="Optional; shown under the name on the login page and invoices."><Input {...text('tagline')} maxLength={160} /></Field>
-            <Field id="phone" label="Phone"><Input {...text('phone')} maxLength={30} /></Field>
+            <Field id="phone" label="Phone">
+              <PhoneInput id="phone" value={form.phone} onChange={(v) => set('phone', v || null)} defaultRegion={form.phoneRegion} />
+            </Field>
             <Field id="email" label="Email"><Input {...text('email')} type="email" maxLength={254} /></Field>
             <Field id="website" label="Website" hint="Printed on invoices."><Input {...text('website')} placeholder="https://" maxLength={200} /></Field>
             <Field id="country" label="Country"><Input {...text('country')} maxLength={80} /></Field>
@@ -293,7 +347,7 @@ export function BusinessSettingsForm({ section }: { section: SettingsSection }) 
                 </Button>
               ))}
             </div>
-            <p className="text-xs text-slate-500">Presets fill currency, locale, time zone, phone code and tax defaults. Review the Tax tab before saving.</p>
+            <p className="text-xs text-slate-500">Presets fill currency, locale, time zone, phone country and tax defaults. Review the Tax tab before saving.</p>
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
@@ -302,7 +356,7 @@ export function BusinessSettingsForm({ section }: { section: SettingsSection }) 
               label="Currency (ISO 4217)"
               hint={
                 isValidCurrency(form.currency.toUpperCase())
-                  ? 'Existing amounts are not converted when this changes.'
+                  ? 'Existing amounts are not converted when this changes. To show another currency as well, use Secondary currency below.'
                   : 'Unknown currency code'
               }
             >
@@ -317,8 +371,20 @@ export function BusinessSettingsForm({ section }: { section: SettingsSection }) 
               <Input {...text('timeZone')} list="tz-options" maxLength={64} />
               <datalist id="tz-options">{timeZones.map((tz) => <option key={tz} value={tz} />)}</datalist>
             </Field>
-            <Field id="phoneCountryCode" label="Phone country code" hint="Digits only, e.g. 91, 44, 1. Used for WhatsApp messages.">
-              <Input {...text('phoneCountryCode')} inputMode="numeric" maxLength={4} />
+            <Field
+              id="phoneRegion"
+              label="Phone number country"
+              hint={`Numbers typed without + are read as ${regionName(form.phoneRegion, form.locale)} numbers, including for WhatsApp.`}
+            >
+              <CountryPicker
+                id="phoneRegion"
+                value={form.phoneRegion}
+                onChange={(code) => set('phoneRegion', code)}
+                locale={form.locale}
+                showName
+                className="w-full"
+                aria-label="Phone number country"
+              />
             </Field>
             <Field id="postalCodeLabel" label="Postal code label" hint="Used on customer forms."><Input {...text('postalCodeLabel')} maxLength={30} /></Field>
           </div>
@@ -334,9 +400,13 @@ export function BusinessSettingsForm({ section }: { section: SettingsSection }) 
                 <span className="font-mono">{formatCurrency(5000, { config: { currency: currencyWarning.to, locale: form.locale, timeZone: form.timeZone } })}</span>.
               </p>
               <p>Only continue if those amounts were actually entered in {currencyWarning.to}. There is no exchange-rate conversion.</p>
+              {currencyWarning.message && <p>{currencyWarning.message}</p>}
               <div className="flex flex-wrap gap-2">
                 <Button type="button" variant="outline" onClick={() => dismissCurrencyWarning(currencyWarning.from)}>
                   Keep {currencyWarning.from}
+                </Button>
+                <Button type="button" variant="outline" onClick={() => showAsSecondary(currencyWarning.from, currencyWarning.to)}>
+                  Keep {currencyWarning.from}, show {currencyWarning.to} as secondary
                 </Button>
                 <Button type="button" variant="destructive" disabled={saving} onClick={() => save(true)}>
                   Relabel amounts as {currencyWarning.to}
@@ -344,6 +414,74 @@ export function BusinessSettingsForm({ section }: { section: SettingsSection }) 
               </div>
             </div>
           )}
+
+          <div className="space-y-4 rounded-lg border p-4">
+            <div className="space-y-1">
+              <p className="font-medium text-slate-900">Secondary currency (optional)</p>
+              <p className="text-xs text-slate-500">
+                Shows an indicative amount in a second currency under totals, balances and report figures, at a rate you
+                enter. Amounts are never converted: everything stays stored and payable in {mainCurrency}, and the second
+                figure is for display only. Charts, forms, customer messages and exports stay in {mainCurrency}.
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              <Field id="secondaryCurrency" label="Secondary currency" hint={secondaryError ?? undefined}>
+                <Select
+                  value={form.secondaryCurrency ?? NO_SECONDARY}
+                  onValueChange={(v) => set('secondaryCurrency', v === NO_SECONDARY ? null : v)}
+                >
+                  <SelectTrigger id="secondaryCurrency"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_SECONDARY}>None</SelectItem>
+                    {secondaryOptions.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </Field>
+              {form.secondaryCurrency && (
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label htmlFor="exchangeRate">Exchange rate</Label>
+                  <div className="flex items-center gap-2 text-sm text-slate-700">
+                    <span className="whitespace-nowrap">1 {form.secondaryCurrency} =</span>
+                    <Input {...text('exchangeRate')} type="number" inputMode="decimal" min={0} step="any" className="w-40" />
+                    <span>{mainCurrency}</span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    {secondaryConfig
+                      ? formatExchangeRate(secondaryConfig, { inverse: true })
+                      : `Enter how many ${mainCurrency} one ${form.secondaryCurrency} is worth.`}
+                  </p>
+                </div>
+              )}
+            </div>
+            {form.secondaryCurrency && (
+              <>
+                {secondaryConfig && (
+                  <p className="text-sm text-slate-600">
+                    Example: <span className="font-mono">{formatCurrencyWithSecondary(5000, { config: secondaryConfig })}</span>
+                  </p>
+                )}
+                <p className="text-xs text-slate-500">
+                  {rateStamp ? `Rate last updated ${rateStamp}.` : 'This rate has not been saved yet.'}
+                  {rateEdited && ' Saving records today as the rate date.'}
+                </p>
+                <div className="flex items-start gap-2">
+                  <Checkbox
+                    id="showSecondaryOnInvoice"
+                    checked={form.showSecondaryOnInvoice}
+                    onCheckedChange={(v) => set('showSecondaryOnInvoice', v === true)}
+                    className="mt-0.5"
+                  />
+                  <div className="space-y-0.5">
+                    <Label htmlFor="showSecondaryOnInvoice">Print the indicative total on invoices</Label>
+                    <p className="text-xs text-slate-500">
+                      Adds a line under the totals with the {form.secondaryCurrency} amount, the rate and its date, and
+                      states that amounts are payable in {mainCurrency}.
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
 
           <div className="rounded-lg border bg-slate-50 p-4 text-sm">
             <p className="font-medium text-slate-700">Preview</p>
@@ -414,6 +552,48 @@ export function BusinessSettingsForm({ section }: { section: SettingsSection }) 
               )}
             </div>
           )}
+          {saveBar}
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (section === 'inventory') {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Boxes className="h-5 w-5" /> Inventory &amp; reordering</CardTitle>
+          <CardDescription>
+            The reorder check runs after orders, fabric changes and stock edits, with the alert check, and from
+            Purchase Orders → Run reorder check.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-start gap-3 rounded-lg border p-4">
+            <input
+              id="autoReorderEnabled"
+              type="checkbox"
+              className="mt-1 h-4 w-4 rounded border-slate-300"
+              checked={form.autoReorderEnabled}
+              onChange={(e) => set('autoReorderEnabled', e.target.checked)}
+            />
+            <div className="space-y-1">
+              <Label htmlFor="autoReorderEnabled">Draft purchase orders automatically</Label>
+              <p className="text-sm text-slate-600">
+                When a fabric or accessory&apos;s available stock plus what is already on order falls to its minimum,
+                add it to a draft purchase order for its supplier (one draft per supplier). Drafts wait for approval
+                like any other purchase order; nothing is sent to suppliers.
+              </p>
+            </div>
+          </div>
+          <ul className="list-disc pl-5 text-sm text-slate-600 space-y-1">
+            <li>With this off, the check still raises a Reorder alert for each item, naming the quantity and supplier.</li>
+            <li>
+              The quantity is the item&apos;s reorder quantity, or enough to reach twice the minimum; fabric is rounded up
+              to whole meters.
+            </li>
+            <li>Items without a supplier get an alert only. An item already on a draft is not added again.</li>
+          </ul>
           {saveBar}
         </CardContent>
       </Card>

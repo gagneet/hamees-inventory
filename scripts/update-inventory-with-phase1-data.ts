@@ -3,16 +3,13 @@
  * Adds fabric specifications and accessory details to existing items
  */
 
-import { PrismaClient } from '@prisma/client'
-import { PrismaPg } from '@prisma/adapter-pg'
 import { Pool } from 'pg'
+import { createPrismaClient } from '../lib/prisma-client'
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL
 })
-
-const adapter = new PrismaPg(pool)
-const prisma = new PrismaClient({ adapter })
+const prisma = createPrismaClient({ pool })
 
 // Type definitions for Phase 1 enhancements
 interface FabricSpecification {

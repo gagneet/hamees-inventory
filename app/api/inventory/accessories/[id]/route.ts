@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { auth } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
@@ -6,6 +6,8 @@ import { hasPermission, type UserRole } from '@/lib/permissions'
 import { requirePermission } from '@/lib/api-permissions'
 import { filterApiResponse } from '@/lib/api-filter-response'
 import { InsufficientStockError, setAccessoryStockLevel } from '@/lib/stock'
+import { onOrderFor } from '@/lib/purchase-order-items'
+import { runReorderCheckQuietly } from '@/lib/reorder'
 
 const updateAccessorySchema = z.object({
   type: z.string().optional(),
@@ -14,6 +16,8 @@ const updateAccessorySchema = z.object({
   currentStock: z.number().int().nonnegative().optional(),
   pricePerUnit: z.number().nonnegative().optional(),
   minimumStockUnits: z.number().int().nonnegative().optional(),
+  // Units to order when the item needs a reorder; null = top up to twice the minimum
+  reorderQuantity: z.number().int().positive().nullable().optional(),
   notes: z.string().nullish(),
   // Phase 1 Enhancement Fields
   colorCode: z.string().nullish(),
@@ -52,7 +56,8 @@ export async function GET(
       return NextResponse.json({ error: 'Item not found' }, { status: 404 })
     }
 
-    return NextResponse.json(filterApiResponse(item, session.user.role, 'inventory'))
+    const onOrder = await onOrderFor(prisma, 'accessory', id)
+    return NextResponse.json(filterApiResponse({ ...item, ...onOrder }, session.user.role, 'inventory'))
   } catch (error) {
     console.error('Error fetching accessory item:', error)
     return NextResponse.json(
@@ -96,10 +101,12 @@ export async function PATCH(
 
     // Clean up data: remove undefined/null values to avoid Prisma type issues.
     // Stock is not written here: it goes through lib/stock so it is guarded and audited.
-    const { currentStock: newStock, ...descriptive } = updateData
-    const cleanedData = Object.fromEntries(
+    const { currentStock: newStock, reorderQuantity, ...descriptive } = updateData
+    const cleanedData: Record<string, unknown> = Object.fromEntries(
       Object.entries(descriptive).filter(([_, value]) => value !== undefined && value !== null)
     )
+    // null clears the reorder quantity, so it is not filtered out with the other nulls
+    if (reorderQuantity !== undefined) cleanedData.reorderQuantity = reorderQuantity
 
     try {
       await prisma.$transaction(async (tx) => {
@@ -133,6 +140,12 @@ export async function PATCH(
       }
       throw err
     }
+
+    // Stock, minimum or reorder quantity may have changed
+    const stockChanged = newStock !== undefined && newStock !== existingItem.currentStock
+    after(() =>
+      runReorderCheckQuietly({ trigger: stockChanged ? 'stock_adjusted' : 'inventory_edited', userId: session.user.id })
+    )
 
     const updatedItem = await prisma.accessoryInventory.findUnique({
       where: { id },

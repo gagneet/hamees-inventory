@@ -1,8 +1,8 @@
-import { PrismaClient, OrderStatus } from '@prisma/client'
-import { PrismaPg } from '@prisma/adapter-pg'
+import { OrderStatus } from '@prisma/client'
 import { Pool } from 'pg'
 import bcrypt from 'bcryptjs'
 import * as dotenv from 'dotenv'
+import { createPrismaClient } from '../lib/prisma-client'
 import {
   addDays,
   addMonths,
@@ -16,8 +16,7 @@ dotenv.config()
 
 const connectionString = process.env.DATABASE_URL!
 const pool = new Pool({ connectionString })
-const adapter = new PrismaPg(pool)
-const prisma = new PrismaClient({ adapter })
+const prisma = createPrismaClient({ pool })
 
 async function main() {
   console.log('🌱 Starting production data seeding...')
@@ -173,6 +172,7 @@ async function main() {
           create: [{
             itemName: cloth.name,
             itemType: 'CLOTH',
+            clothInventoryId: cloth.id,
             orderedQuantity: quantity,
             unit: 'meters',
             pricePerUnit: pricePerMeter,

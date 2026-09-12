@@ -27,6 +27,8 @@ import { useFieldVisibility } from '@/hooks/use-field-visibility'
 import { useAppSettings } from '@/components/providers/settings-provider'
 import { taxConfigFrom } from '@/lib/app-settings'
 import { computeTax, taxLines, taxTotalLabel } from '@/lib/tax'
+import { clampDiscount } from '@/lib/order-pricing'
+import { subtractMoney } from '@/lib/money'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -113,23 +115,32 @@ type OrderItem = {
   accessories: OrderItemAccessory[]
 }
 
-function NewOrderForm() {
-  const formatLocalDate = (date: Date) =>
-    `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+/** yyyy-mm-dd in the browser's own calendar (not UTC, which can shift the day). */
+const formatLocalDate = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 
+/**
+ * Fallback delivery date when the form leaves it blank: a week out. Defined outside the
+ * component so reading the clock is never treated as a render-phase side effect.
+ */
+const defaultDeliveryDate = () => formatLocalDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))
+
+function NewOrderForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const preselectedCustomerId = searchParams.get('customerId')
+  // Set when the form was opened from a public enquiry; the order closes that enquiry
+  const enquiryId = searchParams.get('enquiryId')
   const { data: session } = useSession()
   const { canView } = useFieldVisibility()
   const settings = useAppSettings()
   const taxConfig = taxConfigFrom(settings)
 
   // Only roles with manage_customers can create customers inline
-  const canManageCustomers = hasPermission(
-    (session?.user?.role as UserRole) ?? 'VIEWER',
-    'manage_customers'
-  )
+  const role = (session?.user?.role as UserRole) ?? 'VIEWER'
+  const canManageCustomers = hasPermission(role, 'manage_customers')
+  // Approving a price reduction is its own permission, separate from receipting money
+  const canApplyDiscount = hasPermission(role, 'apply_discount')
 
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
@@ -139,6 +150,10 @@ function NewOrderForm() {
   const [customerId, setCustomerId] = useState(preselectedCustomerId || '')
   const [deliveryDate, setDeliveryDate] = useState('')
   const [advancePaid, setAdvancePaid] = useState(0)
+  // A discount agreed at the point of sale reduces the taxable value, so it has to be on the
+  // invoice from the start (India CGST s.15) rather than applied afterwards.
+  const [discount, setDiscount] = useState(0)
+  const [discountReason, setDiscountReason] = useState('')
   const [notes, setNotes] = useState('')
   const [items, setItems] = useState<OrderItem[]>([])
 
@@ -398,6 +413,8 @@ function NewOrderForm() {
         stitchingCost: 0,
         workmanshipPremiums: 0,
         subTotal: 0,
+        appliedDiscount: 0,
+        taxableAmount: 0,
         gstAmount: 0,
         total: 0,
         cgst: 0,
@@ -505,8 +522,11 @@ function NewOrderForm() {
       designerConsultationFee
     ).toFixed(2))
 
-    // Tax preview from shop settings (the server recomputes authoritatively on save)
-    const tax = computeTax(subTotal, taxConfig)
+    // Tax preview from shop settings (the server recomputes authoritatively on save).
+    // The discount comes off first: tax is charged on subTotal − discount.
+    const appliedDiscount = clampDiscount(discount, subTotal)
+    const taxableAmount = subtractMoney(subTotal, appliedDiscount)
+    const tax = computeTax(taxableAmount, taxConfig)
     const { gstRate, gstAmount, cgst, sgst, igst } = tax
     const total = tax.totalAmount
 
@@ -524,6 +544,8 @@ function NewOrderForm() {
       workmanshipPremiums,
       designerFee: designerConsultationFee,
       subTotal,
+      appliedDiscount,
+      taxableAmount,
       gstAmount,
       total,
       cgst,
@@ -571,7 +593,7 @@ function NewOrderForm() {
       }
 
       // Set default delivery date if not provided (7 days from now)
-      const finalDeliveryDate = deliveryDate || formatLocalDate(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))
+      const finalDeliveryDate = deliveryDate || defaultDeliveryDate()
 
       // Filter out incomplete items
       const validItems = items.filter(item => item.garmentPatternId && item.clothInventoryId)
@@ -589,6 +611,9 @@ function NewOrderForm() {
           customerId,
           deliveryDate: finalDeliveryDate,
           advancePaid: advancePaid || 0,
+          discount: appliedDiscount,
+          discountReason: appliedDiscount > 0 ? discountReason || null : null,
+          ...(enquiryId ? { enquiryId } : {}),
           notes: notes || '',
           items: validItems,
           // Premium Pricing Configuration
@@ -644,6 +669,8 @@ function NewOrderForm() {
     workmanshipPremiums,
     designerFee,
     subTotal,
+    appliedDiscount,
+    taxableAmount,
     gstAmount,
     total,
     cgst,
@@ -1131,6 +1158,38 @@ function NewOrderForm() {
                       className="w-full"
                     />
                   </div>
+
+                  {canApplyDiscount && canView('order', 'discount') && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      Discount (before {settings.taxName})
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max={subTotal}
+                      step="0.01"
+                      value={discount}
+                      onChange={(e) => setDiscount(Math.max(0, Math.min(parseFloat(e.target.value) || 0, subTotal)))}
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="0.00"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      Comes off the {formatCurrency(subTotal)} value before tax, so the tax and the
+                      total fall with it. Maximum: {formatCurrency(subTotal)}
+                    </p>
+                    {appliedDiscount > 0 && (
+                      <input
+                        type="text"
+                        value={discountReason}
+                        onChange={(e) => setDiscountReason(e.target.value)}
+                        maxLength={500}
+                        className="w-full mt-2 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Reason for the discount (shown on the invoice)"
+                      />
+                    )}
+                  </div>
+                  )}
 
                   {canView('order', 'advancePaid') && (
                   <div>
@@ -1666,6 +1725,19 @@ function NewOrderForm() {
                     <span className="text-slate-700 font-medium">Subtotal{gstAmount > 0 ? ` (before ${settings.taxName})` : ''}:</span>
                     <span className="font-semibold text-slate-900">{formatCurrency(subTotal)}</span>
                   </div>
+
+                  {appliedDiscount > 0 && (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-600">Less: Discount:</span>
+                        <span className="text-yellow-700">&minus;{formatCurrency(appliedDiscount)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-700 font-medium">Taxable value:</span>
+                        <span className="font-semibold text-slate-900">{formatCurrency(taxableAmount)}</span>
+                      </div>
+                    </>
+                  )}
 
                   {taxRows.length > 1 && taxRows.map((line) => (
                     <div key={line.label} className="flex justify-between text-sm">

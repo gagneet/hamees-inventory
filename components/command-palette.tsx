@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import { hasPermission, type UserRole } from '@/lib/permissions';
 import { cn } from '@/lib/utils';
+import { usePhoneFormatter } from '@/components/ui/phone-input';
 
 interface SearchResult {
   id: string;
@@ -79,6 +80,8 @@ export function CommandPalette({ open, onOpenChange, userRole }: CommandPaletteP
       (userRole && (Array.isArray(a.permission) ? a.permission : [a.permission]).some((p) => hasPermission(userRole, p)))
   );
 
+  const formatPhone = usePhoneFormatter();
+
   const search = useCallback(async (q: string) => {
     abortRef.current?.abort();
 
@@ -116,7 +119,7 @@ export function CommandPalette({ open, onOpenChange, userRole }: CommandPaletteP
       if (cusRes?.ok) {
         const { customers } = await cusRes.json();
         (customers ?? []).forEach((c: { id: string; name: string; phone?: string }) => {
-          combined.push({ id: c.id, label: c.name, sublabel: c.phone, href: `/customers/${c.id}`, type: 'customer' });
+          combined.push({ id: c.id, label: c.name, sublabel: formatPhone(c.phone), href: `/customers/${c.id}`, type: 'customer' });
         });
       }
 
@@ -140,7 +143,7 @@ export function CommandPalette({ open, onOpenChange, userRole }: CommandPaletteP
       // Only clear spinner if this is still the active request (not superseded by a newer one)
       if (abortRef.current === controller) setIsSearching(false);
     }
-  }, [userRole]);
+  }, [userRole, formatPhone]);
 
   // Debounce search
   useEffect(() => {

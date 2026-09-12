@@ -3,7 +3,7 @@
  * dashboard and the /production/tailors page. No runtime imports — safe for client components.
  */
 
-/** Order statuses in which assigned items count toward a tailor's active workload. */
+/** Item stages that count toward a tailor's active workload (READY is finished work). */
 export const ACTIVE_PRODUCTION_STATUSES = ['NEW', 'MATERIAL_SELECTED', 'CUTTING', 'STITCHING', 'FINISHING'] as const
 export type ActiveProductionStatus = (typeof ACTIVE_PRODUCTION_STATUSES)[number]
 
@@ -15,6 +15,9 @@ export interface WorkloadItem {
   id: string
   orderId: string
   orderNumber: string
+  /** The item's own production stage. */
+  status: string
+  /** The parent order's (derived) status. */
   orderStatus: string
   priority: string
   deliveryDate: string

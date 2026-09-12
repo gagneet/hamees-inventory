@@ -34,6 +34,7 @@ import {
   Legend,
 } from 'recharts'
 import { formatCurrency, currencySymbol } from '@/lib/utils'
+import { Money } from '@/components/ui/money'
 
 export default function FinancialReportPage() {
   const [data, setData] = useState<any>(null)
@@ -167,17 +168,44 @@ export default function FinancialReportPage() {
           <CardTitle>This Month — Profit &amp; Loss</CardTitle>
         </CardHeader>
         <CardContent>
+          {/* How the invoice total resolves into revenue: tax is collected for the tax
+              authority and is never income; discounts are not income either. */}
+          <div className="mb-5 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm">
+            <div className="flex justify-between py-1">
+              <span className="text-slate-600">Gross value (before discount &amp; tax)</span>
+              <span className="text-slate-900"><Money amount={data.summary.thisMonthGrossValue} align="end" /></span>
+            </div>
+            <div className="flex justify-between py-1">
+              <span className="text-slate-600">Less: discounts</span>
+              <span className="text-yellow-700">&minus;<Money amount={data.summary.thisMonthDiscounts} align="end" /></span>
+            </div>
+            <div className="flex justify-between py-1 border-t border-slate-200 mt-1 pt-2 font-semibold">
+              <span className="text-slate-700">Net sales excluding tax (revenue)</span>
+              <span className="text-green-700"><Money amount={data.summary.thisMonthRevenue} align="end" /></span>
+            </div>
+            <div className="flex justify-between py-1">
+              <span className="text-slate-600">Add: tax charged (payable to the tax authority)</span>
+              <span className="text-slate-900"><Money amount={data.summary.thisMonthTaxCollected} align="end" /></span>
+            </div>
+            <div className="flex justify-between py-1 border-t border-slate-200 mt-1 pt-2 font-semibold">
+              <span className="text-slate-700">Invoiced total</span>
+              <span className="text-slate-900"><Money amount={data.summary.thisMonthInvoicedTotal} align="end" /></span>
+            </div>
+            <p className="mt-3 text-xs text-slate-500">
+              Counted in the month each order was delivered (supply date), not the month it was taken.
+            </p>
+          </div>
           <div className="grid gap-4 md:grid-cols-4">
             <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-              <p className="text-sm font-medium text-green-800">Revenue</p>
+              <p className="text-sm font-medium text-green-800">Revenue (excl. tax)</p>
               <p className="text-2xl font-bold text-green-900">
-                {formatCurrency(data.summary.thisMonthRevenue)}
+                <Money amount={data.summary.thisMonthRevenue} />
               </p>
             </div>
             <div className="p-4 bg-red-50 rounded-lg border border-red-200">
               <p className="text-sm font-medium text-red-800">Expenses</p>
               <p className="text-2xl font-bold text-red-900">
-                {formatCurrency(data.summary.thisMonthExpenses)}
+                <Money amount={data.summary.thisMonthExpenses} />
               </p>
             </div>
             <div className={`p-4 rounded-lg border ${isProfitable ? 'bg-blue-50 border-blue-200' : 'bg-orange-50 border-orange-200'}`}>
@@ -186,7 +214,7 @@ export default function FinancialReportPage() {
               </p>
               <div className="flex items-center gap-2">
                 <p className={`text-2xl font-bold ${isProfitable ? 'text-blue-900' : 'text-orange-900'}`}>
-                  {formatCurrency(Math.abs(data.summary.thisMonthProfit))}
+                  <Money amount={Math.abs(data.summary.thisMonthProfit)} />
                 </p>
                 {isProfitable
                   ? <TrendingUp className="h-5 w-5 text-blue-600" />
@@ -211,21 +239,25 @@ export default function FinancialReportPage() {
         <CardContent>
           <div className="grid gap-4 md:grid-cols-3">
             <div>
-              <p className="text-sm text-slate-600">Total Revenue</p>
+              <p className="text-sm text-slate-600">Total Revenue (excl. tax)</p>
               <p className="text-xl font-bold text-green-600">
-                {formatCurrency(data.yearToDate.revenue)}
+                <Money amount={data.yearToDate.revenue} />
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                after <Money amount={data.yearToDate.discounts} /> discounts · tax charged{' '}
+                <Money amount={data.yearToDate.taxCollected} />
               </p>
             </div>
             <div>
               <p className="text-sm text-slate-600">Total Expenses</p>
               <p className="text-xl font-bold text-red-600">
-                {formatCurrency(data.yearToDate.expenses)}
+                <Money amount={data.yearToDate.expenses} />
               </p>
             </div>
             <div>
               <p className="text-sm text-slate-600">Net Profit</p>
               <p className={`text-xl font-bold ${data.yearToDate.profit >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
-                {formatCurrency(data.yearToDate.profit)}
+                <Money amount={data.yearToDate.profit} />
               </p>
             </div>
           </div>
@@ -247,7 +279,7 @@ export default function FinancialReportPage() {
                 <YAxis />
                 <Tooltip formatter={(v) => typeof v === 'number' ? `${formatCurrency(v)}` : '—'} />
                 <Legend />
-                <Line type="monotone" dataKey="revenue"  stroke="#10B981" strokeWidth={2} name={`Revenue (${currencySymbol()})`} />
+                <Line type="monotone" dataKey="revenue"  stroke="#10B981" strokeWidth={2} name={`Revenue excl. tax (${currencySymbol()})`} />
                 <Line type="monotone" dataKey="expenses" stroke="#EF4444" strokeWidth={2} name={`Expenses (${currencySymbol()})`} />
                 <Line type="monotone" dataKey="profit"   stroke="#3B82F6" strokeWidth={2} name={`Profit (${currencySymbol()})`} />
               </LineChart>
@@ -262,17 +294,38 @@ export default function FinancialReportPage() {
           <CardHeader><CardTitle>Cash Position</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
-              <span className="text-sm font-medium">Cash Received (Month)</span>
+              <span className="text-sm font-medium">Receipts (Month)</span>
               <span className="text-lg font-bold text-green-600">
-                {formatCurrency(data.summary.cashReceived)}
+                <Money amount={data.summary.receiptsTotal} align="end" />
               </span>
+            </div>
+            {/* Money in, by how it arrived. Advances carry no payment mode, so they show as
+                "Not recorded" rather than being counted as cash. */}
+            <div className="rounded-lg border border-slate-200 p-3 space-y-1">
+              <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">By payment mode</p>
+              {Object.keys(data.summary.receiptsByMode ?? {}).length === 0 ? (
+                <p className="text-sm text-slate-500">No money received this month.</p>
+              ) : (
+                Object.entries(data.summary.receiptsByMode as Record<string, number>)
+                  .sort(([, a], [, b]) => b - a)
+                  .map(([mode, amount]) => (
+                    <div key={mode} className="flex justify-between text-sm">
+                      <span className={mode === 'UNRECORDED' ? 'text-slate-500 italic' : 'text-slate-700'}>
+                        {mode === 'UNRECORDED' ? 'Not recorded (advances)' : mode.replace(/_/g, ' ')}
+                      </span>
+                      <span className="font-medium text-slate-900">
+                        <Money amount={amount} align="end" />
+                      </span>
+                    </div>
+                  ))
+              )}
             </div>
             <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
               <span className="text-sm font-medium">
                 Outstanding Payments ({data.summary.outstandingCount})
               </span>
               <span className="text-lg font-bold text-orange-600">
-                {formatCurrency(data.summary.outstandingPayments)}
+                <Money amount={data.summary.outstandingPayments} align="end" />
               </span>
             </div>
           </CardContent>
@@ -283,7 +336,7 @@ export default function FinancialReportPage() {
             <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
               <span className="text-sm font-medium">Inventory Value</span>
               <span className="text-lg font-bold text-blue-600">
-                {formatCurrency(data.summary.inventoryValue)}
+                <Money amount={data.summary.inventoryValue} align="end" />
               </span>
             </div>
           </CardContent>

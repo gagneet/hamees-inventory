@@ -66,6 +66,7 @@ import {
 } from '@/components/ui/breadcrumb'
 import DashboardLayout from '@/components/DashboardLayout'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { Money } from '@/components/ui/money'
 import { format } from 'date-fns'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -405,7 +406,7 @@ function ExpensesContent() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-green-600">
-                  {formatCurrency(data.summary.totalRevenue)}
+                  <Money amount={data.summary.totalRevenue} />
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
                   {data.summary.orderCount} orders delivered • Click for details
@@ -469,7 +470,7 @@ function ExpensesContent() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-red-600">
-                  {formatCurrency(data.summary.totalExpenses)}
+                  <Money amount={data.summary.totalExpenses} />
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
                   {data.summary.purchaseCount} purchases • Click for details
@@ -541,7 +542,7 @@ function ExpensesContent() {
               </CardHeader>
               <CardContent>
                 <div className={`text-2xl font-bold ${data.summary.netProfit >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
-                  {formatCurrency(data.summary.netProfit)}
+                  <Money amount={data.summary.netProfit} />
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
                   {data.summary.netProfit >= 0 ? 'Profit' : 'Loss'} • Click for details
@@ -607,7 +608,7 @@ function ExpensesContent() {
               </CardHeader>
               <CardContent>
                 <div className={`text-2xl font-bold ${data.summary.netGST >= 0 ? 'text-purple-600' : 'text-green-600'}`}>
-                  {formatCurrency(data.summary.netGST)}
+                  <Money amount={data.summary.netGST} />
                 </div>
                 <p className="text-xs text-slate-500 mt-1">
                   {data.summary.netGST >= 0 ? 'Payable' : 'Refund'} • Click for details
@@ -677,18 +678,18 @@ function ExpensesContent() {
           <div className="grid gap-4 md:grid-cols-3">
             <div>
               <p className="text-sm font-medium text-slate-500 mb-1">Output GST (Collected)</p>
-              <p className="text-2xl font-bold text-green-600">{formatCurrency(data.summary.gstCollected)}</p>
+              <p className="text-2xl font-bold text-green-600"><Money amount={data.summary.gstCollected} /></p>
               <p className="text-xs text-slate-500 mt-1">From {data.summary.orderCount} orders</p>
             </div>
             <div>
               <p className="text-sm font-medium text-slate-500 mb-1">Input Tax Credit (Paid)</p>
-              <p className="text-2xl font-bold text-orange-600">{formatCurrency(data.summary.gstPaid)}</p>
+              <p className="text-2xl font-bold text-orange-600"><Money amount={data.summary.gstPaid} /></p>
               <p className="text-xs text-slate-500 mt-1">On purchases & expenses</p>
             </div>
             <div>
               <p className="text-sm font-medium text-slate-500 mb-1">Net GST Liability</p>
               <p className={`text-2xl font-bold ${data.summary.netGST >= 0 ? 'text-purple-600' : 'text-blue-600'}`}>
-                {formatCurrency(Math.abs(data.summary.netGST))}
+                <Money amount={Math.abs(data.summary.netGST)} />
               </p>
               <p className="text-xs text-slate-500 mt-1">
                 {data.summary.netGST >= 0 ? 'To be paid to government' : 'Refundable from government'}
@@ -864,7 +865,7 @@ function ExpensesContent() {
                         {expense.gstAmount > 0 ? formatCurrency(expense.gstAmount) : '-'}
                       </TableCell>
                       <TableCell className="text-right font-semibold text-red-600">
-                        {formatCurrency(expense.totalAmount)}
+                        <Money amount={expense.totalAmount} align="end" />
                       </TableCell>
                       {(canManageExpenses || canDeleteExpenses) && (
                         <TableCell>

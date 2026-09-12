@@ -33,6 +33,7 @@ import DashboardLayout from '@/components/DashboardLayout'
 import { Pagination } from '@/components/ui/pagination'
 import { CustomerOrdersDialog } from '@/components/customers/customer-orders-dialog'
 import { formatDate } from '@/lib/utils'
+import { PhoneText } from '@/components/ui/phone-input'
 
 interface CustomerSummary {
   id: string
@@ -251,7 +252,7 @@ export default function CustomersPage() {
                     <div className="space-y-2 text-sm">
                       <div className="flex items-center gap-2 text-slate-600">
                         <Phone className="h-4 w-4" />
-                        <span>{customer.phone}</span>
+                        <span><PhoneText value={customer.phone} /></span>
                       </div>
                       {customer.email && (
                         <div className="flex items-center gap-2 text-slate-600">

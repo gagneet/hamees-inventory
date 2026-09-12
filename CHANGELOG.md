@@ -5,6 +5,91 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.50.0] - 2026-09-12 — Discounts before tax, revenue excluding tax, public order enquiries
+
+Addresses the accounting review of PR #112 and the Amazon Q review. Full validation of every
+finding, the migration decision and the design for the work not taken: `docs/issues_and_payment_options.md`.
+
+### Fixed
+- **A discount now reduces the taxable value instead of only the balance.** `taxableAmount = subTotal − discount`, tax is charged on that, and `totalAmount = taxableAmount + tax`. Previously the tax was calculated on the full subtotal and the discount was subtracted afterwards, which over-declared output tax on every discounted order and showed the discount below the tax-inclusive total on the invoice. This is what India's CGST s.15 requires for a discount recorded on the invoice, and what HMRC, the ATO and Japan's Qualified Invoice rules assume. The discount is no longer subtracted a second time from the balance — it is already inside the total.
+- Applied wherever an order is priced: creation (a discount can now be agreed at the point of sale and appears on the invoice from the start), the discount dialog, a fabric change, and splitting an order. **Splitting** previously taxed each pre-discount subtotal and then shared the discount by post-tax totals — two different bases; the discount is now shared on the pre-tax value and each side is taxed on its own discounted value.
+- **Revenue no longer includes tax or ignores discounts.** The financial report shows gross value → less discounts → net sales excluding tax (revenue) → plus tax charged → invoiced total, and measures profit against net sales. It counts each order in the month it was **delivered** (supply date) rather than the month it was taken, which is what the dashboard already did — the dashboard's revenue uses the same definition now, so the two agree.
+- **Money received is reported by payment mode.** "Cash Received" was the sum of every payment regardless of mode; it now means cash, alongside a per-mode breakdown and a total. Advances carry no payment mode, so they show as "Not recorded (advances)" rather than being counted as cash.
+- **`fromMinor()` fails loudly instead of silently rounding** an amount past JavaScript's safe-integer range (about 900 billion rupees). Reported by Amazon Q on PR #112.
+- **The dashboard's growth rate compared two different things.** Month-to-date revenue was summed from tax-inclusive order totals while the previous month came from the now tax-exclusive delivered revenue, so the percentage was wrong by roughly the tax rate; both sides now use net sales excluding tax. Customer lifetime spend stays deliberately tax-inclusive (it is what the customer paid) and says so.
+- The order page's balance self-check now uses the server's own helpers: it counts PARTIAL payments (it had only counted PAID), no longer discards a genuine first balance payment as if it were the legacy advance row, and identifies a legacy advance row by its note *and* matching amount rather than by amount alone.
+- The order page no longer logs a spurious "balance mismatch" or "advance payment mismatch" warning for every order with an advance: the self-check omitted `advancePaid` and compared installment #1 with the advance unconditionally, although since v0.28.4 the advance is not an installment.
+- The per-item invoice pages now add back to the order exactly — order-level costs, tax, the discount and payments are allocated with exact minor-unit arithmetic instead of floating-point ratios.
+
+### Added
+- **`apply_discount` permission**, separate from `record_payment`: approving a price reduction and receipting money are different responsibilities. Granted to the same roles that can record payments (OWNER, ADMIN), so who can do what is unchanged.
+- A **discount field on the new-order form** (with its reason, shown on the invoice) for roles holding `apply_discount`, and a discount dialog that works against the value before tax, caps at it, and previews the new taxable value, tax, total and balance.
+- The order's payment summary and the printed invoice show value before tax → discount → taxable value → tax → total.
+- **A public order enquiry page at `/order`** — the only part of the application a visitor can reach without signing in. A customer leaves their name, phone, garment type, rough quantity and a preferred date; the shop calls them back to take measurements and agree a price. It deliberately does **not** create an order: no stock is reserved, no price or tax is quoted and nothing enters production until a member of staff converts the enquiry, because a bespoke garment cannot be priced without measurements and fabric. Submissions are limited to 5 per IP address and 3 per phone number an hour, carry a hidden honeypot field, store only a salted hash of the IP address, and reject a number that cannot be dialled. The page lists garment type *names* only — no prices, no stock, no customer data.
+- **An Enquiries section in the dashboard** (`view_enquiries` / `manage_enquiries`, granted to OWNER, ADMIN and SALES_MANAGER) listing enquiries by status with counts and search, with call, mark-contacted, close and convert actions. Converting finds or creates the customer and opens the new-order form with them selected; the enquiry is marked converted by the order that results, so an abandoned form leaves no half-made order. When several customers share the phone number (families do), it asks which one rather than guessing.
+- `tests/unit/api/public-surface.test.ts` walks every API route file and fails if any of them is reachable without a permission check, against an explicit four-route allowlist (the health probe, the NextAuth handlers, the API-key-guarded Excel submission endpoint, and the public enquiry endpoint), with a second test that fails if the allowlist itself grows. It is a standing guard, not a one-off check of this change.
+- `scripts/reprice-discounted-orders.ts` re-prices orders written under the old model (dry run by default). **Delivered and cancelled orders are skipped**: restating a supply that has already been invoiced is a credit note, not a data fix. On this shop's database all seven discounted orders are delivered and settled, so the default run changes nothing.
+
+### Changed
+- `lib/order-pricing.ts` (new) holds the pricing and balance arithmetic with no Prisma import, so client components, scripts and tests share one definition; `lib/order-finance.ts` keeps the database-aware wrappers and re-exports it. `settingsFromRow()` moved to `lib/settings-row.ts` for the same reason.
+- `tests/unit/business/payment.test.ts` exercises the production helpers instead of re-implementing the formulas. 1,002 unit tests pass across 42 files.
+
+### Known limitations
+- **Advances are not auditable.** `Order.advancePaid` has no payment mode, receipt date, reference or reversal history, so cash reconciliation and refunds are still not possible. Design for a `Payment` ledger — and a smaller three-column interim step — in `docs/issues_and_payment_options.md` §4.1.
+- **An order is still used as the invoice.** There is no immutable invoice snapshot and no credit/debit note, so an issued invoice can still change and cannot be corrected properly (§4.3).
+- **One tax rate per order.** Fabric, garments and services cannot be taxed differently, and there is no tax-inclusive pricing mode (§4.2, §4.6). `BusinessSettings.fabricGstRate` remains unused.
+- Amounts are stored with a fixed scale of 2 for every currency (deliberate — the scale must not follow the configured currency); JPY still needs zero-decimal display and input rules, and the fixed premiums (5,000 / 1,500) are currency-agnostic numbers (§4.5).
+
+## [0.32.1] - 2026-09-11 — Dependency refresh
+
+### Security
+- **Next.js 16.2.6 → 16.3.5**, fixing two critical advisories: unauthenticated remote code execution on Windows-hosted servers, and RCE in the Image Optimization API when AVIF files are used (this shop runs on Linux, and the second needs AVIF uploads, so neither was exploitable here).
+- **next-auth 5.0.0-beta.30 → beta.32** and **@auth/prisma-adapter 2.11.2 → 2.11.3** (pulls `@auth/core` 0.41.3), fixing critical and high advisories in the auth layer.
+- Refreshing the lockfile within the declared ranges patched the remaining transitive advisories: `postcss` 8.5.28, `brace-expansion` 5.0.9, `fast-uri` 4.1.4, `tmp` 0.2.7, `js-yaml` 4.3.2, `nanoid`, `browserslist`, `@humanfs/node`, `sharp` and `@babel/core`. `pnpm audit` goes from 4 critical / 21 high / 6 moderate to 0 critical / 2 high / 1 moderate.
+- The two remaining advisories (`mysql2`, `deepmerge-ts`) are both inside the **Prisma CLI** (a dev dependency): Prisma 7.10 pins `mysql2` 3.15.3 and `@prisma/config` pins `deepmerge-ts` 7.1.5, and no patched release exists that Prisma accepts. Neither ships in the application, and this shop uses PostgreSQL, so the MySQL driver is never loaded. They clear when Prisma 8 is stable — they are deliberately *not* forced with an override.
+
+### Changed
+- Dependencies updated to current releases: Prisma 7.10, React 19.3, Radix UI, `zod` 4.6, `recharts` 3.10, `react-hook-form` 7.88, `pg` 8.23, `date-fns` 4.4, `@hookform/resolvers` 5.9, `sonner`, Tailwind 4.3.3, `tsx`, `@types/*`.
+- **Vitest 3 → 5** (with `@vitest/coverage-v8`) and an explicit `vite` 8 dev dependency, which clears the `vite`/`esbuild` advisories. `vitest.config.ts` moves `poolOptions.forks.singleFork` to `fileParallelism: false`, which Vitest 4 replaced it with — tests still run one file at a time, as the database-backed tests require.
+- **lucide-react 0.562 → 1.45**, **jsdom 26 → 30**, **@testing-library/jest-dom 6 → 7**.
+- Five `pnpm.overrides` entries are gone: `ws`, `hono`, `@hono/node-server` and one `minimatch` range are no longer in the dependency tree at all (Prisma 7.10 dropped the Hono-based dev server), and the rest now name the version that actually carries the fix instead of an older floor.
+- `@types/bcryptjs` removed — `bcryptjs` 3 ships its own types, and the `@types` package is deprecated.
+- `package-lock.json` deleted. The project uses pnpm (`packageManager: pnpm@10.28.0`); the stale npm lockfile only made the bots propose updates against a file nothing installs from.
+- `react-hooks/set-state-in-effect` and `react-hooks/immutability` — new React Compiler rules in eslint-plugin-react-hooks 7.1 — report as warnings for now: they flag 34 long-standing patterns in pages and dialogs (fetch-then-`setState` inside an effect, mutating a captured value), to be paid down page by page.
+- `version` in `package.json` now tracks the release (it had been left at 0.31.0).
+
+### Not taken
+- **TypeScript 7**, **ESLint 10** (its plugin ecosystem still declares `eslint@^9`, and forcing it would need exactly the overrides this change removes), **react-day-picker 10** (breaking API in the date picker) and **Prisma 8** (release candidate).
+
+## [0.32.0] - 2026-09-11 — Exact money, per-item production, stock reorder, international phones
+
+### Changed
+- **Production status is per garment** — each order item moves through the stages on its own, so a tailor moving their card moves only their garment. The production board shows one card per item; the order page has a stage control per item. The order's status is derived from its items (the least advanced stage), so it becomes READY — and the customer is notified — only when every garment is ready. Tailors can move only their own items, and back by at most one stage; delivery and cancellation stay order-level. Workload, the tailor dashboard, the pipeline chart and the production report count items. Existing items take their order's current status.
+- **Amounts are stored as whole minor units** — all 49 amount columns (orders, items, installments, purchase orders and lines, supplier prices, inventory prices, garment stitching charges, expenses) are `BigInt` counts of paise/cents instead of floating-point numbers, so totals, taxes and balances add up exactly. The Prisma client converts at the database boundary (`lib/prisma-client.ts`), so pages, APIs and exports still work with decimal amounts. The migration rounds each stored value to the nearest paisa; values carrying floating-point residue move by less than half a paisa.
+- Tax, balances, installment sums and cost splits use exact minor-unit arithmetic (`lib/money.ts`); report and dashboard sums convert aggregate results explicitly.
+- Payment-reminder alerts have their own `PAYMENT_REMINDER` type; `REORDER_REMINDER` now means a stock reorder. Existing alerts are migrated.
+- **Deploy** — `scripts/deploy.sh` builds the release in a temporary copy before touching anything, shows a read-only plan (pending migrations, dependency and Prisma client changes) and stops the app while those are applied, because the running server loads the Prisma client from `node_modules`. A failure before anything live changed starts the old app again; otherwise it prints recovery steps, including restoring the backup when migrations ran.
+- Scripts, seeds and integration tests create clients with `createPrismaClient()`. One-off money fix scripts from 2025–26 moved to `scripts/archived/` (they assume floating-point columns).
+
+### Added
+- **Purchase-order lines are linked to inventory** — every PO line is picked from the fabric or accessory list (searchable, showing stock and what is already on order) instead of typed as free text; the name, unit and type come from the item. Receiving credits the linked item. Existing lines were linked where the name matched exactly one item; a remaining unlinked line asks for the item once at receipt and is then linked.
+- **Automatic reorder check and alerts** — an item needs reordering when its available stock plus what is on approved purchase orders is at or below its minimum; a purchase order still awaiting approval keeps the alert open (and is subtracted from the suggested quantity, so nothing is ordered twice). The suggested quantity is the item's new *reorder quantity* setting, or enough to reach twice the minimum. The check runs after orders, stock edits and purchase-order changes, with alert generation, and on demand (Purchase Orders → Reorder suggestions). It keeps one reorder alert per item and, when Admin Settings → *Auto-reorder* is on, drafts one purchase order per supplier (priced from the supplier's current price) for approval — never approved automatically.
+- **International phone numbers** — customer, shop and imported numbers are validated for their country and stored in E.164 (+91…, +44…, +1…). Customer and settings forms use a phone input with a country picker; numbers are shown in the shop's national format (international format for other countries) with `tel:` links. Admin Settings' phone country code became a phone region (country), migrated from the old code. WhatsApp sends only to valid numbers. A number already used by another customer asks for confirmation instead of blocking (families share numbers). `scripts/normalize-phones.ts` converts existing numbers (dry run by default, `--apply` to write, prints counts only) — run it once after deploying so search finds older numbers.
+- **Secondary currency (display-only)** — Admin Settings → Currency & Locale: choose a second currency and enter the exchange rate. Order, customer, purchase-order and expense totals, the owner dashboard, reports and (optionally) the invoice show the indicative converted amount below the real one, with the rate and the date it was set in a tooltip. Stored amounts are never converted.
+- **Master Tailor demo account** — the seeds create `master@hameesattire.com` (a placeholder to rename to the real person). `scripts/create-master-tailor.ts` adds one to a live shop that has none, with a random password printed once, and records it in the audit log.
+
+### Fixed
+- The **Inventory Item Details** card on an alert crashed (it read a `minimum` the API never sent) and never loaded accessories; fabric and accessory alerts now both show stock, minimum and supplier, in meters or pieces, and link to the right inventory page.
+- Older stock alerts (stored with the table name, e.g. `ClothInventory`) showed no item details and did not open the item when clicked; both spellings now resolve to the same item.
+- Creating a purchase order retries when another request (or the reorder check) takes the same purchase-order number, instead of failing.
+- The inventory create forms sent the wrong minimum-stock field name, so a new item's minimum was ignored.
+
+### Known limitations
+- One exchange rate applies to all amounts, including historic ones; rates are not stored per record.
+- The receive dialog's item list for legacy unlinked lines loads at most 500 items per type.
+- Supplier phone numbers can only be corrected through the Excel import (there is no supplier edit form).
+- Login rate limiting is in memory (one app instance). The Content-Security-Policy does not restrict scripts yet. Customer-report segments use fixed thresholds (50,000 / 20,000) in the shop's currency.
+
 ## [0.31.0] - 2026-09-11 — Release hardening
 
 ### Security

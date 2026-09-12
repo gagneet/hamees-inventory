@@ -47,9 +47,16 @@ const demoUsers: DemoUser[] = [
   {
     email: 'tailor@hameesattire.com',
     password: 'admin123',
-    name: 'Master Tailor',
+    name: 'Tailor',
     role: 'TAILOR',
     phone: '+91-9876543214',
+  },
+  {
+    email: 'master@hameesattire.com',
+    password: 'admin123',
+    name: 'Master Tailor',
+    role: 'MASTER_TAILOR',
+    phone: '+91-9876543216',
   },
   {
     email: 'viewer@hameesattire.com',

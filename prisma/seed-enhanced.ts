@@ -1,18 +1,17 @@
-import { PrismaClient, UserRole, OrderStatus, OrderPriority, BodyType, StockMovementType } from '@prisma/client'
-import { PrismaPg } from '@prisma/adapter-pg'
+import { UserRole, OrderStatus, OrderPriority, BodyType, StockMovementType } from '@prisma/client'
 import { Pool } from 'pg'
 import * as bcrypt from 'bcryptjs'
 import * as dotenv from 'dotenv'
 import { subMonths, subDays, addDays } from 'date-fns'
+import { createPrismaClient } from '../lib/prisma-client'
 
 dotenv.config()
 
 const connectionString = process.env.DATABASE_URL!
 const pool = new Pool({ connectionString })
-const adapter = new PrismaPg(pool)
 
-const prisma = new PrismaClient({
-  adapter,
+const prisma = createPrismaClient({
+  pool,
   log: ['error'],
 })
 
@@ -519,6 +518,7 @@ async function main() {
               {
                 garmentPatternId: pattern.id,
                 clothInventoryId: cloth.id,
+                status, // items carry their own stage; the order's is derived from them
                 quantityOrdered: 1,
                 bodyType,
                 estimatedMeters,
@@ -585,7 +585,7 @@ async function main() {
         title: `${severity === 'HIGH' ? 'Critical' : 'Low'} Stock Alert - Cloth`,
         message: `${item.name} is running ${severity === 'HIGH' ? 'critically' : ''} low. Available: ${available}m, Minimum: ${item.minimumStockMeters}m`,
         relatedId: item.id,
-        relatedType: 'ClothInventory',
+        relatedType: 'cloth',
       },
     })
   }
@@ -604,7 +604,7 @@ async function main() {
         title: `${severity === 'HIGH' ? 'Critical' : 'Low'} Stock Alert - Accessory`,
         message: `${item.name} is running ${severity === 'HIGH' ? 'critically' : ''} low. Available: ${item.currentStock} pcs, Minimum: ${item.minimumStockUnits} pcs`,
         relatedId: item.id,
-        relatedType: 'AccessoryInventory',
+        relatedType: 'accessory',
       },
     })
   }

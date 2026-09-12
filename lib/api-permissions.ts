@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
-import { hasPermission, hasAnyPermission, type Permission, type UserRole } from '@/lib/permissions'
+import { hasPermission, hasAnyPermission, hasAllPermissions, type Permission, type UserRole } from '@/lib/permissions'
 
 /**
  * Check if the current user has a specific permission
@@ -41,6 +41,31 @@ export async function requireAnyPermission(permissions: Permission[]) {
   const userRole = session.user.role as UserRole
 
   if (!hasAnyPermission(userRole, permissions)) {
+    return {
+      error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }),
+    }
+  }
+
+  return { session, error: null }
+}
+
+/**
+ * Check that the current user has EVERY listed permission.
+ * Use where one action really does two things — converting an enquiry creates a customer and
+ * leads straight into creating an order, so it needs the permissions for both.
+ */
+export async function requireAllPermissions(permissions: Permission[]) {
+  const session = await auth()
+
+  if (!session?.user) {
+    return {
+      error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+    }
+  }
+
+  const userRole = session.user.role as UserRole
+
+  if (!hasAllPermissions(userRole, permissions)) {
     return {
       error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }),
     }

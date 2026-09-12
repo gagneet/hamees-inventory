@@ -20,6 +20,8 @@ import { formatCurrency } from '@/lib/utils'
 import DashboardLayout from '@/components/DashboardLayout'
 import { hasPermission, type UserRole } from '@/lib/permissions'
 import { AccessoryDetailEditButton } from '@/components/inventory/accessory-detail-edit-button'
+import { onOrderFor } from '@/lib/purchase-order-items'
+import { reorderSuggestion } from '@/lib/reorder'
 
 async function getAccessoryDetails(id: string) {
   try {
@@ -55,6 +57,14 @@ export default async function AccessoryDetailPage({
   const canRaisePO = hasPermission(role, 'manage_purchase_orders')
 
   const totalValue = accessory.currentStock * accessory.pricePerUnit
+  const { onOrder, awaitingApproval, openPurchaseOrders } = await onOrderFor(prisma, 'accessory', accessory.id)
+  const reorder = reorderSuggestion({
+    available: accessory.currentStock - accessory.reserved,
+    onOrder,
+    awaitingApproval,
+    minimum: accessory.minimumStockUnits,
+    reorderQuantity: accessory.reorderQuantity,
+  })
 
   const getStockStatus = () => {
     if (accessory.currentStock <= 0) return { label: 'Out of Stock', variant: 'destructive' as const }
@@ -267,15 +277,11 @@ export default async function AccessoryDetailPage({
                     <span className="text-sm text-slate-500">Status</span>
                     <Badge variant={status.variant}>{status.label}</Badge>
                   </div>
-                  {canRaisePO && accessory.currentStock < accessory.minimumStockUnits && (
+                  {canRaisePO && (reorder.needsReorder || accessory.currentStock < accessory.minimumStockUnits) && (
                     <Link
-                      href={`/purchase-orders/new?itemName=${encodeURIComponent(
-                        accessory.name
-                      )}&itemType=ACCESSORY&quantity=${
-                        Math.max(accessory.minimumStockUnits * 2 - accessory.currentStock, accessory.minimumStockUnits)
-                      }${showPricing ? `&pricePerUnit=${accessory.pricePerUnit}` : ''}&unit=pieces&color=${encodeURIComponent(
-                        accessory.color || ''
-                      )}&type=${encodeURIComponent(accessory.type)}`}
+                      href={`/purchase-orders/new?itemType=ACCESSORY&itemId=${accessory.id}${
+                        accessory.supplierId ? `&supplierId=${accessory.supplierId}` : ''
+                      }${reorder.quantity > 0 ? `&quantity=${reorder.quantity}` : ''}`}
                     >
                       <Button variant="outline" size="sm" className="w-full mt-3 border-orange-500 text-orange-600 hover:bg-orange-50">
                         <AlertTriangle className="h-4 w-4 mr-2" />
@@ -293,6 +299,31 @@ export default async function AccessoryDetailPage({
                     <span className="text-slate-600">Minimum:</span>
                     <span className="font-semibold">{accessory.minimumStockUnits} units</span>
                   </div>
+                  <div className="flex justify-between mt-2">
+                    <span className="text-slate-600">On order:</span>
+                    <span className="font-semibold text-blue-600">{onOrder} units</span>
+                  </div>
+                  <div className="flex justify-between mt-2">
+                    <span className="text-slate-600">Reorder quantity:</span>
+                    <span className="font-semibold">
+                      {accessory.reorderQuantity ? `${accessory.reorderQuantity} units` : 'Top up to 2× minimum'}
+                    </span>
+                  </div>
+                  {reorder.needsReorder && reorder.quantity > 0 && (
+                    <p className="mt-2 text-sm text-orange-600">Suggested reorder: {reorder.quantity} units</p>
+                  )}
+                  {openPurchaseOrders.length > 0 && (
+                    <ul className="mt-2 space-y-1 text-sm">
+                      {openPurchaseOrders.map((po) => (
+                        <li key={po.id} className="flex justify-between">
+                          <Link href={`/purchase-orders/${po.id}`} className="text-blue-600 hover:underline">
+                            {po.poNumber}
+                          </Link>
+                          <span className="text-slate-500">{po.outstanding} units outstanding</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               </CardContent>
             </Card>

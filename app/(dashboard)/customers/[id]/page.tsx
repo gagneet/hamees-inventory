@@ -20,33 +20,7 @@ import { prisma } from '@/lib/db'
 import { CustomerDetailClient } from './customer-detail-client'
 import { Prisma } from '@prisma/client'
 
-// Define the return type from the Prisma query
-type CustomerWithRelations = Prisma.CustomerGetPayload<{
-  include: {
-    measurements: {
-      include: {
-        createdBy: {
-          select: {
-            id: true
-            name: true
-            email: true
-          }
-        }
-      }
-    }
-    orders: {
-      include: {
-        items: {
-          include: {
-            garmentPattern: true
-          }
-        }
-      }
-    }
-  }
-}>
-
-async function getCustomerDetails(id: string, actor: Actor): Promise<CustomerWithRelations | null> {
+async function getCustomerDetails(id: string, actor: Actor) {
   try {
     const customer = await prisma.customer.findFirst({
       where: scopedWhere<Prisma.CustomerWhereInput>({ id }, customerScope(actor)),
@@ -85,6 +59,8 @@ async function getCustomerDetails(id: string, actor: Actor): Promise<CustomerWit
     return null
   }
 }
+
+type CustomerWithRelations = NonNullable<Awaited<ReturnType<typeof getCustomerDetails>>>
 
 export default async function CustomerDetailPage({
   params,

@@ -15,12 +15,15 @@ import {
 } from '@/components/ui/breadcrumb'
 import { Home, ArrowLeft, AlertCircle, User } from 'lucide-react'
 import { useAppSettings } from '@/components/providers/settings-provider'
+import { PhoneInput } from '@/components/ui/phone-input'
 
 export default function NewCustomerPage() {
   const settings = useAppSettings()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  // Set when another customer already has the number (families often share one)
+  const [duplicate, setDuplicate] = useState<{ id: string; name: string } | null>(null)
 
   // Form state
   const [name, setName] = useState('')
@@ -32,9 +35,9 @@ export default function NewCustomerPage() {
   const [pincode, setPincode] = useState('')
   const [notes, setNotes] = useState('')
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const createCustomer = async (allowDuplicatePhone: boolean) => {
     setError('')
+    setDuplicate(null)
     setLoading(true)
 
     try {
@@ -58,6 +61,7 @@ export default function NewCustomerPage() {
           name: name.trim(),
           email: email.trim() || null,
           phone: phone.trim(),
+          allowDuplicatePhone,
           address: address.trim() || null,
           city: city.trim() || null,
           state: state.trim() || null,
@@ -70,6 +74,7 @@ export default function NewCustomerPage() {
 
       if (!res.ok) {
         setError(data.error || 'Failed to create customer')
+        if (res.status === 409 && data.code === 'DUPLICATE_PHONE') setDuplicate(data.existingCustomer)
         setLoading(false)
         return
       }
@@ -81,6 +86,11 @@ export default function NewCustomerPage() {
       setError('An error occurred while creating the customer')
       setLoading(false)
     }
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    void createCustomer(false)
   }
 
   return (
@@ -125,6 +135,16 @@ export default function NewCustomerPage() {
             <div>
               <p className="font-semibold text-red-900">Error</p>
               <p className="text-sm text-red-700">{error}</p>
+              {duplicate && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Link href={`/customers/${duplicate.id}`}>
+                    <Button type="button" variant="outline" size="sm">Open {duplicate.name}</Button>
+                  </Link>
+                  <Button type="button" size="sm" disabled={loading} onClick={() => createCustomer(true)}>
+                    Create anyway
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -163,15 +183,7 @@ export default function NewCustomerPage() {
                   <label htmlFor="phone" className="block text-sm font-medium text-slate-700 mb-2">
                     Phone Number <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    id="phone"
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder={`+${settings.phoneCountryCode} …`}
-                    required
-                  />
+                  <PhoneInput id="phone" value={phone} onChange={setPhone} required />
                 </div>
 
                 {/* Email - Optional */}

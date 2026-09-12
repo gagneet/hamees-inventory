@@ -20,7 +20,8 @@ import { auth } from '@/lib/auth'
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { prisma } from '@/lib/db'
-import { actorFromSession, orderScope, scopedWhere } from '@/lib/authz'
+import { actorFromSession, canSeeAllOrders, orderScope, scopedWhere } from '@/lib/authz'
+import { itemProgress } from '@/lib/item-status'
 import { hasFinancialAccess, isFinancialField } from '@/lib/field-acl'
 import { hasPermission, type UserRole } from '@/lib/permissions'
 import { getAppSettings } from '@/lib/settings'
@@ -37,6 +38,7 @@ import {
 } from '@/components/ui/breadcrumb'
 import { Home, ArrowLeft, ShoppingBag, User, Calendar, DollarSign, Phone, Mail, Ruler } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { Money } from '@/components/ui/money'
 import { currencySymbol, getActiveLocaleConfig } from '@/lib/locale'
 import DashboardLayout from '@/components/DashboardLayout'
 import { OrderActions } from '@/components/orders/order-actions'
@@ -52,6 +54,14 @@ import { OrderItemDetailDialog } from '@/components/orders/order-item-detail-dia
 import { AssignTailorDialog } from '@/components/orders/assign-tailor-dialog'
 import { SendWhatsAppButton } from '@/components/orders/send-whatsapp-button'
 import { OrderItemMeasurements } from '@/components/orders/order-item-measurements'
+import { ItemStatusControl } from '@/components/orders/item-status-control'
+import { PhoneText } from '@/components/ui/phone-input'
+import {
+  LEGACY_ADVANCE_NOTE_PREFIX,
+  isLegacyAdvanceInstallment,
+  orderBalance,
+  sumInstallmentPayments,
+} from '@/lib/order-pricing'
 
 async function getOrderDetails(id: string, scope: Prisma.OrderWhereInput) {
   try {
@@ -78,6 +88,7 @@ async function getOrderDetails(id: string, scope: Prisma.OrderWhereInput) {
         sgst: true,
         igst: true,
         gstAmount: true,
+        taxableAmount: true,
         customerId: true,
         customer: {
           select: {
@@ -223,6 +234,7 @@ export default async function OrderDetailPage({
   const canEditOrder = hasPermission(role, 'update_order')
   const canUpdateStatus = hasPermission(role, 'update_order_status')
   const canRecordPayment = hasPermission(role, 'record_payment')
+  const canApplyDiscount = hasPermission(role, 'apply_discount')
   const canAssignTailors = hasPermission(role, 'assign_tailors')
   const canManageMeasurements = hasPermission(role, 'manage_measurements')
   // Customer messaging is a front-office action (sales / owner / admin)
@@ -236,6 +248,12 @@ export default async function OrderDetailPage({
 
   const isClosed = order.status === 'DELIVERED' || order.status === 'CANCELLED'
   const history = redactHistory(order.history, showOrderFinancials)
+
+  // Garments move through production on their own; the order's stage is derived from them
+  // (least advanced item — lib/item-status.ts)
+  const seesAllOrders = canSeeAllOrders(actor)
+  const progress = itemProgress(order.items)
+  const canBulkMove = seesAllOrders || order.items.every((item: OrderItem) => item.assignedTailorId === actor.id)
 
   const statusColors: Record<string, { bg: string; text: string; border: string }> = {
     NEW: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
@@ -265,31 +283,32 @@ export default async function OrderDetailPage({
   // Use 0.01 threshold to avoid floating-point precision errors
   const isArrears = order.status === 'DELIVERED' && order.balanceAmount > 0.01
 
-  // Calculate total paid from installments and verify consistency
-  const totalPaidFromInstallments = order.installments
-    .filter((i: OrderInstallment) => i.status === 'PAID')
-    .reduce((sum: number, i: OrderInstallment) => sum + i.paidAmount, 0)
+  // Money received through installments, using exactly the server's rules
+  // (lib/order-pricing.ts): every installment with money on it counts — PARTIAL as well as PAID
+  // — except a pre-v0.28.4 row that merely duplicates Order.advancePaid. That row is recognised
+  // by its note AND its matching amount, never by amount alone, because a real first payment can
+  // legitimately equal the advance.
+  const balancePayments = sumInstallmentPayments(order.installments, order.advancePaid)
 
-  const advanceFromInstallment = order.installments
-    .find((i: OrderInstallment) => i.installmentNumber === 1)?.paidAmount || 0
-
-  // Log warning if advance payment mismatch detected
-  if (Math.abs(advanceFromInstallment - order.advancePaid) > 0.01) {
+  // The one anomaly still worth reporting: installment #1 carries the legacy advance note but no
+  // longer matches Order.advancePaid, so it is neither a clean duplicate nor a real payment.
+  const firstInstallment = order.installments.find((i: OrderInstallment) => i.installmentNumber === 1)
+  const driftedLegacyAdvanceRow =
+    !!firstInstallment &&
+    (firstInstallment.notes ?? '').trimStart().startsWith(LEGACY_ADVANCE_NOTE_PREFIX) &&
+    !isLegacyAdvanceInstallment(firstInstallment, order.advancePaid)
+  if (driftedLegacyAdvanceRow) {
     console.warn(
       `⚠️ Order ${order.orderNumber}: Advance payment mismatch detected!\n` +
       `  Order.advancePaid: ${formatCurrency(order.advancePaid)}\n` +
-      `  Installment #1 paidAmount: ${formatCurrency(advanceFromInstallment)}\n` +
-      `  Difference: ${formatCurrency(Math.abs(advanceFromInstallment - order.advancePaid))}`
+      `  Installment #1 paidAmount: ${formatCurrency(firstInstallment.paidAmount)}\n` +
+      `  Difference: ${formatCurrency(Math.abs(firstInstallment.paidAmount - order.advancePaid))}`
     )
   }
 
-  // Calculate total balance payments (all installments except #1 which is advance)
-  const balancePayments = order.installments
-    .filter((i: OrderInstallment) => i.installmentNumber > 1 && i.status === 'PAID')
-    .reduce((sum: number, i: OrderInstallment) => sum + i.paidAmount, 0)
-
-  // Verify balance calculation matches expected formula
-  const expectedBalance = order.totalAmount - order.discount - totalPaidFromInstallments
+  // Verify the stored balance against the one formula. The discount is NOT subtracted here:
+  // it already reduced the taxable value, so it is inside totalAmount (lib/order-pricing.ts).
+  const expectedBalance = orderBalance(order.totalAmount, order.advancePaid, balancePayments)
   if (Math.abs(expectedBalance - order.balanceAmount) > 0.01) {
     console.warn(
       `⚠️ Order ${order.orderNumber}: Balance calculation mismatch!\n` +
@@ -334,11 +353,19 @@ export default async function OrderDetailPage({
             </p>
           </div>
         </div>
-        <Badge
-          className={`px-3 py-1 text-sm ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border} border`}
-        >
-          {statusLabels[order.status]}
-        </Badge>
+        <div className="flex flex-col items-end gap-1">
+          <Badge
+            className={`px-3 py-1 text-sm ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border} border`}
+            title={isClosed ? undefined : 'Derived from the items: the least advanced garment'}
+          >
+            {statusLabels[order.status]}
+          </Badge>
+          {!isClosed && progress.total > 1 && (
+            <p className="text-xs text-slate-500">
+              {progress.ready} of {progress.total} items ready
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Main Content */}
@@ -374,6 +401,17 @@ export default async function OrderDetailPage({
                             <p className="text-xs text-slate-500 font-mono mt-1">
                               SKU: {item.clothInventory.sku}
                             </p>
+                            <div className="mt-2">
+                              <ItemStatusControl
+                                orderId={order.id}
+                                itemId={item.id}
+                                status={item.status}
+                                canMove={
+                                  canUpdateStatus && !isClosed && (seesAllOrders || item.assignedTailorId === actor.id)
+                                }
+                                canMoveAnyStage={seesAllOrders}
+                              />
+                            </div>
                           </div>
                         </div>
                         </div>
@@ -583,7 +621,7 @@ export default async function OrderDetailPage({
                 </div>
                 <div className="flex items-center gap-2 text-slate-700">
                   <Phone className="h-4 w-4" />
-                  <span>{order.customer.phone}</span>
+                  <span><PhoneText value={order.customer.phone} /></span>
                 </div>
                 {order.customer.email && (
                   <div className="flex items-center gap-2 text-slate-700">
@@ -625,30 +663,52 @@ export default async function OrderDetailPage({
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex justify-between">
+                  <span className="text-slate-600">Value before tax:</span>
+                  <span className="text-slate-900">
+                    <Money amount={order.subTotal} align="end" />
+                  </span>
+                </div>
+                {order.discount > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Less: Discount</span>
+                    <span className="text-yellow-600">
+                      &minus;<Money amount={order.discount} align="end" />
+                    </span>
+                  </div>
+                )}
+                {order.gstAmount > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Taxable value:</span>
+                    <span className="text-slate-900">
+                      <Money amount={order.taxableAmount} align="end" />
+                    </span>
+                  </div>
+                )}
+                {order.gstAmount > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">Tax:</span>
+                    <span className="text-slate-900">
+                      <Money amount={order.gstAmount} align="end" />
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between pt-2 border-t">
                   <span className="text-slate-600">Total Amount:</span>
                   <span className="font-semibold text-slate-900">
-                    {formatCurrency(order.totalAmount)}
+                    <Money amount={order.totalAmount} align="end" />
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-600">Advance Paid:</span>
                   <span className="font-semibold text-green-600">
-                    {formatCurrency(order.advancePaid)}
+                    <Money amount={order.advancePaid} align="end" />
                   </span>
                 </div>
                 {balancePayments > 0 && (
                   <div className="flex justify-between">
                     <span className="text-slate-600">Balance Paid:</span>
                     <span className="font-semibold text-green-600">
-                      {formatCurrency(balancePayments)}
-                    </span>
-                  </div>
-                )}
-                {order.discount > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Discount:</span>
-                    <span className="font-semibold text-yellow-600">
-                      {formatCurrency(order.discount)}
+                      <Money amount={balancePayments} align="end" />
                     </span>
                   </div>
                 )}
@@ -664,7 +724,7 @@ export default async function OrderDetailPage({
                   <span className={`font-semibold text-lg ${
                     isArrears ? 'text-red-600' : (order.balanceAmount > 0.01 ? 'text-orange-600' : 'text-green-600')
                   }`}>
-                    {formatCurrency(Math.max(0, order.balanceAmount))}
+                    <Money amount={Math.max(0, order.balanceAmount)} align="end" />
                     {isArrears && (
                       <span className="text-xs ml-2 px-2 py-0.5 bg-red-100 text-red-700 rounded">ARREARS</span>
                     )}
@@ -734,11 +794,16 @@ export default async function OrderDetailPage({
                 discountReason={showOrderFinancials ? order.discountReason : null}
                 notes={order.notes}
                 priority={order.priority}
+                subTotal={showOrderFinancials ? order.subTotal : 0}
+                gstRate={showOrderFinancials ? order.gstRate : 0}
                 totalAmount={showOrderFinancials ? order.totalAmount : 0}
                 balanceAmount={showOrderFinancials ? order.balanceAmount : 0}
                 canUpdateStatus={canUpdateStatus}
+                itemProgress={progress}
+                canBulkMove={canBulkMove}
                 canEditOrder={canEditOrder}
                 canRecordPayment={canRecordPayment && showOrderFinancials}
+                canApplyDiscount={canApplyDiscount && showOrderFinancials}
                 showFinancials={showOrderFinancials}
                 isDelivered={isClosed}
               />
@@ -791,6 +856,7 @@ export default async function OrderDetailPage({
                     totalAmount: order.totalAmount,
                     advancePaid: order.advancePaid,
                     discount: order.discount || 0,
+                    discountReason: order.discountReason,
                     balanceAmount: order.balanceAmount,
                     notes: order.notes,
                   }}

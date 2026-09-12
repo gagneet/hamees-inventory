@@ -2,12 +2,13 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { verifyExcelApiKey } from '@/lib/excel-api-auth'
 import { generateOrderNumber } from '@/lib/utils'
-import { getAppSettings, taxConfigFrom } from '@/lib/settings'
-import { computeTax } from '@/lib/tax'
+import { getAppSettings } from '@/lib/settings'
 import { formatCurrency } from '@/lib/locale'
-import { roundMoney } from '@/lib/order-finance'
+import { priceNewOrder, roundMoney } from '@/lib/order-finance'
 import { InsufficientStockError, reserveClothStock, roundMeters } from '@/lib/stock'
 import { BodyType } from '@/lib/types'
+import { normalizePhone } from '@/lib/phone'
+import { findCustomersByPhone } from '@/lib/phone-lookup'
 import { z } from 'zod'
 
 /**
@@ -110,6 +111,13 @@ export async function POST(request: Request) {
     const body = await request.json()
     const data = submitOrderSchema.parse(body)
 
+    // Phone numbers are stored in E.164; numbers without +code are read in the shop's region
+    const { phoneRegion } = await getAppSettings()
+    const customerPhone = normalizePhone(data.customerPhone, phoneRegion)
+    if (!customerPhone.ok) {
+      return NextResponse.json({ error: customerPhone.error }, { status: 400 })
+    }
+
     // ── 0. Resolve system user (for StockMovement.userId) ────
     // Excel submissions are unauthenticated (API key only); attribute stock
     // movements to the first OWNER in the system as a system actor.
@@ -129,15 +137,15 @@ export async function POST(request: Request) {
     // ── 1. Customer lookup / create ───────────────────────────
     let customer = data.customerId
       ? await prisma.customer.findUnique({ where: { id: data.customerId } })
-      : await prisma.customer.findFirst({
-          where: { phone: { equals: data.customerPhone, mode: 'insensitive' } },
-        })
+      : await findCustomersByPhone(customerPhone.e164, phoneRegion).then(([match]) =>
+          match ? prisma.customer.findUnique({ where: { id: match.id } }) : null
+        )
 
     if (!customer) {
       customer = await prisma.customer.create({
         data: {
           name: data.customerName.trim(),
-          phone: data.customerPhone.trim(),
+          phone: customerPhone.e164,
           city: data.customerCity?.trim() || null,
           address: data.customerAddress?.trim() || null,
         },
@@ -247,10 +255,11 @@ export async function POST(request: Request) {
     const fabricCostVal = clothInventory.pricePerMeter * requiredMeters
     const stitchingCostVal = (garmentPattern.basicStitchingCharge ?? 0) * data.quantity
     const totalItemCost = fabricCostVal + stitchingCostVal
-    const settings = await getAppSettings()
-    const subTotal = roundMoney(totalItemCost)
-    const tax = computeTax(subTotal, taxConfigFrom(settings), { customerRegion: customer.state })
-    const { gstRate, gstAmount, cgst, sgst, igst, totalAmount } = tax
+    await getAppSettings() // primes the shop's currency/locale for the messages below
+    // One pricing definition for every order (lib/order-pricing.ts). The Excel macro carries no
+    // discount, so the taxable value is the whole subtotal — but it is derived, never assumed.
+    const pricing = await priceNewOrder(roundMoney(totalItemCost), 0, { customerRegion: customer.state })
+    const { subTotal, gstRate, gstAmount, cgst, sgst, igst, taxableAmount, totalAmount } = pricing
     const advancePaid = roundMoney(data.advancePaid ?? 0)
     if (advancePaid > totalAmount) {
       return NextResponse.json(
@@ -298,7 +307,7 @@ export async function POST(request: Request) {
           subTotal,
           gstRate,
           gstAmount,
-          taxableAmount: subTotal,
+          taxableAmount,
           cgst,
           sgst,
           igst,

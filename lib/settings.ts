@@ -12,51 +12,18 @@
  *   - app/api/settings (GET for any signed-in user, PUT for manage_settings)
  */
 
-import type { BusinessSettings } from '@prisma/client'
 import { prisma } from '@/lib/db'
-import { normalizeLocaleConfig, setActiveLocaleConfig } from '@/lib/locale'
-import { TAX_MODES, type TaxMode } from '@/lib/tax'
+import { setActiveLocaleConfig } from '@/lib/locale'
 import { DEFAULT_APP_SETTINGS, type AppSettings } from '@/lib/app-settings'
+import { settingsFromRow } from '@/lib/settings-row'
 
-export { DEFAULT_APP_SETTINGS, taxConfigFrom, toInternationalPhone } from '@/lib/app-settings'
+export { DEFAULT_APP_SETTINGS, taxConfigFrom } from '@/lib/app-settings'
 export type { AppSettings } from '@/lib/app-settings'
 
 /** Fixed id of the singleton settings row (created by the release migration). */
 export const SETTINGS_ROW_ID = 'default'
 
-export function settingsFromRow(row: BusinessSettings): AppSettings {
-  const locale = normalizeLocaleConfig({ currency: row.currencyCode, locale: row.locale, timeZone: row.timeZone })
-  const taxMode = (TAX_MODES as string[]).includes(row.taxMode) ? (row.taxMode as TaxMode) : 'SPLIT'
-  return {
-    businessName: row.businessName,
-    tagline: row.tagline,
-    taxId: row.gstin,
-    region: row.state,
-    address: row.address,
-    city: row.city,
-    postalCode: row.pincode,
-    country: row.country,
-    phone: row.phone,
-    email: row.email,
-    website: row.website,
-
-    currency: locale.currency,
-    locale: locale.locale,
-    timeZone: locale.timeZone,
-    phoneCountryCode: row.phoneCountryCode,
-    postalCodeLabel: row.postalCodeLabel,
-
-    taxMode,
-    taxName: row.taxName,
-    taxIdLabel: row.taxIdLabel,
-    taxRate: row.garmentGstRate,
-
-    invoiceFooter: row.invoiceFooter,
-
-    maxActiveItemsPerTailor: row.maxActiveItemsPerTailor,
-    tailorDailyTarget: row.tailorDailyTarget,
-  }
-}
+export { settingsFromRow } from '@/lib/settings-row'
 
 const CACHE_KEY = Symbol.for('hamees.appSettings')
 const CACHE_TTL_MS = 30_000
@@ -65,7 +32,14 @@ type CacheEntry = { at: number; value: AppSettings }
 type GlobalWithSettings = typeof globalThis & { [CACHE_KEY]?: CacheEntry }
 
 function prime(value: AppSettings): AppSettings {
-  setActiveLocaleConfig({ currency: value.currency, locale: value.locale, timeZone: value.timeZone })
+  setActiveLocaleConfig({
+    currency: value.currency,
+    locale: value.locale,
+    timeZone: value.timeZone,
+    secondaryCurrency: value.secondaryCurrency,
+    exchangeRate: value.exchangeRate,
+    exchangeRateUpdatedAt: value.exchangeRateUpdatedAt,
+  })
   return value
 }
 

@@ -28,6 +28,8 @@ interface Order {
     name: string
   }
   items: Array<{
+    /** The garment's own production stage */
+    status?: string
     garmentPattern: {
       name: string
     }
@@ -57,10 +59,10 @@ export function TailorDashboard({ stats }: TailorDashboardProps) {
       {/* Row 1: Focus Cards */}
       <div className="grid gap-4 md:grid-cols-3">
         <OrderListDialog
-          title="In Progress Orders"
-          description="Orders currently in cutting, stitching, or finishing phases"
+          title="In Progress"
+          description="Orders with garments in cutting, stitching or finishing"
           orders={stats.inProgressList}
-          emptyMessage="No orders in progress"
+          emptyMessage="No garments in progress"
           trigger={
             <Card className="border-l-4 border-l-blue-500 cursor-pointer hover:shadow-lg transition-shadow">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -70,7 +72,7 @@ export function TailorDashboard({ stats }: TailorDashboardProps) {
               <CardContent>
                 <div className="text-3xl font-bold text-blue-600">{stats.inProgress}</div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Currently being worked on · Click for details
+                  {stats.inProgress === 1 ? 'Garment' : 'Garments'} being worked on · Click for details
                 </p>
               </CardContent>
             </Card>

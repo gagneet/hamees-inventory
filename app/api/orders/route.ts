@@ -7,8 +7,9 @@ import { canViewField, hasFinancialAccess } from '@/lib/field-acl'
 import { hasPermission } from '@/lib/permissions'
 import { actorFromSession, isAssignableTailor, orderScope, scopedWhere } from '@/lib/authz'
 import { formatCurrency } from '@/lib/locale'
-import { orderTax, roundMoney } from '@/lib/order-finance'
+import { clampDiscount, priceNewOrder, roundMoney } from '@/lib/order-finance'
 import { InsufficientStockError, reserveAccessoryStock, reserveClothStock } from '@/lib/stock'
+import { runReorderCheckQuietly } from '@/lib/reorder'
 import { z } from 'zod'
 import { OrderStatus, OrderPriority, BodyType, StitchingTier } from '@/lib/types'
 
@@ -20,6 +21,12 @@ const orderSchema = z.object({
   deliveryDate: z.string().min(1, 'Delivery date is required'),
   priority: z.nativeEnum(OrderPriority).default(OrderPriority.NORMAL),
   advancePaid: z.number().min(0).default(0),
+  // A discount agreed at the time of sale: it reduces the taxable value, so it must be recorded
+  // on the invoice itself (India CGST s.15) rather than applied afterwards as a payment.
+  discount: z.number().min(0).default(0),
+  discountReason: z.string().max(500).nullish(),
+  /** Set when the order came from a public enquiry (app/order); marks that enquiry converted. */
+  enquiryId: z.string().nullish(),
   notes: z.string().nullish(),
 
   // ✨ PREMIUM PRICING SYSTEM (v0.22.0) - New fields
@@ -588,10 +595,25 @@ export async function POST(request: Request) {
       validatedData.designerConsultationFee
     ).toFixed(2))
 
-    // Tax per shop settings (SPLIT → CGST+SGST or IGST by customer region, SINGLE → one line, NONE → 0)
-    const tax = await orderTax(subTotal, { customerRegion: customer.state })
-    const { gstRate, cgst, sgst, igst, gstAmount, totalAmount } = tax
-    const taxableAmount = subTotal
+    // A discount is a price reduction, not a payment: only roles allowed to approve pricing may
+    // set one, and it comes off the subtotal before tax is charged.
+    const discount = clampDiscount(validatedData.discount, subTotal)
+    if (discount > 0 && !hasPermission(actor.role, 'apply_discount')) {
+      return NextResponse.json({ error: 'Your role cannot apply a discount' }, { status: 403 })
+    }
+    if (validatedData.discount > subTotal + 0.005) {
+      return NextResponse.json(
+        {
+          error: `Discount (${formatCurrency(validatedData.discount)}) cannot exceed the order value before tax (${formatCurrency(subTotal)})`,
+        },
+        { status: 400 }
+      )
+    }
+
+    // Tax per shop settings (SPLIT → CGST+SGST or IGST by customer region, SINGLE → one line,
+    // NONE → 0), charged on subTotal − discount.
+    const pricing = await priceNewOrder(subTotal, discount, { customerRegion: customer.state })
+    const { gstRate, cgst, sgst, igst, gstAmount, taxableAmount, totalAmount } = pricing
 
     // Validate advance payment doesn't exceed total amount
     if (validatedData.advancePaid > totalAmount) {
@@ -683,6 +705,8 @@ export async function POST(request: Request) {
           gstAmount,
           taxableAmount,
           totalAmount,
+          discount,
+          discountReason: discount > 0 ? validatedData.discountReason ?? null : null,
           advancePaid: validatedData.advancePaid,
           balanceAmount,
           notes: validatedData.notes,
@@ -700,6 +724,19 @@ export async function POST(request: Request) {
           customer: true,
         },
       })
+
+      // An order raised from a public enquiry closes that enquiry (lib/permissions: manage_enquiries)
+      if (validatedData.enquiryId && hasPermission(actor.role, 'manage_enquiries')) {
+        await tx.customerEnquiry.updateMany({
+          where: { id: validatedData.enquiryId, status: { not: 'CONVERTED' } },
+          data: {
+            status: 'CONVERTED',
+            orderId: newOrder.id,
+            customerId: validatedData.customerId,
+            handledById: actor.id,
+          },
+        })
+      }
 
       // Stock movements for each item's fabric reservation
       for (const item of newOrder.items) {
@@ -751,6 +788,9 @@ export async function POST(request: Request) {
         console.error('Failed to send WhatsApp confirmation:', error)
       }
     })
+
+    // Reservations lower available stock: raise reorder alerts / draft POs as needed
+    after(() => runReorderCheckQuietly({ trigger: 'order_created', userId: actor.id }))
 
     return NextResponse.json({ order: filtered }, { status: 201 })
   } catch (error) {

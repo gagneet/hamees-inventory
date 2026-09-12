@@ -5,7 +5,7 @@ import { resolve } from 'path'
 // Integration tests that open their own database connection (or unmock @/lib/db) write test
 // rows; they only run against a disposable database named by TEST_DATABASE_URL (never the
 // production DB). Detected by content so new DB-backed tests are gated automatically.
-const DB_TEST_MARKER = /new PrismaClient\(|vi\.unmock\(\s*['"]@\/lib\/db['"]/
+const DB_TEST_MARKER = /new PrismaClient\(|createPrismaClient\(|vi\.unmock\(\s*['"]@\/lib\/db['"]/
 function databaseBackedTests(dir = 'tests/integration'): string[] {
   try {
     return readdirSync(resolve(__dirname, dir), { recursive: true, encoding: 'utf8' })
@@ -29,11 +29,9 @@ export default defineConfig({
     testTimeout: 30000,
     hookTimeout: 30000,
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
-    },
+    // One worker, files in sequence: the database-backed integration tests share one database.
+    // (Vitest 4 replaced poolOptions.forks.singleFork with this.)
+    fileParallelism: false,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

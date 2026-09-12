@@ -106,6 +106,66 @@ describe('reports API response shapes', () => {
     )
   })
 
+  it('financial revenue is net of discounts and excludes tax, and receipts are split by mode', async () => {
+    // One delivered order: 100,000 gross − 10,000 discount = 90,000 taxable, 10,800 GST,
+    // 100,800 invoiced. Revenue must be the 90,000 — tax belongs to the tax authority and a
+    // discount is not income.
+    mockPrisma.order.aggregate
+      .mockResolvedValueOnce({
+        _sum: {
+          subTotal: 10000000n,
+          discount: 1000000n,
+          taxableAmount: 9000000n,
+          gstAmount: 1080000n,
+          totalAmount: 10080000n,
+        },
+      })
+      .mockResolvedValueOnce({ _sum: { balanceAmount: 0n }, _count: 0 }) // outstanding
+      .mockResolvedValueOnce({ _sum: { advancePaid: 2500000n } }) // advances this month
+    mockPrisma.expense.aggregate.mockResolvedValueOnce({ _sum: { totalAmount: 3000000n } })
+    mockPrisma.paymentInstallment = {
+      aggregate: vi.fn(),
+      findMany: vi.fn().mockResolvedValue([
+        { installmentNumber: 2, paidAmount: 12000, paymentMode: 'CASH', notes: null, order: { advancePaid: 25000 } },
+        { installmentNumber: 3, paidAmount: 8000, paymentMode: 'UPI', notes: null, order: { advancePaid: 25000 } },
+      ]),
+    }
+    mockPrisma.$queryRaw.mockResolvedValue([{ totalValue: 0 }])
+
+    const response = await getFinancialReport(new Request('http://localhost/api/reports/financial?months=1'))
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.summary.thisMonthGrossValue).toBe(100000)
+    expect(body.summary.thisMonthDiscounts).toBe(10000)
+    expect(body.summary.thisMonthRevenue).toBe(90000) // NOT 100,800
+    expect(body.summary.thisMonthTaxCollected).toBe(10800)
+    expect(body.summary.thisMonthInvoicedTotal).toBe(100800)
+    // Profit is measured against net sales, so it never contains a tax liability
+    expect(body.summary.thisMonthProfit).toBe(60000)
+
+    // Cash flow is a separate measure: 25,000 advance (no mode recorded) + 12,000 cash + 8,000 UPI
+    expect(body.summary.receiptsTotal).toBe(45000)
+    expect(body.summary.cashReceived).toBe(12000)
+    expect(body.summary.receiptsByMode).toEqual({ UNRECORDED: 25000, CASH: 12000, UPI: 8000 })
+  })
+
+  it('financial revenue falls back to gross − discount for legacy rows with no taxable amount', async () => {
+    mockPrisma.order.aggregate
+      .mockResolvedValueOnce({
+        _sum: { subTotal: 10000000n, discount: 1000000n, taxableAmount: 0n, gstAmount: 0n, totalAmount: 9000000n },
+      })
+      .mockResolvedValueOnce({ _sum: { balanceAmount: 0n }, _count: 0 })
+      .mockResolvedValueOnce({ _sum: { advancePaid: 0n } })
+    mockPrisma.expense.aggregate.mockResolvedValueOnce({ _sum: { totalAmount: 0n } })
+    mockPrisma.$queryRaw.mockResolvedValue([{ totalValue: 0 }])
+
+    const body = await (
+      await getFinancialReport(new Request('http://localhost/api/reports/financial?months=1'))
+    ).json()
+    expect(body.summary.thisMonthRevenue).toBe(90000)
+  })
+
   it('customer report returns shape consumed by Customer Report page', async () => {
     mockPrisma.customer.findMany.mockResolvedValue([
       {

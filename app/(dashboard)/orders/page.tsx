@@ -21,6 +21,7 @@ import { OrderStatus } from '@/lib/types'
 import DashboardLayout from '@/components/DashboardLayout'
 import { Pagination } from '@/components/ui/pagination'
 import { currencySymbol, formatCurrency, formatDateWith } from '@/lib/utils'
+import { Money } from '@/components/ui/money'
 
 const statusColors: Record<OrderStatus, { bg: string; text: string; border: string }> = {
   NEW: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
@@ -601,14 +602,14 @@ function OrdersContent() {
                             <div>
                               <p className="text-slate-500 mb-1">Total Amount</p>
                               <p className="font-semibold text-slate-900">
-                                {formatCurrency(order.totalAmount)}
+                                <Money amount={order.totalAmount} />
                               </p>
                             </div>
                             {showBalance && (
                             <div>
                               <p className="text-slate-500 mb-1">Balance</p>
                               <p className={`font-semibold ${isArrears ? 'text-red-600' : order.balanceAmount > 0.01 ? 'text-orange-600' : 'text-green-600'}`}>
-                                {formatCurrency(Math.max(0, order.balanceAmount))}
+                                <Money amount={Math.max(0, order.balanceAmount)} />
                               </p>
                             </div>
                             )}

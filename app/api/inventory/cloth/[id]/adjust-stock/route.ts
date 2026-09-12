@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { requirePermission } from '@/lib/api-permissions'
 import { prisma } from '@/lib/db'
 import { changeClothStock, InsufficientStockError, roundMeters } from '@/lib/stock'
+import { runReorderCheckQuietly } from '@/lib/reorder'
 import { z } from 'zod'
 
 type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0]
@@ -61,6 +62,8 @@ export async function POST(
 
       return tx.clothInventory.findUnique({ where: { id } })
     })
+
+    after(() => runReorderCheckQuietly({ trigger: 'stock_adjusted', userId: session.user.id }))
 
     return NextResponse.json(result)
   } catch (error) {

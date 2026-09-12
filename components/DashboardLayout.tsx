@@ -34,6 +34,7 @@ import {
   Search,
   UserCog,
   Activity,
+  Inbox,
 } from 'lucide-react';
 import Image from 'next/image';
 import { SignOutButton } from './dashboard/sign-out-button';
@@ -71,6 +72,7 @@ const navSections: { label: string; items: NavItem[] }[] = [
       { href: '/dashboard',      icon: Home,         label: 'Dashboard',       permission: 'view_dashboard' },
       { href: '/orders',         icon: ShoppingBag,  label: 'Orders',          permission: 'view_orders' },
       { href: '/customers',      icon: Users,        label: 'Customers',       permission: 'view_customers' },
+      { href: '/enquiries',      icon: Inbox,        label: 'Enquiries',       permission: 'view_enquiries' },
     ],
   },
   {

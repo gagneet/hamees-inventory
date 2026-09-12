@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db"
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns'
 import type { OrderStatus, DashboardStats } from "@/lib/types"
+import { sumFromMinor } from '@/lib/money'
 
 type ClothInventoryDetail = {
   id: string
@@ -44,7 +45,7 @@ export async function getDashboardStats(): Promise<DashboardStats | null> {
         const monthName = format(revenue.completedDate, 'MMM')
         const monthData = revenueByMonth.find((m) => m.month === monthName)
         if (monthData) {
-          monthData.revenue += revenue._sum.totalAmount || 0
+          monthData.revenue += sumFromMinor(revenue._sum.totalAmount)
         }
       }
     })

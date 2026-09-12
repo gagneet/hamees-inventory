@@ -21,6 +21,9 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import DashboardLayout from '@/components/DashboardLayout'
 import { hasPermission, type UserRole } from '@/lib/permissions'
 import { ClothDetailEditButton } from '@/components/inventory/cloth-detail-edit-button'
+import { PhoneText } from '@/components/ui/phone-input'
+import { onOrderFor } from '@/lib/purchase-order-items'
+import { reorderSuggestion } from '@/lib/reorder'
 
 type ClothDetails = NonNullable<Awaited<ReturnType<typeof getClothDetails>>>
 type OrderItem = ClothDetails['orderItems'][number]
@@ -96,6 +99,14 @@ export default async function ClothDetailPage({
 
   const available = cloth.currentStock - cloth.reserved
   const totalValue = cloth.currentStock * cloth.pricePerMeter
+  const { onOrder, awaitingApproval, openPurchaseOrders } = await onOrderFor(prisma, 'cloth', cloth.id)
+  const reorder = reorderSuggestion({
+    available,
+    onOrder,
+    awaitingApproval,
+    minimum: cloth.minimumStockMeters,
+    reorderQuantity: cloth.reorderQuantity,
+  })
 
   const getStockStatus = () => {
     if (available <= 0) return { label: 'Out of Stock', variant: 'destructive' as const }
@@ -391,17 +402,11 @@ export default async function ClothDetailPage({
                     <span className="text-sm text-slate-500">Status</span>
                     <Badge variant={status.variant}>{status.label}</Badge>
                   </div>
-                  {canRaisePO && available < cloth.minimumStockMeters && (
+                  {canRaisePO && (reorder.needsReorder || available < cloth.minimumStockMeters) && (
                     <Link
-                      href={`/purchase-orders/new?itemName=${encodeURIComponent(
-                        cloth.name
-                      )}&supplierId=${cloth.supplierId || ''}&itemType=CLOTH&quantity=${
-                        Math.max(cloth.minimumStockMeters * 2 - cloth.currentStock, cloth.minimumStockMeters)
-                      }${showPricing ? `&pricePerUnit=${cloth.pricePerMeter}` : ''}&unit=meters&color=${encodeURIComponent(
-                        cloth.color
-                      )}&brand=${encodeURIComponent(cloth.brand)}&type=${encodeURIComponent(
-                        cloth.type
-                      )}`}
+                      href={`/purchase-orders/new?itemType=CLOTH&itemId=${cloth.id}${
+                        cloth.supplierId ? `&supplierId=${cloth.supplierId}` : ''
+                      }${reorder.quantity > 0 ? `&quantity=${reorder.quantity}` : ''}`}
                     >
                       <Button variant="outline" size="sm" className="w-full mt-3 border-orange-500 text-orange-600 hover:bg-orange-50">
                         <AlertTriangle className="h-4 w-4 mr-2" />
@@ -427,6 +432,31 @@ export default async function ClothDetailPage({
                     <span className="text-slate-600">Minimum:</span>
                     <span className="font-semibold">{cloth.minimumStockMeters.toFixed(2)}m</span>
                   </div>
+                  <div className="flex justify-between mt-2">
+                    <span className="text-slate-600">On order:</span>
+                    <span className="font-semibold text-blue-600">{onOrder.toFixed(2)}m</span>
+                  </div>
+                  <div className="flex justify-between mt-2">
+                    <span className="text-slate-600">Reorder quantity:</span>
+                    <span className="font-semibold">
+                      {cloth.reorderQuantity ? `${cloth.reorderQuantity.toFixed(2)}m` : 'Top up to 2× minimum'}
+                    </span>
+                  </div>
+                  {reorder.needsReorder && reorder.quantity > 0 && (
+                    <p className="mt-2 text-sm text-orange-600">Suggested reorder: {reorder.quantity}m</p>
+                  )}
+                  {openPurchaseOrders.length > 0 && (
+                    <ul className="mt-2 space-y-1 text-sm">
+                      {openPurchaseOrders.map((po) => (
+                        <li key={po.id} className="flex justify-between">
+                          <Link href={`/purchase-orders/${po.id}`} className="text-blue-600 hover:underline">
+                            {po.poNumber}
+                          </Link>
+                          <span className="text-slate-500">{po.outstanding}m outstanding</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -471,7 +501,7 @@ export default async function ClothDetailPage({
                   {cloth.supplierRel.phone && (
                     <div>
                       <p className="text-sm text-slate-500">Phone</p>
-                      <p className="text-sm">{cloth.supplierRel.phone}</p>
+                      <p className="text-sm"><PhoneText value={cloth.supplierRel.phone} /></p>
                     </div>
                   )}
                 </CardContent>
