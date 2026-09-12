@@ -44,8 +44,10 @@ To run a single test file: `pnpm vitest run tests/unit/lib/permissions.test.ts`
 
 ### Route Structure
 
-- `app/page.tsx` — Login page (public)
-- `app/(dashboard)/` — All protected routes. `proxy.ts` redirects signed-out visitors; `app/(dashboard)/layout.tsx` requires a session and mounts `SettingsProvider`; each section has a `layout.tsx` calling `requirePagePermission()` (`lib/page-guard.ts`)
+- `app/page.tsx` — Public marketing site (indexable, `force-static`, no database access). It renders `components/marketing/marketing-site.tsx`, a client component holding all four languages of copy in `components/marketing/strings.ts`; imagery lives in `public/marketing/`. Its canonical/OG origin comes from `NEXT_PUBLIC_SITE_URL`
+- `app/login/page.tsx` — Staff login (public, `noindex`). `pages.signIn` in `lib/auth.ts` and every signed-out `redirect()` point here, **not** at `/`
+- `app/order/page.tsx` — Public order-enquiry page (indexable, names only — no prices or stock)
+- `app/(dashboard)/` — All protected routes. `proxy.ts` redirects signed-out visitors to `/login`; `app/(dashboard)/layout.tsx` requires a session and mounts `SettingsProvider`; each section has a `layout.tsx` calling `requirePagePermission()` (`lib/page-guard.ts`)
   - `dashboard/`, `inventory/`, `orders/`, `customers/`, `garment-types/`, `purchase-orders/`, `expenses/`, `alerts/`, `reports/`, `bulk-upload/`, `admin/`
 - `app/api/` — API routes (Next.js route handlers)
 

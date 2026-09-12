@@ -376,8 +376,12 @@ app/
 │       └── settings/
 │           └── page.tsx
 ├── api/                            # API routes (see above)
+├── login/
+│   └── page.tsx                    # Staff login (public, noindex)
+├── order/
+│   └── page.tsx                    # Public order enquiry (public, indexable)
 ├── layout.tsx                      # Root layout
-└── page.tsx                        # Login page
+└── page.tsx                        # Public marketing site (static, indexable)
 ```
 
 ---

@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.51.0] - 2026-09-12 — Public marketing site at `/`, staff login at `/login`
+
+The root of the deployment is now the shop's public website instead of the staff login screen.
+Nothing about the application behind the login changed: same roles, same permissions, same data.
+
+### Added
+- **A public marketing site at `/`** (`app/page.tsx` → `components/marketing/marketing-site.tsx`). Static, indexable and with no database access, so it renders from the build and cannot leak business data. Four languages (English, Hindi, Punjabi, Japanese) with all copy and page data in `components/marketing/strings.ts`; the language and page switch are client-side state persisted in `localStorage`, so the whole site is one URL. Carries `ClothingStore` JSON-LD (address, hours, phone, Instagram) and its own OpenGraph and Twitter tags, overriding the app-wide `robots: { index: false }` that keeps the dashboard out of search.
+- `app/login/page.tsx` — the former `app/page.tsx`, unchanged apart from `noindex` metadata and a link back to the public site.
+- `NEXT_PUBLIC_SITE_URL` — the public origin used for the canonical, OpenGraph and JSON-LD URLs. Baked in at build time; defaults to `https://hameesattire.com`.
+- Jost, Noto Sans Gurmukhi, Noto Sans Devanagari and Noto Serif JP in `app/layout.tsx`, exposed as CSS variables for the marketing site's Latin, Gurmukhi, Devanagari and Japanese text.
+
+### Changed
+- `proxy.ts` redirects signed-out visitors to `/login` instead of `/`, and excludes `/`, `/login`, `/order` and `/marketing/` from the matcher.
+- `pages.signIn` in `lib/auth.ts` is `/login`.
+- Every signed-out `redirect('/')` — the dashboard layout, `lib/page-guard.ts` and nine section pages — now redirects to `/login`, as do sign-out (`lib/actions.ts`, `components/dashboard/sign-out-button.tsx`) and its `?error=signout` case. Without this a member of staff whose session had expired landed on the customer site with no way back in.
+
+### Known limitations
+- **The imagery is placeholder** — `public/marketing/*.png` are Instagram screenshots, about 19 MB in total, and soft at full width. Replace them under the same names.
+- **Prices, testimonials and celebrity credits are drafts**, all in `strings.ts`.
+- **Order tracking and customer sign-in have no route.** Both tabs on the order page hand off to `/order`, the public enquiry page; a customer-facing OTP route and an order-tracking page are still to be built.
+- **The enquiry and fitting forms on the marketing site do not submit** — they hand off to WhatsApp or the phone. The separate `/order` enquiry page added in 0.50.0 does submit.
+- No `app/robots.ts` or `app/sitemap.ts` yet; worth adding, listing only `/` and `/order`, once the domain is final.
+
 ## [0.50.0] - 2026-09-12 — Discounts before tax, revenue excluding tax, public order enquiries
 
 Addresses the accounting review of PR #112 and the Amazon Q review. Full validation of every
