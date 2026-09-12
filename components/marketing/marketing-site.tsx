@@ -70,6 +70,13 @@ const GARMENTS = [
   'Sherwani', 'Two-piece suit', 'Three-piece suit', 'Bandhgala / Jodhpuri', 'Hand-painted piece', 'Other',
 ] as const
 
+/**
+ * The garment select starts empty on purpose. Defaulting to the first option would file an
+ * enquiry for a sherwani whenever a visitor filled in their name and phone without touching the
+ * dropdown, and the shop would ring them about a garment they never asked for.
+ */
+const NO_GARMENT = ''
+
 /** Hidden from people, irresistible to bots. Anything typed here means the submission is discarded. */
 function Honeypot({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return (
@@ -107,8 +114,9 @@ export function MarketingSite() {
   const [result, setResult] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
   const [track, setTrack] = useState({ orderNumber: '', phone: '', company: '' })
   const [enquiry, setEnquiry] = useState({
-    name: '', phone: '', garmentType: GARMENTS[0] as string, preferredDate: '', notes: '', company: '',
+    name: '', phone: '', garmentType: NO_GARMENT as string, preferredDate: '', notes: '', company: '',
   })
+  const emptyEnquiry = { name: '', phone: '', garmentType: NO_GARMENT as string, preferredDate: '', notes: '', company: '' }
   const [fitting, setFitting] = useState({ name: '', phone: '', preferredDate: '', notes: '', company: '' })
 
   const t = STR[lang]
@@ -130,7 +138,7 @@ export function MarketingSite() {
    * exists. Server-side errors (rate limits, an undialable number) are shown as sent — they are
    * English-only for now.
    */
-  const post = async (url: string, body: unknown, okText: string) => {
+  const post = async (url: string, body: unknown, okText: string, reset?: () => void) => {
     setBusy(true)
     setResult(null)
     try {
@@ -145,6 +153,7 @@ export function MarketingSite() {
         return
       }
       setResult({ kind: 'ok', text: okText })
+      reset?.()
     } catch {
       setResult({ kind: 'error', text: t.fFailed })
     } finally {
@@ -158,16 +167,18 @@ export function MarketingSite() {
     if (!track.orderNumber.trim() || !track.phone.trim()) {
       return setResult({ kind: 'error', text: t.fRequired })
     }
-    await post('/api/public/track-request', track, t.trackSent)
+    await post('/api/public/track-request', track, t.trackSent, () =>
+      setTrack({ orderNumber: '', phone: '', company: '' }))
   }
 
   const submitEnquiry = async (e: React.FormEvent) => {
     e.preventDefault()
     if (busy) return // the disabled button does not stop a second Enter keypress
-    if (!enquiry.name.trim() || !enquiry.phone.trim()) {
+    if (!enquiry.name.trim() || !enquiry.phone.trim() || !enquiry.garmentType.trim()) {
       return setResult({ kind: 'error', text: t.fRequired })
     }
-    await post('/api/public/enquiries', { ...enquiry, kind: 'ORDER_ENQUIRY', quantity: 1 }, t.enquirySent)
+    await post('/api/public/enquiries', { ...enquiry, kind: 'ORDER_ENQUIRY', quantity: 1 }, t.enquirySent, () =>
+      setEnquiry(emptyEnquiry))
   }
 
   const submitFitting = async (e: React.FormEvent) => {
@@ -176,7 +187,8 @@ export function MarketingSite() {
     if (!fitting.name.trim() || !fitting.phone.trim()) {
       return setResult({ kind: 'error', text: t.fRequired })
     }
-    await post('/api/public/enquiries', { ...fitting, kind: 'FITTING', quantity: 1 }, t.fittingSent)
+    await post('/api/public/enquiries', { ...fitting, kind: 'FITTING', quantity: 1 }, t.fittingSent, () =>
+      setFitting({ name: '', phone: '', preferredDate: '', notes: '', company: '' }))
   }
 
   return (
@@ -516,7 +528,9 @@ export function MarketingSite() {
                     placeholder="+91 98xxx xxxxx" style={field} />
                 </label>
                 <label style={fieldLabel}>{t.fGarment} ·
-                  <select value={enquiry.garmentType} onChange={(e) => setEnquiry({ ...enquiry, garmentType: e.target.value })} style={field}>
+                  <select required value={enquiry.garmentType}
+                    onChange={(e) => setEnquiry({ ...enquiry, garmentType: e.target.value })} style={field}>
+                    <option value="">—</option>
                     {GARMENTS.map((g) => <option key={g}>{g}</option>)}
                   </select>
                 </label>
