@@ -12,8 +12,8 @@ export function SignOutButton() {
     try {
       // Sign out and force a hard redirect to clear all cache
       await signOut({ redirect: false })
-      // Hard reload to the home page to clear all client-side state
-      window.location.href = '/'
+      // Hard reload to the staff login to clear all client-side state
+      window.location.href = '/login'
     } catch (error) {
       console.error('Logout failed:', error)
       setIsLoading(false)

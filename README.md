@@ -1,8 +1,10 @@
 # Hamees Attire — Tailor Shop Inventory Management System
 
-**Version 0.29.4** | Production: [hamees.gagneet.com](https://hamees.gagneet.com)
+**Version 1.0.0** | Production: [hamees.gagneet.com](https://hamees.gagneet.com)
 
 A full-featured inventory and order management system purpose-built for bespoke tailoring. Manages fabric and accessory stock with automatic reservation, tracks orders through the complete production workflow, handles GST-compliant invoicing, and supports multiple staff roles from owner to tailor.
+
+The deployment serves two audiences from one application: **`/` is the shop's public website** (four languages, indexable, no database access) and everything else is the staff system behind a login at **`/login`**.
 
 ---
 
@@ -10,11 +12,11 @@ A full-featured inventory and order management system purpose-built for bespoke 
 
 | Layer | Technology |
 |-------|------------|
-| Framework | Next.js 16.2 (App Router, React Server Components) |
+| Framework | Next.js 16.3 (App Router, React Server Components) |
 | Language | TypeScript 5 (strict mode) |
 | UI | React 19, Tailwind CSS 4, Radix UI, Recharts |
 | Auth | NextAuth.js v5 (JWT sessions, Credentials provider) |
-| ORM | Prisma 7.7 + @prisma/adapter-pg (PostgreSQL adapter) |
+| ORM | Prisma 7.10 + @prisma/adapter-pg (PostgreSQL adapter) |
 | Database | PostgreSQL 16 |
 | Process Manager | PM2 (fork mode) |
 | Package Manager | pnpm 10 |
@@ -73,6 +75,15 @@ A full-featured inventory and order management system purpose-built for bespoke 
 - Template-based messaging via Meta WhatsApp Business API
 - Development mode: logs messages to console when API credentials are not set
 
+### Public Website
+- Marketing site at `/` — static, indexable and with no database access, so it renders from the build and cannot expose business data
+- Four languages (English, Hindi, Punjabi, Japanese), switched client-side on a single URL; all copy lives in `components/marketing/strings.ts`
+- `ClothingStore` JSON-LD (address, opening hours, phone, Instagram) plus OpenGraph and Twitter cards, overriding the app-wide `noindex` that keeps the dashboard out of search
+- Public order enquiry at `/order` — garment type *names* only, no prices or stock; rate limited, honeypot-protected, and it never creates an order or reserves stock
+- Enquiry and fitting-request forms on the site itself, in all four languages, writing to the same `CustomerEnquiry` inbox staff already use
+- Order tracking without an account: the customer asks, and a signed link valid for 30 minutes goes over WhatsApp to the number already on their record. The page shows production stages only — never a price or a balance
+- Staff sign-in at `/login`, linked from the site header and footer
+
 ### Other
 - Barcode scanning for inventory lookup (camera or manual entry)
 - Bulk upload via Excel with validation, duplicate detection, and audit trail
@@ -129,6 +140,15 @@ NEXTAUTH_URL="http://localhost:3009"
 
 # Node environment
 NODE_ENV="development"
+```
+
+**Optional — public site origin:**
+
+```env
+# Canonical, OpenGraph and JSON-LD origin for the marketing site at "/".
+# NEXT_PUBLIC_* values are baked into the build: redeploy after changing this.
+# Defaults to https://hameesattire.com when unset.
+NEXT_PUBLIC_SITE_URL="https://hamees.gagneet.com"
 ```
 
 **Optional — WhatsApp Business API:**
@@ -223,6 +243,22 @@ The system has 6 roles with 38 granular permissions. Key distinctions:
 - **VIEWER** — Read-only across dashboard, inventory, orders, and customers.
 
 See `lib/permissions.ts` for the complete permission matrix.
+
+---
+
+## Routes
+
+Five routes are reachable without a session; everything else redirects to `/login` (`proxy.ts`, then the
+server-side guards in `app/(dashboard)/layout.tsx` and `lib/page-guard.ts`).
+
+| Route | Access | Notes |
+|-------|--------|-------|
+| `/` | Public, indexed | Marketing site. Static, no database access, four languages |
+| `/login` | Public, `noindex` | Staff sign-in. `pages.signIn` in `lib/auth.ts` points here |
+| `/order` | Public, indexed | Order enquiry. Garment names only — no prices, stock or customer data |
+| `/track/<token>` | Signed link, `noindex` | One order's production stage. The token is the credential, valid 30 minutes; no money is shown |
+| `/api/health` | Public | Database health probe |
+| everything else | Session + permission | Redirects to `/login` signed out, `/dashboard?denied=1` without the permission |
 
 ---
 
@@ -363,10 +399,14 @@ hamees/
 │   │   ├── bulk-upload/      # Excel import/export
 │   │   └── admin/            # User management (ADMIN only)
 │   ├── api/                  # API route handlers
+│   ├── login/                # Staff login (public, noindex)
+│   ├── order/                # Public order enquiry (public, indexable)
+│   ├── track/[token]/        # Order status from a signed WhatsApp link (noindex)
 │   ├── layout.tsx            # Root layout (fonts, providers)
-│   ├── page.tsx              # Login page
+│   ├── page.tsx              # Public marketing site (static, indexable)
 │   └── globals.css           # Tailwind CSS and design tokens
 ├── components/
+│   ├── marketing/            # Public site component + EN/HI/PA/JA copy
 │   ├── dashboard/            # Dashboard widgets and charts
 │   ├── orders/               # Order-specific components
 │   ├── inventory/            # Inventory edit forms, dialogs
@@ -427,6 +467,13 @@ pm2 restart hamees-inventory
 git pull
 ./scripts/deploy.sh
 ```
+
+**Run it as the user PM2 runs the app as — never with `sudo`.** PM2 keeps a separate process list per
+user, so a deploy run as root talks to root's PM2 daemon, which knows nothing about the running app: it
+stops nothing, swaps `.next` underneath a live server, and then fails to bind port 3009. The symptom is
+`ChunkLoadError` in the browser (the old page asking for chunks the new build renamed) and
+`EADDRINUSE :::3009` in the logs. A root build also leaves `.next` root-owned, so the app can no longer
+write its prerender cache (`EACCES`).
 
 Do not run `pnpm install`, `prisma generate` or `pnpm build` by hand in the live directory: the running server loads the Prisma client from `node_modules`. `deploy.sh` builds the release in a temporary copy first, stops the app only when dependencies, the Prisma client or the database schema change, backs up the database, migrates, builds, restarts and checks `/api/health`. On failure it prints how to recover (including restoring the backup if migrations ran).
 
@@ -515,6 +562,13 @@ See `docs/GAPS_AND_ISSUES.md` for a comprehensive catalogue of technical debt, m
 
 - `next-auth` is on an old beta (`5.0.0-beta.30`) pending upgrade to stable
 - Rate limiting covers sign-in only (in memory, one app instance); other API endpoints are not rate-limited
+- Marketing site: the imagery in `public/marketing/` is placeholder (Instagram screenshots, ~19 MB in total) and the prices, testimonials and celebrity credits in `strings.ts` are drafts
+- Marketing site: there is no customer account area, by design — tracking is a signed WhatsApp link, not a login
+- A tracking link cannot be revoked before its 30 minutes are up (the trade-off for a stateless token), and because the token travels in the URL it is written to nginx and Cloudflare access logs
+- `NEXT_PUBLIC_SITE_URL` is unset on the live deployment, so the marketing page's canonical and OpenGraph tags still say `hameesattire.com`. Set it and redeploy to correct them; tracking links fall back to `NEXTAUTH_URL` and are unaffected
+- Fitting requests are requests, not bookings: no calendar, slots or availability check — the shop confirms the hour by phone
+- Public API error messages (rate limits, an undialable number) are English only; the Hindi, Punjabi and Japanese site copy is machine-drafted and wants a native speaker's review
+- No `app/robots.ts` or `app/sitemap.ts`; the public pages set their own `robots` metadata instead
 
 ---
 

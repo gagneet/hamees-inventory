@@ -5,6 +5,127 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-09-12 — Public website, staff login at `/login`, customer-facing forms
+
+The first major release. The root of the deployment stops being the staff login screen and becomes
+the shop's public website, and the customer-facing forms on it do real work. Nothing behind the
+login changed: same roles, same permissions, same money.
+
+No customer accounts, deliberately. The shop's workflow is a phone call and three fittings; an
+account area would have meant a second auth surface, a session and a scoping boundary to get wrong,
+for very little gain over a tracking link.
+
+### Added
+
+**The public site**
+- **A marketing site at `/`** (`app/page.tsx` → `components/marketing/marketing-site.tsx`). Static,
+  indexable and with no database access, so it renders from the build and cannot leak business
+  data. Four languages (English, Hindi, Punjabi, Japanese) with all copy in
+  `components/marketing/strings.ts`; language and page are client state on a single URL. Carries
+  `ClothingStore` JSON-LD and its own OpenGraph and Twitter tags, overriding the app-wide
+  `robots: { index: false }` that keeps the dashboard out of search.
+- `app/login/page.tsx` — the former `app/page.tsx`, `noindex`, with a link back to the public site.
+- Jost, Noto Sans Gurmukhi, Noto Sans Devanagari and Noto Serif JP in `app/layout.tsx`, exposed as
+  CSS variables. The handoff's stacks named the families literally, which `next/font` never matches
+  because it hashes them, so without this the site silently fell back to system fonts.
+- `NEXT_PUBLIC_SITE_URL` for the canonical, OpenGraph and JSON-LD origin. Baked in at build time.
+
+**Customer-facing forms**
+- The enquiry and fitting forms post to `POST /api/public/enquiries` in all four languages, with
+  sending/sent/error states and a honeypot.
+- **`EnquiryKind` (`ORDER_ENQUIRY` | `FITTING`) on `CustomerEnquiry`.** A fitting is the same
+  conversation with no garment chosen yet, so it shares the table, the abuse controls and the staff
+  inbox instead of duplicating them. Badge in the inbox, `?kind=` on the list API. Confirming the
+  hour stays a phone call: no calendar, no slots, no availability model.
+- **Order tracking by signed link.** A customer enters their order number and phone; if the two
+  match a customer record, a link goes over WhatsApp to **the number already on that record**, and
+  `/track/<token>` shows that order's production stage. The token (`lib/order-tracking.ts`) is an
+  HMAC over `orderId.expiresAt` keyed on `NEXTAUTH_SECRET` — stateless, so there is no table and no
+  cleanup job, and rotating the secret invalidates every outstanding link. It lasts 30 minutes.
+- The tracking page shows stages, dates and garment names. **No prices, balance, advance or
+  measurements** — a link forwarded out of a WhatsApp chat must not open the shop's books.
+- **`POST /api/public/track-request`** answers every caller with the same 202 and the same
+  sentence, whether the order exists, belongs to a different number, or does not exist. The lookup
+  and the send happen in `after()`, once the response has been decided, so neither the body nor the
+  timing distinguishes the cases.
+
+**Tests**
+- `tests/unit/lib/order-tracking.test.ts` — forgery, secret rotation, expiry, malformed input, and
+  each step of the link-origin fallback.
+- `tests/unit/api/public-track-request.test.ts` — identical responses for found and not-found, no
+  lookup before answering, honeypot, and both rate limits.
+- Fitting cases on the enquiry route. The public-surface allowlist grows by one, deliberately, as
+  that test intends. 1,041 unit tests pass across 44 files.
+
+### Changed
+- `proxy.ts` redirects signed-out visitors to `/login` instead of `/`, and excludes `/`, `/login`,
+  `/order`, `/track/` and `/marketing/`. The handoff's version had dropped the `/order` exclusion,
+  which would have started bouncing visitors off the public enquiry page added in 0.50.0.
+- `pages.signIn` in `lib/auth.ts` is `/login`.
+- Every signed-out `redirect('/')` — the dashboard layout, `lib/page-guard.ts` and nine section
+  pages — now goes to `/login`, as do sign-out and its `?error=signout` case. Without this a member
+  of staff whose session had expired landed on the customer site with no way back in.
+- The **Customer login tab is gone** from the public site, along with its "Send me a code" button.
+  It had no backend and implied an account area that does not exist.
+- Dropped the marketing page's hreflang map: `/hi`, `/pa` and `/ja` are not routes — the language
+  switch is client-side on one URL — and a crawler following them would have been redirected.
+- `vitest.setup.ts` mocks `whatsappService.sendTemplateMessage`, which the global mock had missed.
+
+### Fixed during the pre-release audit
+These were defects in the work above, found by auditing it against the running deployment.
+- **Tracking links were built from the wrong origin.** `trackingUrl()` preferred
+  `NEXT_PUBLIC_SITE_URL`, which this deployment does not set, then fell back to the request's own
+  origin. The app rebuilds request URLs from the address it listens on and ignores the forwarded
+  headers — a request carrying `x-forwarded-proto: https` and the public host still redirects to
+  `http://localhost:3009/…` — so the link would have gone out over WhatsApp pointing at
+  `localhost`, unreachable from a phone rather than merely on the wrong scheme. nginx rewrites the
+  Location header on a redirect, which hides this for navigation but cannot touch a URL inside a
+  message body. It now falls back to `NEXTAUTH_URL`, which is already required, already holds
+  `https://hamees.gagneet.com`, and is not attacker-controlled the way a forwarded host would be.
+- **A wrong order number spent the real customer's tracking allowance.** The per-phone limit was
+  counted on every request, so three bad guesses against a known number locked its owner out for an
+  hour. It is now checked without counting and spent only when a link is really sent; guessing
+  stays bounded by the per-IP limit.
+- **The tracking page called the promised date the collection date.** A delivered order showed
+  `deliveryDate` — when it was due — under "Collected by". It now shows `completedDate`, which is
+  what the rest of the application treats as the supply date, falling back to `deliveryDate` only
+  when it is missing.
+- **A second Enter keypress could submit a public form twice.** `disabled` on the button does not
+  stop submission from a field; the handlers now return early while a request is in flight.
+- **A rate-limit test passed for the wrong reason.** It handed the IP to the route handler instead
+  of the request builder, so every "same IP" request actually carried a different one and the
+  per-IP limit was never exercised. Fixed, and split into three tests asserting one property each.
+- Removed a `try/catch` around `Buffer.from(…, 'base64url')` in `verifyTrackingToken`. It never
+  throws — it silently drops characters it does not recognise — so that `malformed` branch was
+  unreachable and the comment implied a guard that did not exist.
+- **The garment dropdown pre-selected "Sherwani".** A visitor who filled in only their name and
+  phone filed an enquiry for a garment they had never chosen, and the shop would have rung them
+  about it. It now starts empty and is `required`, with the server's existing 400 as the backstop.
+- **"Send another" reopened the form with the previous answers still in it**, inviting a duplicate
+  enquiry a few seconds after the first. Each form is cleared once the server accepts it.
+- **A second structural test passed for the wrong reason.** It asserted that `after(` appeared
+  before `prisma.order.findFirst` in the route's source, but the route's own docblock contains the
+  words "in `after()`", so the assertion matched the comment and would have held whatever the code
+  did. It now strips comments first and asserts both positions were found.
+
+### Known limitations
+- **The imagery is placeholder** — `public/marketing/*.png` are Instagram screenshots, about 19 MB
+  in total and soft at full width. Replace them under the same names.
+- **Prices, testimonials and celebrity credits are drafts**, all in `strings.ts`. The Hindi,
+  Punjabi and Japanese copy is machine-drafted and wants a native speaker's review.
+- **WhatsApp has no API credentials on this deployment**, so the service logs messages instead of
+  sending them. Tracking links will not reach anyone until `WHATSAPP_API_KEY` and
+  `WHATSAPP_PHONE_NUMBER_ID` are set.
+- **A tracking token travels in the URL**, so it is written to nginx and Cloudflare access logs. It
+  is read-only, order-scoped and expires in 30 minutes, but it can be replayed within that window,
+  and it cannot be revoked early — the trade-off for a stateless token.
+- Server-side error messages (rate limits, an undialable number) are English only.
+- Fittings are requests, not bookings: nothing checks a calendar or reserves a slot.
+- `NEXT_PUBLIC_SITE_URL` is unset in the deployed environment, so the marketing page's canonical and
+  OpenGraph tags still say `hameesattire.com`. Tracking links no longer depend on it.
+- The enquiry and fitting forms on the site do not attach photos, and there is still no
+  `app/robots.ts` or `app/sitemap.ts` — the public pages set their own `robots` metadata instead.
+
 ## [0.50.0] - 2026-09-12 — Discounts before tax, revenue excluding tax, public order enquiries
 
 Addresses the accounting review of PR #112 and the Amazon Q review. Full validation of every

@@ -19,6 +19,10 @@ const ALLOWED_WITHOUT_SESSION: Record<string, string> = {
   'public/enquiries/route.ts':
     'The public order-enquiry form. Writes only CustomerEnquiry — no customer, order, pricing or ' +
     'stock — and is rate limited per IP and per phone number with a honeypot field.',
+  'public/track-request/route.ts':
+    'Asks for an order-tracking link. Answers the caller with nothing at all: the signed link is ' +
+    'sent over WhatsApp to the number already on the customer record. Rate limited per IP and ' +
+    'per phone number with a honeypot field.',
 }
 
 const GUARDS = [
@@ -68,6 +72,7 @@ describe('every API route is guarded, or explicitly listed as public', () => {
         'excel/submit-order/route.ts',
         'health/route.ts',
         'public/enquiries/route.ts',
+        'public/track-request/route.ts',
       ].sort()
     )
   })
@@ -78,8 +83,30 @@ describe('every API route is guarded, or explicitly listed as public', () => {
     expect(writes.map((match) => match[1])).toEqual(['customerEnquiry'])
   })
 
-  it('the public enquiry route is rate limited and has a honeypot', () => {
-    const source = readFileSync(join(API_ROOT, 'public', 'enquiries', 'route.ts'), 'utf8')
+  it('the tracking-link request writes nothing of its own', () => {
+    const source = readFileSync(join(API_ROOT, 'public', 'track-request', 'route.ts'), 'utf8')
+    const writes = [...source.matchAll(/prisma\.(\w+)\.(create|update|updateMany|upsert|delete|deleteMany)/g)]
+    expect(writes).toEqual([])
+  })
+
+  it('the tracking-link request looks the order up only after the response is decided', () => {
+    // Whether the response leaks anything is asserted behaviourally in
+    // tests/unit/api/public-track-request.test.ts; this only pins the shape that makes it true.
+    // Comments are stripped first: the route's own docblock says "in `after()`", and matching
+    // that instead of the call would make this pass no matter what the code did.
+    const source = readFileSync(join(API_ROOT, 'public', 'track-request', 'route.ts'), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '')
+
+    const scheduled = source.indexOf('after(')
+    const lookup = source.indexOf('prisma.order.findFirst')
+    expect(scheduled).toBeGreaterThan(-1)
+    expect(lookup).toBeGreaterThan(-1)
+    expect(scheduled).toBeLessThan(lookup)
+  })
+
+  it.each(['enquiries', 'track-request'])('the public %s route is rate limited and has a honeypot', (route) => {
+    const source = readFileSync(join(API_ROOT, 'public', route, 'route.ts'), 'utf8')
     expect(source).toContain('rateLimit(')
     expect(source).toMatch(/honeypot/i)
   })

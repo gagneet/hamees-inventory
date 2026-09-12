@@ -34,7 +34,8 @@ const { handlers, signIn, signOut, auth: uncachedAuth } = NextAuth({
     maxAge: 12 * 60 * 60, // 12 hours
   },
   pages: {
-    signIn: '/',
+    // '/' is the public marketing site; the staff login lives at /login (app/login/page.tsx)
+    signIn: '/login',
   },
   providers: [
     CredentialsProvider({

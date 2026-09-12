@@ -7,12 +7,13 @@ import { redirect } from 'next/navigation'
  * Server action that signs out the current user.
  *
  * On success, it delegates to the underlying auth library's `signOutFromAuth`
- * function, which redirects the user to the root path (`/`) using the
- * `redirectTo` option.
+ * function, which redirects the user to the staff login (`/login`) using the
+ * `redirectTo` option — the root path is the public marketing site.
  *
  * If an error occurs during sign-out, the error is logged to the server
- * console and the user is redirected to the root path with an error query
- * parameter (`/?error=signout`) to indicate that sign-out failed.
+ * console and the user is redirected to the login page with an error query
+ * parameter (`/login?error=signout`). Nothing renders that parameter today — it is a marker in
+ * the URL for support, not a message the user sees.
  *
  * This function is intended to be called from client components and manages
  * navigation via redirects instead of propagating errors to the caller.
@@ -22,9 +23,9 @@ import { redirect } from 'next/navigation'
  */
 export async function signOut() {
   try {
-    await signOutFromAuth({ redirectTo: '/' })
+    await signOutFromAuth({ redirectTo: '/login' })
   } catch (error) {
     console.error('Failed to sign out:', error)
-    redirect('/?error=signout')
+    redirect('/login?error=signout')
   }
 }

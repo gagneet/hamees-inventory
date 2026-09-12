@@ -55,6 +55,47 @@ beforeEach(() => {
   m(prisma.customer.create).mockResolvedValue({ id: 'cust-new' })
 })
 
+describe('POST /api/public/enquiries — fitting requests', () => {
+  it('records a fitting as the same enquiry, marked FITTING', async () => {
+    const response = await submitEnquiry(
+      publicRequest({ name: 'Test Visitor', phone: '098765 43210', kind: 'FITTING' })
+    )
+    expect(response.status).toBe(201)
+    expect(createdData()).toMatchObject({ kind: 'FITTING', phone: '+919876543210' })
+  })
+
+  it('labels a fitting that named no garment, rather than storing an empty one', async () => {
+    await submitEnquiry(publicRequest({ name: 'Test Visitor', phone: '098765 43210', kind: 'FITTING' }))
+    expect(createdData().garmentType).toBe('Fitting appointment')
+  })
+
+  it('keeps the garment when a fitting request does name one', async () => {
+    await submitEnquiry(
+      publicRequest({ name: 'Test Visitor', phone: '098765 43210', kind: 'FITTING', garmentType: 'Sherwani' })
+    )
+    expect(createdData().garmentType).toBe('Sherwani')
+  })
+
+  it('defaults to an order enquiry when no kind is given, so old clients keep working', async () => {
+    await submitEnquiry(publicRequest(VALID))
+    expect(createdData().kind).toBe('ORDER_ENQUIRY')
+  })
+
+  it('still insists an order enquiry says what it is for', async () => {
+    const response = await submitEnquiry(publicRequest({ name: 'Test Visitor', phone: '098765 43210' }))
+    expect(response.status).toBe(400)
+    expect(prisma.customerEnquiry.create).not.toHaveBeenCalled()
+  })
+
+  it('refuses a kind it does not know', async () => {
+    const response = await submitEnquiry(
+      publicRequest({ ...VALID, kind: 'REFUND_DEMAND' })
+    )
+    expect(response.status).toBe(400)
+    expect(prisma.customerEnquiry.create).not.toHaveBeenCalled()
+  })
+})
+
 describe('POST /api/public/enquiries — accepting an enquiry', () => {
   it('stores a national number in E.164 using the shop region', async () => {
     const response = await submitEnquiry(publicRequest(VALID))

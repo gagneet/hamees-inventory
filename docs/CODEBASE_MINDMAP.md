@@ -15,7 +15,10 @@ mindmap
       PostgreSQL 16
       NextAuth v5 JWT
     Entry Points
-      app/page.tsx Login
+      app/page.tsx Public marketing site
+      app/login Staff login
+      app/order Public order enquiry
+      app/track Signed order-tracking links
       app/(dashboard) Protected UI
       app/api REST endpoints
       prisma/schema.prisma Data model

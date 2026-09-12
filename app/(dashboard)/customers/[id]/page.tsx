@@ -71,7 +71,7 @@ export default async function CustomerDetailPage({
 }) {
   const session = await auth()
   const actor = actorFromSession(session)
-  if (!session?.user || !actor) redirect('/')
+  if (!session?.user || !actor) redirect('/login')
 
   const role = session.user.role as UserRole
   const { id } = await params

@@ -1,5 +1,13 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Cormorant_Garamond } from "next/font/google";
+import {
+  Geist,
+  Geist_Mono,
+  Cormorant_Garamond,
+  Jost,
+  Noto_Sans_Gurmukhi,
+  Noto_Sans_Devanagari,
+  Noto_Serif_JP,
+} from "next/font/google";
 import "./globals.css";
 import { Toaster as SonnerToaster } from "sonner";
 import { SessionProvider } from "@/components/providers/session-provider";
@@ -21,6 +29,36 @@ const cormorantGaramond = Cormorant_Garamond({
   variable: "--font-cormorant-garamond",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
+  display: "swap",
+});
+
+// Public marketing site (app/page.tsx → components/marketing) — Jost for text, plus the
+// Gurmukhi / Devanagari / Japanese faces its four-language copy needs.
+const jost = Jost({
+  variable: "--font-jost",
+  subsets: ["latin"],
+  weight: ["300", "400", "500"],
+  display: "swap",
+});
+
+const notoGurmukhi = Noto_Sans_Gurmukhi({
+  variable: "--font-gurmukhi",
+  subsets: ["gurmukhi"],
+  weight: ["300", "400", "500"],
+  display: "swap",
+});
+
+const notoDevanagari = Noto_Sans_Devanagari({
+  variable: "--font-devanagari",
+  subsets: ["devanagari"],
+  weight: ["300", "400", "500"],
+  display: "swap",
+});
+
+const notoJp = Noto_Serif_JP({
+  variable: "--font-noto-jp",
+  subsets: ["latin"],
+  weight: ["300", "400"],
   display: "swap",
 });
 
@@ -68,7 +106,7 @@ export default async function RootLayout({
   return (
     <html lang={settings.locale}>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${cormorantGaramond.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${cormorantGaramond.variable} ${jost.variable} ${notoGurmukhi.variable} ${notoDevanagari.variable} ${notoJp.variable} antialiased`}
       >
         <SessionProvider>
           {children}

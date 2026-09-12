@@ -219,7 +219,7 @@ export default async function OrderDetailPage({
 }) {
   const session = await auth()
   const actor = actorFromSession(session)
-  if (!session?.user || !actor) redirect('/')
+  if (!session?.user || !actor) redirect('/login')
 
   const role = session.user.role as UserRole
   if (!hasPermission(role, 'view_orders')) redirect('/dashboard?denied=1')

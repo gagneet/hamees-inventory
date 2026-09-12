@@ -26,7 +26,7 @@ import { getAppSettings } from '@/lib/settings'
 export default async function ReportsPage() {
   const settings = await getAppSettings()
   const session = await auth()
-  if (!session?.user) redirect('/')
+  if (!session?.user) redirect('/login')
 
   const userRole = session.user.role as UserRole
   if (!hasAnyPermission(userRole, ['view_reports', 'view_financial_reports', 'view_production_reports'])) {

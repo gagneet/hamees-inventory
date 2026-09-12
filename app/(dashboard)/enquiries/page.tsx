@@ -34,6 +34,7 @@ import { formatDate } from '@/lib/utils'
 import { hasPermission, type UserRole } from '@/lib/permissions'
 
 type EnquiryStatus = 'NEW' | 'CONTACTED' | 'CONVERTED' | 'CLOSED'
+type EnquiryKind = 'ORDER_ENQUIRY' | 'FITTING'
 
 interface Enquiry {
   id: string
@@ -42,6 +43,7 @@ interface Enquiry {
   phone: string
   email: string | null
   city: string | null
+  kind: EnquiryKind
   garmentType: string
   fabricNotes: string | null
   quantity: number
@@ -60,6 +62,17 @@ const STATUS_STYLES: Record<EnquiryStatus, string> = {
   CONTACTED: 'bg-amber-100 text-amber-800 border-amber-200',
   CONVERTED: 'bg-green-100 text-green-800 border-green-200',
   CLOSED: 'bg-slate-100 text-slate-700 border-slate-200',
+}
+
+/** A fitting is the same record with no garment decided yet — worth telling apart at a glance. */
+const KIND_LABELS: Record<EnquiryKind, string> = {
+  ORDER_ENQUIRY: 'Order enquiry',
+  FITTING: 'Fitting',
+}
+
+const KIND_STYLES: Record<EnquiryKind, string> = {
+  ORDER_ENQUIRY: 'bg-slate-100 text-slate-700 border-slate-200',
+  FITTING: 'bg-violet-100 text-violet-800 border-violet-200',
 }
 
 const FILTERS: Array<{ value: EnquiryStatus | 'ALL'; label: string }> = [
@@ -235,9 +248,14 @@ export default function EnquiriesPage() {
                       <PhoneText value={enquiry.phone} />
                     </span>
                   </CardTitle>
-                  <Badge variant="outline" className={STATUS_STYLES[enquiry.status]}>
-                    {enquiry.status}
-                  </Badge>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline" className={KIND_STYLES[enquiry.kind]}>
+                      {KIND_LABELS[enquiry.kind]}
+                    </Badge>
+                    <Badge variant="outline" className={STATUS_STYLES[enquiry.status]}>
+                      {enquiry.status}
+                    </Badge>
+                  </div>
                 </div>
                 <p className="text-xs text-slate-500">
                   {formatDate(enquiry.createdAt, 'medium')}
@@ -248,8 +266,9 @@ export default function EnquiriesPage() {
               <CardContent className="space-y-3">
                 <div className="text-sm text-slate-800">
                   <strong>
-                    {enquiry.quantity > 1 ? `${enquiry.quantity} × ` : ''}
-                    {enquiry.garmentType}
+                    {enquiry.kind === 'FITTING'
+                      ? 'Wants to come in and be measured'
+                      : `${enquiry.quantity > 1 ? `${enquiry.quantity} × ` : ''}${enquiry.garmentType}`}
                   </strong>
                   {enquiry.fabricNotes ? ` — ${enquiry.fabricNotes}` : ''}
                   {enquiry.preferredDate ? ` · wanted by ${formatDate(enquiry.preferredDate, 'medium')}` : ''}

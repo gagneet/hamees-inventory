@@ -32,7 +32,7 @@ export default async function VisualMeasurementsPage({
 }) {
   const session = await auth()
   const actor = actorFromSession(session)
-  if (!session?.user || !actor) redirect('/')
+  if (!session?.user || !actor) redirect('/login')
 
   // Check permissions - TAILOR role or higher can use visual measurements
   const canManageMeasurements = hasPermission(session.user.role, 'manage_measurements')

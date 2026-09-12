@@ -12,7 +12,7 @@ import { hasAnyPermission, type Permission, type UserRole } from '@/lib/permissi
 
 export async function requirePagePermission(permission: Permission | Permission[]) {
   const session = await auth()
-  if (!session?.user) redirect('/')
+  if (!session?.user) redirect('/login')
 
   const required = Array.isArray(permission) ? permission : [permission]
   if (!hasAnyPermission(session.user.role as UserRole, required)) {

@@ -27,7 +27,7 @@ export default async function NewMeasurementPage({
 }) {
   const session = await auth()
   const actor = actorFromSession(session)
-  if (!session?.user || !actor) redirect('/')
+  if (!session?.user || !actor) redirect('/login')
   if (!hasPermission(session.user.role as UserRole, 'manage_measurements')) redirect('/dashboard?denied=1')
 
   const { id } = await params
