@@ -1,4 +1,13 @@
 /**
+ * SUPERSEDED — DO NOT RUN. Archived for history only.
+ *
+ * This script recomputes balances as `totalAmount - discount - payments`. From v0.50.0 the
+ * discount is applied BEFORE tax and is already inside `totalAmount`, so subtracting it again
+ * here would understate every balance it touched. The current formula lives in
+ * lib/order-pricing.ts (`orderBalance`); one-off corrections go through
+ * scripts/reprice-discounted-orders.ts.
+ */
+/**
  * Fix Split Order Installments
  *
  * Migration strategy:
