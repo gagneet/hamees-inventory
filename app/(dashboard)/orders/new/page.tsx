@@ -129,6 +129,8 @@ function NewOrderForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const preselectedCustomerId = searchParams.get('customerId')
+  // Set when the form was opened from a public enquiry; the order closes that enquiry
+  const enquiryId = searchParams.get('enquiryId')
   const { data: session } = useSession()
   const { canView } = useFieldVisibility()
   const settings = useAppSettings()
@@ -611,6 +613,7 @@ function NewOrderForm() {
           advancePaid: advancePaid || 0,
           discount: appliedDiscount,
           discountReason: appliedDiscount > 0 ? discountReason || null : null,
+          ...(enquiryId ? { enquiryId } : {}),
           notes: notes || '',
           items: validItems,
           // Premium Pricing Configuration

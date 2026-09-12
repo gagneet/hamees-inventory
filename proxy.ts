@@ -24,7 +24,9 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Every app page except the public login page ("/"), API routes (which return 401 themselves),
-  // Next.js internals and root-level static files from public/ (logo.svg, favicon.svg, robots.txt …).
-  matcher: ['/((?!api(?:/|$)|_next/|[^/]+\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$).+)'],
+  // Every app page except: the public login page ("/"), the public order-enquiry page ("/order",
+  // which takes an enquiry and never touches money or stock — see app/order/page.tsx), API routes
+  // (which return 401 themselves), Next.js internals and root-level static files from public/
+  // (logo.svg, favicon.svg, robots.txt …).
+  matcher: ['/((?!api(?:/|$)|order(?:/|$)|_next/|[^/]+\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$).+)'],
 }

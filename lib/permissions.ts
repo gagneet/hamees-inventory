@@ -52,6 +52,8 @@ export type Permission =
   | 'view_production_reports'
   | 'manage_users'
   | 'manage_settings'
+  | 'view_enquiries' // Public order enquiries (front office)
+  | 'manage_enquiries'
   | 'view_alerts'
   | 'manage_alerts'
   | 'bulk_upload'
@@ -112,6 +114,8 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     'view_production_reports',
     // NO manage_users - only ADMIN can manage users
     // NO manage_settings - cannot modify application parameters
+    'view_enquiries',
+    'manage_enquiries',
     'view_alerts',
     'manage_alerts',
     // NO bulk_upload, NO bulk_delete
@@ -158,6 +162,8 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     'view_production_reports',
     'manage_users',
     'manage_settings',
+    'view_enquiries',
+    'manage_enquiries',
     'view_alerts',
     'manage_alerts',
     'bulk_upload',
@@ -197,6 +203,8 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     'view_reports',
     'view_sales_reports',
     'view_customer_reports',
+    'view_enquiries',
+    'manage_enquiries',
     'view_alerts',
   ],
   MASTER_TAILOR: [

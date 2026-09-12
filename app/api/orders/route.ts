@@ -25,6 +25,8 @@ const orderSchema = z.object({
   // on the invoice itself (India CGST s.15) rather than applied afterwards as a payment.
   discount: z.number().min(0).default(0),
   discountReason: z.string().max(500).nullish(),
+  /** Set when the order came from a public enquiry (app/order); marks that enquiry converted. */
+  enquiryId: z.string().nullish(),
   notes: z.string().nullish(),
 
   // ✨ PREMIUM PRICING SYSTEM (v0.22.0) - New fields
@@ -722,6 +724,19 @@ export async function POST(request: Request) {
           customer: true,
         },
       })
+
+      // An order raised from a public enquiry closes that enquiry (lib/permissions: manage_enquiries)
+      if (validatedData.enquiryId && hasPermission(actor.role, 'manage_enquiries')) {
+        await tx.customerEnquiry.updateMany({
+          where: { id: validatedData.enquiryId, status: { not: 'CONVERTED' } },
+          data: {
+            status: 'CONVERTED',
+            orderId: newOrder.id,
+            customerId: validatedData.customerId,
+            handledById: actor.id,
+          },
+        })
+      }
 
       // Stock movements for each item's fabric reservation
       for (const item of newOrder.items) {

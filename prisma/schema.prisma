@@ -93,6 +93,13 @@ enum PaymentMode {
   NET_BANKING
 }
 
+enum EnquiryStatus {
+  NEW // Just submitted by a visitor
+  CONTACTED // Someone from the shop has been in touch
+  CONVERTED // Turned into a real order
+  CLOSED // Not proceeding, duplicate, or spam
+}
+
 enum DesignFileCategory {
   SKETCH // Rough paper design
   REFERENCE // Reference image
@@ -133,6 +140,7 @@ model User {
   designUploads           DesignUpload[]
   assignedOrderItems      OrderItem[]              @relation("OrderItemAssignedTailor")
   auditLogs               AuditLog[]
+  handledEnquiries        CustomerEnquiry[]
 }
 
 model ClothInventory {
@@ -257,6 +265,7 @@ model Customer {
   // Relations
   orders           Order[]
   measurements     Measurement[]
+  enquiries        CustomerEnquiry[]
   whatsappMessages WhatsAppMessage[]
 
   @@index([phone])
@@ -461,6 +470,7 @@ model Order {
   history                 OrderHistory[]
   installments            PaymentInstallment[]
   whatsappMessages        WhatsAppMessage[]
+  enquiry                 CustomerEnquiry?
 
   @@index([orderNumber])
   @@index([customerId])
@@ -979,4 +989,45 @@ model WhatsAppTemplate {
   @@index([name])
   @@index([active])
   @@index([category])
+}
+
+/// A request for a quote submitted from the public page (app/order). It is deliberately NOT an
+/// Order: nothing is priced, no tax is computed and no stock is reserved, so an anonymous visitor
+/// can never move inventory or create a financial record. Staff review it and convert it into a
+/// real order, which is where pricing and stock reservation happen.
+model CustomerEnquiry {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // What the visitor typed. No amounts live here — an enquiry is never priced.
+  name          String
+  phone         String // E.164, normalised on submission
+  email         String?
+  city          String?
+  garmentType   String // Free text, or the name of a GarmentPattern offered on the form
+  fabricNotes   String?
+  quantity      Int       @default(1)
+  preferredDate DateTime? // When the customer would like it by
+  notes         String?   @db.Text
+
+  status     EnquiryStatus @default(NEW)
+  staffNotes String?       @db.Text
+
+  // Filled in once someone from the shop acts on it
+  customerId  String?
+  customer    Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  orderId     String?   @unique
+  order       Order?    @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  handledById String?
+  handledBy   User?     @relation(fields: [handledById], references: [id], onDelete: SetNull)
+
+  // Abuse controls. The submitter's IP is kept only as a salted hash — enough to spot a flood,
+  // never the address itself.
+  sourceIpHash String?
+  userAgent    String?
+
+  @@index([status, createdAt])
+  @@index([phone])
+  @@index([createdAt])
 }
