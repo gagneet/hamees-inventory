@@ -29,11 +29,9 @@ export default defineConfig({
     testTimeout: 30000,
     hookTimeout: 30000,
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
-    },
+    // One worker, files in sequence: the database-backed integration tests share one database.
+    // (Vitest 4 replaced poolOptions.forks.singleFork with this.)
+    fileParallelism: false,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
