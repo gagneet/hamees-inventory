@@ -98,11 +98,16 @@ export function verifyTrackingToken(token: string): TrackingTokenResult {
 /**
  * Absolute URL for a tracking link.
  *
- * The request's own origin is the LAST resort, not the first: this deployment runs behind
- * Cloudflare → nginx, nginx listens on port 80, and so `X-Forwarded-Proto` and the reconstructed
- * request URL both say `http` even though the site is only reachable over https. A link built
- * from the request would go out over WhatsApp as `http://…`. `NEXTAUTH_URL` is already required
- * and already holds the public https origin, so it is the dependable source.
+ * The request's own origin is the LAST resort, not the first. This app does not derive its URL
+ * from the forwarded headers: a request to the server carrying `x-forwarded-proto: https` and
+ * `host: hamees.gagneet.com` still redirects to `http://localhost:3009/…`, because the URL is
+ * rebuilt from the address the process listens on. A tracking link built from the request origin
+ * would therefore go out over WhatsApp pointing at `localhost` — unreachable from a phone, not
+ * merely the wrong scheme. nginx rewrites the Location header on a redirect, which hides this for
+ * ordinary navigation, but it cannot rewrite a URL sitting inside a message body.
+ *
+ * `NEXTAUTH_URL` is already required by NextAuth and already holds the public https origin, so it
+ * is the dependable source. It is also not attacker-controlled, which a forwarded host would be.
  */
 export function trackingUrl(token: string, origin?: string): string {
   const configured = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || origin || ''

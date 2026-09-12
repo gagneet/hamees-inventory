@@ -75,10 +75,13 @@ for very little gain over a tracking link.
 These were defects in the work above, found by auditing it against the running deployment.
 - **Tracking links were built from the wrong origin.** `trackingUrl()` preferred
   `NEXT_PUBLIC_SITE_URL`, which this deployment does not set, then fell back to the request's own
-  origin — and nginx listens on port 80 behind Cloudflare, so both the reconstructed request URL
-  and `X-Forwarded-Proto` report `http` on an https-only site. The link would have gone out over
-  WhatsApp as `http://…`. It now falls back to `NEXTAUTH_URL`, which is already required and
-  already holds `https://hamees.gagneet.com`.
+  origin. The app rebuilds request URLs from the address it listens on and ignores the forwarded
+  headers — a request carrying `x-forwarded-proto: https` and the public host still redirects to
+  `http://localhost:3009/…` — so the link would have gone out over WhatsApp pointing at
+  `localhost`, unreachable from a phone rather than merely on the wrong scheme. nginx rewrites the
+  Location header on a redirect, which hides this for navigation but cannot touch a URL inside a
+  message body. It now falls back to `NEXTAUTH_URL`, which is already required, already holds
+  `https://hamees.gagneet.com`, and is not attacker-controlled the way a forwarded host would be.
 - **A wrong order number spent the real customer's tracking allowance.** The per-phone limit was
   counted on every request, so three bad guesses against a known number locked its owner out for an
   hour. It is now checked without counting and spent only when a link is really sent; guessing
@@ -95,6 +98,15 @@ These were defects in the work above, found by auditing it against the running d
 - Removed a `try/catch` around `Buffer.from(…, 'base64url')` in `verifyTrackingToken`. It never
   throws — it silently drops characters it does not recognise — so that `malformed` branch was
   unreachable and the comment implied a guard that did not exist.
+- **The garment dropdown pre-selected "Sherwani".** A visitor who filled in only their name and
+  phone filed an enquiry for a garment they had never chosen, and the shop would have rung them
+  about it. It now starts empty and is `required`, with the server's existing 400 as the backstop.
+- **"Send another" reopened the form with the previous answers still in it**, inviting a duplicate
+  enquiry a few seconds after the first. Each form is cleared once the server accepts it.
+- **A second structural test passed for the wrong reason.** It asserted that `after(` appeared
+  before `prisma.order.findFirst` in the route's source, but the route's own docblock contains the
+  words "in `after()`", so the assertion matched the comment and would have held whatever the code
+  did. It now strips comments first and asserts both positions were found.
 
 ### Known limitations
 - **The imagery is placeholder** — `public/marketing/*.png` are Instagram screenshots, about 19 MB

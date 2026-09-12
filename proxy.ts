@@ -6,8 +6,8 @@
  * permissions, object-level scope) happen in app/(dashboard)/layout.tsx, section layouts,
  * and every API route handler.
  *
- * CHANGED in 0.32.x: "/" is now the public marketing site, so the login page moved to
- * "/login" and both are excluded from the matcher.
+ * CHANGED in 1.0.0: "/" is now the public marketing site, so the login page moved to
+ * "/login". Neither is matched here: "/" fails the trailing ".+" and "/login" is excluded.
  */
 
 import { NextResponse, type NextRequest } from 'next/server'

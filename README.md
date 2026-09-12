@@ -248,7 +248,7 @@ See `lib/permissions.ts` for the complete permission matrix.
 
 ## Routes
 
-Three routes are reachable without a session; everything else redirects to `/login` (`proxy.ts`, then the
+Five routes are reachable without a session; everything else redirects to `/login` (`proxy.ts`, then the
 server-side guards in `app/(dashboard)/layout.tsx` and `lib/page-guard.ts`).
 
 | Route | Access | Notes |

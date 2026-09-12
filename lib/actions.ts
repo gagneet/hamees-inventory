@@ -12,7 +12,8 @@ import { redirect } from 'next/navigation'
  *
  * If an error occurs during sign-out, the error is logged to the server
  * console and the user is redirected to the login page with an error query
- * parameter (`/login?error=signout`) to indicate that sign-out failed.
+ * parameter (`/login?error=signout`). Nothing renders that parameter today — it is a marker in
+ * the URL for support, not a message the user sees.
  *
  * This function is intended to be called from client components and manages
  * navigation via redirects instead of propagating errors to the caller.

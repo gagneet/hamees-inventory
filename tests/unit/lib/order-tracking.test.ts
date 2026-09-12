@@ -107,8 +107,9 @@ describe('order tracking tokens', () => {
     })
 
     it('falls back to NEXTAUTH_URL before the request origin', () => {
-      // The deployment sits behind Cloudflare → nginx:80, so the request origin says http even
-      // though the site is https-only. NEXTAUTH_URL is the configured public origin.
+      // The app rebuilds request URLs from its own listen address, not from the forwarded
+      // headers, so the request origin is http://localhost:3009 in production — useless in a
+      // WhatsApp message. NEXTAUTH_URL is the configured public origin.
       try {
         delete process.env.NEXT_PUBLIC_SITE_URL
         process.env.NEXTAUTH_URL = 'https://hamees.gagneet.com'
