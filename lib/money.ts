@@ -33,13 +33,31 @@ export function toMinor(amount: number): bigint {
   return BigInt(toMinorNumber(amount))
 }
 
-/** Stored minor units → decimal amount. */
+/** Largest minor-unit magnitude that survives the trip through a JS number without losing units. */
+const MAX_SAFE_MINOR = BigInt(Number.MAX_SAFE_INTEGER)
+
+/**
+ * Stored minor units → decimal amount.
+ *
+ * A BigInt column can hold far more than a double can represent exactly, so a value past
+ * Number.MAX_SAFE_INTEGER (about 90 trillion paise / 900 billion rupees) would come back
+ * silently rounded. Fail loudly instead — a wrong amount is worse than a failed request.
+ * Non-integer `number` input is allowed: raw-SQL sums (quantity × minor-unit price) land here.
+ */
 export function fromMinor(minor: bigint | number): number
 export function fromMinor(minor: bigint | number | null | undefined): number | null
 export function fromMinor(minor: bigint | number | null | undefined): number | null {
   if (minor === null || minor === undefined) return null
-  const n = typeof minor === 'bigint' ? Number(minor) : minor
-  return n / MONEY_SCALE
+  if (typeof minor === 'bigint') {
+    if (minor > MAX_SAFE_MINOR || minor < -MAX_SAFE_MINOR) {
+      throw new RangeError(`Amount out of safe range: ${minor}`)
+    }
+    return Number(minor) / MONEY_SCALE
+  }
+  if (!Number.isFinite(minor) || Math.abs(minor) > Number.MAX_SAFE_INTEGER) {
+    throw new RangeError(`Amount out of safe range: ${minor}`)
+  }
+  return minor / MONEY_SCALE
 }
 
 /** Sum of a nullable minor-unit aggregate (Prisma `_sum` on a money column) as a decimal amount. */

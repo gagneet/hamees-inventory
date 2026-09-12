@@ -89,3 +89,38 @@ describe('allocateMoney', () => {
     expect(allocateMoney(10, [])).toEqual([])
   })
 })
+
+describe('fromMinor guards the safe-integer range', () => {
+  it('converts a stored BigInt within range', () => {
+    expect(fromMinor(14177502n)).toBe(141775.02)
+    expect(fromMinor(-14177502n)).toBe(-141775.02)
+  })
+
+  it('throws rather than silently rounding a BigInt past 2^53−1', () => {
+    // A double cannot hold this exactly, so the amount would come back quietly wrong
+    const tooBig = BigInt(Number.MAX_SAFE_INTEGER) + 1n
+    expect(() => fromMinor(tooBig)).toThrow(RangeError)
+    expect(() => fromMinor(-tooBig)).toThrow(RangeError)
+  })
+
+  it('accepts the boundary value itself', () => {
+    expect(() => fromMinor(BigInt(Number.MAX_SAFE_INTEGER))).not.toThrow()
+  })
+
+  it('still accepts a non-integer number (raw-SQL sums of quantity × minor-unit price)', () => {
+    // SUM("currentStock" * "pricePerMeter") with 12.5 m at ₹450.00 → 562500 minor units
+    expect(fromMinor(562500)).toBe(5625)
+    expect(fromMinor(1234.5)).toBe(12.345)
+  })
+
+  it('rejects a non-finite number', () => {
+    expect(() => fromMinor(Number.POSITIVE_INFINITY)).toThrow(RangeError)
+    expect(() => fromMinor(Number.NaN)).toThrow(RangeError)
+  })
+
+  it('passes null and undefined through unchanged', () => {
+    expect(fromMinor(null)).toBeNull()
+    expect(fromMinor(undefined)).toBeNull()
+    expect(sumFromMinor(null)).toBe(0)
+  })
+})
