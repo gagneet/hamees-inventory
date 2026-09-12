@@ -97,6 +97,7 @@ export default async function TrackOrderPage({ params }: { params: Promise<{ tok
       status: true,
       orderDate: true,
       deliveryDate: true,
+      completedDate: true,
       customer: { select: { name: true } },
       items: {
         select: {
@@ -169,9 +170,12 @@ export default async function TrackOrderPage({ params }: { params: Promise<{ tok
           {!cancelled && (
             <div>
               <dt className="text-xs uppercase tracking-wider text-slate-500">
-                {delivered ? 'Collected by' : 'Expected'}
+                {delivered ? 'Collected' : 'Expected'}
               </dt>
-              <dd className="mt-1 text-slate-900">{formatDate(order.deliveryDate)}</dd>
+              {/* deliveryDate is the date promised; completedDate is when it was actually handed over. */}
+              <dd className="mt-1 text-slate-900">
+                {formatDate(delivered ? (order.completedDate ?? order.deliveryDate) : order.deliveryDate)}
+              </dd>
             </div>
           )}
         </dl>

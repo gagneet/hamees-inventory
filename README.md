@@ -1,6 +1,6 @@
 # Hamees Attire — Tailor Shop Inventory Management System
 
-**Version 0.52.0** | Production: [hamees.gagneet.com](https://hamees.gagneet.com)
+**Version 0.52.1** | Production: [hamees.gagneet.com](https://hamees.gagneet.com)
 
 A full-featured inventory and order management system purpose-built for bespoke tailoring. Manages fabric and accessory stock with automatic reservation, tracks orders through the complete production workflow, handles GST-compliant invoicing, and supports multiple staff roles from owner to tailor.
 
@@ -564,7 +564,8 @@ See `docs/GAPS_AND_ISSUES.md` for a comprehensive catalogue of technical debt, m
 - Rate limiting covers sign-in only (in memory, one app instance); other API endpoints are not rate-limited
 - Marketing site: the imagery in `public/marketing/` is placeholder (Instagram screenshots, ~19 MB in total) and the prices, testimonials and celebrity credits in `strings.ts` are drafts
 - Marketing site: there is no customer account area, by design — tracking is a signed WhatsApp link, not a login
-- A tracking link cannot be revoked before its 30 minutes are up (the trade-off for a stateless token)
+- A tracking link cannot be revoked before its 30 minutes are up (the trade-off for a stateless token), and because the token travels in the URL it is written to nginx and Cloudflare access logs
+- `NEXT_PUBLIC_SITE_URL` is unset on the live deployment, so the marketing page's canonical and OpenGraph tags still say `hameesattire.com`. Set it and redeploy to correct them; tracking links fall back to `NEXTAUTH_URL` and are unaffected
 - Fitting requests are requests, not bookings: no calendar, slots or availability check — the shop confirms the hour by phone
 - Public API error messages (rate limits, an undialable number) are English only; the Hindi, Punjabi and Japanese site copy is machine-drafted and wants a native speaker's review
 - No `app/robots.ts` or `app/sitemap.ts`; the public pages set their own `robots` metadata instead

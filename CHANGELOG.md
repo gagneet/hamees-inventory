@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.52.1] - 2026-09-12 — Audit fixes to the public forms
+
+An audit of 0.51.0 and 0.52.0 against the running deployment. Five defects, one of them in a test
+that passed for the wrong reason.
+
+### Fixed
+- **Tracking links were built from the wrong origin.** `trackingUrl()` preferred
+  `NEXT_PUBLIC_SITE_URL`, which is not set on this deployment, and fell back to the request's own
+  origin. nginx listens on port 80 behind Cloudflare, so both the reconstructed request URL and
+  `X-Forwarded-Proto` say `http` even though the site is https-only — the WhatsApp link would have
+  gone out as `http://…`. It now falls back to `NEXTAUTH_URL`, which is already required and
+  already holds `https://hamees.gagneet.com`. No customer was affected: WhatsApp has no API
+  credentials on this deployment, so no link has ever actually been sent.
+- **A wrong order number spent the real customer's tracking allowance.** The per-phone limit was
+  counted on every request, so anyone who knew a customer's number could lock them out of tracking
+  for an hour with three bad guesses. It is now checked without counting and spent only when a link
+  is really sent; guessing stays bounded by the per-IP limit.
+- **The tracking page called the promised date the collection date.** A delivered order showed
+  `deliveryDate` — when it was due — under "Collected by". It now shows `completedDate`, which is
+  what the rest of the application treats as the supply date, and falls back to `deliveryDate` only
+  if it is missing.
+- **A second Enter keypress could submit a public form twice.** `disabled` on the button does not
+  stop form submission from a field; the handlers now return early while a request is in flight.
+- **A rate-limit test passed for the wrong reason.** It passed the IP to the route handler instead
+  of to the request builder, so every "same IP" request actually carried a different one and the
+  per-IP limit was never exercised. Fixed, and split into three tests that each assert one property.
+
+### Changed
+- Removed a `try/catch` around `Buffer.from(…, 'base64url')` in `verifyTrackingToken`. It never
+  throws — it silently drops characters it does not recognise — so the `malformed` branch there was
+  unreachable and the comment implied a guard that did not exist. The shape checks that follow are
+  what actually reject garbage, and they are tested.
+
+### Known limitations
+- **A tracking token appears in URLs, so it is written to nginx and Cloudflare access logs.** It is
+  read-only, order-scoped and expires in 30 minutes, but anyone with log access can replay it
+  within that window.
+- `NEXT_PUBLIC_SITE_URL` is still unset in the deployed environment, so the marketing page's
+  canonical and OpenGraph tags say `hameesattire.com`. Tracking links no longer depend on it.
+
 ## [0.52.0] - 2026-09-12 — The public site's forms actually do something
 
 0.51.0 shipped the marketing site with four order tabs that captured nothing. Three of them now
@@ -24,6 +64,7 @@ to get wrong for very little gain.
   sentence, whether the order exists, belongs to a different number, or does not exist. The lookup
   and the send happen in `after()`, once the response has been decided, so neither the body nor the
   timing distinguishes the cases. Rate limited per IP and per phone, with a honeypot field.
+  (The per-phone limit was corrected in 0.52.1 — see below.)
 - **`EnquiryKind` (`ORDER_ENQUIRY` | `FITTING`) on `CustomerEnquiry`.** A fitting is the same
   conversation with no garment chosen yet, so it shares the table, the abuse controls and the
   inbox rather than duplicating them. Staff see a badge; the list API takes `?kind=`. Confirming

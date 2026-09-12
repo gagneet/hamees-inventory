@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db'
 import { getAppSettings } from '@/lib/settings'
 import { normalizePhone, toRegion } from '@/lib/phone'
 import { DEFAULT_PHONE_REGION } from '@/lib/app-settings'
-import { clientIp, rateLimit } from '@/lib/rate-limit'
+import { clientIp, isRateLimited, rateLimit } from '@/lib/rate-limit'
 import { signTrackingToken, trackingUrl } from '@/lib/order-tracking'
 import { whatsappService } from '@/lib/whatsapp/whatsapp-service'
 import { z } from 'zod'
@@ -25,8 +25,9 @@ import { z } from 'zod'
  * numbers and phone numbers. The lookup and the send therefore happen in `after()`, once the
  * response has already been decided.
  *
- * Abuse controls: fixed-window rate limit per IP and per phone number, a hidden honeypot field,
- * and a link that expires in 30 minutes.
+ * Abuse controls: a fixed-window rate limit per IP on every request, a per-phone limit spent only
+ * when a link is actually sent (so a wrong order number cannot exhaust the real customer's
+ * allowance), a hidden honeypot field, and a link that expires in 30 minutes.
  */
 
 const MAX_PER_IP = 5
@@ -90,11 +91,16 @@ export async function POST(request: Request) {
     )
   }
 
-  const byPhone = rateLimit(`track:phone:${phone.e164}`, MAX_PER_PHONE, WINDOW_MS)
-  if (!byPhone.ok) {
+  /**
+   * Checked WITHOUT counting a hit. The per-phone budget is spent in `after()`, and only when a
+   * link is actually sent — otherwise anyone who knows a customer's number could exhaust that
+   * customer's three-an-hour allowance by submitting wrong order numbers. Guessing attempts are
+   * still bounded, by the per-IP limit above.
+   */
+  if (isRateLimited(`track:phone:${phone.e164}`, MAX_PER_PHONE)) {
     return NextResponse.json(
       { error: 'We have already sent a link to that number. Please check WhatsApp.' },
-      { status: 429, headers: { 'Retry-After': String(Math.ceil(byPhone.retryAfterMs / 1000)) } }
+      { status: 429, headers: { 'Retry-After': String(WINDOW_MS / 1000) } }
     )
   }
 
@@ -113,6 +119,9 @@ export async function POST(request: Request) {
         select: { id: true, orderNumber: true, customerId: true },
       })
       if (!order) return
+
+      // Spend the phone's budget only now that there is really a link to send.
+      rateLimit(`track:phone:${e164}`, MAX_PER_PHONE, WINDOW_MS)
 
       const token = signTrackingToken(order.id)
       const link = trackingUrl(token, origin)

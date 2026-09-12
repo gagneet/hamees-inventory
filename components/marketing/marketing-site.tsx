@@ -154,6 +154,7 @@ export function MarketingSite() {
 
   const submitTrack = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (busy) return // the disabled button does not stop a second Enter keypress
     if (!track.orderNumber.trim() || !track.phone.trim()) {
       return setResult({ kind: 'error', text: t.fRequired })
     }
@@ -162,6 +163,7 @@ export function MarketingSite() {
 
   const submitEnquiry = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (busy) return // the disabled button does not stop a second Enter keypress
     if (!enquiry.name.trim() || !enquiry.phone.trim()) {
       return setResult({ kind: 'error', text: t.fRequired })
     }
@@ -170,6 +172,7 @@ export function MarketingSite() {
 
   const submitFitting = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (busy) return // the disabled button does not stop a second Enter keypress
     if (!fitting.name.trim() || !fitting.phone.trim()) {
       return setResult({ kind: 'error', text: t.fRequired })
     }

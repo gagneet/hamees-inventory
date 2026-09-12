@@ -165,14 +165,43 @@ describe('POST /api/public/track-request — abuse controls', () => {
     expect(whatsappService.sendTemplateMessage).not.toHaveBeenCalled()
   })
 
-  it('rate limits repeated requests for the same phone number', async () => {
-    const ip = '10.9.9.9'
+  it('rate limits a phone number once it has actually been sent links', async () => {
+    m(prisma.order.findFirst).mockResolvedValue({ id: 'order-1', orderNumber: ORDER_NUMBER, customerId: 'c1' })
     const statuses: number[] = []
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const response = await requestTracking(trackRequest({ orderNumber: ORDER_NUMBER, phone: PHONE }), ip)
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const response = await requestTracking(trackRequest({ orderNumber: ORDER_NUMBER, phone: PHONE }))
+      statuses.push(response.status)
+      await runAfterCallbacks() // the send is what spends the budget
+    }
+    expect(statuses).toEqual([202, 202, 202, 429])
+    expect(whatsappService.sendTemplateMessage).toHaveBeenCalledTimes(3)
+  })
+
+  it('a wrong order number does not spend the real customer\'s allowance', async () => {
+    // Otherwise anyone who knows a phone number could lock its owner out of tracking.
+    m(prisma.order.findFirst).mockResolvedValue(null)
+    for (let attempt = 0; attempt < 4; attempt++) {
+      await requestTracking(trackRequest({ orderNumber: `HA-9999-000${attempt}`, phone: PHONE }))
+      await runAfterCallbacks()
+    }
+
+    m(prisma.order.findFirst).mockResolvedValue({ id: 'order-1', orderNumber: ORDER_NUMBER, customerId: 'c1' })
+    const genuine = await requestTracking(trackRequest({ orderNumber: ORDER_NUMBER, phone: PHONE }))
+    await runAfterCallbacks()
+
+    expect(genuine.status).toBe(202)
+    expect(whatsappService.sendTemplateMessage).toHaveBeenCalledTimes(1)
+  })
+
+  it('still bounds guessing through the per-IP limit', async () => {
+    const ip = '10.9.9.9'
+    m(prisma.order.findFirst).mockResolvedValue(null)
+    const statuses: number[] = []
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const response = await requestTracking(trackRequest({ orderNumber: ORDER_NUMBER, phone: PHONE }, ip))
       statuses.push(response.status)
     }
-    expect(statuses.slice(0, 3)).toEqual([202, 202, 202])
+    expect(statuses.slice(0, 5)).toEqual([202, 202, 202, 202, 202])
     expect(statuses.at(-1)).toBe(429)
   })
 

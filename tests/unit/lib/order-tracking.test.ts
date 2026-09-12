@@ -85,17 +85,47 @@ describe('order tracking tokens', () => {
     }
   })
 
-  it('builds the link from NEXT_PUBLIC_SITE_URL, falling back to the request origin', () => {
-    const saved = process.env.NEXT_PUBLIC_SITE_URL
-    try {
-      process.env.NEXT_PUBLIC_SITE_URL = 'https://hamees.gagneet.com/'
-      expect(trackingUrl('abc', 'http://localhost:3009')).toBe('https://hamees.gagneet.com/track/abc')
+  describe('trackingUrl', () => {
+    const savedSite = process.env.NEXT_PUBLIC_SITE_URL
+    const savedAuth = process.env.NEXTAUTH_URL
 
-      delete process.env.NEXT_PUBLIC_SITE_URL
-      expect(trackingUrl('abc', 'http://localhost:3009')).toBe('http://localhost:3009/track/abc')
-    } finally {
-      if (saved === undefined) delete process.env.NEXT_PUBLIC_SITE_URL
-      else process.env.NEXT_PUBLIC_SITE_URL = saved
+    const restore = () => {
+      if (savedSite === undefined) delete process.env.NEXT_PUBLIC_SITE_URL
+      else process.env.NEXT_PUBLIC_SITE_URL = savedSite
+      if (savedAuth === undefined) delete process.env.NEXTAUTH_URL
+      else process.env.NEXTAUTH_URL = savedAuth
     }
+
+    it('prefers NEXT_PUBLIC_SITE_URL and trims a trailing slash', () => {
+      try {
+        process.env.NEXT_PUBLIC_SITE_URL = 'https://hameesattire.com/'
+        process.env.NEXTAUTH_URL = 'https://hamees.gagneet.com'
+        expect(trackingUrl('abc', 'http://localhost:3009')).toBe('https://hameesattire.com/track/abc')
+      } finally {
+        restore()
+      }
+    })
+
+    it('falls back to NEXTAUTH_URL before the request origin', () => {
+      // The deployment sits behind Cloudflare → nginx:80, so the request origin says http even
+      // though the site is https-only. NEXTAUTH_URL is the configured public origin.
+      try {
+        delete process.env.NEXT_PUBLIC_SITE_URL
+        process.env.NEXTAUTH_URL = 'https://hamees.gagneet.com'
+        expect(trackingUrl('abc', 'http://hamees.gagneet.com')).toBe('https://hamees.gagneet.com/track/abc')
+      } finally {
+        restore()
+      }
+    })
+
+    it('uses the request origin only when nothing is configured', () => {
+      try {
+        delete process.env.NEXT_PUBLIC_SITE_URL
+        delete process.env.NEXTAUTH_URL
+        expect(trackingUrl('abc', 'http://localhost:3009')).toBe('http://localhost:3009/track/abc')
+      } finally {
+        restore()
+      }
+    })
   })
 })

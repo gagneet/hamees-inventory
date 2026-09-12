@@ -79,12 +79,9 @@ export function verifyTrackingToken(token: string): TrackingTokenResult {
     return { ok: false, reason: 'bad-signature' }
   }
 
-  let payload: string
-  try {
-    payload = Buffer.from(encoded, 'base64url').toString('utf8')
-  } catch {
-    return { ok: false, reason: 'malformed' }
-  }
+  // Buffer.from(..., 'base64url') never throws — it drops characters it does not recognise — so
+  // garbage decodes to garbage and is caught by the shape checks below, not by a try/catch.
+  const payload = Buffer.from(encoded, 'base64url').toString('utf8')
 
   const split = payload.lastIndexOf('.')
   if (split <= 0) return { ok: false, reason: 'malformed' }
@@ -98,8 +95,17 @@ export function verifyTrackingToken(token: string): TrackingTokenResult {
   return { ok: true, orderId, expiresAt }
 }
 
-/** Absolute URL for a tracking link. `origin` comes from the request when no site URL is set. */
+/**
+ * Absolute URL for a tracking link.
+ *
+ * The request's own origin is the LAST resort, not the first: this deployment runs behind
+ * Cloudflare → nginx, nginx listens on port 80, and so `X-Forwarded-Proto` and the reconstructed
+ * request URL both say `http` even though the site is only reachable over https. A link built
+ * from the request would go out over WhatsApp as `http://…`. `NEXTAUTH_URL` is already required
+ * and already holds the public https origin, so it is the dependable source.
+ */
 export function trackingUrl(token: string, origin?: string): string {
-  const base = (process.env.NEXT_PUBLIC_SITE_URL || origin || '').replace(/\/+$/, '')
+  const configured = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXTAUTH_URL || origin || ''
+  const base = configured.replace(/\/+$/, '')
   return `${base}/track/${token}`
 }
