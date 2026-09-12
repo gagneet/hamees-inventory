@@ -5,114 +5,114 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.52.1] - 2026-09-12 — Audit fixes to the public forms
+## [1.0.0] - 2026-09-12 — Public website, staff login at `/login`, customer-facing forms
 
-An audit of 0.51.0 and 0.52.0 against the running deployment. Five defects, one of them in a test
-that passed for the wrong reason.
+The first major release. The root of the deployment stops being the staff login screen and becomes
+the shop's public website, and the customer-facing forms on it do real work. Nothing behind the
+login changed: same roles, same permissions, same money.
 
-### Fixed
-- **Tracking links were built from the wrong origin.** `trackingUrl()` preferred
-  `NEXT_PUBLIC_SITE_URL`, which is not set on this deployment, and fell back to the request's own
-  origin. nginx listens on port 80 behind Cloudflare, so both the reconstructed request URL and
-  `X-Forwarded-Proto` say `http` even though the site is https-only — the WhatsApp link would have
-  gone out as `http://…`. It now falls back to `NEXTAUTH_URL`, which is already required and
-  already holds `https://hamees.gagneet.com`. No customer was affected: WhatsApp has no API
-  credentials on this deployment, so no link has ever actually been sent.
-- **A wrong order number spent the real customer's tracking allowance.** The per-phone limit was
-  counted on every request, so anyone who knew a customer's number could lock them out of tracking
-  for an hour with three bad guesses. It is now checked without counting and spent only when a link
-  is really sent; guessing stays bounded by the per-IP limit.
-- **The tracking page called the promised date the collection date.** A delivered order showed
-  `deliveryDate` — when it was due — under "Collected by". It now shows `completedDate`, which is
-  what the rest of the application treats as the supply date, and falls back to `deliveryDate` only
-  if it is missing.
-- **A second Enter keypress could submit a public form twice.** `disabled` on the button does not
-  stop form submission from a field; the handlers now return early while a request is in flight.
-- **A rate-limit test passed for the wrong reason.** It passed the IP to the route handler instead
-  of to the request builder, so every "same IP" request actually carried a different one and the
-  per-IP limit was never exercised. Fixed, and split into three tests that each assert one property.
-
-### Changed
-- Removed a `try/catch` around `Buffer.from(…, 'base64url')` in `verifyTrackingToken`. It never
-  throws — it silently drops characters it does not recognise — so the `malformed` branch there was
-  unreachable and the comment implied a guard that did not exist. The shape checks that follow are
-  what actually reject garbage, and they are tested.
-
-### Known limitations
-- **A tracking token appears in URLs, so it is written to nginx and Cloudflare access logs.** It is
-  read-only, order-scoped and expires in 30 minutes, but anyone with log access can replay it
-  within that window.
-- `NEXT_PUBLIC_SITE_URL` is still unset in the deployed environment, so the marketing page's
-  canonical and OpenGraph tags say `hameesattire.com`. Tracking links no longer depend on it.
-
-## [0.52.0] - 2026-09-12 — The public site's forms actually do something
-
-0.51.0 shipped the marketing site with four order tabs that captured nothing. Three of them now
-submit for real and the fourth is gone. No customer accounts: the shop's workflow is a phone call
-and three fittings, and an account area would have been a login, a session and a scoping surface
-to get wrong for very little gain.
+No customer accounts, deliberately. The shop's workflow is a phone call and three fittings; an
+account area would have meant a second auth surface, a session and a scoping boundary to get wrong,
+for very little gain over a tracking link.
 
 ### Added
+
+**The public site**
+- **A marketing site at `/`** (`app/page.tsx` → `components/marketing/marketing-site.tsx`). Static,
+  indexable and with no database access, so it renders from the build and cannot leak business
+  data. Four languages (English, Hindi, Punjabi, Japanese) with all copy in
+  `components/marketing/strings.ts`; language and page are client state on a single URL. Carries
+  `ClothingStore` JSON-LD and its own OpenGraph and Twitter tags, overriding the app-wide
+  `robots: { index: false }` that keeps the dashboard out of search.
+- `app/login/page.tsx` — the former `app/page.tsx`, `noindex`, with a link back to the public site.
+- Jost, Noto Sans Gurmukhi, Noto Sans Devanagari and Noto Serif JP in `app/layout.tsx`, exposed as
+  CSS variables. The handoff's stacks named the families literally, which `next/font` never matches
+  because it hashes them, so without this the site silently fell back to system fonts.
+- `NEXT_PUBLIC_SITE_URL` for the canonical, OpenGraph and JSON-LD origin. Baked in at build time.
+
+**Customer-facing forms**
+- The enquiry and fitting forms post to `POST /api/public/enquiries` in all four languages, with
+  sending/sent/error states and a honeypot.
+- **`EnquiryKind` (`ORDER_ENQUIRY` | `FITTING`) on `CustomerEnquiry`.** A fitting is the same
+  conversation with no garment chosen yet, so it shares the table, the abuse controls and the staff
+  inbox instead of duplicating them. Badge in the inbox, `?kind=` on the list API. Confirming the
+  hour stays a phone call: no calendar, no slots, no availability model.
 - **Order tracking by signed link.** A customer enters their order number and phone; if the two
-  match a customer record, the shop sends a link over WhatsApp to **the number already on that
-  record** and `/track/<token>` shows that order's production stage. The token (`lib/order-tracking.ts`)
-  is an HMAC over `orderId.expiresAt` keyed on `NEXTAUTH_SECRET` — stateless, so there is no table
-  and no cleanup job, and rotating the secret invalidates every outstanding link. It lasts 30 minutes.
+  match a customer record, a link goes over WhatsApp to **the number already on that record**, and
+  `/track/<token>` shows that order's production stage. The token (`lib/order-tracking.ts`) is an
+  HMAC over `orderId.expiresAt` keyed on `NEXTAUTH_SECRET` — stateless, so there is no table and no
+  cleanup job, and rotating the secret invalidates every outstanding link. It lasts 30 minutes.
 - The tracking page shows stages, dates and garment names. **No prices, balance, advance or
   measurements** — a link forwarded out of a WhatsApp chat must not open the shop's books.
 - **`POST /api/public/track-request`** answers every caller with the same 202 and the same
   sentence, whether the order exists, belongs to a different number, or does not exist. The lookup
   and the send happen in `after()`, once the response has been decided, so neither the body nor the
-  timing distinguishes the cases. Rate limited per IP and per phone, with a honeypot field.
-  (The per-phone limit was corrected in 0.52.1 — see below.)
-- **`EnquiryKind` (`ORDER_ENQUIRY` | `FITTING`) on `CustomerEnquiry`.** A fitting is the same
-  conversation with no garment chosen yet, so it shares the table, the abuse controls and the
-  inbox rather than duplicating them. Staff see a badge; the list API takes `?kind=`. Confirming
-  the hour stays a phone call — there is no calendar, no slots and no availability model.
-- The marketing site's enquiry and fitting forms now post to `/api/public/enquiries`, in all four
-  languages, with sending/sent/error states and a honeypot.
-- `tests/unit/lib/order-tracking.test.ts` (forgery, secret rotation, expiry, malformed input) and
-  `tests/unit/api/public-track-request.test.ts` (identical responses for found and not-found, no
-  lookup before answering, honeypot, rate limits). 1,037 unit tests pass across 44 files.
+  timing distinguishes the cases.
+
+**Tests**
+- `tests/unit/lib/order-tracking.test.ts` — forgery, secret rotation, expiry, malformed input, and
+  each step of the link-origin fallback.
+- `tests/unit/api/public-track-request.test.ts` — identical responses for found and not-found, no
+  lookup before answering, honeypot, and both rate limits.
+- Fitting cases on the enquiry route. The public-surface allowlist grows by one, deliberately, as
+  that test intends. 1,041 unit tests pass across 44 files.
 
 ### Changed
+- `proxy.ts` redirects signed-out visitors to `/login` instead of `/`, and excludes `/`, `/login`,
+  `/order`, `/track/` and `/marketing/`. The handoff's version had dropped the `/order` exclusion,
+  which would have started bouncing visitors off the public enquiry page added in 0.50.0.
+- `pages.signIn` in `lib/auth.ts` is `/login`.
+- Every signed-out `redirect('/')` — the dashboard layout, `lib/page-guard.ts` and nine section
+  pages — now goes to `/login`, as do sign-out and its `?error=signout` case. Without this a member
+  of staff whose session had expired landed on the customer site with no way back in.
 - The **Customer login tab is gone** from the public site, along with its "Send me a code" button.
   It had no backend and implied an account area that does not exist.
-- `proxy.ts` excludes `/track/`; the tracking page is `noindex, nocache`.
+- Dropped the marketing page's hreflang map: `/hi`, `/pa` and `/ja` are not routes — the language
+  switch is client-side on one URL — and a crawler following them would have been redirected.
 - `vitest.setup.ts` mocks `whatsappService.sendTemplateMessage`, which the global mock had missed.
 
+### Fixed during the pre-release audit
+These were defects in the work above, found by auditing it against the running deployment.
+- **Tracking links were built from the wrong origin.** `trackingUrl()` preferred
+  `NEXT_PUBLIC_SITE_URL`, which this deployment does not set, then fell back to the request's own
+  origin — and nginx listens on port 80 behind Cloudflare, so both the reconstructed request URL
+  and `X-Forwarded-Proto` report `http` on an https-only site. The link would have gone out over
+  WhatsApp as `http://…`. It now falls back to `NEXTAUTH_URL`, which is already required and
+  already holds `https://hamees.gagneet.com`.
+- **A wrong order number spent the real customer's tracking allowance.** The per-phone limit was
+  counted on every request, so three bad guesses against a known number locked its owner out for an
+  hour. It is now checked without counting and spent only when a link is really sent; guessing
+  stays bounded by the per-IP limit.
+- **The tracking page called the promised date the collection date.** A delivered order showed
+  `deliveryDate` — when it was due — under "Collected by". It now shows `completedDate`, which is
+  what the rest of the application treats as the supply date, falling back to `deliveryDate` only
+  when it is missing.
+- **A second Enter keypress could submit a public form twice.** `disabled` on the button does not
+  stop submission from a field; the handlers now return early while a request is in flight.
+- **A rate-limit test passed for the wrong reason.** It handed the IP to the route handler instead
+  of the request builder, so every "same IP" request actually carried a different one and the
+  per-IP limit was never exercised. Fixed, and split into three tests asserting one property each.
+- Removed a `try/catch` around `Buffer.from(…, 'base64url')` in `verifyTrackingToken`. It never
+  throws — it silently drops characters it does not recognise — so that `malformed` branch was
+  unreachable and the comment implied a guard that did not exist.
+
 ### Known limitations
-- **A tracking link cannot be revoked** before it expires — the trade-off for a stateless token.
-- **Server-side error messages are English only** (rate limits, an undialable number). The success
-  and validation copy is translated; the Hindi, Punjabi and Japanese strings throughout the site
-  are machine-drafted and want a native speaker's eye.
-- Fittings are requests, not bookings: nothing checks the shop's calendar or reserves a slot.
-- The tracking form still identifies a customer by order number plus phone. That is enough to
-  *ask* for a link, because the link only ever goes to the number on the record, but it is not
-  authentication and nothing behind the login should ever rely on it.
-
-## [0.51.0] - 2026-09-12 — Public marketing site at `/`, staff login at `/login`
-
-The root of the deployment is now the shop's public website instead of the staff login screen.
-Nothing about the application behind the login changed: same roles, same permissions, same data.
-
-### Added
-- **A public marketing site at `/`** (`app/page.tsx` → `components/marketing/marketing-site.tsx`). Static, indexable and with no database access, so it renders from the build and cannot leak business data. Four languages (English, Hindi, Punjabi, Japanese) with all copy and page data in `components/marketing/strings.ts`; the language and page switch are client-side state persisted in `localStorage`, so the whole site is one URL. Carries `ClothingStore` JSON-LD (address, hours, phone, Instagram) and its own OpenGraph and Twitter tags, overriding the app-wide `robots: { index: false }` that keeps the dashboard out of search.
-- `app/login/page.tsx` — the former `app/page.tsx`, unchanged apart from `noindex` metadata and a link back to the public site.
-- `NEXT_PUBLIC_SITE_URL` — the public origin used for the canonical, OpenGraph and JSON-LD URLs. Baked in at build time; defaults to `https://hameesattire.com`.
-- Jost, Noto Sans Gurmukhi, Noto Sans Devanagari and Noto Serif JP in `app/layout.tsx`, exposed as CSS variables for the marketing site's Latin, Gurmukhi, Devanagari and Japanese text.
-
-### Changed
-- `proxy.ts` redirects signed-out visitors to `/login` instead of `/`, and excludes `/`, `/login`, `/order` and `/marketing/` from the matcher.
-- `pages.signIn` in `lib/auth.ts` is `/login`.
-- Every signed-out `redirect('/')` — the dashboard layout, `lib/page-guard.ts` and nine section pages — now redirects to `/login`, as do sign-out (`lib/actions.ts`, `components/dashboard/sign-out-button.tsx`) and its `?error=signout` case. Without this a member of staff whose session had expired landed on the customer site with no way back in.
-
-### Known limitations
-- **The imagery is placeholder** — `public/marketing/*.png` are Instagram screenshots, about 19 MB in total, and soft at full width. Replace them under the same names.
-- **Prices, testimonials and celebrity credits are drafts**, all in `strings.ts`.
-- **Order tracking and customer sign-in have no route.** Both tabs on the order page hand off to `/order`, the public enquiry page; a customer-facing OTP route and an order-tracking page are still to be built.
-- **The enquiry and fitting forms on the marketing site do not submit** — they hand off to WhatsApp or the phone. The separate `/order` enquiry page added in 0.50.0 does submit.
-- No `app/robots.ts` or `app/sitemap.ts` yet; worth adding, listing only `/` and `/order`, once the domain is final.
+- **The imagery is placeholder** — `public/marketing/*.png` are Instagram screenshots, about 19 MB
+  in total and soft at full width. Replace them under the same names.
+- **Prices, testimonials and celebrity credits are drafts**, all in `strings.ts`. The Hindi,
+  Punjabi and Japanese copy is machine-drafted and wants a native speaker's review.
+- **WhatsApp has no API credentials on this deployment**, so the service logs messages instead of
+  sending them. Tracking links will not reach anyone until `WHATSAPP_API_KEY` and
+  `WHATSAPP_PHONE_NUMBER_ID` are set.
+- **A tracking token travels in the URL**, so it is written to nginx and Cloudflare access logs. It
+  is read-only, order-scoped and expires in 30 minutes, but it can be replayed within that window,
+  and it cannot be revoked early — the trade-off for a stateless token.
+- Server-side error messages (rate limits, an undialable number) are English only.
+- Fittings are requests, not bookings: nothing checks a calendar or reserves a slot.
+- `NEXT_PUBLIC_SITE_URL` is unset in the deployed environment, so the marketing page's canonical and
+  OpenGraph tags still say `hameesattire.com`. Tracking links no longer depend on it.
+- The enquiry and fitting forms on the site do not attach photos, and there is still no
+  `app/robots.ts` or `app/sitemap.ts` — the public pages set their own `robots` metadata instead.
 
 ## [0.50.0] - 2026-09-12 — Discounts before tax, revenue excluding tax, public order enquiries
 

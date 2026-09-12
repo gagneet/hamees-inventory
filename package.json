@@ -1,6 +1,6 @@
 {
   "name": "hamees-inventory",
-  "version": "0.52.1",
+  "version": "1.0.0",
   "packageManager": "pnpm@10.28.0",
   "private": true,
   "scripts": {

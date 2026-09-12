@@ -1,6 +1,6 @@
 # Hamees Attire — Tailor Shop Inventory Management System
 
-**Version 0.52.1** | Production: [hamees.gagneet.com](https://hamees.gagneet.com)
+**Version 1.0.0** | Production: [hamees.gagneet.com](https://hamees.gagneet.com)
 
 A full-featured inventory and order management system purpose-built for bespoke tailoring. Manages fabric and accessory stock with automatic reservation, tracks orders through the complete production workflow, handles GST-compliant invoicing, and supports multiple staff roles from owner to tailor.
 
