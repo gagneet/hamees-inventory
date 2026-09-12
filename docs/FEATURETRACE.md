@@ -68,7 +68,7 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**Key Proxy:** `proxy.ts` (Next.js 16 renamed middleware to proxy) guards the `/(dashboard)` route group — all pages under it require authentication. Unauthenticated requests redirect to `/login`. Excluded from the matcher: `/` (the public marketing site), `/login`, `/order` (the public enquiry page), `/marketing/` imagery, `/api/*` (routes return 401 themselves) and Next.js internals.
+**Key Proxy:** `proxy.ts` (Next.js 16 renamed middleware to proxy) guards the `/(dashboard)` route group — all pages under it require authentication. Unauthenticated requests redirect to `/login`. Excluded from the matcher: `/` (the public marketing site), `/login`, `/order` (the public enquiry page), `/track/` (signed order-tracking links), `/marketing/` imagery, `/api/*` (routes return 401 themselves) and Next.js internals.
 
 **Auth Provider:** NextAuth v5 with JWT strategy. Session includes `user.role` (UserRole enum) which is the single source of truth for permissions everywhere in the application.
 

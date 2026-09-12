@@ -29,10 +29,11 @@ export function proxy(request: NextRequest) {
 export const config = {
   // Every app page except: the public marketing site ("/"), the login page ("/login"), the
   // public order-enquiry page ("/order", which takes an enquiry and never touches money or
-  // stock — see app/order/page.tsx), API routes (which return 401 themselves), Next.js
-  // internals and root-level static files from public/ (logo.svg, favicon.svg, robots.txt …).
-  // "marketing/" holds the public site's imagery.
+  // stock — see app/order/page.tsx), the signed order-tracking links ("/track/<token>", where
+  // the token is the credential — see lib/order-tracking.ts), API routes (which return 401
+  // themselves), Next.js internals and root-level static files from public/ (logo.svg,
+  // favicon.svg, robots.txt …). "marketing/" holds the public site's imagery.
   matcher: [
-    '/((?!login(?:/|$)|order(?:/|$)|marketing/|api(?:/|$)|_next/|[^/]+\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$).+)',
+    '/((?!login(?:/|$)|order(?:/|$)|track/|marketing/|api(?:/|$)|_next/|[^/]+\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$).+)',
   ],
 }

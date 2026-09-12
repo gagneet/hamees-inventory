@@ -65,9 +65,21 @@ const PHONE = '+91 84000 08096'
 const WHATSAPP = 'https://wa.me/918400008096'
 const INSTAGRAM = 'https://www.instagram.com/hameesattire/'
 const EMAIL = 'contact@hameesattire.com'
-// The only customer-facing route the app exposes today: the public enquiry page (app/order).
-// '/orders' is the staff dashboard and would bounce a customer to the staff login.
-const ENQUIRY_URL = '/order'
+/** Offered on the enquiry form. Free text is not accepted here — staff refine it on the call. */
+const GARMENTS = [
+  'Sherwani', 'Two-piece suit', 'Three-piece suit', 'Bandhgala / Jodhpuri', 'Hand-painted piece', 'Other',
+] as const
+
+/** Hidden from people, irresistible to bots. Anything typed here means the submission is discarded. */
+function Honeypot({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  return (
+    <div style={{ position: 'absolute', left: -9999, width: 1, height: 1, overflow: 'hidden' }} aria-hidden="true">
+      <label htmlFor="ha-company">Company</label>
+      <input id="ha-company" name="company" type="text" tabIndex={-1} autoComplete="off"
+        value={value} onChange={(e) => onChange(e.target.value)} />
+    </div>
+  )
+}
 
 export function MarketingSite() {
   const [lang, setLang] = useState<Lang>('en')
@@ -89,12 +101,79 @@ export function MarketingSite() {
     } catch {}
   }, [lang, page])
 
+  // Public forms. Each posts to a rate-limited endpoint that creates an enquiry or sends a
+  // tracking link — never an order, a price or a stock movement.
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
+  const [track, setTrack] = useState({ orderNumber: '', phone: '', company: '' })
+  const [enquiry, setEnquiry] = useState({
+    name: '', phone: '', garmentType: GARMENTS[0] as string, preferredDate: '', notes: '', company: '',
+  })
+  const [fitting, setFitting] = useState({ name: '', phone: '', preferredDate: '', notes: '', company: '' })
+
   const t = STR[lang]
   const go = (p: Page) => (e: React.MouseEvent) => {
     e.preventDefault()
     setPage(p)
     setTab(0)
+    setResult(null)
     window.scrollTo(0, 0)
+  }
+  const selectTab = (i: number) => {
+    setTab(i)
+    setResult(null)
+  }
+
+  /**
+   * The success text is always the localised one: the endpoints answer in English, and for
+   * tracking the server's own wording is deliberately non-committal about whether the order
+   * exists. Server-side errors (rate limits, an undialable number) are shown as sent — they are
+   * English-only for now.
+   */
+  const post = async (url: string, body: unknown, okText: string) => {
+    setBusy(true)
+    setResult(null)
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        setResult({ kind: 'error', text: data.error || t.fFailed })
+        return
+      }
+      setResult({ kind: 'ok', text: okText })
+    } catch {
+      setResult({ kind: 'error', text: t.fFailed })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const submitTrack = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!track.orderNumber.trim() || !track.phone.trim()) {
+      return setResult({ kind: 'error', text: t.fRequired })
+    }
+    await post('/api/public/track-request', track, t.trackSent)
+  }
+
+  const submitEnquiry = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!enquiry.name.trim() || !enquiry.phone.trim()) {
+      return setResult({ kind: 'error', text: t.fRequired })
+    }
+    await post('/api/public/enquiries', { ...enquiry, kind: 'ORDER_ENQUIRY', quantity: 1 }, t.enquirySent)
+  }
+
+  const submitFitting = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!fitting.name.trim() || !fitting.phone.trim()) {
+      return setResult({ kind: 'error', text: t.fRequired })
+    }
+    await post('/api/public/enquiries', { ...fitting, kind: 'FITTING', quantity: 1 }, t.fittingSent)
   }
 
   return (
@@ -381,7 +460,7 @@ export function MarketingSite() {
 
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', borderBottom: `1px solid ${RULE}`, paddingBottom: 2, marginBottom: 34 }}>
             {t.orderTabs.map((label, i) => (
-              <button key={i} onClick={() => setTab(i)} style={{
+              <button key={i} onClick={() => selectTab(i)} style={{
                 fontFamily: 'inherit', cursor: 'pointer', border: 'none', background: 'transparent',
                 borderBottom: `2px solid ${tab === i ? MAROON : 'transparent'}`, fontSize: 12,
                 letterSpacing: '0.1em', textTransform: 'uppercase', padding: '12px 14px', minHeight: 44,
@@ -390,66 +469,111 @@ export function MarketingSite() {
             ))}
           </div>
 
-          {tab === 0 && (
-            <form action={ENQUIRY_URL} method="get" style={{ display: 'grid', gap: 18, maxWidth: 460 }}>
+          {result && (
+            <p role="status" style={{
+              margin: '0 0 22px', padding: '14px 16px', fontSize: 15, lineHeight: 1.65, maxWidth: 560,
+              border: `1px solid ${result.kind === 'ok' ? '#BFCBB4' : '#D9B0A6'}`,
+              background: result.kind === 'ok' ? '#EEF2E8' : '#FBEDE9',
+              color: result.kind === 'ok' ? '#33452C' : '#6E2B1C',
+            }}>{result.text}</p>
+          )}
+
+          {/* Track an order — we never answer here; the link goes to the number on file */}
+          {tab === 0 && result?.kind !== 'ok' && (
+            <form onSubmit={submitTrack} style={{ display: 'grid', gap: 18, maxWidth: 460 }}>
               <p style={{ fontSize: 15, lineHeight: 1.7, color: BODY, margin: 0 }}>{t.trackIntro}</p>
-              <label style={fieldLabel}>{t.fOrderNo}
-                <input name="order" placeholder="HA-2026-0148" style={field} />
+              <label style={fieldLabel}>{t.fOrderNo} ·
+                <input required value={track.orderNumber} onChange={(e) => setTrack({ ...track, orderNumber: e.target.value })}
+                  placeholder="HA-2026-0148" maxLength={40} style={field} />
               </label>
-              <label style={fieldLabel}>{t.fPhone}
-                <input name="phone" type="tel" placeholder="+91 98xxx xxxxx" style={field} />
+              <label style={fieldLabel}>{t.fPhone} ·
+                <input required type="tel" autoComplete="tel" value={track.phone}
+                  onChange={(e) => setTrack({ ...track, phone: e.target.value })}
+                  placeholder="+91 98xxx xxxxx" maxLength={24} style={field} />
               </label>
-              <button type="submit" className="ha-dark" style={{ ...btnDark, padding: '16px 24px' }}>{t.fTrack}</button>
-              <p style={note}>TODO: no public order-tracking route yet; this lands on the enquiry page.</p>
+              <Honeypot value={track.company} onChange={(v) => setTrack({ ...track, company: v })} />
+              <button type="submit" disabled={busy} className="ha-dark" style={{ ...btnDark, padding: '16px 24px', opacity: busy ? 0.6 : 1 }}>
+                {busy ? t.fSending : t.fTrack}
+              </button>
             </form>
           )}
 
-          {tab === 1 && (
-            <div style={{ maxWidth: 460, display: 'grid', gap: 20 }}>
-              <p style={{ fontSize: 15, lineHeight: 1.7, color: BODY, margin: 0 }}>{t.loginIntro}</p>
-              <label style={fieldLabel}>{t.fPhone}
-                <input type="tel" placeholder="+91 98xxx xxxxx" style={field} />
-              </label>
-              <Link href={ENQUIRY_URL} className="ha-dark" style={{ ...btnDark, padding: '16px 24px', justifyContent: 'center' }}>{t.fOtp}</Link>
-              <p style={note}>TODO: needs a customer-facing OTP route; currently links to {ENQUIRY_URL}</p>
-            </div>
-          )}
-
-          {tab === 2 && (
-            <div style={{ maxWidth: 560, display: 'grid', gap: 18 }}>
+          {/* New enquiry — creates a CustomerEnquiry, never an order */}
+          {tab === 1 && result?.kind !== 'ok' && (
+            <form onSubmit={submitEnquiry} style={{ maxWidth: 560, display: 'grid', gap: 18 }}>
               <p style={{ fontSize: 15, lineHeight: 1.7, color: BODY, margin: 0 }}>{t.enquiryIntro}</p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 18 }}>
-                <label style={fieldLabel}>{t.fName}<input style={field} /></label>
-                <label style={fieldLabel}>{t.fPhone}<input type="tel" style={field} /></label>
-                <label style={fieldLabel}>{t.fGarment}
-                  <select style={field}>
-                    <option>Sherwani</option>
-                    <option>Two-piece suit</option>
-                    <option>Three-piece suit</option>
-                    <option>Bandhgala / Jodhpuri</option>
-                    <option>Hand-painted piece</option>
-                    <option>Other</option>
+                <label style={fieldLabel}>{t.fName} ·
+                  <input required autoComplete="name" maxLength={200} value={enquiry.name}
+                    onChange={(e) => setEnquiry({ ...enquiry, name: e.target.value })} style={field} />
+                </label>
+                <label style={fieldLabel}>{t.fPhone} ·
+                  <input required type="tel" autoComplete="tel" maxLength={24} value={enquiry.phone}
+                    onChange={(e) => setEnquiry({ ...enquiry, phone: e.target.value })}
+                    placeholder="+91 98xxx xxxxx" style={field} />
+                </label>
+                <label style={fieldLabel}>{t.fGarment} ·
+                  <select value={enquiry.garmentType} onChange={(e) => setEnquiry({ ...enquiry, garmentType: e.target.value })} style={field}>
+                    {GARMENTS.map((g) => <option key={g}>{g}</option>)}
                   </select>
                 </label>
-                <label style={fieldLabel}>{t.fDate}<input type="date" style={field} /></label>
+                <label style={fieldLabel}>{t.fDate}
+                  <input type="date" value={enquiry.preferredDate}
+                    onChange={(e) => setEnquiry({ ...enquiry, preferredDate: e.target.value })} style={field} />
+                </label>
               </div>
               <label style={fieldLabel}>{t.fNotes}
-                <textarea rows={4} style={{ ...field, minHeight: 0, resize: 'vertical' }} />
+                <textarea rows={4} maxLength={2000} value={enquiry.notes}
+                  onChange={(e) => setEnquiry({ ...enquiry, notes: e.target.value })}
+                  style={{ ...field, minHeight: 0, resize: 'vertical' }} />
               </label>
-              <a href={WHATSAPP} target="_blank" rel="noopener" className="ha-dark" style={{ ...btnDark, padding: '16px 24px', justifyContent: 'center' }}>{t.fSend}</a>
-            </div>
+              <Honeypot value={enquiry.company} onChange={(v) => setEnquiry({ ...enquiry, company: v })} />
+              <button type="submit" disabled={busy} className="ha-dark" style={{ ...btnDark, padding: '16px 24px', justifyContent: 'center', opacity: busy ? 0.6 : 1 }}>
+                {busy ? t.fSending : t.fSend}
+              </button>
+              <p style={note}>{t.noPayment}</p>
+            </form>
           )}
 
-          {tab === 3 && (
-            <div style={{ maxWidth: 560, display: 'grid', gap: 18 }}>
+          {/* Book a fitting — the same enquiry record, marked FITTING for the shop's inbox */}
+          {tab === 2 && result?.kind !== 'ok' && (
+            <form onSubmit={submitFitting} style={{ maxWidth: 560, display: 'grid', gap: 18 }}>
               <p style={{ fontSize: 15, lineHeight: 1.7, color: BODY, margin: 0 }}>{t.fittingIntro}</p>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 18 }}>
-                <label style={fieldLabel}>{t.fName}<input style={field} /></label>
-                <label style={fieldLabel}>{t.fDate}<input type="date" style={field} /></label>
+                <label style={fieldLabel}>{t.fName} ·
+                  <input required autoComplete="name" maxLength={200} value={fitting.name}
+                    onChange={(e) => setFitting({ ...fitting, name: e.target.value })} style={field} />
+                </label>
+                <label style={fieldLabel}>{t.fPhone} ·
+                  <input required type="tel" autoComplete="tel" maxLength={24} value={fitting.phone}
+                    onChange={(e) => setFitting({ ...fitting, phone: e.target.value })}
+                    placeholder="+91 98xxx xxxxx" style={field} />
+                </label>
+                <label style={fieldLabel}>{t.fDate}
+                  <input type="date" value={fitting.preferredDate}
+                    onChange={(e) => setFitting({ ...fitting, preferredDate: e.target.value })} style={field} />
+                </label>
               </div>
+              <label style={fieldLabel}>{t.fNotes}
+                <textarea rows={3} maxLength={2000} value={fitting.notes}
+                  onChange={(e) => setFitting({ ...fitting, notes: e.target.value })}
+                  style={{ ...field, minHeight: 0, resize: 'vertical' }} />
+              </label>
               <p style={{ fontSize: 13, color: MUTED, margin: 0 }}>{t.closedMondays}</p>
-              <a href="tel:+918400008096" className="ha-ghost" style={{ ...btnGhost, padding: '16px 24px', justifyContent: 'center' }}>{t.fCall}</a>
-            </div>
+              <Honeypot value={fitting.company} onChange={(v) => setFitting({ ...fitting, company: v })} />
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                <button type="submit" disabled={busy} className="ha-dark" style={{ ...btnDark, padding: '16px 24px', opacity: busy ? 0.6 : 1 }}>
+                  {busy ? t.fSending : t.fSend}
+                </button>
+                <a href="tel:+918400008096" className="ha-ghost" style={{ ...btnGhost, padding: '16px 24px' }}>{t.fCall}</a>
+              </div>
+            </form>
+          )}
+
+          {result?.kind === 'ok' && (
+            <button onClick={() => setResult(null)} className="ha-ghost" style={{ ...btnGhost, padding: '14px 22px' }}>
+              {t.fAgain}
+            </button>
           )}
         </main>
       )}

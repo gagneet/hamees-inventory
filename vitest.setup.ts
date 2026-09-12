@@ -51,6 +51,7 @@ vi.mock('@/lib/db', () => {
 // Mock WhatsApp service to avoid network calls in tests
 vi.mock('@/lib/whatsapp/whatsapp-service', () => ({
   whatsappService: {
+    sendTemplateMessage: vi.fn().mockResolvedValue('mock-whatsapp-message-id'),
     sendOrderConfirmation: vi.fn().mockResolvedValue(undefined),
     sendOrderReady: vi.fn().mockResolvedValue(undefined),
     sendPaymentReminder: vi.fn().mockResolvedValue(undefined),

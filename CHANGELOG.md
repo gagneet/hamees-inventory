@@ -5,6 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.52.0] - 2026-09-12 — The public site's forms actually do something
+
+0.51.0 shipped the marketing site with four order tabs that captured nothing. Three of them now
+submit for real and the fourth is gone. No customer accounts: the shop's workflow is a phone call
+and three fittings, and an account area would have been a login, a session and a scoping surface
+to get wrong for very little gain.
+
+### Added
+- **Order tracking by signed link.** A customer enters their order number and phone; if the two
+  match a customer record, the shop sends a link over WhatsApp to **the number already on that
+  record** and `/track/<token>` shows that order's production stage. The token (`lib/order-tracking.ts`)
+  is an HMAC over `orderId.expiresAt` keyed on `NEXTAUTH_SECRET` — stateless, so there is no table
+  and no cleanup job, and rotating the secret invalidates every outstanding link. It lasts 30 minutes.
+- The tracking page shows stages, dates and garment names. **No prices, balance, advance or
+  measurements** — a link forwarded out of a WhatsApp chat must not open the shop's books.
+- **`POST /api/public/track-request`** answers every caller with the same 202 and the same
+  sentence, whether the order exists, belongs to a different number, or does not exist. The lookup
+  and the send happen in `after()`, once the response has been decided, so neither the body nor the
+  timing distinguishes the cases. Rate limited per IP and per phone, with a honeypot field.
+- **`EnquiryKind` (`ORDER_ENQUIRY` | `FITTING`) on `CustomerEnquiry`.** A fitting is the same
+  conversation with no garment chosen yet, so it shares the table, the abuse controls and the
+  inbox rather than duplicating them. Staff see a badge; the list API takes `?kind=`. Confirming
+  the hour stays a phone call — there is no calendar, no slots and no availability model.
+- The marketing site's enquiry and fitting forms now post to `/api/public/enquiries`, in all four
+  languages, with sending/sent/error states and a honeypot.
+- `tests/unit/lib/order-tracking.test.ts` (forgery, secret rotation, expiry, malformed input) and
+  `tests/unit/api/public-track-request.test.ts` (identical responses for found and not-found, no
+  lookup before answering, honeypot, rate limits). 1,037 unit tests pass across 44 files.
+
+### Changed
+- The **Customer login tab is gone** from the public site, along with its "Send me a code" button.
+  It had no backend and implied an account area that does not exist.
+- `proxy.ts` excludes `/track/`; the tracking page is `noindex, nocache`.
+- `vitest.setup.ts` mocks `whatsappService.sendTemplateMessage`, which the global mock had missed.
+
+### Known limitations
+- **A tracking link cannot be revoked** before it expires — the trade-off for a stateless token.
+- **Server-side error messages are English only** (rate limits, an undialable number). The success
+  and validation copy is translated; the Hindi, Punjabi and Japanese strings throughout the site
+  are machine-drafted and want a native speaker's eye.
+- Fittings are requests, not bookings: nothing checks the shop's calendar or reserves a slot.
+- The tracking form still identifies a customer by order number plus phone. That is enough to
+  *ask* for a link, because the link only ever goes to the number on the record, but it is not
+  authentication and nothing behind the login should ever rely on it.
+
 ## [0.51.0] - 2026-09-12 — Public marketing site at `/`, staff login at `/login`
 
 The root of the deployment is now the shop's public website instead of the staff login screen.

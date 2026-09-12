@@ -31,10 +31,13 @@ export interface Strings {
   staffEyebrow: string; staffTitle: string; staffCta: string; staffBody: string
   theAtelier: string; reachUs: string; hours: string; explore: string; visit: string
   hoursNote: string; footerTag: string
-  trackIntro: string; loginIntro: string; enquiryIntro: string; fittingIntro: string
+  trackIntro: string; enquiryIntro: string; fittingIntro: string
   closedMondays: string; orderTabs: string[]
   fOrderNo: string; fPhone: string; fName: string; fGarment: string; fDate: string; fNotes: string
-  fTrack: string; fOtp: string; fSend: string; fCall: string
+  fTrack: string; fSend: string; fCall: string
+  /** Form states — every public form on this page submits for real. */
+  fSending: string; fRequired: string; fFailed: string; noPayment: string
+  trackSent: string; enquirySent: string; fittingSent: string; fAgain: string
   days: string[]; closed: string
 }
 
@@ -64,14 +67,20 @@ export const STR: Record<Lang, Strings> = {
     theAtelier: 'The atelier', reachUs: 'Reach us', hours: 'Hours', explore: 'Explore', visit: 'Visit',
     hoursNote: 'Hours may differ on festival days. Fittings are by appointment.',
     footerTag: 'Bespoke tailoring and wedding attire, made in Amritsar.',
-    trackIntro: 'Enter the order number on your receipt and the phone number on file.',
-    loginIntro: 'Returning customers can sign in to see past orders, measurements on file and outstanding balances.',
+    trackIntro: 'Enter the order number on your receipt and the phone number on file. We send a link to that number on WhatsApp — it works for 30 minutes.',
     enquiryIntro: 'Tell us what you need and when you need it. We reply on WhatsApp within a working day.',
-    fittingIntro: 'The atelier runs by appointment. Pick a day and we confirm the hour by phone.',
+    fittingIntro: 'The atelier runs by appointment. Leave your name and a day, and we confirm the hour by phone.',
     closedMondays: 'Closed Mondays. Tuesday to Sunday, 11:00–21:00.',
-    orderTabs: ['Track an order', 'Customer login', 'New enquiry', 'Book a fitting'],
+    orderTabs: ['Track an order', 'New enquiry', 'Book a fitting'],
     fOrderNo: 'Order number', fPhone: 'Phone', fName: 'Name', fGarment: 'Garment', fDate: 'Event or fitting date', fNotes: 'Notes',
-    fTrack: 'Track order', fOtp: 'Send me a code', fSend: 'Send on WhatsApp', fCall: 'Call the atelier',
+    fTrack: 'Send me the link', fSend: 'Send enquiry', fCall: 'Call the atelier',
+    fSending: 'Sending…', fRequired: 'Please fill in the fields marked with a dot.',
+    fFailed: 'We could not reach the shop. Please try again, or call us.',
+    trackSent: 'If that order number matches the phone number we have on file, the link is on its way to your WhatsApp. It is valid for 30 minutes.',
+    enquirySent: 'Thank you — we have your enquiry. Someone from the atelier will call you to agree the fabric, take your measurements and give you a price.',
+    fittingSent: 'Thank you — we have your request. We will call you to confirm the hour.',
+    fAgain: 'Send another',
+    noPayment: 'No payment is taken and nothing is ordered from this page.',
     days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'], closed: 'Closed',
   },
   hi: {
@@ -99,14 +108,20 @@ export const STR: Record<Lang, Strings> = {
     theAtelier: 'एटेलियर', reachUs: 'संपर्क करें', hours: 'समय', explore: 'पन्ने', visit: 'पता',
     hoursNote: 'त्योहारों पर समय बदल सकता है। फ़िटिंग अपॉइंटमेंट से।',
     footerTag: 'अमृतसर में बनी बेस्पोक सिलाई और वेडिंग अटायर।',
-    trackIntro: 'रसीद पर लिखा ऑर्डर नंबर और रजिस्टर्ड फ़ोन नंबर डालें।',
-    loginIntro: 'पुराने ग्राहक साइन इन करके पिछले ऑर्डर, नाप और बाकी भुगतान देख सकते हैं।',
+    trackIntro: 'रसीद पर लिखा ऑर्डर नंबर और रजिस्टर्ड फ़ोन नंबर डालें। हम उसी नंबर पर व्हाट्सएप से लिंक भेजेंगे — वह 30 मिनट तक चलेगा।',
     enquiryIntro: 'बताइए आपको क्या और कब चाहिए। हम एक कार्यदिवस में व्हाट्सएप पर जवाब देते हैं।',
-    fittingIntro: 'एटेलियर अपॉइंटमेंट पर चलता है। दिन चुनें, समय हम फ़ोन पर तय कर लेंगे।',
+    fittingIntro: 'एटेलियर अपॉइंटमेंट पर चलता है। अपना नाम और दिन लिखें, समय हम फ़ोन पर तय कर लेंगे।',
     closedMondays: 'सोमवार बंद। मंगलवार से रविवार, 11:00–21:00।',
-    orderTabs: ['ऑर्डर ट्रैक करें', 'ग्राहक लॉगिन', 'नई पूछताछ', 'फ़िटिंग बुक करें'],
+    orderTabs: ['ऑर्डर ट्रैक करें', 'नई पूछताछ', 'फ़िटिंग बुक करें'],
     fOrderNo: 'ऑर्डर नंबर', fPhone: 'फ़ोन', fName: 'नाम', fGarment: 'परिधान', fDate: 'कार्यक्रम या फ़िटिंग की तारीख़', fNotes: 'टिप्पणी',
-    fTrack: 'ऑर्डर ट्रैक करें', fOtp: 'कोड भेजें', fSend: 'व्हाट्सएप पर भेजें', fCall: 'एटेलियर को कॉल करें',
+    fTrack: 'मुझे लिंक भेजें', fSend: 'पूछताछ भेजें', fCall: 'एटेलियर को कॉल करें',
+    fSending: 'भेजा जा रहा है…', fRequired: 'कृपया बिंदु लगे ख़ाने भरें।',
+    fFailed: 'हम दुकान तक नहीं पहुँच सके। दोबारा कोशिश करें, या हमें कॉल करें।',
+    trackSent: 'अगर वह ऑर्डर नंबर हमारे रिकॉर्ड के फ़ोन नंबर से मेल खाता है, तो लिंक आपके व्हाट्सएप पर भेज दिया गया है। यह 30 मिनट तक चलेगा।',
+    enquirySent: 'धन्यवाद — आपकी पूछताछ मिल गई। एटेलियर से कोई आपको कॉल करके कपड़ा, नाप और क़ीमत तय करेगा।',
+    fittingSent: 'धन्यवाद — आपका अनुरोध मिल गया। समय पक्का करने के लिए हम आपको कॉल करेंगे।',
+    fAgain: 'एक और भेजें',
+    noPayment: 'इस पेज से कोई भुगतान नहीं लिया जाता और कोई ऑर्डर दर्ज नहीं होता।',
     days: ['सोमवार', 'मंगलवार', 'बुधवार', 'बृहस्पतिवार', 'शुक्रवार', 'शनिवार', 'रविवार'], closed: 'बंद',
   },
   pa: {
@@ -134,14 +149,20 @@ export const STR: Record<Lang, Strings> = {
     theAtelier: 'ਐਟਲੀਏ', reachUs: 'ਸੰਪਰਕ', hours: 'ਸਮਾਂ', explore: 'ਸਫ਼ੇ', visit: 'ਪਤਾ',
     hoursNote: "ਤਿਉਹਾਰਾਂ 'ਤੇ ਸਮਾਂ ਬਦਲ ਸਕਦਾ ਹੈ। ਫ਼ਿਟਿੰਗ ਮੁਲਾਕਾਤ ਨਾਲ।",
     footerTag: 'ਅੰਮ੍ਰਿਤਸਰ ਵਿੱਚ ਬਣੀ ਬੈਸਪੋਕ ਸਿਲਾਈ ਤੇ ਵਿਆਹ ਦੀ ਪੁਸ਼ਾਕ।',
-    trackIntro: "ਰਸੀਦ 'ਤੇ ਲਿਖਿਆ ਆਰਡਰ ਨੰਬਰ ਤੇ ਰਜਿਸਟਰ ਕੀਤਾ ਫ਼ੋਨ ਨੰਬਰ ਭਰੋ।",
-    loginIntro: 'ਪੁਰਾਣੇ ਗਾਹਕ ਸਾਈਨ ਇਨ ਕਰਕੇ ਪਿਛਲੇ ਆਰਡਰ, ਨਾਪ ਤੇ ਬਾਕੀ ਰਕਮ ਵੇਖ ਸਕਦੇ ਹਨ।',
+    trackIntro: "ਰਸੀਦ 'ਤੇ ਲਿਖਿਆ ਆਰਡਰ ਨੰਬਰ ਤੇ ਰਜਿਸਟਰ ਕੀਤਾ ਫ਼ੋਨ ਨੰਬਰ ਭਰੋ। ਅਸੀਂ ਉਸੇ ਨੰਬਰ 'ਤੇ ਵਟਸਐਪ ਰਾਹੀਂ ਲਿੰਕ ਭੇਜਾਂਗੇ — ਉਹ 30 ਮਿੰਟ ਚੱਲੇਗਾ।",
     enquiryIntro: "ਦੱਸੋ ਤੁਹਾਨੂੰ ਕੀ ਤੇ ਕਦੋਂ ਚਾਹੀਦਾ ਹੈ। ਅਸੀਂ ਇੱਕ ਕੰਮ-ਦਿਨ ਵਿੱਚ ਵਟਸਐਪ 'ਤੇ ਜਵਾਬ ਦਿੰਦੇ ਹਾਂ।",
-    fittingIntro: "ਐਟਲੀਏ ਮੁਲਾਕਾਤ ਨਾਲ ਚੱਲਦਾ ਹੈ। ਦਿਨ ਚੁਣੋ, ਵੇਲਾ ਅਸੀਂ ਫ਼ੋਨ 'ਤੇ ਪੱਕਾ ਕਰ ਲਵਾਂਗੇ।",
+    fittingIntro: "ਐਟਲੀਏ ਮੁਲਾਕਾਤ ਨਾਲ ਚੱਲਦਾ ਹੈ। ਆਪਣਾ ਨਾਮ ਤੇ ਦਿਨ ਲਿਖੋ, ਵੇਲਾ ਅਸੀਂ ਫ਼ੋਨ 'ਤੇ ਪੱਕਾ ਕਰ ਲਵਾਂਗੇ।",
     closedMondays: 'ਸੋਮਵਾਰ ਬੰਦ। ਮੰਗਲਵਾਰ ਤੋਂ ਐਤਵਾਰ, 11:00–21:00।',
-    orderTabs: ['ਆਰਡਰ ਟਰੈਕ ਕਰੋ', 'ਗਾਹਕ ਲੌਗਇਨ', 'ਨਵੀਂ ਪੁੱਛਗਿੱਛ', 'ਫ਼ਿਟਿੰਗ ਬੁੱਕ ਕਰੋ'],
+    orderTabs: ['ਆਰਡਰ ਟਰੈਕ ਕਰੋ', 'ਨਵੀਂ ਪੁੱਛਗਿੱਛ', 'ਫ਼ਿਟਿੰਗ ਬੁੱਕ ਕਰੋ'],
     fOrderNo: 'ਆਰਡਰ ਨੰਬਰ', fPhone: 'ਫ਼ੋਨ', fName: 'ਨਾਮ', fGarment: 'ਪੁਸ਼ਾਕ', fDate: 'ਸਮਾਗਮ ਜਾਂ ਫ਼ਿਟਿੰਗ ਦੀ ਤਾਰੀਖ਼', fNotes: 'ਟਿੱਪਣੀ',
-    fTrack: 'ਆਰਡਰ ਟਰੈਕ ਕਰੋ', fOtp: 'ਕੋਡ ਭੇਜੋ', fSend: "ਵਟਸਐਪ 'ਤੇ ਭੇਜੋ", fCall: 'ਐਟਲੀਏ ਨੂੰ ਕਾਲ ਕਰੋ',
+    fTrack: 'ਮੈਨੂੰ ਲਿੰਕ ਭੇਜੋ', fSend: 'ਪੁੱਛਗਿੱਛ ਭੇਜੋ', fCall: 'ਐਟਲੀਏ ਨੂੰ ਕਾਲ ਕਰੋ',
+    fSending: 'ਭੇਜਿਆ ਜਾ ਰਿਹਾ ਹੈ…', fRequired: 'ਕਿਰਪਾ ਕਰਕੇ ਬਿੰਦੀ ਵਾਲੇ ਖ਼ਾਨੇ ਭਰੋ।',
+    fFailed: 'ਅਸੀਂ ਦੁਕਾਨ ਤੱਕ ਨਹੀਂ ਪਹੁੰਚ ਸਕੇ। ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ, ਜਾਂ ਸਾਨੂੰ ਕਾਲ ਕਰੋ।',
+    trackSent: "ਜੇ ਉਹ ਆਰਡਰ ਨੰਬਰ ਸਾਡੇ ਰਿਕਾਰਡ ਵਾਲੇ ਫ਼ੋਨ ਨੰਬਰ ਨਾਲ ਮਿਲਦਾ ਹੈ, ਤਾਂ ਲਿੰਕ ਤੁਹਾਡੇ ਵਟਸਐਪ 'ਤੇ ਭੇਜ ਦਿੱਤਾ ਗਿਆ ਹੈ। ਇਹ 30 ਮਿੰਟ ਚੱਲੇਗਾ।",
+    enquirySent: 'ਧੰਨਵਾਦ — ਤੁਹਾਡੀ ਪੁੱਛਗਿੱਛ ਮਿਲ ਗਈ। ਐਟਲੀਏ ਤੋਂ ਕੋਈ ਤੁਹਾਨੂੰ ਕਾਲ ਕਰਕੇ ਕੱਪੜਾ, ਨਾਪ ਤੇ ਕੀਮਤ ਤੈਅ ਕਰੇਗਾ।',
+    fittingSent: 'ਧੰਨਵਾਦ — ਤੁਹਾਡੀ ਬੇਨਤੀ ਮਿਲ ਗਈ। ਵੇਲਾ ਪੱਕਾ ਕਰਨ ਲਈ ਅਸੀਂ ਤੁਹਾਨੂੰ ਕਾਲ ਕਰਾਂਗੇ।',
+    fAgain: 'ਇੱਕ ਹੋਰ ਭੇਜੋ',
+    noPayment: 'ਇਸ ਪੰਨੇ ਤੋਂ ਕੋਈ ਭੁਗਤਾਨ ਨਹੀਂ ਲਿਆ ਜਾਂਦਾ ਤੇ ਕੋਈ ਆਰਡਰ ਦਰਜ ਨਹੀਂ ਹੁੰਦਾ।',
     days: ['ਸੋਮਵਾਰ', 'ਮੰਗਲਵਾਰ', 'ਬੁੱਧਵਾਰ', 'ਵੀਰਵਾਰ', 'ਸ਼ੁੱਕਰਵਾਰ', 'ਸ਼ਨੀਵਾਰ', 'ਐਤਵਾਰ'], closed: 'ਬੰਦ',
   },
   ja: {
@@ -169,14 +190,20 @@ export const STR: Record<Lang, Strings> = {
     theAtelier: '工房', reachUs: '連絡先', hours: '営業時間', explore: 'ページ', visit: '所在地',
     hoursNote: '祝祭日は時間が変わる場合があります。仮縫いは予約制です。',
     footerTag: 'アムリトサルで仕立てるビスポークと婚礼衣装。',
-    trackIntro: '領収書の注文番号と、ご登録のお電話番号をご入力ください。',
-    loginIntro: '既存のお客様はサインインで過去のご注文、採寸記録、残金をご確認いただけます。',
+    trackIntro: '領収書の注文番号と、ご登録のお電話番号をご入力ください。そのお電話番号宛に WhatsApp でリンクをお送りします（30分間有効）。',
     enquiryIntro: 'ご希望の品と時期をお知らせください。一営業日以内に WhatsApp でご返信します。',
-    fittingIntro: '工房は予約制です。ご希望の日をお選びいただければ、時間はお電話で確定します。',
+    fittingIntro: '工房は予約制です。お名前とご希望の日をお知らせいただければ、時間はお電話で確定します。',
     closedMondays: '月曜定休。火曜〜日曜 11:00–21:00。',
-    orderTabs: ['注文状況の確認', 'お客様ログイン', '新規のお問い合わせ', '仮縫いのご予約'],
+    orderTabs: ['注文状況の確認', '新規のお問い合わせ', '仮縫いのご予約'],
     fOrderNo: '注文番号', fPhone: '電話番号', fName: 'お名前', fGarment: '品目', fDate: 'ご使用日・仮縫い希望日', fNotes: 'ご要望',
-    fTrack: '状況を確認', fOtp: 'コードを送る', fSend: 'WhatsApp で送る', fCall: '工房に電話',
+    fTrack: 'リンクを送る', fSend: 'お問い合わせを送る', fCall: '工房に電話',
+    fSending: '送信中…', fRequired: '印のついた項目をご入力ください。',
+    fFailed: '工房に接続できませんでした。もう一度お試しいただくか、お電話ください。',
+    trackSent: 'ご入力の注文番号がご登録のお電話番号と一致する場合、WhatsApp にリンクをお送りしました。30分間有効です。',
+    enquirySent: 'ありがとうございます。お問い合わせを承りました。生地・採寸・お見積りについて工房よりお電話いたします。',
+    fittingSent: 'ありがとうございます。ご予約の希望を承りました。時間の確定はお電話でご連絡いたします。',
+    fAgain: 'もう一件送る',
+    noPayment: 'このページでお支払いは発生せず、ご注文も確定いたしません。',
     days: ['月曜日', '火曜日', '水曜日', '木曜日', '金曜日', '土曜日', '日曜日'], closed: '定休',
   },
 }

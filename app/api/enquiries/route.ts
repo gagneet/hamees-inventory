@@ -5,7 +5,7 @@ import { z } from 'zod'
 
 /**
  * @featuretrace Enquiries list (staff)
- * @route GET /api/enquiries?status=&q=&take=
+ * @route GET /api/enquiries?status=&kind=&q=&take=
  * @permission view_enquiries
  * @reads CustomerEnquiry
  *
@@ -15,6 +15,7 @@ import { z } from 'zod'
 
 const querySchema = z.object({
   status: z.enum(['NEW', 'CONTACTED', 'CONVERTED', 'CLOSED']).optional(),
+  kind: z.enum(['ORDER_ENQUIRY', 'FITTING']).optional(),
   q: z.string().trim().max(100).optional(),
   take: z.coerce.number().int().min(1).max(200).default(100),
 })
@@ -25,8 +26,9 @@ export async function GET(request: Request) {
 
   try {
     const { searchParams } = new URL(request.url)
-    const { status, q, take } = querySchema.parse({
+    const { status, kind, q, take } = querySchema.parse({
       status: searchParams.get('status') || undefined,
+      kind: searchParams.get('kind') || undefined,
       q: searchParams.get('q') || undefined,
       take: searchParams.get('take') || undefined,
     })
@@ -35,6 +37,7 @@ export async function GET(request: Request) {
       (await prisma.customerEnquiry.findMany({
         where: {
           ...(status ? { status } : {}),
+          ...(kind ? { kind } : {}),
           ...(q
             ? {
                 OR: [
@@ -52,6 +55,7 @@ export async function GET(request: Request) {
           phone: true,
           email: true,
           city: true,
+          kind: true,
           garmentType: true,
           fabricNotes: true,
           quantity: true,

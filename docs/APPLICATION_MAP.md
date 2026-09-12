@@ -380,6 +380,9 @@ app/
 │   └── page.tsx                    # Staff login (public, noindex)
 ├── order/
 │   └── page.tsx                    # Public order enquiry (public, indexable)
+├── track/
+│   └── [token]/
+│       └── page.tsx                # Order status from a signed link (noindex)
 ├── layout.tsx                      # Root layout
 └── page.tsx                        # Public marketing site (static, indexable)
 ```

@@ -100,6 +100,11 @@ enum EnquiryStatus {
   CLOSED // Not proceeding, duplicate, or spam
 }
 
+enum EnquiryKind {
+  ORDER_ENQUIRY // "I would like something made"
+  FITTING // "I would like to come in and be measured"
+}
+
 enum DesignFileCategory {
   SKETCH // Rough paper design
   REFERENCE // Reference image
@@ -1011,6 +1016,9 @@ model CustomerEnquiry {
   preferredDate DateTime? // When the customer would like it by
   notes         String?   @db.Text
 
+  // What the visitor asked for. A fitting is the same conversation with no garment decided yet,
+  // so it shares this table rather than duplicating the contact fields and the abuse controls.
+  kind       EnquiryKind   @default(ORDER_ENQUIRY)
   status     EnquiryStatus @default(NEW)
   staffNotes String?       @db.Text
 
@@ -1028,6 +1036,7 @@ model CustomerEnquiry {
   userAgent    String?
 
   @@index([status, createdAt])
+  @@index([kind, status, createdAt])
   @@index([phone])
   @@index([createdAt])
 }

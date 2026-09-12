@@ -1,6 +1,6 @@
 # Hamees Attire — Tailor Shop Inventory Management System
 
-**Version 0.51.0** | Production: [hamees.gagneet.com](https://hamees.gagneet.com)
+**Version 0.52.0** | Production: [hamees.gagneet.com](https://hamees.gagneet.com)
 
 A full-featured inventory and order management system purpose-built for bespoke tailoring. Manages fabric and accessory stock with automatic reservation, tracks orders through the complete production workflow, handles GST-compliant invoicing, and supports multiple staff roles from owner to tailor.
 
@@ -80,6 +80,8 @@ The deployment serves two audiences from one application: **`/` is the shop's pu
 - Four languages (English, Hindi, Punjabi, Japanese), switched client-side on a single URL; all copy lives in `components/marketing/strings.ts`
 - `ClothingStore` JSON-LD (address, opening hours, phone, Instagram) plus OpenGraph and Twitter cards, overriding the app-wide `noindex` that keeps the dashboard out of search
 - Public order enquiry at `/order` — garment type *names* only, no prices or stock; rate limited, honeypot-protected, and it never creates an order or reserves stock
+- Enquiry and fitting-request forms on the site itself, in all four languages, writing to the same `CustomerEnquiry` inbox staff already use
+- Order tracking without an account: the customer asks, and a signed link valid for 30 minutes goes over WhatsApp to the number already on their record. The page shows production stages only — never a price or a balance
 - Staff sign-in at `/login`, linked from the site header and footer
 
 ### Other
@@ -254,6 +256,7 @@ server-side guards in `app/(dashboard)/layout.tsx` and `lib/page-guard.ts`).
 | `/` | Public, indexed | Marketing site. Static, no database access, four languages |
 | `/login` | Public, `noindex` | Staff sign-in. `pages.signIn` in `lib/auth.ts` points here |
 | `/order` | Public, indexed | Order enquiry. Garment names only — no prices, stock or customer data |
+| `/track/<token>` | Signed link, `noindex` | One order's production stage. The token is the credential, valid 30 minutes; no money is shown |
 | `/api/health` | Public | Database health probe |
 | everything else | Session + permission | Redirects to `/login` signed out, `/dashboard?denied=1` without the permission |
 
@@ -398,6 +401,7 @@ hamees/
 │   ├── api/                  # API route handlers
 │   ├── login/                # Staff login (public, noindex)
 │   ├── order/                # Public order enquiry (public, indexable)
+│   ├── track/[token]/        # Order status from a signed WhatsApp link (noindex)
 │   ├── layout.tsx            # Root layout (fonts, providers)
 │   ├── page.tsx              # Public marketing site (static, indexable)
 │   └── globals.css           # Tailwind CSS and design tokens
@@ -559,7 +563,10 @@ See `docs/GAPS_AND_ISSUES.md` for a comprehensive catalogue of technical debt, m
 - `next-auth` is on an old beta (`5.0.0-beta.30`) pending upgrade to stable
 - Rate limiting covers sign-in only (in memory, one app instance); other API endpoints are not rate-limited
 - Marketing site: the imagery in `public/marketing/` is placeholder (Instagram screenshots, ~19 MB in total) and the prices, testimonials and celebrity credits in `strings.ts` are drafts
-- Marketing site: order tracking and customer sign-in have no route yet — both tabs hand off to `/order`; its enquiry and fitting forms hand off to WhatsApp rather than submitting
+- Marketing site: there is no customer account area, by design — tracking is a signed WhatsApp link, not a login
+- A tracking link cannot be revoked before its 30 minutes are up (the trade-off for a stateless token)
+- Fitting requests are requests, not bookings: no calendar, slots or availability check — the shop confirms the hour by phone
+- Public API error messages (rate limits, an undialable number) are English only; the Hindi, Punjabi and Japanese site copy is machine-drafted and wants a native speaker's review
 - No `app/robots.ts` or `app/sitemap.ts`; the public pages set their own `robots` metadata instead
 
 ---

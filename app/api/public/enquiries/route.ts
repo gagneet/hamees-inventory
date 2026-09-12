@@ -13,9 +13,10 @@ import { z } from 'zod'
  * @permission none — this is the only unauthenticated write in the application
  * @writes CustomerEnquiry
  *
- * A visitor on /order asks the shop to get in touch. This deliberately creates a
- * CustomerEnquiry and NOTHING else: no Customer, no Order, no pricing, no tax and no stock
- * reservation. An anonymous request must never be able to move inventory or create a financial
+ * A visitor on /order or the public site asks the shop to get in touch — either about something
+ * they would like made (ORDER_ENQUIRY) or to come in and be measured (FITTING). This deliberately
+ * creates a CustomerEnquiry and NOTHING else: no Customer, no Order, no pricing, no tax and no
+ * stock reservation. An anonymous request must never be able to move inventory or create a financial
  * record — staff convert an enquiry into a real order from the dashboard, and that is where
  * pricing and stock reservation happen.
  *
@@ -36,7 +37,13 @@ const enquirySchema = z.object({
   phone: z.string().trim().min(6).max(24),
   email: z.string().trim().email().max(200).optional().or(z.literal('')),
   city: z.string().trim().max(120).optional(),
-  garmentType: z.string().trim().min(1, 'Please choose what you would like made').max(120),
+  /**
+   * A fitting is the same conversation with no garment decided yet, so it shares this table and
+   * its abuse controls rather than duplicating both. Staff see the two apart in the inbox.
+   */
+  kind: z.enum(['ORDER_ENQUIRY', 'FITTING']).default('ORDER_ENQUIRY'),
+  // Optional for a fitting: someone booking a measurement appointment has not chosen a garment.
+  garmentType: z.string().trim().max(120).optional(),
   fabricNotes: z.string().trim().max(500).optional(),
   quantity: z.number().int().min(1).max(50).default(1),
   preferredDate: z.string().trim().max(40).optional(),
@@ -81,6 +88,12 @@ export async function POST(request: Request) {
   // A bot filled the hidden field: accept it silently so it has nothing to tune against.
   if (data.company && data.company.trim().length > 0) return accepted()
 
+  // An order enquiry has to say what it is for; a fitting does not, and is labelled for the inbox.
+  const garmentType = data.garmentType?.trim() || ''
+  if (data.kind === 'ORDER_ENQUIRY' && !garmentType) {
+    return NextResponse.json({ error: 'Please tell us what you would like made.' }, { status: 400 })
+  }
+
   const settings = await getAppSettings()
   const region = toRegion(settings.phoneRegion) ?? DEFAULT_PHONE_REGION
   const phone = normalizePhone(data.phone, region)
@@ -115,7 +128,8 @@ export async function POST(request: Request) {
         phone: phone.e164,
         email: data.email || null,
         city: data.city || null,
-        garmentType: data.garmentType,
+        kind: data.kind,
+        garmentType: garmentType || 'Fitting appointment',
         fabricNotes: data.fabricNotes || null,
         quantity: data.quantity,
         preferredDate,
