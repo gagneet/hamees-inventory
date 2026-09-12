@@ -36,6 +36,10 @@ interface OrderActionsProps {
   discountReason: string | null
   notes: string | null
   priority: string
+  /** Order value before tax — the base a discount reduces */
+  subTotal: number
+  /** Tax rate charged on this order (percent) */
+  gstRate: number
   totalAmount: number
   balanceAmount: number
   /** Explicit capability flags (preferred). When omitted they are derived from userRole. */
@@ -45,8 +49,10 @@ interface OrderActionsProps {
   /** May move every item to one production stage (roles that see all orders, or a tailor holding every item) */
   canBulkMove?: boolean
   canEditOrder?: boolean
-  /** Advance and discount edits (record_payment) */
+  /** Advance edits (record_payment) */
   canRecordPayment?: boolean
+  /** Price reductions (apply_discount) — a separate responsibility from receipting money */
+  canApplyDiscount?: boolean
   showFinancials?: boolean
   /** @deprecated pass the capability flags instead */
   userRole?: string
@@ -76,6 +82,8 @@ export function OrderActions({
   discountReason,
   notes,
   priority,
+  subTotal,
+  gstRate,
   totalAmount,
   balanceAmount,
   canUpdateStatus,
@@ -83,6 +91,7 @@ export function OrderActions({
   canBulkMove = true,
   canEditOrder,
   canRecordPayment,
+  canApplyDiscount,
   showFinancials,
   userRole,
   isDelivered = false,
@@ -92,6 +101,7 @@ export function OrderActions({
   const allowEdit = canEditOrder ?? (role ? hasPermission(role, 'update_order') : false)
   const allowFinancials = showFinancials ?? (role ? hasFinancialAccess(role, 'order') : false)
   const allowPayments = (canRecordPayment ?? (role ? hasPermission(role, 'record_payment') : false)) && allowFinancials
+  const allowDiscount = (canApplyDiscount ?? (role ? hasPermission(role, 'apply_discount') : false)) && allowFinancials
   const isClosed = isDelivered || TERMINAL_STATUSES.includes(currentStatus)
   // Delivery / cancellation are order-level (update_order); a production stage here moves every item
   const availableStatuses = statusOptions.filter((option) => {
@@ -122,14 +132,15 @@ export function OrderActions({
     priority,
   })
 
-  // Discount form - auto-populate with current balance amount
+  // Discount form — a discount reduces the PRE-TAX value, so it is entered against subTotal and
+  // the tax and the invoice total move with it. It is not a payment against the balance.
   const [discountData, setDiscountData] = useState({
-    discount: balanceAmount.toFixed(2),
+    discount: discount.toFixed(2),
     discountReason: discountReason || '',
   })
   const [discountMode, setDiscountMode] = useState<'amount' | 'percentage'>('amount')
   const [discountPercentage, setDiscountPercentage] = useState(
-    totalAmount > 0 ? ((balanceAmount / totalAmount) * 100).toFixed(2) : '0.00'
+    subTotal > 0 ? ((discount / subTotal) * 100).toFixed(2) : '0.00'
   )
 
   const symbol = currencySymbol()
@@ -140,8 +151,8 @@ export function OrderActions({
     setDiscountData({ ...discountData, discount: value })
 
     // Calculate and update percentage
-    if (totalAmount > 0) {
-      const percentage = (amount / totalAmount) * 100
+    if (subTotal > 0) {
+      const percentage = (amount / subTotal) * 100
       setDiscountPercentage(percentage.toFixed(2))
     }
   }
@@ -152,7 +163,7 @@ export function OrderActions({
     setDiscountPercentage(value)
 
     // Calculate and update amount
-    const amount = (percentage / 100) * totalAmount
+    const amount = (percentage / 100) * subTotal
     setDiscountData({ ...discountData, discount: amount.toFixed(2) })
   }
 
@@ -226,8 +237,8 @@ export function OrderActions({
 
   const handleDiscountApply = async () => {
     const discountValue = parseFloat(discountData.discount || '0')
-    if (discountValue < 0 || discountValue > totalAmount) {
-      alert('Discount must be between 0 and total amount')
+    if (!Number.isFinite(discountValue) || discountValue < 0 || discountValue > subTotal) {
+      alert(`Discount must be between 0 and the order value before tax (${formatCurrency(subTotal)})`)
       return
     }
 
@@ -258,7 +269,15 @@ export function OrderActions({
     }
   }
 
-  const newBalance = balanceAmount - (parseFloat(discountData.discount || '0') - discount)
+  // Preview: the discount comes off the taxable value, tax is recharged on what is left, and the
+  // balance follows the new total. Payments already received are whatever the current total is
+  // not covered by the advance or the outstanding balance.
+  const paymentsReceived = Math.max(0, totalAmount - advancePaid - balanceAmount)
+  const pendingDiscount = Math.min(Math.max(parseFloat(discountData.discount || '0') || 0, 0), subTotal)
+  const newTaxable = subTotal - pendingDiscount
+  const newTax = Math.round(newTaxable * gstRate) / 100
+  const newTotal = newTaxable + newTax
+  const newBalance = newTotal - advancePaid - paymentsReceived
 
   return (
     <div className="flex flex-wrap gap-2">
@@ -421,8 +440,8 @@ export function OrderActions({
       </Dialog>
       )}
 
-      {/* Apply Discount Dialog (record_payment holders only) */}
-      {allowPayments && (
+      {/* Apply Discount Dialog (apply_discount holders only) */}
+      {allowDiscount && (
         <Dialog open={discountDialogOpen} onOpenChange={setDiscountDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" className="bg-yellow-50 hover:bg-yellow-100" disabled={isClosed}>
@@ -434,16 +453,18 @@ export function OrderActions({
             <DialogHeader>
               <DialogTitle>Apply Discount</DialogTitle>
               <DialogDescription>
-                Reduce or clear the outstanding balance for this order
+                Reduce the price of this order. The discount comes off the value before tax, so the
+                tax and the invoice total are recalculated — it is recorded on the invoice, not as a
+                payment.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="bg-blue-50 p-3 rounded-lg text-sm">
                 <p className="text-blue-900">
-                  <strong>Current Balance:</strong> {formatCurrency(balanceAmount)}
+                  <strong>Value before tax:</strong> {formatCurrency(subTotal)}
                 </p>
                 <p className="text-blue-700 text-xs mt-1">
-                  Total: {formatCurrency(totalAmount)} | Advance: {formatCurrency(advancePaid)} | Current Discount: {formatCurrency(discount)}
+                  Current discount: {formatCurrency(discount)} | Total: {formatCurrency(totalAmount)} | Advance: {formatCurrency(advancePaid)} | Balance: {formatCurrency(balanceAmount)}
                 </p>
               </div>
 
@@ -478,16 +499,18 @@ export function OrderActions({
                     type="number"
                     step="0.01"
                     min="0"
-                    max={totalAmount}
+                    max={subTotal}
                     value={discountData.discount}
                     onChange={(e) => handleDiscountAmountChange(e.target.value)}
                     className="text-red-600 font-bold text-lg"
                   />
                   <p className="text-xs text-slate-600 mt-1 font-medium">
-                    = {discountPercentage}% of Total Amount
+                    = {discountPercentage}% of the value before tax
                   </p>
                   <p className="text-xs text-slate-500 mt-1">
-                    New Balance: {formatCurrency(newBalance)}
+                    New taxable value {formatCurrency(newTaxable)} + tax {formatCurrency(newTax)} ={' '}
+                    <strong>total {formatCurrency(newTotal)}</strong> · New balance:{' '}
+                    {formatCurrency(newBalance)}
                   </p>
                 </div>
               )}
@@ -510,7 +533,9 @@ export function OrderActions({
                     = {formatCurrency(parseFloat(discountData.discount || '0'))}
                   </p>
                   <p className="text-xs text-slate-500 mt-1">
-                    New Balance: {formatCurrency(newBalance)}
+                    New taxable value {formatCurrency(newTaxable)} + tax {formatCurrency(newTax)} ={' '}
+                    <strong>total {formatCurrency(newTotal)}</strong> · New balance:{' '}
+                    {formatCurrency(newBalance)}
                   </p>
                 </div>
               )}

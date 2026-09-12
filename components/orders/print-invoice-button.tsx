@@ -13,6 +13,7 @@ import { useFieldVisibility } from '@/hooks/use-field-visibility'
 import { Button } from '@/components/ui/button'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { taxLines } from '@/lib/tax'
+import { addMoney, allocateMoney, subtractMoney, sumMoney } from '@/lib/money'
 import { escapeHtml } from '@/lib/html-escape'
 import { indicativeTotalNote, normalizeLocaleConfig } from '@/lib/locale'
 import { useAppSettings } from '@/components/providers/settings-provider'
@@ -61,6 +62,7 @@ interface InvoiceOrder {
   totalAmount: number
   advancePaid: number
   discount: number
+  discountReason?: string | null
   balanceAmount: number
   notes?: string | null
 }
@@ -171,50 +173,65 @@ export function generateInvoiceHTML(order: InvoiceOrder, settings: AppSettings):
   // Title follows what was actually charged on this order, not the current tax mode
   const isTaxInvoice = order.gstAmount > 0
 
-  // Calculate per-item costs using proportional distribution (same as Split Order logic)
+  // Calculate per-item costs using proportional distribution (same as Split Order logic).
+  // Every order-level amount is allocated with allocateMoney, so the per-item pages add back up
+  // to the order exactly — no cent appears or disappears across the pages.
   const itemCount = order.items.length
 
   // Step 1: Calculate total of all items' fabric + accessories costs
-  const totalItemPrices = order.items.reduce((sum, item) => sum + item.totalPrice, 0)
+  const totalItemPrices = sumMoney(order.items.map((item) => item.totalPrice))
 
   // Step 2: Calculate order-level costs (stitching + premiums + fees + wastage)
-  const orderLevelCosts = order.subTotal - totalItemPrices
+  const orderLevelCosts = subtractMoney(order.subTotal, totalItemPrices)
+
+  // Step 3: Each item's share of every order-level amount (equal split if items carry no price)
+  const weights = order.items.map((item) => item.totalPrice)
+  const allocate = (amount: number) => allocateMoney(amount, weights)
+  const orderCostShares = allocate(orderLevelCosts)
+  // The discount reduces the taxable value, so it is allocated on the same basis as the value
+  // itself and deducted BEFORE tax (India CGST s.15; HMRC charges VAT on the discounted price).
+  const discountShares = allocate(order.discount)
+  const taxShares = allocate(order.gstAmount)
+  const cgstShares = allocate(order.cgst || 0)
+  const sgstShares = allocate(order.sgst || 0)
+  const igstShares = allocate(order.igst || 0)
+  const advanceShares = allocate(order.advancePaid)
+  const balanceShares = allocate(order.balanceAmount)
 
   // Generate one page per order item with proportional distribution
   const itemPages = order.items.map((item, index) => {
-    // Step 3: Calculate this item's proportion (equal split if items carry no price)
-    const itemProportion = totalItemPrices > 0 ? item.totalPrice / totalItemPrices : 1 / itemCount
-
     // Step 4: Distribute order-level costs proportionally
-    const perItemOrderCosts = orderLevelCosts * itemProportion
+    const perItemOrderCosts = orderCostShares[index]
 
-    // Step 5: Calculate item's subtotal (fabric + accessories + proportional order costs)
-    const perItemSubtotal = item.totalPrice + perItemOrderCosts
+    // Step 5: Calculate item's gross value (fabric + accessories + proportional order costs)
+    const perItemGross = addMoney(item.totalPrice, perItemOrderCosts)
 
-    // Step 6: Tax proportionally, keeping the split (CGST/SGST vs IGST vs single) charged on the order
-    const perItemGST = perItemSubtotal * (order.gstRate / 100)
-    const share = order.gstAmount > 0 ? perItemGST / order.gstAmount : 0
+    // Step 6: Discount off the gross value, then tax on what is left
+    const perItemDiscount = discountShares[index]
+    const perItemSubtotal = subtractMoney(perItemGross, perItemDiscount)
+
+    // Step 7: Tax proportionally, keeping the split (CGST/SGST vs IGST vs single) charged on the order
+    const perItemGST = taxShares[index]
     const lines = taxLines(
       {
         gstRate: order.gstRate,
-        cgst: (order.cgst || 0) * share,
-        sgst: (order.sgst || 0) * share,
-        igst: (order.igst || 0) * share,
+        cgst: cgstShares[index],
+        sgst: sgstShares[index],
+        igst: igstShares[index],
         gstAmount: perItemGST,
       },
       taxCfg
     )
 
-    // Step 7: Calculate total with tax
-    const perItemTotal = perItemSubtotal + perItemGST
+    // Step 8: Calculate total with tax
+    const perItemTotal = addMoney(perItemSubtotal, perItemGST)
 
     // Calculate per-item payments (proportional distribution)
-    const perItemDiscount = order.discount * itemProportion
-    const perItemAdvance = order.advancePaid * itemProportion
-    const perItemBalance = order.balanceAmount * itemProportion
+    const perItemAdvance = advanceShares[index]
+    const perItemBalance = balanceShares[index]
 
-    // Additional Payments = Total - Discount - Advance - Balance
-    const perItemAdditionalPayments = perItemTotal - perItemDiscount - perItemAdvance - perItemBalance
+    // Additional Payments = Total - Advance - Balance (the discount is already inside the total)
+    const perItemAdditionalPayments = subtractMoney(perItemTotal, perItemAdvance, perItemBalance)
 
     const taxRows = lines
       .map(
@@ -284,8 +301,18 @@ export function generateInvoiceHTML(order: InvoiceOrder, settings: AppSettings):
         <div class="totals-section">
           <div class="totals-row">
             <div class="totals-label">Item Subtotal:</div>
+            <div class="totals-value">${money(perItemGross)}</div>
+          </div>
+          ${perItemDiscount > 0 ? `
+          <div class="totals-row">
+            <div class="totals-label">Less: Discount${order.discountReason ? ` (${esc(order.discountReason)})` : ''}</div>
+            <div class="totals-value">-${money(perItemDiscount)}</div>
+          </div>
+          <div class="totals-row">
+            <div class="totals-label">Taxable Value:</div>
             <div class="totals-value">${money(perItemSubtotal)}</div>
           </div>
+          ` : ''}
           ${taxRows}
           ${lines.length > 1 ? `
           <div class="totals-row">
@@ -296,12 +323,6 @@ export function generateInvoiceHTML(order: InvoiceOrder, settings: AppSettings):
             <div class="totals-label">Item Total:</div>
             <div class="totals-value">${money(perItemTotal)}</div>
           </div>
-          ${perItemDiscount > 0 ? `
-          <div class="totals-row">
-            <div class="totals-label">Less: Discount</div>
-            <div class="totals-value">-${money(perItemDiscount)}</div>
-          </div>
-          ` : ''}
           ${perItemAdvance > 0 ? `
           <div class="totals-row">
             <div class="totals-label">Less: Advance Paid</div>
@@ -341,7 +362,7 @@ export function generateInvoiceHTML(order: InvoiceOrder, settings: AppSettings):
             </thead>
             <tbody>
               ${order.paymentInstallments.map(inst => {
-                const perItemPayment = inst.paidAmount * itemProportion
+                const perItemPayment = allocateMoney(inst.paidAmount, weights)[index]
                 return `
                 <tr>
                   <td style="border: 1px solid #ddd; padding: 4px; font-size: 9px;">${esc(inst.installmentNumber)}</td>
